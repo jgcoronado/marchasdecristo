@@ -152,34 +152,66 @@ final class Mapa
     private const AFFINE_X = [30.344918062123682, 0.5291605450524717, 401.85804883522326];
     private const AFFINE_Y = [-0.006727446051473969, -40.566595540504814, 1786.7949572953016];
 
-    /** @var array<string,array{0:float,1:float}>|null localidad|provincia normalizados → [lat,lng] */
+    /**
+     * Provincias cuyos municipios NO se pintan como punto: en
+     * mapa-provincias.svg Canarias es un recuadro aparte, colocado fuera de su
+     * posición geográfica real, así que la transformación afín (calibrada
+     * sobre la península + Baleares + Ceuta/Melilla) no vale ahí. Sus
+     * coordenadas sí están en la tabla `municipio` — son reales y las usa el
+     * panel —, simplemente no se proyectan sobre este SVG.
+     */
+    public const PROVINCIAS_SIN_GEO = ['Las Palmas', 'Santa Cruz de Tenerife'];
+
+    /** @var array<string,array{0:float,1:float}>|null provincia|localidad normalizados → [lat,lng] */
     private static ?array $municipiosIndex = null;
 
-    /** @return array<string,array{0:float,1:float}> */
-    private static function municipiosIndex(): array
+    /**
+     * Índice de coordenadas desde la tabla `municipio` (fuente de verdad; ver
+     * app/tools/sql/007_municipio.sql). app/geo/municipios_es.php es solo la
+     * semilla de esa tabla, no se lee aquí: si se leyera, los municipios dados
+     * de alta desde el panel nunca podrían salir en el mapa.
+     *
+     * @param list<string> $provincias  provincias que hacen falta (se consulta solo eso)
+     * @return array<string,array{0:float,1:float}>
+     */
+    private static function municipiosIndex(array $provincias): array
     {
-        if (self::$municipiosIndex !== null) {
-            return self::$municipiosIndex;
+        if (self::$municipiosIndex === null) {
+            self::$municipiosIndex = [];
         }
-        $rows = require APP_DIR . '/geo/municipios_es.php';
-        $idx = [];
-        foreach ($rows as [$provincia, $nombre, $lat, $lng]) {
-            $idx[Db::noAcc($provincia) . '|' . Db::noAcc($nombre)] = [(float) $lat, (float) $lng];
+        foreach (array_unique($provincias) as $provincia) {
+            $cacheKey = '#' . Db::noAcc($provincia);
+            if (isset(self::$municipiosIndex[$cacheKey])) {
+                continue; // esta provincia ya se cargó
+            }
+            self::$municipiosIndex[$cacheKey] = [1.0, 1.0]; // centinela de "ya consultada"
+            foreach (MunicipioRepo::conCoordenadas($provincia) as $m) {
+                $key = Db::noAcc((string) $m['PROVINCIA']) . '|' . Db::noAcc((string) $m['NOMBRE']);
+                self::$municipiosIndex[$key] = [(float) $m['LAT'], (float) $m['LNG']];
+            }
         }
-        return self::$municipiosIndex = $idx;
+        return self::$municipiosIndex;
     }
 
     /**
      * Localidades con coordenadas conocidas, ya proyectadas a x/y del SVG.
-     * Las localidades sin match en municipios_es.php (variantes de nombre no
-     * cubiertas, pedanías, etc.) se omiten sin más — no hay dónde pintarlas.
+     * Se omiten sin más las que no tengan coordenadas en la tabla `municipio`
+     * (altas manuales sin lat/lng, variantes de nombre no cubiertas, pedanías)
+     * y las de Canarias (ver PROVINCIAS_SIN_GEO) — no hay dónde pintarlas.
      *
      * @param  list<array{LOCALIDAD:string,PROVINCIA:string,N:int}> $porLocalidad  Repo::hubLocalidades()
      * @return list<array{x:float,y:float,localidad:string,provincia:string,n:int}>
      */
     public static function puntos(array $porLocalidad): array
     {
-        $idx = self::municipiosIndex();
+        $porLocalidad = array_values(array_filter(
+            $porLocalidad,
+            static fn(array $r): bool => !in_array((string) $r['PROVINCIA'], self::PROVINCIAS_SIN_GEO, true)
+        ));
+        if ($porLocalidad === []) {
+            return [];
+        }
+        $idx = self::municipiosIndex(array_map(static fn(array $r): string => (string) $r['PROVINCIA'], $porLocalidad));
         $out = [];
         foreach ($porLocalidad as $r) {
             $localidad = (string) $r['LOCALIDAD'];

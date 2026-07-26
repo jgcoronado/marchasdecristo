@@ -15,6 +15,48 @@ final class Html
         return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
     }
 
+    // ── Selector Provincia/Localidad (MunicipioRepo) ──────────────────────────
+    /**
+     * Los dos campos ".field" de Provincia y Localidad, en cascada (elegir
+     * provincia habilita/filtra la localidad — ver public/assets/admin.js,
+     * data-municipio-picker). El <form> contenedor necesita los atributos
+     * data-municipio-picker, data-municipio-admin y data-municipio-csrf — ver
+     * self::municipioFormAttrs() — para que el JS los encuentre; estos dos
+     * campos no lo son en sí mismos porque envolverlos rompería el
+     * .form-grid de dos columnas de los formularios que ya existen.
+     */
+    public static function municipioFields(string $localidad, ?string $provincia): string
+    {
+        $opts = '<option value="">— Selecciona una provincia —</option>';
+        foreach (MunicipioRepo::provincias() as $p) {
+            $sel = $p === $provincia ? ' selected' : '';
+            $opts .= '<option value="' . self::e($p) . '"' . $sel . '>' . self::e($p) . '</option>';
+        }
+        $locVal = self::e($localidad);
+        return <<<HTML
+        <div class="field">
+            <label class="field-label" for="PROVINCIA">Provincia</label>
+            <select class="input" id="PROVINCIA" name="PROVINCIA" data-municipio-provincia>{$opts}</select>
+        </div>
+        <div class="field">
+            <label class="field-label" for="LOCALIDAD">Localidad</label>
+            <div class="autocomplete">
+                <input class="input" id="LOCALIDAD" name="LOCALIDAD" type="text" autocomplete="off"
+                       value="{$locVal}" data-municipio-localidad>
+                <div class="suggest" hidden data-municipio-suggest></div>
+            </div>
+            <p class="field-help muted small">Escribe para buscar; si no aparece en la lista, podrás añadirla.</p>
+        </div>
+        HTML;
+    }
+
+    /** Atributos data-* que activan el selector — van en el <form> (o cualquier
+     *  ancestro común de los dos campos de self::municipioFields()). */
+    public static function municipioFormAttrs(bool $isAdmin, string $csrf): string
+    {
+        return 'data-municipio-picker data-municipio-admin="' . ($isAdmin ? '1' : '0') . '" data-municipio-csrf="' . self::e($csrf) . '"';
+    }
+
     // ── CoverImage ───────────────────────────────────────────────────────────
     public static function cover(string $src, string $alt, string $class = ''): string
     {

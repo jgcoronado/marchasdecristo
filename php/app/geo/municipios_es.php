@@ -3,15 +3,21 @@
 declare(strict_types=1);
 
 /**
- * Coordenadas (lat/lng) de municipios de España (península + Baleares + Ceuta/Melilla;
- * excluye Canarias, que en mapa-provincias.svg se dibuja como recuadro aparte fuera de su
- * posición geográfica real). Usado por App\Mapa para situar puntos por localidad sobre el
- * SVG de provincias (Prioridad 4 del análisis UX: coordenadas geográficas).
+ * Coordenadas (lat/lng) de los municipios de España — las 52 provincias,
+ * Canarias incluida. Es la SEMILLA del listado de municipios del panel de
+ * administración: app/tools/seed_municipios.php vuelca este fichero en la tabla
+ * `municipio`, que a partir de ahí es la fuente de verdad (el panel puede dar de
+ * alta pares localidad-provincia que no estén aquí).
  *
- * Fuente: listado de municipios de España con latitud/longitud (INE + Google Maps),
- * aportado por el propietario del proyecto. Cada fila: [PROVINCIA, MUNICIPIO, LAT, LNG].
- * PROVINCIA usa la forma castellana histórica (coincide con marcha.PROVINCIA en la BD,
- * ver App\Mapa::PROVINCIAS): 'A Coruña'→'La Coruña', 'Girona'→'Gerona', etc.
+ * Fuente: listado de municipios de España con latitud/longitud (INE + Google
+ * Maps), aportado por el propietario del proyecto. Cada fila:
+ * [PROVINCIA, MUNICIPIO, LAT, LNG]. PROVINCIA usa la forma castellana histórica
+ * (coincide con marcha.PROVINCIA en la BD, ver App\Mapa::PROVINCIAS):
+ * 'A Coruña'→'La Coruña', 'Girona'→'Gerona', etc.
+ *
+ * Nota sobre Canarias: sus coordenadas son reales, pero App\Mapa NO pinta sus
+ * puntos porque mapa-provincias.svg dibuja el archipiélago como un recuadro
+ * aparte, fuera de su posición geográfica real (ver Mapa::PROVINCIAS_SIN_GEO).
  *
  * @return list<array{0:string,1:string,2:float,3:float}>
  */
@@ -3664,6 +3670,40 @@ return [
     ['La Rioja', 'Zarzosa', 42.1813, -2.34155],
     ['La Rioja', 'Zorraquín', 42.32597, -3.03933],
     ['La Rioja', 'Ábalos', 42.57265, -2.71093],
+    ['Las Palmas', 'Agaete', 28.10045, -15.69982],
+    ['Las Palmas', 'Agüimes', 27.90411, -15.44564],
+    ['Las Palmas', 'Aldea de San Nicolás (La)', 27.99022, -15.78118],
+    ['Las Palmas', 'Antigua', 28.42347, -14.01455],
+    ['Las Palmas', 'Arrecife', 28.95951, -13.5476],
+    ['Las Palmas', 'Artenara', 28.02005, -15.64664],
+    ['Las Palmas', 'Arucas', 28.11927, -15.52474],
+    ['Las Palmas', 'Betancuria', 28.42438, -14.05646],
+    ['Las Palmas', 'Firgas', 28.10761, -15.56337],
+    ['Las Palmas', 'Gáldar', 28.14404, -15.65036],
+    ['Las Palmas', 'Haría', 29.14651, -13.4977],
+    ['Las Palmas', 'Ingenio', 27.92047, -15.44246],
+    ['Las Palmas', 'Mogán', 27.8837, -15.72398],
+    ['Las Palmas', 'Moya', 28.1, -15.58333],
+    ['Las Palmas', 'Oliva (La)', 28.6104, -13.9288],
+    ['Las Palmas', 'Palmas de Gran Canaria (Las)', 28.12482, -15.43001],
+    ['Las Palmas', 'Puerto del Rosario', 28.4965, -13.86221],
+    ['Las Palmas', 'Pájara', 28.35059, -14.10761],
+    ['Las Palmas', 'San Bartolomé', 27.92461, -15.573],
+    ['Las Palmas', 'San Bartolomé de Tirajana', 27.92461, -15.573],
+    ['Las Palmas', 'Santa Brígida', 28.0306, -15.49134],
+    ['Las Palmas', 'Santa Lucía de Tirajana', 27.91272, -15.54124],
+    ['Las Palmas', 'Santa María de Guía de Gran Canaria', 28.13915, -15.63284],
+    ['Las Palmas', 'Teguise', 29.05942, -13.5603],
+    ['Las Palmas', 'Tejeda', 27.99499, -15.61547],
+    ['Las Palmas', 'Telde', 27.99604, -15.41789],
+    ['Las Palmas', 'Teror', 28.0595, -15.54824],
+    ['Las Palmas', 'Tinajo', 29.06644, -13.67695],
+    ['Las Palmas', 'Tuineje', 28.32417, -14.04758],
+    ['Las Palmas', 'Tías', 28.95304, -13.65303],
+    ['Las Palmas', 'Valleseco', 28.04794, -15.5737],
+    ['Las Palmas', 'Valsequillo de Gran Canaria', 27.99119, -15.49928],
+    ['Las Palmas', 'Vega de San Mateo', 28.01057, -15.53256],
+    ['Las Palmas', 'Yaiza', 28.95247, -13.76526],
     ['León', 'Acebedo', 43.03909, -5.11683],
     ['León', 'Algadefe', 42.21778, -5.5828],
     ['León', 'Alija del Infantado', 42.14053, -5.83563],
@@ -5477,6 +5517,60 @@ return [
     ['Salamanca', 'Zarapicos', 41.03887, -5.84429],
     ['Salamanca', 'Zarza de Pumareda (La)', 41.16283, -6.62757],
     ['Salamanca', 'Zorita de la Frontera', 41.01429, -5.19724],
+    ['Santa Cruz de Tenerife', 'Adeje', 28.12185, -16.72464],
+    ['Santa Cruz de Tenerife', 'Agulo', 28.18672, -17.19591],
+    ['Santa Cruz de Tenerife', 'Alajeró', 28.06276, -17.23902],
+    ['Santa Cruz de Tenerife', 'Arafo', 28.34072, -16.41512],
+    ['Santa Cruz de Tenerife', 'Arico', 28.1778, -16.47941],
+    ['Santa Cruz de Tenerife', 'Arona', 28.10047, -16.68066],
+    ['Santa Cruz de Tenerife', 'Barlovento', 28.82735, -17.80326],
+    ['Santa Cruz de Tenerife', 'Breña Alta', 28.65905, -17.79119],
+    ['Santa Cruz de Tenerife', 'Breña Baja', 28.63037, -17.79027],
+    ['Santa Cruz de Tenerife', 'Buenavista del Norte', 28.37029, -16.85024],
+    ['Santa Cruz de Tenerife', 'Candelaria', 28.35276, -16.37013],
+    ['Santa Cruz de Tenerife', 'Fasnia', 28.23996, -16.43982],
+    ['Santa Cruz de Tenerife', 'Frontera', 27.75379, -18.00364],
+    ['Santa Cruz de Tenerife', 'Fuencaliente de la Palma', 28.4885, -17.84942],
+    ['Santa Cruz de Tenerife', 'Garachico', 28.37217, -16.76521],
+    ['Santa Cruz de Tenerife', 'Garafía', 28.81667, -17.91667],
+    ['Santa Cruz de Tenerife', 'Granadilla de Abona', 28.12018, -16.57691],
+    ['Santa Cruz de Tenerife', 'Guancha (La)', 28.37436, -16.65256],
+    ['Santa Cruz de Tenerife', 'Guía de Isora', 28.20995, -16.779],
+    ['Santa Cruz de Tenerife', 'Güímar', 28.31723, -16.41325],
+    ['Santa Cruz de Tenerife', 'Hermigua', 28.16725, -17.19206],
+    ['Santa Cruz de Tenerife', 'Icod de los Vinos', 28.36761, -16.71886],
+    ['Santa Cruz de Tenerife', 'Llanos de Aridane (Los)', 28.65619, -17.91137],
+    ['Santa Cruz de Tenerife', 'Matanza de Acentejo (La)', 28.45248, -16.46325],
+    ['Santa Cruz de Tenerife', 'Orotava (La)', 28.39108, -16.52354],
+    ['Santa Cruz de Tenerife', 'Paso (El)', 28.65043, -17.87833],
+    ['Santa Cruz de Tenerife', 'Pinar de El Hierro (El)', 27.7255, -18.0243],
+    ['Santa Cruz de Tenerife', 'Puerto de la Cruz', 28.41339, -16.54516],
+    ['Santa Cruz de Tenerife', 'Puntagorda', 28.75, -17.96667],
+    ['Santa Cruz de Tenerife', 'Puntallana', 28.73491, -17.7509],
+    ['Santa Cruz de Tenerife', 'Realejos (Los)', 28.36667, -16.58333],
+    ['Santa Cruz de Tenerife', 'Rosario (El)', 28.42729, -16.35815],
+    ['Santa Cruz de Tenerife', 'San Andrés y Sauces', 28.8, -17.76667],
+    ['Santa Cruz de Tenerife', 'San Cristóbal de La Laguna', 28.48812, -16.31478],
+    ['Santa Cruz de Tenerife', 'San Juan de la Rambla', 28.39464, -16.65047],
+    ['Santa Cruz de Tenerife', 'San Miguel de Abona', 28.09838, -16.61715],
+    ['Santa Cruz de Tenerife', 'San Sebastián de la Gomera', 28.09222, -17.11187],
+    ['Santa Cruz de Tenerife', 'Santa Cruz de Tenerife', 28.46981, -16.25486],
+    ['Santa Cruz de Tenerife', 'Santa Cruz de la Palma', 28.68326, -17.76396],
+    ['Santa Cruz de Tenerife', 'Santa Úrsula', 28.42549, -16.48891],
+    ['Santa Cruz de Tenerife', 'Santiago del Teide', 28.29614, -16.81461],
+    ['Santa Cruz de Tenerife', 'Sauzal (El)', 28.47941, -16.43661],
+    ['Santa Cruz de Tenerife', 'Silos (Los)', 28.36535, -16.81598],
+    ['Santa Cruz de Tenerife', 'Tacoronte', 28.48153, -16.412],
+    ['Santa Cruz de Tenerife', 'Tanque (El)', 28.33258, -16.78752],
+    ['Santa Cruz de Tenerife', 'Tazacorte', 28.6427, -17.93224],
+    ['Santa Cruz de Tenerife', 'Tegueste', 28.52328, -16.33353],
+    ['Santa Cruz de Tenerife', 'Tijarafe', 28.7, -17.95],
+    ['Santa Cruz de Tenerife', 'Valle Gran Rey', 28.12357, -17.32575],
+    ['Santa Cruz de Tenerife', 'Vallehermoso', 28.17902, -17.26406],
+    ['Santa Cruz de Tenerife', 'Valverde', 27.8089, -17.91566],
+    ['Santa Cruz de Tenerife', 'Victoria de Acentejo (La)', 28.43531, -16.46762],
+    ['Santa Cruz de Tenerife', 'Vilaflor', 28.15728, -16.63811],
+    ['Santa Cruz de Tenerife', 'Villa de Mazo', 28.58121, -17.79915],
     ['Segovia', 'Abades', 40.91547, -4.26913],
     ['Segovia', 'Adrada de Pirón', 41.05235, -4.05152],
     ['Segovia', 'Adrados', 41.36835, -4.11288],

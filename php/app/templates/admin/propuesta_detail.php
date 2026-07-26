@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth;
+<?php use App\View as V; use App\Auth; use App\Html as H;
 /** @var array $session @var array<string,mixed> $prop @var array<string,mixed>|null $actual
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors @var list<string> $editable
  *  @var string|null $bandaNombre @var array|null $notice @var string|null $error */
@@ -54,13 +54,24 @@ $textareas = ['BIO', 'DETALLES_MARCHA'];
         <div class="panel"><?= V::capture('admin/_ficha_preview', ['entidad' => $ent, 'datos' => $datos, 'authors' => $authors, 'bandaNombre' => $bandaNombre]) ?></div>
     </section>
 
-    <form class="panel" action="/dashboard/propuesta/<?= V::e($id) ?>/aceptar" method="POST" id="propuestaForm">
+    <form class="panel" action="/dashboard/propuesta/<?= V::e($id) ?>/aceptar" method="POST" id="propuestaForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
 <?php foreach ($editable as $key):
+        if ($key === 'PROVINCIA') continue; // se renderiza junto con LOCALIDAD, ver H::municipioFields()
         $propuesto = array_key_exists($key, $datos) ? (string) ($datos[$key] ?? '') : '';
         $anterior = $actual !== null && array_key_exists($key, $actual) ? (string) ($actual[$key] ?? '') : null;
         $cambia = $esEdicion && $anterior !== null && trim($anterior) !== trim($propuesto);
 ?>
+<?php if ($key === 'LOCALIDAD'):
+        $provPropuesta = array_key_exists('PROVINCIA', $datos) && $datos['PROVINCIA'] !== '' ? (string) $datos['PROVINCIA'] : null;
+?>
+        <div class="field">
+            <label class="field-label">Localidad / provincia propuesta<?= $cambia ? ' <span class="chip">cambia</span>' : '' ?></label>
+            <p class="muted small">Tal como la propuso el editor: «<?= V::e($propuesto) ?><?= $provPropuesta ? ', ' . V::e($provPropuesta) : '' ?>». Ajusta abajo al par correcto del listado antes de aceptar (o añádelo si no existe).</p>
+        </div>
+<?= H::municipioFields($propuesto, $provPropuesta) ?>
+<?php continue; ?>
+<?php endif; ?>
         <div class="field">
             <label class="field-label" for="<?= $key ?>"><?= V::e($fieldLabels[$key] ?? $key) ?><?= $cambia ? ' <span class="chip">cambia</span>' : '' ?></label>
 <?php if ($key === 'ESTILO'): ?>
@@ -114,6 +125,6 @@ $textareas = ['BIO', 'DETALLES_MARCHA'];
         <div><button class="btn btn-sm btn-ghost" type="submit">Rechazar propuesta</button></div>
     </form>
 </div>
-<?php if ($ent === 'marcha'): ?>
+<?php if ($ent === 'marcha' || $ent === 'banda'): ?>
 <script src="/assets/admin.js" defer></script>
 <?php endif; ?>

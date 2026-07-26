@@ -85,77 +85,115 @@
     });
 })();
 
-/* Autocomplete de localidad/provincia en el formulario de marcha. */
+/* Selector en cascada provincia → localidad (MunicipioRepo: catálogo cerrado,
+   una localidad pertenece siempre a una única provincia). Se instancia sobre
+   cualquier <select data-municipio-provincia> + <input data-municipio-localidad>
+   que compartan contenedor — puede haber varios en la misma página. Si lo que
+   se escribe no está en el catálogo, se ofrece añadirlo (admin: de alta en el
+   momento; editor: se usa tal cual, viaja dentro de su propuesta y el admin lo
+   da de alta al revisarla, con el mismo endpoint). */
 (function () {
-    function initLocalidadAc(inputEl, suggestEl, campo) {
-        if (!inputEl || !suggestEl) return;
+    function closeSuggest(el) { el.hidden = true; el.innerHTML = ''; }
 
-        function close() { suggestEl.hidden = true; suggestEl.innerHTML = ''; }
+    function initMunicipioPicker(root) {
+        const provSel = root.querySelector('[data-municipio-provincia]');
+        const locInput = root.querySelector('[data-municipio-localidad]');
+        const suggest = root.querySelector('[data-municipio-suggest]');
+        if (!provSel || !locInput || !suggest) return;
+        const isAdmin = root.dataset.municipioAdmin === '1';
+        const csrf = root.dataset.municipioCsrf || '';
+
+        function syncDisabled() {
+            const hay = provSel.value.trim() !== '';
+            locInput.disabled = !hay;
+            locInput.placeholder = hay ? 'Escribe para buscar…' : 'Elige antes la provincia';
+        }
+        syncDisabled();
+
+        provSel.addEventListener('change', () => {
+            locInput.value = '';
+            syncDisabled();
+            closeSuggest(suggest);
+        });
+
+        function addItem(text, cls, onClick) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = cls;
+            b.textContent = text;
+            b.addEventListener('click', onClick);
+            suggest.appendChild(b);
+        }
+
+        async function crearYUsar(provincia, nombre) {
+            try {
+                const body = new URLSearchParams({ provincia, nombre, _csrf: csrf });
+                const res = await fetch('/dashboard/municipio/add', {
+                    method: 'POST', credentials: 'same-origin', body,
+                });
+                const data = await res.json();
+                if (data.code !== 'CREATED') { alert('No se pudo añadir: ' + data.code); return; }
+                locInput.value = nombre;
+            } catch (_) { alert('No se pudo añadir: error de red'); }
+            closeSuggest(suggest);
+            locInput.focus();
+        }
 
         let timer, ctrl;
-        inputEl.addEventListener('input', () => {
-            const q = inputEl.value.trim();
+        locInput.addEventListener('input', () => {
+            const provincia = provSel.value.trim();
+            const q = locInput.value.trim();
             clearTimeout(timer);
-            if (q.length < 2) { close(); return; }
+            if (!provincia || q.length < 2) { closeSuggest(suggest); return; }
             timer = setTimeout(async () => {
                 if (ctrl) ctrl.abort();
                 ctrl = new AbortController();
                 try {
                     const res = await fetch(
-                        '/api/localidad/fastSearch?campo=' + campo + '&q=' + encodeURIComponent(q),
+                        '/api/municipio/fastSearch?provincia=' + encodeURIComponent(provincia) + '&q=' + encodeURIComponent(q),
                         { signal: ctrl.signal, credentials: 'same-origin' }
                     );
                     const data = await res.json();
                     const items = Array.isArray(data.data) ? data.data : [];
-                    if (!items.length) { close(); return; }
-                    suggestEl.innerHTML = '';
+                    suggest.innerHTML = '';
+                    const hayExacta = items.some((v) => v.toLowerCase() === q.toLowerCase());
                     items.forEach((val) => {
-                        const b = document.createElement('button');
-                        b.type = 'button';
-                        b.className = 'suggest-item';
-                        b.textContent = val;
-                        b.addEventListener('click', () => {
-                            inputEl.value = val;
-                            close();
-                            inputEl.focus();
-                            // Si se selecciona una localidad, intentar rellenar la provincia.
-                            if (campo === 'localidad') autoFillProvincia(val);
+                        addItem(val, 'suggest-item', () => {
+                            locInput.value = val;
+                            closeSuggest(suggest);
+                            locInput.focus();
                         });
-                        suggestEl.appendChild(b);
                     });
-                    suggestEl.hidden = false;
+                    if (!hayExacta) {
+                        addItem(
+                            isAdmin ? '+ Añadir «' + q + '» a ' + provincia : 'Usar «' + q + '» (se propondrá al administrador)',
+                            'suggest-item suggest-item-add',
+                            () => { isAdmin ? crearYUsar(provincia, q) : (locInput.value = q, closeSuggest(suggest)); }
+                        );
+                    }
+                    if (!items.length && hayExacta) { closeSuggest(suggest); return; }
+                    suggest.hidden = false;
                 } catch (_) { /* abortado */ }
             }, 200);
         });
 
         document.addEventListener('mousedown', (e) => {
-            if (!suggestEl.contains(e.target) && e.target !== inputEl) close();
+            if (!suggest.contains(e.target) && e.target !== locInput) closeSuggest(suggest);
         });
-    }
 
-    async function autoFillProvincia(localidad) {
-        const provInput = document.getElementById('PROVINCIA');
-        if (!provInput || provInput.value.trim() !== '') return;
-        try {
-            const res = await fetch(
-                '/api/localidad/fastSearch?campo=provincia&q=' + encodeURIComponent(localidad),
-                { credentials: 'same-origin' }
-            );
-            const data = await res.json();
-            // Si hay exactamente una provincia para esa localidad, rellenarla.
-            if (Array.isArray(data.data) && data.data.length === 1) {
-                provInput.value = data.data[0];
+        // API pública mínima: rellenar el par desde otro widget (p.ej. al elegir
+        // una dedicatoria ya existente en la revisión de ingesta) sin pasar por
+        // el buscador — dispara 'change' para que syncDisabled() se aplique.
+        root.municipioSetValue = function (provincia, nombre) {
+            if (provincia) {
+                provSel.value = provincia;
+                provSel.dispatchEvent(new Event('change'));
             }
-        } catch (_) { /* ignorar */ }
+            if (nombre) locInput.value = nombre;
+        };
     }
 
-    const locInput  = document.querySelector('[data-localidad-ac]');
-    const locSuggest = document.getElementById('localidadSuggest');
-    const provInput  = document.querySelector('[data-provincia-ac]');
-    const provSuggest = document.getElementById('provinciaSuggest');
-
-    initLocalidadAc(locInput, locSuggest, 'localidad');
-    initLocalidadAc(provInput, provSuggest, 'provincia');
+    document.querySelectorAll('[data-municipio-picker]').forEach(initMunicipioPicker);
 })();
 
 /* Autocomplete de banda de estreno (single-select) en el formulario de marcha. */

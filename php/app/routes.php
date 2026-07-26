@@ -179,7 +179,8 @@ $router->post('/dashboard/banda/{id}/social', [Admin::class, 'bandaSocialPost'])
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
 $router->get('/api/banda/estilo', [Admin::class, 'bandaEstiloSugerido']);
-$router->get('/api/localidad/fastSearch', [Admin::class, 'localidadFastSearch']);
+$router->get('/api/municipio/fastSearch', [Admin::class, 'municipioFastSearch']);
+$router->post('/dashboard/municipio/add', [Admin::class, 'municipioAddPost']);
 $router->get('/api/marcha/checkDuplicate', [Admin::class, 'marchaCheckDuplicate']);
 $router->get('/api/dedicatoria/fastSearch', [Admin::class, 'dedicatoriaFastSearch']);
 // Curación de dedicatorias (hubs N-01/N-02). Lista antes que el detalle {id}.

@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth; use App\Slug as S;
+<?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H;
 /** @var string $mode @var array $session @var string $action
  *  @var array<string,mixed> $marcha @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors
  *  @var bool $proposalMode @var array|null $notice @var string|null $error */
@@ -31,7 +31,7 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
 
     <div id="duplicateAlert" class="alert alert-error" hidden></div>
 
-    <form class="panel" action="<?= V::e($action) ?>" method="POST" id="marchaForm">
+    <form class="panel" action="<?= V::e($action) ?>" method="POST" id="marchaForm" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="excludeId" value="<?= $excludeId ?>">
 
@@ -53,27 +53,7 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
             <p class="field-help muted small">A quién está dedicada la marcha (hermandad, paso, persona…). Copia el texto original de la partitura o del disco si está disponible.</p>
         </div>
 
-        <div class="field">
-            <label class="field-label" for="LOCALIDAD">Localidad</label>
-            <div class="autocomplete">
-                <input class="input" id="LOCALIDAD" name="LOCALIDAD" type="text"
-                       value="<?= $val('LOCALIDAD') ?>" placeholder="p. ej. Sevilla"
-                       autocomplete="off" data-localidad-ac>
-                <div id="localidadSuggest" class="suggest" hidden></div>
-            </div>
-            <p class="field-help muted small">Ciudad o localidad donde se compuso o estrenó la marcha. Escribe al menos 2 caracteres para ver sugerencias basadas en los datos ya registrados.</p>
-        </div>
-
-        <div class="field">
-            <label class="field-label" for="PROVINCIA">Provincia</label>
-            <div class="autocomplete">
-                <input class="input" id="PROVINCIA" name="PROVINCIA" type="text"
-                       value="<?= $val('PROVINCIA') ?>" placeholder="p. ej. Sevilla"
-                       autocomplete="off" data-provincia-ac>
-                <div id="provinciaSuggest" class="suggest" hidden></div>
-            </div>
-            <p class="field-help muted small">Provincia española (nombre completo, sin abreviaturas). Al seleccionar una localidad del sugeridor se rellena automáticamente si ya está registrada.</p>
-        </div>
+<?= H::municipioFields((string) ($marcha['LOCALIDAD'] ?? ''), $marcha['PROVINCIA'] ?? null) ?>
 
 <?php if ($isEdit): ?>
         <div class="field">

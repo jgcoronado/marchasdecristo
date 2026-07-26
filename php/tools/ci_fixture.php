@@ -69,6 +69,17 @@ CREATE TABLE contrato (
 );
 CREATE VIRTUAL TABLE marcha_fts USING fts5(TITULO, content=marcha, content_rowid=ID_MARCHA, tokenize="unicode61 remove_diacritics 2");
 CREATE VIRTUAL TABLE autor_fts USING fts5(NOMBRE, APELLIDOS, NOMBRE_ART, content=autor, content_rowid=ID_AUTOR, tokenize="unicode61 remove_diacritics 2");
+CREATE TABLE municipio (
+    ID_MUNICIPIO INTEGER PRIMARY KEY,
+    PROVINCIA    TEXT NOT NULL,
+    NOMBRE       TEXT NOT NULL,
+    LAT          REAL,
+    LNG          REAL,
+    OFICIAL      INTEGER NOT NULL DEFAULT 1,
+    CLAVE        TEXT NOT NULL UNIQUE,
+    CREATED_AT   TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_municipio_provincia ON municipio (PROVINCIA, NOMBRE);
 SQL);
 
 $ins = static function (string $sql, array $rows) use ($pdo): void {
@@ -129,6 +140,11 @@ $ins('INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL) VALUES (?,?
 $ins('INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE) VALUES (?,?,?,?,?,?)', [
     [1, 'Hdad de los Gitanos', 'hdad-de-los-gitanos', 'Virgen de las Angustias', 2026, 'https://example.org/anuncio'],
     [2, 'Hdad de los Gitanos', 'hdad-de-los-gitanos', 'Cristo de la Salud', 2026, null],
+]);
+
+$ins('INSERT INTO municipio (PROVINCIA, NOMBRE, LAT, LNG, OFICIAL, CLAVE) VALUES (?,?,?,?,?,?)', [
+    ['Sevilla', 'Sevilla', 37.3891, -5.9845, 1, 'sevilla|sevilla'],
+    ['Cádiz', 'Cádiz', 36.5297, -6.2925, 1, 'cadiz|cadiz'],
 ]);
 
 $pdo->exec('INSERT INTO marcha_fts(rowid, TITULO) SELECT ID_MARCHA, TITULO FROM marcha');

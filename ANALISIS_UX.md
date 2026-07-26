@@ -223,6 +223,68 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         de la misma dedicatoria sigue usando la localidad vieja, y la ficha
         de dedicatoria que antes daba 404 vuelve a dar 200. 81/81 smoke
         tests.
+        **Cierre del ciclo: LOCALIDAD/PROVINCIA dejan de ser texto libre en
+        el panel de administrador (a petición del usuario).** Con los
+        datos ya limpios y sincronizados, quedaba abierta la puerta de
+        entrada: cualquier alta/edición seguía aceptando cualquier texto,
+        así que la suciedad podía volver a aparecer sola. Nuevo catálogo
+        `municipio` (`app/tools/sql/007_municipio.sql`) sembrado
+        (`app/tools/seed_municipios.php`) con los ~8.112 municipios
+        oficiales de España (INE, ahora también Canarias — antes excluida
+        solo a efectos de dibujado del mapa) más, marcados como no
+        oficiales, todos los pares (LOCALIDAD, PROVINCIA) que ya existieran
+        sueltos en `marcha`/`banda` y no coincidieran con el listado
+        oficial (pedanías, erratas heredadas…), para que nada se rompa el
+        primer día. El mapa (`App\Mapa`) pasa a leer las coordenadas de
+        esta tabla en vez del fichero estático `municipios_es.php`
+        (Canarias se sigue excluyendo del dibujado, ahora a nivel de
+        render, no de datos).
+        En los formularios de marcha, banda, dedicatoria, el revisor de
+        ingesta (YouTube) y el revisor de propuestas, los campos de texto
+        libre de Localidad/Provincia se sustituyen por un selector en
+        cascada (`Html::municipioFields()` + `public/assets/admin.js`,
+        `initMunicipioPicker`): primero se elige la Provincia (las 52
+        cerradas de `Mapa::PROVINCIAS`, a petición expresa del usuario para
+        que se rellene siempre antes que la Localidad), lo que habilita un
+        campo de Localidad con predictivo (`/api/municipio/fastSearch`)
+        filtrado a esa provincia. Si el texto no coincide con ninguna
+        entrada, aparece una opción "añadir «X» como municipio nuevo" al
+        final de las sugerencias.
+        Regla de negocio pedida explícitamente: la localidad manda sobre la
+        provincia, nunca al revés — `AdminRepo::fijarMunicipio()` (nuevo)
+        se ejecuta en cada alta/edición de marcha, banda y renombrado de
+        dedicatoria; si la localidad tecleada existe en el catálogo pero la
+        provincia no coincide (o falta), la provincia se corrige sola a la
+        única que le corresponde. Solo se rechaza si la localidad no existe
+        en absoluto (`INVALID_LOCALIDAD`) o si el nombre es ambiguo entre
+        varias provincias y no se indicó cuál (`AMBIGUOUS_LOCALIDAD`) — caso
+        real en España: hay localidades con el mismo nombre en provincias
+        distintas.
+        Alta de pares nuevos: el admin puede crearlos directamente desde el
+        propio selector (`/dashboard/municipio/add`, admin-only + CSRF). El
+        editor (rol sin escritura directa) también puede proponerlos, pero
+        por la vía habitual de propuestas — su valor de texto se guarda tal
+        cual en la propuesta y pasa por la misma validación de
+        `fijarMunicipio()` cuando el admin la acepta; el revisor de
+        propuestas (`propuesta_detail.php`) muestra ahí mismo el mismo
+        selector en cascada (con el texto propuesto por el editor como
+        referencia) para que el admin pueda corregirlo o darlo de alta en
+        el mismo paso de aceptar.
+        Verificado: `MunicipioRepo` probado contra la tabla sembrada
+        (búsqueda predictiva, pares exactos, provincia(s) de una localidad
+        ambigua), las 6 plantillas de admin renderizan sin errores con
+        `View::capture` (incluida una comprobación explícita de que no hay
+        doble escape HTML en localidades con tilde/eñe, un fallo que sí
+        apareció en el primer borrador al pasar valores ya escapados a
+        `Html::municipioFields()`, que escapa internamente). `ci_fixture.php`
+        actualizado con la tabla `municipio` y dos filas de coordenadas
+        (Sevilla, Cádiz) para no dejar ciego el smoke test del mapa de
+        provincia; 81/81 smoke tests.
+        Pendiente de ejecutar por el usuario contra la BD real: `php
+        php/app/tools/migrate_ingest.php` (crea la tabla) y luego `php
+        php/app/tools/seed_municipios.php` (la siembra) — mismo patrón de
+        backup VACUUM INTO + transacción + checkpoint WAL que el resto de
+        scripts de este apartado.
 - [ ] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
       todas las vistas de entidad (compositor, banda, disco) y a home, manteniendo los
       puntos fuertes actuales (breadcrumbs, búsqueda global, "Véase también" con
