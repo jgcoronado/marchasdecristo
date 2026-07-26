@@ -210,6 +210,11 @@ try {
         echo "{$p['tabla']}.{$p['col']}: $n filas actualizadas\n";
     }
     $pdo->commit();
+    // Vuelca el WAL al fichero principal: en modo journal_mode=WAL (el que
+    // deja la app tras usarse en local/producción) los cambios pueden
+    // quedar solo en el -wal y no verse desde otra conexión hasta el
+    // próximo checkpoint automático — p.ej. si copias el .db justo después.
+    $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
 
     $fk = $pdo->query('PRAGMA foreign_key_check')->fetchAll();
     echo 'FK check: ' . ($fk === [] ? 'limpio' : 'REVISAR: ' . print_r($fk, true)) . "\n";

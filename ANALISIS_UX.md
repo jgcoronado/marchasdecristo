@@ -174,6 +174,37 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         Verificado con datos de prueba reproduciendo el bug: el criterio
         nuevo resuelve bien los 3 casos y no rompe ninguno de los que ya
         acertaba; el corrector puntual es idempotente. 81/81 smoke tests.
+        **Unificación de "De/La/Del" a ortografía española (a petición del
+        usuario).** Nuevo `app/tools/normalizar_preposiciones_localidad.php`:
+        "de"/"del" siempre en minúscula, "la"/"las"/"los" en minúscula salvo
+        que sean la primera palabra del nombre (topónimos que empiezan así de
+        verdad, tipo "La Línea de la Concepción", no se tocan), "y" siempre
+        en minúscula. Solo LOCALIDAD (marcha y banda) — las provincias con
+        "de"/"la" ya estaban bien (`Mapa::PROVINCIAS`: "Santa Cruz de
+        Tenerife", "La Rioja"…). Verificado con todos los casos reales
+        vistos en la ejecución del usuario: todas las variantes convergen a
+        la forma correcta, es idempotente.
+        **Bug encontrado al probar en un entorno más realista**:
+        `dedicatoria_alias` enlaza con `marcha` por texto exacto de
+        `(VARIANTE, LOCALIDAD)` — si se renombra `marcha.LOCALIDAD` sin tocar
+        también `dedicatoria_alias.LOCALIDAD`, las marchas afectadas
+        desaparecen en silencio de la ficha de su dedicatoria (404 si eran
+        las únicas). Esto afecta a los tres scripts de renombrado ya
+        creados, incluido el que el usuario ya ejecutó en producción. Nuevo
+        `app/tools/reconciliar_alias_localidad.php`: en vez de rehacer el
+        historial de cada cambio, compara `dedicatoria_alias` contra el
+        estado actual de `marcha` (fuente de verdad) y corrige los casos
+        1-a-1 sin ambigüedad; los casos con más de un hueco/huérfano a la
+        vez se listan para revisión manual en vez de adivinar. **Ejecutar
+        siempre después de cualquiera de los otros tres scripts de
+        localidad** (incluida la ejecución ya hecha en producción).
+        De paso, un problema real encontrado durante las pruebas: los
+        cuatro scripts combinan `VACUUM INTO` (backup) con una transacción
+        de escritura en la misma conexión; en bases con
+        `journal_mode=WAL` (la que deja la app tras usarse) esto podía dejar
+        los cambios solo en el `-wal`, invisibles desde otra conexión hasta
+        el próximo checkpoint automático — se añadió
+        `PRAGMA wal_checkpoint(TRUNCATE)` tras el commit en los cuatro.
 - [ ] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
       todas las vistas de entidad (compositor, banda, disco) y a home, manteniendo los
       puntos fuertes actuales (breadcrumbs, búsqueda global, "Véase también" con

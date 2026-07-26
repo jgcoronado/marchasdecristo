@@ -88,6 +88,9 @@ try {
         echo "  {$tabla}.{$col}: {$upd->rowCount()} filas corregidas (\"$malo\" -> \"$bueno\")\n";
     }
     $pdo->commit();
+    // Vuelca el WAL al fichero principal (ver mismo comentario en
+    // normalizar_localidades.php).
+    $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
 
     $fk = $pdo->query('PRAGMA foreign_key_check')->fetchAll();
     echo 'FK check: ' . ($fk === [] ? 'limpio' : 'REVISAR: ' . print_r($fk, true)) . "\n";
