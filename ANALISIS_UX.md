@@ -205,6 +205,24 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         los cambios solo en el `-wal`, invisibles desde otra conexión hasta
         el próximo checkpoint automático — se añadió
         `PRAGMA wal_checkpoint(TRUNCATE)` tras el commit en los cuatro.
+        **Vínculo permanente a nivel de BD (a petición del usuario)**: en vez
+        de depender de acordarse de ejecutar `reconciliar_alias_localidad.php`
+        cada vez, nuevo `app/tools/sql/006_sync_dedicatoria_alias_localidad.sql`
+        — un trigger `AFTER UPDATE OF LOCALIDAD ON marcha` que propaga el
+        cambio a `dedicatoria_alias.LOCALIDAD` automáticamente, tanto si lo
+        dispara un script como una edición manual desde el panel admin. Solo
+        actúa en el caso inequívoco (ninguna otra marcha de la misma
+        DEDICATORIA sigue usando la localidad vieja, y no hay ya un alias
+        para la localidad nueva); el resto de casos se deja para
+        `reconciliar_alias_localidad.php`/revisión manual, igual que antes.
+        Se aplica con el script ya existente del proyecto,
+        `php php/app/tools/migrate_ingest.php` (aplica todos los `.sql` de
+        `app/tools/sql/`, `CREATE ... IF NOT EXISTS`, re-ejecutable sin
+        riesgo). Verificado: el alias se actualiza solo con un `UPDATE marcha`
+        directo (sin llamar a ningún script), no toca nada cuando otra marcha
+        de la misma dedicatoria sigue usando la localidad vieja, y la ficha
+        de dedicatoria que antes daba 404 vuelve a dar 200. 81/81 smoke
+        tests.
 - [ ] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
       todas las vistas de entidad (compositor, banda, disco) y a home, manteniendo los
       puntos fuertes actuales (breadcrumbs, búsqueda global, "Véase también" con
