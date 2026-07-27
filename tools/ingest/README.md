@@ -51,14 +51,14 @@ Ya entregado:
 
 ```bash
 # 1. Crear las tablas de staging (en local apunta a tu copia con DB_PATH)
-DB_PATH=data/mdc.db php php/app/tools/migrate_ingest.php
+DB_PATH=php/data/mdc.db php php/app/tools/migrate_ingest.php
 
 # 2. Preparar tu lista de canales (copia la plantilla y edítala)
 cp tools/ingest/config/canales.example.csv tools/ingest/config/canales.csv
 #    ...rellena ID_BANDA + CANAL_URL de cada banda...
 
 # 3. Cargarla en ingest_canal
-DB_PATH=data/mdc.db php php/app/tools/load_canales.php tools/ingest/config/canales.csv
+DB_PATH=php/data/mdc.db php php/app/tools/load_canales.php tools/ingest/config/canales.csv
 ```
 
 En el host es igual pero sin `DB_PATH` (usa el `db_path` de `config.php`):

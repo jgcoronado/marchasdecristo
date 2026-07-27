@@ -1,6 +1,6 @@
 # Arquitectura — marchasdecristo.com
 
-> Última actualización: 2026-07-16 (C8 — reescrito para el stack PHP real; el histórico Next.js/VPS vive solo en `docs/archive/` y en git log)
+> Última actualización: 2026-07-27 (sincronizado con las rutas/módulos reales tras la auditoría documental; el histórico Next.js/VPS vive solo en `docs/archive/` y en git log)
 
 ## 1. Diagrama de componentes
 
@@ -102,8 +102,8 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 5. PRG: redirect a la misma edición con un flash de éxito.
 
 ### 2.6 Edición de marcha (editor, en producción) — propuesta, no escritura directa
-1. Igual que 2.5 hasta el POST, pero `Roles::can($user, 'marcha.edit.direct')` es `false` para `editor`.
-2. `Admin` desvía a `PropuestaRepo::crear(...)`, que serializa el cambio propuesto como JSON en `private/propuestas/pendientes/<id>.json`. **No toca el `.db`.**
+1. Igual que 2.5 hasta el POST, pero `Admin::isAdmin($session)` (que llama a `Roles::isAdmin($rol)`) es `false` para `editor`, así que cada controlador marca `proposalMode = true`.
+2. `Admin` desvía a `PropuestaRepo::create(...)`, que serializa el cambio propuesto como JSON en `private/propuestas/pendientes/<id>.json`. **No toca el `.db`.**
 3. El admin la revisa después en local — ver §2.7 y `docs/context.md` §5.
 
 ### 2.7 Sync local → producción (`scripts/sync_db_to_prod.php`)
@@ -119,6 +119,15 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 ### 2.8 Sitemap dinámico
 - `Pages::sitemap` → `Repo` recorre marchas/autores/bandas/discos/hubs y genera el XML al vuelo (`Http::cachePublic(3600)`), con `<lastmod>` real por entidad.
 
+### 2.9 API JSON pública `/api/marcha/330.json`
+- `App\Api` (M1): mismas lecturas que el HTML servido por `Pages`/`Repo`, en JSON con forma estable. Licencia CC BY 4.0, documentada en `/datos`. El `{id}` admite número o slug-id; `Api` extrae el numérico igual que `Pages`.
+
+### 2.10 og:image dinámica `/og/marcha/330.png`
+- `App\Og::render()`: genera una tarjeta social con GD+FreeType a partir de los datos reales de la entidad (título, autor, banda…), la cachea a disco (no se regenera en cada visita) y la sirve como PNG. Si la entidad no existe o la generación falla, redirect 302 al `og-image.png` de marca (el fallback, no el caso normal).
+
+### 2.11 Mapa `/mapa` → `/mapa/provincia/{slug}`
+- `Pages::mapa` pinta la coropleta SVG de las 52 provincias (`App\Mapa`, color por concentración de marchas). `Pages::mapaProvincia` recorta el viewBox a una provincia y añade cada municipio como punto clicable, con coordenadas leídas de `App\MunicipioRepo` (tabla `municipio`) en vez de un fichero estático. Detalle completo (zoom/pan, niveles de color, exclusión de Canarias) en `docs/ux-analysis-estado.md` §4.
+
 ---
 
 ## 3. Decisiones arquitectónicas (ADRs)
@@ -126,7 +135,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 ### ADR-001 · PHP plano sin framework, un solo front controller ✅ Vigente
 - **Contexto**: HelioHost es hosting compartido (sin Docker, sin acceso root, deploy solo por FTP). Componer una app Node/Docker allí no es viable con el plan actual; sí lo es un `.php` plano detrás de Apache.
 - **Decisión**: `public/index.php` como único punto de entrada, router propio (`App\Router`) con parámetros nombrados, sin Composer/`vendor/`.
-- **Tradeoffs**: cero dependencias que actualizar, deploy = copiar ficheros. A cambio: sin autoload PSR-4 estándar, sin gestor de paquetes para librerías de terceros (aceptable dado el tamaño del proyecto).
+- **Tradeoffs**: cero dependencias que actualizar, deploy = copiar ficheros. `bootstrap.php` registra un autoload PSR-4 mínimo propio (`spl_autoload_register`, `App\Foo\Bar` → `src/Foo/Bar.php`) sin necesidad de Composer. A cambio: sin gestor de paquetes para librerías de terceros (aceptable dado el tamaño del proyecto).
 - **Reemplaza**: ADR-001 original (Next.js como único contenedor). Superado por el cutover del 2026-07-04.
 
 ### ADR-002 · SQLite embebido vía PDO (antes: better-sqlite3/MySQL) ✅ Vigente
@@ -167,7 +176,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 
 ### ADR-010 · CI de verificación (lint + smoke), sin CI de deploy ✅ Vigente
 - **Contexto**: no hay forma de desplegar automáticamente a HelioHost (solo FTP manual), pero sí se puede verificar automáticamente cada push.
-- **Decisión**: GitHub Actions ejecuta `php -l` sobre todo el código + levanta el servidor embebido de PHP contra una BD fixture determinista (`php/tools/ci_fixture.php`) y corre `php/tools/ci_smoke.php` (aserciones sobre home, listados, detalles, hubs, redirects, 404, JSON-LD, sitemap y `lastmod`).
+- **Decisión**: GitHub Actions ejecuta `php -l` sobre todo el código + levanta el servidor embebido de PHP contra una BD fixture determinista (`php/tools/ci_fixture.php`) y corre `php/tools/ci_smoke.php` (81 casos y creciendo: home, listados, detalles, hubs, redirects, 404, JSON-LD, sitemap/`lastmod`, API pública, og:image, mapa, rankings, aniversarios, temporada — no fijarse en el número, crece con cada feature).
 - **Tradeoffs**: no protege producción en tiempo real (nadie bloquea un FTP manual si CI está roja) — depende de que el mantenedor mire el estado antes de sincronizar. Documentado como deuda operativa, no arquitectónica.
 
 ---
@@ -205,7 +214,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 9. Rate limiting a fichero (correcto para hosting compartido sin memoria persistente).
 10. Cache-Control diferenciado por tipo de contenido (detalle 1h, home/estadísticas 30min, búsquedas `no-store`, sitemap 1h, estáticos 30d).
 11. `noindex` condicional en hubs finos — protege la calidad media indexada, no solo la cantidad.
-12. CI de lint + smoke tests en cada push (red de seguridad del activo SEO — 33 aserciones sobre rutas doradas).
+12. CI de lint + smoke tests en cada push (red de seguridad del activo SEO — 81 aserciones y creciendo sobre rutas doradas).
 
 ---
 

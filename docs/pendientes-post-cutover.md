@@ -1,5 +1,8 @@
 # Post-cutover — plan de actuación pendiente
 
+> Actualizado: 2026-07-27 (auditoría documental — items 1 y 3 ya resueltos según
+> otros documentos del repo, alineados aquí; referencia rápida recortada para no
+> duplicar `entornos.md`)
 > El sitio **ya está migrado y en producción** en `https://marchasdecristo.com`
 > (stack PHP en HelioHost). Este documento recoge lo que queda, para retomarlo
 > en una nueva sesión.
@@ -24,32 +27,42 @@
 
 ## Tareas pendientes
 
-### 1. Verificar el panel de admin en producción  ·  *(tú)*
-- [ ] Entrar en `marchasdecristo.com/login` con tus credenciales de admin.
-- [ ] Buscar una marcha, editarla, guardar y confirmar que persiste.
-- [ ] Probar el alta de una marcha (con autocomplete de autores) y de un compositor.
-- Nota: el `secret_key` es nuevo → entras de cero. Si quieres sesiones "sin corte",
-  sustitúyelo por la `SECRET_KEY` del VPS (`/var/www/mdc-back/.env`) en
-  `app/config.local.php`.
+### ~~1. Verificar el panel de admin en producción~~ ✅ Ya no aplica tal como estaba escrito
+- Esta tarea pedía editar/dar de alta directamente en producción. Desde que se
+  adoptó **producción de solo lectura por diseño** (`Db::assertWritable()`,
+  ADR-003 en [architecture.md](architecture.md) — decidido después de escribir
+  esta tarea), cualquier intento de escritura en producción muestra
+  `readonly.php` en vez de guardar nada. La prueba real de alta/edición se hace
+  en **local** (donde `env=local` sí permite escribir) — ver §5 de
+  [context.md](context.md). En producción solo cabe verificar navegación/lectura
+  del panel y, si se quiere, que un intento de escritura efectivamente cae en
+  modo solo-lectura.
 
-### 2. Cron de backup  ·  *(Plesk)*
-- [ ] Plesk → **Scheduled Tasks** → *Add Task* → tipo **"Run a PHP script"** →
-      `/home/jaguerra27.helioho.st/app/tools/backup.php` → **semanal** (p. ej. domingo 03:00).
-      Retención subida a `backup_keep_days=60` (~8-9 copias) para compensar la
-      cadencia semanal. También se puede lanzar a mano desde Plesk tras ediciones
-      importantes en el admin.
-      ⚠️ **El PHP por defecto de las Scheduled Tasks es PHP 5.x** (falla con
-      `Unsupported declare 'strict_types'` en cualquier script del repo, que usa
-      PHP 8.4) — hay que **seleccionar 8.4 explícitamente** en el formulario de
-      la tarea. Descubierto 2026-07-23 al ejecutar `completar_provincia.php`.
-- [ ] Ejecutarlo una vez a mano y confirmar que aparece `private/backups/mdc-*.db`.
+### 2. Cron de backup  ·  *(Plesk)* — ⚠️ estado contradictorio entre documentos, verificar en Plesk
+- `cutover-fase5.md` registra el cron como "configurado, confirmado por el
+  usuario" el 2026-07-06. `context.md`/`entornos.md` lo dan por hecho sin
+  matices. Pero `roadmap.md` (T-03) lo marca todavía como **"Parcial"** — es
+  decir, el corpus de documentación no está de acuerdo consigo mismo. Esto no
+  es verificable desde el repo (es estado de Plesk, no de código).
+- [ ] Confirmar en Plesk → **Scheduled Tasks** si la tarea existe de verdad:
+      tipo **"Run a PHP script"** → `/home/jaguerra27.helioho.st/app/tools/backup.php`
+      → semanal. ⚠️ El PHP por defecto de las Scheduled Tasks es PHP 5.x (falla
+      con `Unsupported declare 'strict_types'`) — hay que **seleccionar 8.4
+      explícitamente**.
+- [ ] Según el resultado: marcar esta casilla y actualizar `roadmap.md` T-03,
+      o crear la tarea si de verdad no existe.
+- [ ] Confirmar que aparece al menos un `private/backups/mdc-*.db` reciente.
 
-### 3. Search Console  ·  *(tú)*
-- [ ] Property de `marchasdecristo.com` (la de siempre; las URLs no cambian).
-- [ ] **Sitemaps** → reenviar `sitemap.xml`.
-- [ ] **Inspección de URLs** en la home y 2-3 detalles → *Solicitar indexación*.
-- [ ] Vigilar **Páginas/Cobertura** 1-2 semanas (que no aparezcan 404/500 nuevos;
-      que Google consolide los 301 de www/staging).
+### ~~3. Search Console~~ ✅ Hecho 2026-07-06, ver `cutover-fase5.md` §6
+- Sitemap reenviado (5.744 URLs, "Correcto"), cobertura revisada, URLs clave
+  inspeccionadas/indexación solicitada — todo con fecha y confirmación en
+  [cutover-fase5.md](cutover-fase5.md) §6, escrito **después** de que se
+  redactara esta tarea (que quedó sin marcar por descuido, no porque siguiera
+  pendiente).
+- La vigilancia de "Páginas/Cobertura 1-2 semanas" ya venció (han pasado ~3
+  semanas desde el cutover). Si hace falta seguir vigilando SEO de forma
+  continua, es una tarea de `roadmap.md`/`technical-debt.md`, no un pendiente
+  de "post-cutover" — este ítem se da por cerrado.
 
 ### 4. Correo del dominio, si aplica  ·  *(tú)*
 - [ ] Si `marchasdecristo.com` tiene email, confirmar que sigue funcionando (el
@@ -71,15 +84,15 @@
 
 ---
 
-## Referencia rápida (desarrollo / despliegue)
+## Referencia rápida
 
-- **Estructura**: `php/public/` = webroot; `php/app/` y `private/` fuera del webroot.
-  En el host, el webroot del dominio es la carpeta `marchasdecristo.com/` (hermana de
-  `app/` y `private/`).
-- **Despliegue por FTP**: credenciales en `.env.ftp` (gitignored). Subir `app/`
-  (excepto `config.local.php`) → `app/`, y el contenido de `public/` → `marchasdecristo.com/`.
-- **Paridad** (tras cambios en la capa de datos):
-  `cd php && node tools/parity_expected.cjs && php tools/parity_compare.php`  → 28/28.
-- **Servidor local**: `scripts/dev_server.sh` (servidor embebido con 4 workers; a
-  mano sin workers, el CSS/JS se encola detrás del HTML → 503 intermitente).
-- **Runbook de cutover** (referencia): [cutover-fase5.md](cutover-fase5.md).
+El despliegue de código ya **no** es un paso manual por FTP — está
+automatizado desde CI (botón *Run workflow*, ver [entornos.md](entornos.md),
+que sustituye por completo lo que decía aquí antes). Lo que sigue siendo
+específico de esta fase de cierre:
+
+- **Paridad** (histórico, solo si se toca la capa de datos de forma que
+  pudiera divergir del port original):
+  `cd php && node tools/parity_expected.cjs && php tools/parity_compare.php` → 28/28.
+- **Servidor local**: `scripts/dev_server.sh` — ver `php/README.md`.
+- **Runbook de cutover** (referencia histórica): [cutover-fase5.md](cutover-fase5.md).

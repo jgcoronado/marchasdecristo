@@ -105,6 +105,19 @@ Cubren también **M9** (estadísticas ampliadas como contenido indexable).
 **Las 4 pantallas de esta cola están completadas.** Siguiente bloque del plan de
 palancas: entidades nuevas — ver el dossier del artefacto `1a31cc69` (§08).
 
+### Análisis UX comparativo (patrimoniomusical.com) — ✅ CERRADO 2026-07-27
+
+Plan aparte, no derivado del consejo ni de las palancas: comparativa de UX con
+patrimoniomusical.com que arrancó con un diagnóstico de infraestructura del
+servidor local. **Las 6 prioridades (0-5) están completadas** — ficha de
+marcha compactada con anclas, legibilidad global, filtros facetados y tablas
+ordenables en listados, catálogo cerrado de municipios (con selector en
+cascada localidad→provincia) y mapa por localidad, y las mismas anclas de
+navegación llevadas a compositor/banda/disco. Detalle completo, decisiones de
+arquitectura (mapa, catálogo de municipios) y estado de cada prioridad en
+[ux-analysis-estado.md](ux-analysis-estado.md); log narrativo en
+`../ANALISIS_UX.md`.
+
 **Corrección sobre el orden**: el dossier real secuencia **N-06 → N-03 → N-04/05**
 (no N-03 primero, como se dijo en un resumen anterior de esta tabla), y **N-03
 (hermandad) está condicionado explícitamente a que N-01 (dedicatorias) demuestre
@@ -125,13 +138,17 @@ N-06 automático todavía).
 |---|-------|-----------|--------|
 | M6 | Accesibilidad (foco, skip-link, `aria-sort`, contraste) + hoja de impresión | rediseño frontend | ⏳ |
 | M7 | Notificaciones editoriales (email al aceptar/rechazar + digest semanal) | validar email/cron en HelioHost | ⏳ |
-| T-03 | Vigilancia: cron backup (pendiente post-cutover), uptime (✅), link-checker mensual | — | Parcial |
+| T-03 | Vigilancia: cron backup (⚠️ estado contradictorio entre docs, ver [pendientes-post-cutover.md §2](pendientes-post-cutover.md)), uptime (✅), link-checker mensual | — | Parcial |
 
 ### Carril manual en paralelo (lo conduce el admin, no es código)
 - **P-01 / M2** — curación de candidatos de ingesta (meta <300 antes de octubre)
   y campaña de cobertura de audio; requiere la **lista de canales** de YouTube
-  (rama `feat/ingest-youtube`) y curar los **264 candidatos de streaming**
-  pendientes (rama `feature/music-apps`).
+  y curar los **264 candidatos de streaming** pendientes. ⚠️ Las ramas
+  `feat/ingest-youtube`/`feature/music-apps` citadas en versiones anteriores de
+  este documento **no existen en el remoto** (`git ls-remote --heads origin`
+  solo muestra `main` y ramas de sesiones `claude/*`) — puede que ya se
+  fusionaran y borraran, o que el trabajo viva solo en local; verificar antes
+  de dar por hecho que sigue ahí.
 - **T-02** — pipeline de ingesta mensual semi-automático (piezas existen, falta
   orquestación).
 

@@ -1,13 +1,12 @@
 # Panel de administración — marchasdecristo.com
 
-> Última actualización: 2026-07-27 (selector de municipio) · 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
+> Última actualización: 2026-07-27 (§1-6 reescritas en términos de la implementación PHP real, ya no del diseño Next.js heredado) · 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
 > Documento complementario de [context.md](context.md) y [roadmap.md](roadmap.md).
->
-> ⚠️ **Nota de implementación**: tras el cutover a PHP (2026-07-04) el panel se sirve
-> con el stack PHP (`php/app/src/Admin.php` + `AdminRepo.php` + plantillas en
-> `php/app/templates/admin/`). Las secciones 1–6 describen el diseño heredado de
-> Next.js (rutas `*.ts` / `page.tsx`); la lógica es equivalente en PHP. La sección 7
-> documenta ya directamente la implementación PHP.
+> Todo el documento describe ya la implementación PHP actual (`php/app/src/Admin.php`
+> + `AdminRepo.php` + `Auth.php` + `Roles.php` + plantillas en `php/app/templates/admin/`).
+> El panel Next.js que existió antes del cutover (2026-07-04) ya no tiene ningún
+> artefacto correspondiente — no era una traducción 1:1, así que este documento no
+> lo describe ni por comparación.
 
 ---
 
@@ -17,100 +16,96 @@
 |---|---|
 | **URL** | `https://marchasdecristo.com/dashboard` |
 | **Login** | `https://marchasdecristo.com/login` |
-| **Guard** | `nextjs/middleware.ts` — verifica cookie HMAC-SHA256 en todas las rutas `/dashboard/*` antes de servir cualquier página |
-| **Sesión** | Cookie `mdc_session`, HttpOnly + Secure + SameSite=lax, TTL 8h |
-| **Rate limit** | 6 intentos / 15 min por IP+usuario; bloqueo de 15 min |
-| **Contraseñas** | PBKDF2-SHA512 / 210 000 iteraciones; upgrade automático desde MD5 en primer login exitoso |
+| **Guard** | Cada ruta `/dashboard/*` empieza con `Auth::requireAuth()` (o `requireAdmin()`/`requireCap()` para las que lo necesitan) — comprobación inline al principio del controlador, sin middleware de framework |
+| **Sesión** | Cookie `mdc_session` firmada HMAC-SHA256 (`Auth::signSession`/`verifySession`), HttpOnly (+ Secure si `cookie_secure`), TTL 8h |
+| **Rate limit** | 6 intentos / 15 min por IP+usuario; bloqueo de 15 min; persistido a fichero (sin memoria compartida entre peticiones en HelioHost), con purga de entradas expiradas en cada escritura |
+| **Contraseñas** | PBKDF2-SHA512 / 210 000 iteraciones; upgrade automático desde MD5 legado en el primer login exitoso |
+| **CSRF** | Token derivado de la sesión (`Auth::csrfToken`/`checkCsrf`), validado en todos los POST del panel |
+| **Roles** (`App\Roles`) | `admin` (acceso total, comodín `*`) y `editor` (capacidades `marcha.add/edit`, `banda.add/edit`, `autor.add/edit` vía `Roles::EDITOR_CAPS`; sin acceso a ingesta, enlaces, dedicatorias, estilos, linaje de bandas ni gestión de usuarios) |
 
-El middleware verifica el token inline (sin HTTP round-trip). Los Client Components también llaman a `/api/login/verify` al montarse como segunda capa, pero el guard real es el middleware de servidor.
+El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`. `Admin::isAdmin($session)` (envuelve `Roles::isAdmin($rol)`) es lo que decide, por ruta, si el POST escribe directo o desvía a propuesta (`proposalMode` en cada controlador).
 
 ---
 
 ## 2. Funcionalidades existentes
 
 ### `/dashboard` — Home
-- Campo numérico para navegar directamente a la edición de una marcha por ID.
-- Botones: "Nueva marcha" → `/dashboard/marcha/add`, "Nuevo autor" → `/dashboard/autor/add`, "Logout".
+- Buscador (`q` para marcha/autor, `qb` para banda) que devuelve hasta 15 resultados de cada uno directamente en la home del panel.
+- Contador de propuestas pendientes (solo visible para admin).
+- Enlaces a alta de marcha/autor/banda, y al resto de secciones según capacidad del rol (ingesta, enlaces, dedicatorias, estilos, usuarios, propuestas — ocultos para editor).
 
-### `/dashboard/marcha/[id]` — Edición de marcha
-Campos editables: `TITULO`, `FECHA`, `DEDICATORIA`, `LOCALIDAD`, `AUDIO`, `BANDA_ESTRENO` (ID numérico a ciegas), `ESTILO` (CCTT/AM/sin asignar — ver `docs/db-analysis.md#estilo-de-marcha`), `DETALLES_MARCHA`.
-
-**Faltante**: `PROVINCIA` está en la BD y en el alta pero no en este formulario. Los autores se muestran en modo lectura — no se pueden añadir ni quitar.
-
-Muestra previsualización de cambios (diff viejo/nuevo) y SQL preparada con parámetros antes de guardar.
+### `/dashboard/marcha/{id}` — Edición de marcha
+Campos editables (`AdminRepo::EDITABLE_MARCHA`): `TITULO`, `FECHA`, `DEDICATORIA`, `LOCALIDAD`, `PROVINCIA`, `AUDIO`, `BANDA_ESTRENO` (autocomplete, no ID a ciegas), `TIPO` (lista cerrada, `MARCHA_TIPOS`), `ESTILO` (CCTT/AM/sin asignar — ver [db-analysis.md](db-analysis.md)), `DETALLES_MARCHA`. Los autores de la marcha se pueden editar (añadir/quitar) desde el mismo formulario (`AdminRepo::editMarchaAutores`). Localidad/provincia usan el selector en cascada del catálogo `municipio` (§9).
 
 ### `/dashboard/marcha/add` — Alta de marcha
-Campos: `TITULO`, `FECHA`, `DEDICATORIA`, `LOCALIDAD`, `PROVINCIA`, `BANDA_ESTRENO` (autocomplete por nombre), `ESTILO`, `DETALLES_MARCHA`, autores (autocomplete multi, mínimo 6 caracteres).
+Mismos campos que la edición (`AdminRepo::INSERTABLE_MARCHA`) más autores (autocomplete multi, mínimo 3 caracteres). `AdminRepo::addMarcha` valida que todos los `autoresIds` existan (`allAutoresExist()`) y hace el INSERT en `marcha` + `marcha_autor` dentro de una transacción. Tras crear, redirige a `/dashboard/marcha/{id}?created=1` (PRG).
 
-Muestra SQL y parámetros antes de crear.
+### `/dashboard/autor/add` y `/dashboard/autor/{id}` — Alta y edición de autor
+Campos (`EDITABLE_AUTOR`): `NOMBRE`, `APELLIDOS`, `NOMBRE_ART`, `F_NAC`, `LUGAR_NAC`, `F_DEF`, `BIO`.
 
-### `/dashboard/autor/add` — Alta de autor
-Campos: `NOMBRE`, `APELLIDOS`, `F_NAC`, `LUGAR_NAC`, `F_DEF`, `BIO`.
+### `/dashboard/banda/add` y `/dashboard/banda/{id}` — Alta y edición de banda
+Campos (`EDITABLE_BANDA`): `NOMBRE_COMPLETO`, `NOMBRE_BREVE`, `LOCALIDAD`, `PROVINCIA`, `FECHA_FUND`, `FECHA_EXT`, `DIRECTOR_ACTUAL`, `DIR_MUS_ACTUAL`, `WEB`. La edición de banda es también donde se gestiona el **linaje** (`banda_relacion`, solo admin) — ver §7.
 
-**Faltante**: `NOMBRE_ART` (nombre artístico) no está en el formulario ni en el endpoint, aunque sí está indexado en `autor_fts`.
-
-Muestra SQL y parámetros antes de crear.
-
----
-
-## 3. API de escritura (Route Handlers)
-
-| Endpoint | Método | Auth | Descripción |
-|----------|--------|------|-------------|
-| `/api/admin/editMarcha` | POST | cookie/Bearer | Allowlist de 8 campos. Devuelve `UPDATED` / `NOT_FOUND` / `NO_CHANGES` |
-| `/api/admin/addMarcha` | POST | cookie/Bearer | INSERT marcha + INSERT marcha_autor (⚠️ sin transacción) |
-| `/api/admin/addAutor` | POST | cookie/Bearer | INSERT autor con 6 campos |
-
-Todos verifican sesión con `verifySession(getTokenFromRequest(req))` antes de cualquier operación de BD.
-
-`getTokenFromRequest` acepta tanto cookie como header `Authorization: Bearer`. El middleware solo usa cookies, por lo que el flujo Bearer es un camino alternativo que no pasa por el guard de servidor.
+Ninguno de estos formularios muestra SQL ni preview de la query — solo el diff/resumen del cambio antes de guardar donde aplica.
 
 ---
 
-## 4. Problemas de seguridad identificados
+## 3. Rutas de escritura (`php/app/routes.php`)
 
-### 4.1 Sin transacción en `addMarcha` 🔴
-`addMarcha/route.ts:25-41` — dos `dbRun` separados. Si el INSERT en `marcha_autor` falla, la marcha queda en la BD sin autores. Las búsquedas públicas la filtran (por `EXISTS marcha_autor`), pero es basura silenciosa en la BD. Ver [roadmap.md §U1](roadmap.md).
+No hay una "API de escritura" separada tipo Route Handlers: las escrituras son POST de formulario normales, con el mismo patrón **PRG** (Post/Redirect/Get) en todos.
 
-### 4.2 `autoresIds` no validados contra la BD 🔴
-Los IDs de autor se parsean del body pero no se verifica que existan en la tabla `autor`. Sin FK constraints activos, se crean relaciones huérfanas. Ver [roadmap.md §U2](roadmap.md).
+| Ruta | Método | Handler | Descripción |
+|------|--------|---------|-------------|
+| `/dashboard/marcha/add` | POST | `Admin::marchaAddPost` → `AdminRepo::addMarcha` | Alta (transacción, valida autores) |
+| `/dashboard/marcha/{id}` | POST | `Admin::marchaEditPost` → `AdminRepo::editMarcha` | Edición (allowlist, audit log) |
+| `/dashboard/autor/add` / `/dashboard/autor/{id}` | POST | `Admin::autorAddPost`/`autorEditPost` | Alta/edición de autor |
+| `/dashboard/banda/add` / `/dashboard/banda/{id}` | POST | `Admin::bandaAddPost`/`bandaEditPost` | Alta/edición de banda |
 
-### 4.3 SQL y parámetros expuestos en la UI 🟡
-Los formularios muestran la SQL preparada y los valores en pantalla. Sin riesgo de ataque directo (solo el admin accede), pero puede quedar en capturas de pantalla o en el historial del navegador. Ver [roadmap.md §M6](roadmap.md).
-
-### 4.4 Sin audit log 🟠
-No hay registro de qué cambió, cuándo y quién. Ver [roadmap.md §M1](roadmap.md).
-
-### 4.5 Flujo Bearer alternativo 🟡
-`getTokenFromRequest` acepta `Authorization: Bearer` además de la cookie. Es un camino que no pasa por el middleware, aunque sí pasa por `verifySession`. Si se quiere simplificar la superficie: restringir a cookie-only en los Route Handlers admin.
+Además de autocompletados de solo lectura (`/api/autor/fastSearch`, `/api/banda/fastSearch`, `/api/municipio/fastSearch`, `/api/marcha/checkDuplicate`, `/api/dedicatoria/fastSearch`, `/api/banda/estilo`), todos con sesión requerida. Cada POST valida CSRF (`Auth::checkCsrf`) antes de tocar `AdminRepo`; antes de cualquier escritura real, `Db::assertWritable()` comprueba `config['env'] === 'local'` (producción es de solo lectura por diseño — ver ADR-003 en `architecture.md`).
 
 ---
 
-## 5. Funciones faltantes (por prioridad)
+## 4. Problemas de seguridad — ninguno abierto en esta revisión
 
-| Prioridad | Función | Ficheros a crear/modificar |
-|-----------|---------|---------------------------|
-| 🔴 U3 | Aviso en UI al crear marcha sin autores | `marcha/add/page.tsx` |
-| 🟠 A2 | `PROVINCIA` en edición de marcha | `marcha/[id]/page.tsx`, `editMarcha/route.ts` |
-| 🟠 A3 | `NOMBRE_ART` en alta/edición de autor | `addAutor/route.ts`, `autor/add/page.tsx` |
-| 🟠 A4 | Edición de autores (`/dashboard/autor/[id]`) | nuevo page + `editAutor/route.ts` |
-| 🟠 A5 | Editar autores de una marcha | `marcha/[id]/page.tsx` + `editMarchaAutores/route.ts` |
-| 🟡 M4 | Buscador de marchas/autores en el dashboard | `/dashboard/page.tsx` |
-| 🟡 M5 | Enlace a edición/público tras crear | `marcha/add`, `autor/add` |
-| 🟡 M6 | Eliminar SQL preview de la UI | `marcha/add`, `autor/add`, `marcha/[id]` |
-| 🟢 B3 | Alta y edición de bandas (metadatos) | `/dashboard/banda/*` — las **relaciones de linaje** ya existen (§7); falta editar los campos propios de la banda |
-| 🟢 B4 | Alta y edición de discos + pistas | nuevo `/dashboard/disco/*` |
+Los problemas que este documento describía en versiones anteriores (heredados
+del análisis del panel Next.js) están **todos resueltos** en la implementación
+PHP actual, verificado en el código:
+
+- ~~Sin transacción en `addMarcha`~~ — `AdminRepo::addMarcha` envuelve el INSERT en `marcha` + `marcha_autor` en `Db::transaction(...)`.
+- ~~`autoresIds` no validados~~ — `AdminRepo::allAutoresExist()` los comprueba contra la tabla `autor` antes del INSERT.
+- ~~SQL y parámetros expuestos en la UI~~ — no existe ningún preview de SQL en las plantillas actuales.
+- ~~Sin audit log~~ — `Db::logAdmin()` registra en `admin_log` (acción, tabla, id, usuario, timestamp, payload) en cada escritura de `AdminRepo`.
+- ~~Flujo Bearer alternativo~~ — no aplica: `Auth::currentSession()` solo lee la cookie, no hay ningún header `Authorization` soportado.
+
+Si aparece deuda de seguridad nueva en el panel, va en [technical-debt.md](technical-debt.md), no aquí.
+
+---
+
+## 5. Funciones faltantes
+
+| Prioridad | Función | Notas |
+|-----------|---------|-------|
+| 🟢 B4 | Alta y edición de discos + pistas | No existe ningún `/dashboard/disco/*` — las relaciones `disco_marcha` solo se tocan indirectamente. Ver [technical-debt.md §5.1](technical-debt.md) |
+| — | Aviso en UI al crear marcha sin autores | No se encontró validación explícita que avise/bloquee una alta con `autoresIds` vacío (más allá de que la marcha exista igualmente, invisible en búsquedas públicas — ver [db-analysis.md](db-analysis.md) "Problema 3") |
+
+Todo lo demás que este documento marcaba como faltante en versiones anteriores
+(`PROVINCIA` en edición de marcha, `NOMBRE_ART` en autor, edición de autores,
+editar autores de una marcha, buscador en el dashboard, enlace tras crear,
+alta/edición de banda) **ya está implementado** — ver §2 y §3 arriba.
 
 ---
 
 ## 6. Lo que funciona bien
 
-- **Middleware server-side**: el guard en `middleware.ts` es síncrono y no tiene red — es la capa de protección real.
-- **Allowlist de campos**: `EDITABLE_FIELDS` en `editMarcha` y `INSERTABLE_FIELDS` en `addMarcha`/`addAutor` previenen mass-assignment.
-- **Timing-safe en verificación**: `verifySession` usa `crypto.timingSafeEqual`.
-- **Autocomplete con mínimo de caracteres**: 6 chars mínimos antes de buscar evitan queries triviales.
-- **Previsualización de cambios**: el diff viejo/nuevo antes de guardar en edición de marcha es útil para revisión manual.
-- **Prepared statements**: sin concatenación de SQL en ningún Route Handler.
+- **Guard inline por ruta**: `Auth::requireAuth()`/`requireAdmin()`/`requireCap()` al principio de cada controlador, sin capa de framework intermedia.
+- **Roles y capacidades** (`App\Roles`): admin con comodín total, editor con `EDITOR_CAPS` explícitas — ver §1.
+- **Propuestas en vez de escritura directa para editores**: cero superficie de escritura remota para el rol menos privilegiado.
+- **Allowlist de campos**: `EDITABLE_MARCHA`/`INSERTABLE_MARCHA`/`EDITABLE_AUTOR`/`EDITABLE_BANDA` en `AdminRepo` previenen mass-assignment.
+- **Fail-safe de solo lectura por entorno**: `Db::assertWritable()` bloquea cualquier escritura si `config['env'] !== 'local'`, incluso si algo más fallara.
+- **Audit log**: `Db::logAdmin()` en cada escritura de `AdminRepo`.
+- **Autocomplete con mínimo de caracteres** (3) antes de buscar, evita queries triviales.
+- **Prepared statements**: sin concatenación de SQL en ningún punto de `AdminRepo`.
+- **CSRF derivado de la sesión**, sin tabla ni almacenamiento adicional.
 
 ---
 

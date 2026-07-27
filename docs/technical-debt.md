@@ -1,6 +1,6 @@
 # Deuda técnica — marchasdecristo.com
 
-> Última actualización: 2026-07-16 (C8 — reescrito con la deuda real del stack PHP; el análisis Next.js/VPS anterior es historia, ver `docs/archive/`)
+> Última actualización: 2026-07-27 (auditoría documental: 3.1 y 3.2 resueltos desde el origen del documento, no eran deuda real)
 > La auditoría de la BD vive en [db-analysis.md](db-analysis.md). El análisis del panel en [admin-panel.md](admin-panel.md). El plan priorizado de mejoras (no solo deuda) vive en [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md) y su estado de ejecución en [roadmap.md](roadmap.md).
 
 ## Resumen ejecutivo
@@ -9,7 +9,7 @@
 |-----------|-----------------|-------------------|
 | Operativa / observabilidad | 0 | — |
 | Deploy | 1 | 🟡 Media |
-| Calidad de código PHP | 2 | 🟡 Media |
+| Calidad de código PHP | 0 | — |
 | Base de datos (SQLite) | 1 | 🟢 Baja |
 | Panel de administración | 1 | 🟢 Baja |
 
@@ -63,23 +63,18 @@ además de deuda).
 
 ## 3. Calidad del código PHP
 
-### 3.1 Autoload manual sin PSR-4 ni gestor de paquetes 🟢
-- `bootstrap.php` mapea clase → fichero a mano en vez de un autoloader
-  estándar. Es una decisión deliberada (ADR-001 en `architecture.md`, motivada
-  por el hosting compartido sin Composer), no un descuido, pero significa que
-  añadir una clase nueva requiere tocar el mapa de autoload además de crear el
-  fichero — un paso manual que es fácil de olvidar.
-- **Fix** (opcional, bajo impacto): autoload por convención de directorio
-  (`spl_autoload_register` con `str_replace('App\\', '', $class)` sobre
-  `src/`) en vez de un mapa explícito. No requiere Composer.
+### ~~3.1 Autoload manual sin PSR-4 ni gestor de paquetes~~ ✅ No era deuda real (verificado 2026-07-27)
+- Descripción errónea desde el origen del documento: `bootstrap.php` ya
+  registra un autoload PSR-4 mínimo por convención de directorio
+  (`spl_autoload_register`, `App\Foo\Bar` → `src/Foo/Bar.php`), exactamente
+  el "fix" que este ítem proponía. No hay ningún mapa clase→fichero explícito
+  en el repo. Ver `docs/architecture.md` ADR-001 (ya corregido).
 
-### 3.2 Rate limiting de login persistido a fichero, sin purga automática 🟡
-- `Auth` escribe los intentos de login a fichero (correcto para hosting
-  compartido sin memoria persistente entre peticiones — ver ADR-007), pero no
-  hay una purga periódica de entradas expiradas; el fichero solo crece.
-- **Fix**: purgar entradas con `window`/`lock` ya expirados en cada escritura,
-  o un cron ligero mensual. Impacto bajo mientras el volumen de intentos de
-  login sea pequeño (proyecto de un solo mantenedor + editores conocidos).
+### ~~3.2 Rate limiting de login persistido a fichero, sin purga automática~~ ✅ No era deuda real (verificado 2026-07-27)
+- Descripción errónea desde el origen del documento: `Auth::rateFail()` ya
+  poda las entradas cuya ventana/bloqueo han expirado en cada escritura
+  (comentario "Poda de entradas viejas" en el propio código). El fichero no
+  crece sin límite.
 
 ---
 
@@ -118,7 +113,8 @@ Para que una sesión nueva no reabra trabajo ya hecho:
 - **Checksum + rollback + modo mantenimiento en el sync**: implementado en
   `scripts/sync_db_to_prod.php` (C7, [issue #13](https://github.com/jgcoronado/mdc-back/issues/13)).
 - **CI con smoke tests**: `.github/workflows/ci.yml` + `php/tools/ci_fixture.php`
-  + `php/tools/ci_smoke.php` (33 aserciones) en cada push/PR (C5,
+  + `php/tools/ci_smoke.php` (81 aserciones y creciendo — no fiarse de un
+  número fijo) en cada push/PR (C5,
   [issue #11](https://github.com/jgcoronado/mdc-back/issues/11)).
 - **Hubs SEO, `og:image`/Twitter Card, `lastmod`+IndexNow, marcha del día**:
   C1–C4, todos cerrados — ver [roadmap.md](roadmap.md) para el estado

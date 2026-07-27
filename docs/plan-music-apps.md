@@ -1,5 +1,15 @@
 # Plan: enlaces a servicios de streaming (rama `feature/music-apps`)
 
+> Nota 2026-07-27: la migración `004_enlace_streaming.sql` ya se aplica
+> automáticamente (`migrate_ingest.php` aplica todos los `.sql` de
+> `app/tools/sql/`, no hace falta "visto bueno" aparte — ver §6, obsoleto). El
+> render en ficha de marcha (§4, componente 5) también está hecho: `H::streaming()`
+> se invoca ya en `marcha_detail.php`, no solo en disco/banda. Iteración
+> posterior no contemplada en este plan original: `app/tools/fill_enlaces_streaming.php`,
+> que cruza el catálogo completo de Spotify de cada banda (álbumes/pistas) en
+> vez de buscar disco a disco — ver [admin-panel.md §10](admin-panel.md) y
+> [technical-debt.md](technical-debt.md).
+
 Objetivo: automatizar los enlaces de **marchas, discos y bandas** a servicios de
 streaming (Spotify, Apple Music, Deezer, YouTube…) para poder ofrecer audio en
 cada consulta de la BD.
@@ -100,9 +110,9 @@ marchas de estreno sin disco.
 Componentes a construir:
 1. **Matcher** parametrizable por fase/servicio/alcance (evolución del script actual). ← *hecho* (`--scope`, módulo compartido)
 2. **Módulo Spotify** (token client-credentials + search) — en cuanto haya credenciales.
-3. **Migración** `004_enlace_streaming.sql` — *creada, sin aplicar aún*.
+3. **Migración** `004_enlace_streaming.sql` — ✅ aplicada (vía `migrate_ingest.php`, automático).
 4. **Panel admin** de curación de enlaces (reutilizar UI de ingesta YouTube). ← *hecho* (`/dashboard/enlaces`)
-5. **Render en ficha** (banda/disco/marcha) de los botones de streaming. ← *hecho para disco y banda* (`Html::streaming` + `EnlaceRepo::publicadosDe`, leyendo `enlace_streaming`). Solo pinta enlaces aprobados; marcha pendiente (fase 3).
+5. **Render en ficha** (banda/disco/marcha) de los botones de streaming. ← *hecho en las tres* (`Html::streaming` + `EnlaceRepo::publicadosDe`, leyendo `enlace_streaming`; también en `marcha_detail.php`). Solo pinta enlaces aprobados.
 
 ---
 
@@ -110,11 +120,11 @@ Componentes a construir:
 - **Falsos positivos** por nombres genéricos de disco (*Sevilla*, *Aniversario*) → mitigado con umbral de artista + curación humana.
 - **Cobertura desigual**: Deezer/iTunes no tienen algunas AM sevillanas → Spotify necesario.
 - **Rate limits**: cachear por artista; ~1 llamada/banda/servicio (bajo volumen en Sevilla).
-- ¿Migrar `marcha.AUDIO` (YouTube) a `enlace_streaming` o dejarlo como está? → pendiente.
-- Aplicar la migración: en local es idempotente y seguro; en **prod** se migra in situ (la BD de prod tiene escrituras propias, no se sube el .db local encima).
+- ¿Migrar `marcha.AUDIO` (YouTube) a `enlace_streaming` o dejarlo como está? → pendiente, sigue sin decidirse.
+- ~~Aplicar la migración~~ ✅ resuelto — automático desde `migrate_ingest.php`.
 
 ---
 
 ## 6. Qué necesito de ti para seguir
-1. **Credenciales de Spotify**: crea una app gratuita en developer.spotify.com y pásame `Client ID` y `Client Secret` (son de una app de desarrollo, no tu cuenta personal). Sin eso avanzo con Deezer/iTunes.
-2. Visto bueno para **aplicar `004_enlace_streaming.sql`** a la BD local y empezar a volcar candidatos.
+1. **Credenciales de Spotify**: crea una app gratuita en developer.spotify.com y pásame `Client ID` y `Client Secret` (son de una app de desarrollo, no tu cuenta personal). Sin eso avanzo con Deezer/iTunes. *(Sin verificar si esto ya se resolvió — `fill_enlaces_streaming.php` solo usa Spotify, así que si ese script funciona en producción, las credenciales ya están puestas.)*
+2. ~~Visto bueno para aplicar `004_enlace_streaming.sql`~~ ✅ ya no aplica, ver nota de cabecera.

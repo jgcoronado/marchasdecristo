@@ -1,9 +1,14 @@
 # Análisis de base de datos — SQLite (estado actual)
 
-> Actualizado: 2026-07-10 (estilo de marcha) · 2026-07-08 (modelo de linaje de bandas) · 2026-06-05 (sesión 2)
+> Actualizado: 2026-07-27 (inventario de tablas sincronizado con las migraciones reales) · 2026-07-10 (estilo de marcha) · 2026-07-08 (modelo de linaje de bandas) · 2026-06-05 (sesión 2)
 > El documento original analizaba el esquema MySQL (2026-06-01). Ese análisis es histórico — todos los bugs de motores mixtos, collation y FULLTEXT con `%` quedaron resueltos o irrelevantes al migrar a SQLite en la Fase 3b.
 > 2026-07-08: el linaje de bandas dejó de guardarse en columnas `FORMACION_ANT/SIG` y pasó a la tabla `banda_relacion` (ver §Modelo de linaje).
 > 2026-07-10: nueva columna `marcha.ESTILO` (`CCTT`/`AM`/`NULL`), ver §Estilo de marcha.
+> Las secciones "Puntos fuertes"/"Problemas activos"/"Calidad de datos" de más
+> abajo describen el esquema **base** heredado de MySQL (`marcha`, `autor`,
+> `banda`, `disco` y sus tablas puente) — las tablas añadidas después del
+> cutover a PHP (ingesta, dedicatorias, enlaces, contrato, municipio) tienen
+> su propio diseño y ya declaran FK reales; ver el inventario de abajo.
 
 ---
 
@@ -13,8 +18,8 @@
 |-------|-------|---------------|
 | `marcha` | 4 212 | ✅ lectura + escritura admin |
 | `autor` | 827 | ✅ lectura + escritura admin |
-| `banda` | 268 | ✅ lectura |
-| `banda_relacion` | 14 | ⚠️ modelo de linaje (creada 2026-07-08; sin lectura en `Repo` todavía) |
+| `banda` | 268 | ✅ lectura + escritura admin |
+| `banda_relacion` | 14 | ✅ modelo de linaje (creada 2026-07-08; leída por `Repo::fetchBanda`/`bandaLinaje()` para el linaje en la ficha pública) |
 | `disco` | 431 | ✅ lectura |
 | `marcha_autor` | 4 724 | ✅ lectura + escritura admin |
 | `disco_marcha` | 4 478 | ✅ lectura |
@@ -23,6 +28,17 @@
 | `autor_fts` | virtual | ✅ búsqueda full-text |
 | `videos` | 357 | ❌ nunca consultada |
 | `users` | 0 | ❌ vacía, nunca usada |
+| `ingest_canal` / `ingest_run` / `ingest_candidato` | — | ✅ pipeline de ingesta YouTube (`001_ingest_staging.sql`), alimenta `/dashboard/ingesta` |
+| `dedicatoria` / `dedicatoria_alias` | — | ✅ hubs de advocación N-01/N-02 (`003_dedicatoria.sql`), curación en `/dashboard/dedicatorias` |
+| `enlace_streaming` / `enlace_candidato` | — | ✅ enlaces Spotify/Apple/Deezer (`004_enlace_streaming.sql`), curación en `/dashboard/enlaces` |
+| `contrato` | 0 (esperado) | ✅ contratos banda↔hermandad por año (`005_contrato.sql`, N-04/05), alta manual en `/dashboard/temporada/{año}` — vacía hasta que el admin empiece a rellenarla |
+| `municipio` | ~8 112 | ✅ catálogo cerrado de localidad/provincia (`007_municipio.sql`), fuente del selector en cascada del panel y de las coordenadas del mapa — ver [ux-analysis-estado.md](ux-analysis-estado.md) |
+| `admin_log` | — | ✅ audit log de escrituras admin (`Db::logAdmin()`, sin migración `.sql` propia — se crea desde código) |
+
+Todas las tablas nuevas se crean con `php php/app/tools/migrate_ingest.php`
+(aplica en orden alfabético todos los `.sql` de `app/tools/sql/`, idempotente).
+Recuentos de filas no verificados contra una BD real en esta revisión (no hay
+`.db` en el checkout) salvo donde se indica lo contrario.
 
 `login_autor` fue eliminada durante la migración MySQL → SQLite (tenía 9 hashes MD5 sin salt).
 
@@ -31,7 +47,7 @@
 ## Campos principales por tabla
 
 ```
-marcha      : ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, AUDIO, FECHA, BANDA_ESTRENO, ESTILO, DETALLES_MARCHA
+marcha      : ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, AUDIO, FECHA, BANDA_ESTRENO, TIPO, ESTILO, DETALLES_MARCHA
 autor       : ID_AUTOR, NOMBRE, APELLIDOS, NOMBRE_ART, F_NAC, LUGAR_NAC, F_DEF, BIO
 banda        : ID_BANDA, NOMBRE_COMPLETO, NOMBRE_BREVE, LOCALIDAD, PROVINCIA, FECHA_FUND, FECHA_EXT, DIRECTOR_ACTUAL, DIR_MUS_ACTUAL, WEB, LINK_FORO
 banda_relacion: ID_RELACION, ID_ORIGEN, ID_DESTINO, TIPO, FECHA_INICIO, FECHA_FIN, NOTA
@@ -67,7 +83,7 @@ Cada fila es un vínculo dirigido `ID_ORIGEN → ID_DESTINO`; el significado lo 
 - Absorción = `fusion` cuyo destino es una banda preexistente (no requiere nada especial).
 - Tiene FK reales a `banda(ID_BANDA)` y `UNIQUE(ID_ORIGEN, ID_DESTINO, TIPO, FECHA_INICIO)`.
 - **Migración**: los 15 vínculos lineales previos entraron como `renombrado`, menos la arista inversa anómala `41→68` (par recíproco: se conservó solo `68→41`, 2003). Resultado: 14 filas.
-- **Pendiente**: `Repo::fetchBanda` aún no lee esta tabla (el `timeline` es de un solo elemento); el render del linaje está por construir.
+- **Render público**: `Repo::fetchBanda`/`bandaLinaje()` sí recorren esta tabla (predecesoras → foco → sucesoras, con madres/juveniles en ramal punteado) para la ficha pública — ya no es un `timeline` de un solo elemento. Detalle en [admin-panel.md §7](admin-panel.md).
 
 ---
 
@@ -102,12 +118,16 @@ se muestra en la ficha pública cuando está asignado.
 
 ---
 
-## Configuración SQLite (lib/db.ts)
+## Configuración SQLite (`App\Db`)
 
-```ts
-_db.pragma('journal_mode = WAL');    // lecturas concurrentes sin bloquear escrituras
-_db.pragma('foreign_keys = ON');     // ⚠️ activo pero sin FK declarations en las tablas
-_db.pragma('busy_timeout = 5000');   // 5s antes de SQLITE_BUSY en contención
+Puerto directo de la configuración original (`lib/db.ts` en el histórico
+Next.js), ahora en `php/app/src/Db.php` vía PDO:
+
+```php
+PRAGMA journal_mode = WAL;    // lecturas concurrentes sin bloquear escrituras
+PRAGMA foreign_keys = ON;     // sin efecto en las tablas heredadas de MySQL (sin FK declaradas);
+                              // sí lo tiene en las tablas nuevas post-cutover (ver Problema 1)
+PRAGMA busy_timeout = 5000;   // 5s antes de SQLITE_BUSY en contención
 ```
 
 ---
@@ -135,7 +155,7 @@ Todos los índices identificados como faltantes en el análisis MySQL ya están 
 | `idx_rel_tipo` | `banda_relacion.TIPO` | Filtrar por tipo de relación |
 
 ### Prepared statements
-`dbAll` y `dbRun` en `lib/db.ts` usan `getDb().prepare(sql).all/run`. No hay concatenación de SQL en ningún punto del código.
+`App\Db` (`Db::all`/`Db::run`, PDO) usa siempre parámetros preparados. No hay concatenación de SQL en ningún punto del código.
 
 ### WAL mode
 Permite lecturas sin bloquear escrituras. En un servidor de un solo usuario admin esto no es crítico, pero es la configuración correcta para SQLite en producción.
@@ -144,8 +164,8 @@ Permite lecturas sin bloquear escrituras. En un servidor de un solo usuario admi
 
 ## Problemas activos
 
-### 1. `foreign_keys = ON` sin FK constraints declaradas 🟠
-El PRAGMA activa la verificación, pero si las tablas no tienen `FOREIGN KEY` en sus `CREATE TABLE`, el PRAGMA no tiene nada que verificar. La integridad referencial no está siendo forzada — **salvo en `banda_relacion`** (creada 2026-07-08), que sí declara FK a `banda(ID_BANDA)`.
+### 1. `foreign_keys = ON` sin FK constraints declaradas — solo en las tablas heredadas de MySQL 🟠
+El PRAGMA activa la verificación, pero si las tablas no tienen `FOREIGN KEY`/`REFERENCES` en sus `CREATE TABLE`, no hay nada que verificar. Esto sigue siendo cierto para **`marcha`, `autor`, `banda`, `disco`, `marcha_autor`, `disco_marcha`** — el esquema original heredado de MySQL. Las tablas creadas **después** del cutover a PHP sí declaran FK reales con `REFERENCES` (`banda_relacion`, `ingest_candidato`, `dedicatoria_alias`, `contrato`, ver `app/tools/sql/*.sql`), así que este problema no se ha extendido a ellas.
 
 **Huérfanos heredados de la migración MySQL** (presentes en la BD de producción):
 
@@ -177,16 +197,8 @@ SELECT COUNT(*) FROM marcha_autor ma
 
 Plan de acción en [roadmap.md §A1](roadmap.md).
 
-### 2. Serialización `GROUP_CONCAT` de autores frágil 🟠
-Todas las queries que devuelven autores usan:
-```sql
-GROUP_CONCAT(a.ID_AUTOR || '#' || a.NOMBRE || ' ' || a.APELLIDOS, '|')
-```
-Y `lib/db.ts:formatAutor` parsea el resultado por `|` y `#`. Si un nombre contiene `#` o `|`, el parseo devuelve datos corruptos silenciosamente.
-
-Con 827 autores actuales el riesgo es bajo (ningún nombre cofrade conocido contiene esos caracteres), pero es frágil por diseño.
-
-**Fix**: sustituir por `json_group_array(json_object('autorId', a.ID_AUTOR, 'nombre', a.NOMBRE || ' ' || a.APELLIDOS))` + `JSON.parse` en `formatAutor`. Plan en [roadmap.md §M2](roadmap.md).
+### ~~2. Serialización `GROUP_CONCAT` de autores frágil~~ ✅ Resuelto en el puerto a PHP
+El problema original (parseo frágil de `ID#NOMBRE|ID#NOMBRE` por separadores que un nombre con `#`/`|` podría romper) era de `lib/db.ts`/`lib/api.ts` (Next.js). El puerto a PHP no lo heredó: `Repo::autoresFor()` agrupa los autores por marcha en PHP directamente desde filas normales (sin `GROUP_CONCAT` ni parseo de string), evitando tanto ese riesgo como la alternativa `json_group_array` que se había planteado como fix (innecesaria: el SQLite de HelioHost puede no traer JSON1).
 
 ### 3. Marchas sin autores son invisibles en búsquedas 🟡
 Todas las queries públicas filtran con:
@@ -195,11 +207,11 @@ EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
 ```
 Una marcha creada sin autores no aparece en ninguna búsqueda pública. Esta es una regla de negocio válida, pero combinada con el bug U1 (sin transacción en addMarcha), puede dejar marchas invisibles en la BD sin que el admin lo sepa.
 
-### 4. `autor.NOMBRE_ART` indexado pero no gestionable 🟡
-El trigger `autor_ai` sincroniza `NOMBRE_ART` al FTS5. El endpoint `addAutor` no incluye `NOMBRE_ART` en `INSERTABLE_FIELDS`. Los compositores con nombre artístico (p.ej. Abel Moreno "Miguelito") no pueden registrarlo desde el panel. Plan en [roadmap.md §A3](roadmap.md).
+### ~~4. `autor.NOMBRE_ART` indexado pero no gestionable~~ ✅ Resuelto en el puerto a PHP
+`NOMBRE_ART` ya está en `AdminRepo::EDITABLE_AUTOR` y se escribe desde `addAutor`/`editAutor` — los compositores con nombre artístico (p.ej. Abel Moreno "Miguelito") sí pueden registrarlo desde el panel. Ver [admin-panel.md §2](admin-panel.md).
 
 ### 5. `FECHA` como INTEGER con `0` = "sin fecha" 🟡
-247 de 4 212 marchas tienen `FECHA = 0`. `lib/api.ts:normalizeFecha` convierte `0` y `''` a `'s/f'` como parche de presentación. Semánticamente correcto sería `NULL`.
+247 de 4 212 marchas tenían `FECHA = 0` en el análisis original (MySQL). `Repo::normalizeFecha()` en el puerto PHP solo convierte `NULL`/`''` a `'s/f'` — **no** convierte `0` explícitamente. Si sigue habiendo filas con `FECHA = 0` en la BD real, se mostrarían como `"0"` en vez de `"s/f"`. No reverificado contra la BD real en esta revisión (sin `.db` en el checkout); semánticamente lo correcto seguiría siendo `NULL`.
 
 No tiene impacto en rendimiento ni en búsquedas actuales (las búsquedas por fecha usan `>=` y `<=`, y `0` no interfiere con esos rangos en la práctica). Plan en [roadmap.md §B2](roadmap.md).
 
@@ -231,10 +243,10 @@ Ver plan detallado en [roadmap.md §Fase 4](roadmap.md).
 
 | Prioridad | Ítem |
 |-----------|------|
-| ✅ U1 | Transacción en `addMarcha` — resuelto 2026-06-05 |
-| ✅ U2 | Validar existencia de `autoresIds` — resuelto 2026-06-05 |
-| 🟠 A1 | Limpiar huérfanos + declarar FK constraints |
-| 🟠 A3 | `NOMBRE_ART` en alta/edición de autor |
-| 🟠 M2 | Migrar serialización AUTHORS a JSON |
-| 🟡 B2 | Normalizar `FECHA = 0` → `NULL` |
+| ✅ U1 | Transacción en `addMarcha` — resuelto (verificado en `AdminRepo::addMarcha`, con `Db::transaction`) |
+| ✅ U2 | Validar existencia de `autoresIds` — resuelto (`AdminRepo::allAutoresExist()`) |
+| ✅ A3 | `NOMBRE_ART` en alta/edición de autor — resuelto (`EDITABLE_AUTOR`, `addAutor` en `AdminRepo.php`) |
+| ✅ M2 | Migrar serialización de autores — resuelto de otra forma: el puerto a PHP agrupa en PHP (`Repo::autoresFor()`), no hizo falta JSON1 (ver arriba) |
+| 🟠 A1 | Limpiar huérfanos + declarar FK constraints en las tablas heredadas de MySQL (`marcha`, `autor`, `banda`, `disco`, `marcha_autor`, `disco_marcha`) |
+| 🟡 B2 | Normalizar `FECHA = 0` → `NULL` — no reverificado contra la BD real en esta revisión (sin `.db` en el checkout); `Repo::normalizeFecha()` solo convierte `NULL`/`''` a `'s/f'`, no `0` |
 | 🟢 B1 | Eliminar tablas muertas (`videos`, `users`) |
