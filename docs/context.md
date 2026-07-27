@@ -9,6 +9,7 @@
 > - [db-analysis.md](db-analysis.md) — auditoría de la base de datos.
 > - [admin-panel.md](admin-panel.md) — panel de administración.
 > - [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md) — evaluación integral (DAFOs, plan de acción, catálogo de automatizaciones).
+> - [ux-analysis-estado.md](ux-analysis-estado.md) — estado del análisis UX comparativo vigente (patrimoniomusical.com): qué está hecho, qué queda pendiente, decisiones de arquitectura clave (mapa, catálogo de municipios).
 
 ---
 
