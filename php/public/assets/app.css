@@ -210,6 +210,12 @@ dl.desc dd { margin: 0; font-size: 0.89rem; }
 .shead h2, .shead h3 { font-family: var(--serif); font-size: 1.08rem; font-weight: 600; margin: 0; }
 .shead .n { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); }
 .shead .filter { margin-left: auto; }
+/* /temporada/{año}: agrupado por ciudad (heurístico, ver docs/n03-hermandad.md)
+   por encima del agrupado por hermandad ya existente. Mismo idioma visual que
+   .shead, pero más prominente para marcar el nivel superior. */
+.shead-ciudad { border-bottom-width: 3px; margin-top: 1.6rem; }
+.shead-ciudad:first-of-type { margin-top: 0.4rem; }
+.shead-ciudad h2 { font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .filter { font-family: var(--mono); font-size: 0.76rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.32rem 0.55rem; background: var(--card); color: var(--ink); min-width: 11rem; }
 .filter::placeholder { color: var(--faint); }
 
