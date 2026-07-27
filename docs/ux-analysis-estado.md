@@ -135,6 +135,5 @@ Por si una sesión futura necesita tocar esta zona sin releer todo el log:
 - **Log narrativo completo** (todo el detalle de bugs, criterios, decisiones
   paso a paso): [`../ANALISIS_UX.md`](../ANALISIS_UX.md).
 - **Contexto general del proyecto/stack**: [`context.md`](context.md).
-- **Panel de administración**: [`admin-panel.md`](admin-panel.md) — no
-  actualizado todavía con el selector de municipios; revisar si se retoma
-  trabajo ahí.
+- **Panel de administración**: [`admin-panel.md`](admin-panel.md) —
+  documenta el selector de municipios en cascada (§9).

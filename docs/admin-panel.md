@@ -1,6 +1,6 @@
 # Panel de administración — marchasdecristo.com
 
-> Última actualización: 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
+> Última actualización: 2026-07-27 (selector de municipio) · 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
 > Documento complementario de [context.md](context.md) y [roadmap.md](roadmap.md).
 >
 > ⚠️ **Nota de implementación**: tras el cutover a PHP (2026-07-04) el panel se sirve
@@ -208,7 +208,106 @@ a la misma pestaña/página tras guardar.
 
 ---
 
-## 8. Scripts de herramientas (`php/app/tools/`)
+## 9. Selector de municipio (localidad/provincia en cascada)
+
+> Añadido 2026-07 (catálogo de municipios, migración ejecutada en producción).
+> Gestiona la tabla `municipio` — ver
+> [`007_municipio.sql`](../php/app/tools/sql/007_municipio.sql) y
+> `docs/ux-analysis-estado.md` (Prioridad 4 del análisis UX). Implementación
+> PHP nativa (no hay equivalente Next.js: es posterior al cutover).
+
+Antes de esta tabla, `LOCALIDAD`/`PROVINCIA` eran texto libre en `marcha`,
+`banda` y `dedicatoria_alias`: de ahí las variantes de capitalización que hubo
+que limpiar a mano (`app/tools/normalizar_localidades.php`). Ahora el panel
+ofrece un listado cerrado con predictivo, y **elegir la localidad fija la
+provincia** — un municipio pertenece siempre a una única provincia.
+
+### Componente reutilizado (`App\Html` + `public/assets/admin.js`)
+
+`Html::municipioFields($localidad, $provincia)` renderiza los dos campos
+(`<select>` de Provincia + `<input>` de Localidad con autocompletado); el
+`<form>` que los contiene necesita además `Html::municipioFormAttrs($isAdmin,
+$csrf)` para que `initMunicipioPicker()` (en `admin.js`) los active. Los dos
+campos no se envuelven en un contenedor propio porque eso rompería el
+`.form-grid` de dos columnas de los formularios existentes; el JS los
+localiza por sus atributos `data-municipio-*`.
+
+Usado en seis formularios: `marcha_form`, `banda_form`, `banda_add`,
+`dedicatoria_form`, `ingesta_detail` y `propuesta_detail`.
+
+**Comportamiento en el navegador** (sin recargar página):
+1. El campo Localidad empieza deshabilitado ("Elige antes la provincia").
+2. Al elegir provincia se habilita y limpia; al escribir (≥ 2 caracteres)
+   consulta `/api/municipio/fastSearch?provincia=&q=` (debounce 200 ms,
+   `AbortController` para descartar respuestas obsoletas) y lista las
+   localidades de esa provincia que casan por prefijo de palabra sin acentos
+   (`NOACC(NOMBRE) LIKE`, p.ej. "guad" encuentra "Alcalá de Guadaíra").
+3. Si el texto escrito no coincide con ninguna sugerencia exacta, aparece una
+   opción extra al final de la lista:
+   - **Admin** (`data-municipio-admin="1"`): "+ Añadir «X» a Provincia" — la
+     crea al vuelo vía POST a `/dashboard/municipio/add` (`OFICIAL=0`, sin
+     coordenadas) y la deja seleccionada, sin salir del formulario.
+   - **Editor**: "Usar «X» (se propondrá al administrador)" — no crea nada;
+     deja el texto tal cual en el campo y la fila se guarda a través del
+     mismo circuito de propuestas que el resto de sus altas/ediciones (no hay
+     validación de existencia en el cliente para editores).
+
+⚠️ `Html::municipioFields()` escapa el valor de `$localidad` internamente
+(HTML-escape) — pasarle un valor ya escapado (p.ej. el resultado de
+`V::e($localidad)`) produce doble escape; pasar siempre el valor crudo de la
+BD. Este fallo apareció en el primer borrador y se comprobó explícitamente en
+las pruebas antes de cerrar la Prioridad 4 (`View::capture` sobre las 6
+plantillas que usan el componente, con localidades con tilde/eñe).
+
+### Regla de negocio: la localidad manda sobre la provincia (`AdminRepo`)
+
+`AdminRepo::fijarMunicipio($localidad, $provincia)` (privado, se invoca desde
+los métodos de escritura de marcha/banda/dedicatoria) es quien de verdad
+decide qué se guarda — el JS de arriba es solo UX, no autoridad:
+
+- Solo provincia (sin localidad): válida tal cual, muchas fichas solo tienen eso.
+- Localidad **con** provincia: si el par exacto existe en el catálogo, manda
+  ese par (corrige mayúsculas/acentos a la grafía canónica) — así una
+  provincia "equivocada" enviada por error no se cuela si la localidad ya
+  fija la correcta.
+- Localidad **sin** provincia, o con una que no casa: se busca en qué
+  provincia(s) existe esa localidad. Si es una sola, se deriva de ahí. Si
+  son varias (hay nombres de municipio repetidos entre provincias) o
+  ninguna, falla.
+- Errores devueltos: `INVALID_PROVINCIA` (provincia no está en las 52 de
+  `Mapa::PROVINCIAS`), `INVALID_LOCALIDAD` (el nombre no existe en el
+  catálogo), `AMBIGUOUS_LOCALIDAD` (existe en más de una provincia y no se
+  especificó cuál).
+- Si la tabla `municipio` todavía no existe (BD sin migrar) no valida nada y
+  deja pasar los valores tal cual — el panel debe seguir usable antes del
+  seed.
+
+### Rutas
+
+| Ruta | Método | Handler | Descripción |
+|------|--------|---------|-------------|
+| `/api/municipio/fastSearch?provincia=&q=` | GET | `Admin::municipioFastSearch` | Predictivo de localidades dentro de una provincia (requiere sesión; sin ella, 401) |
+| `/dashboard/municipio/add` | POST | `Admin::municipioAddPost` | Alta directa de un par nuevo — **solo admin** (`Auth::requireAdmin()`) + CSRF |
+
+### Alta de pares nuevos (`MunicipioRepo::crear`)
+
+Valida nombre no vacío, provincia en la lista cerrada, coordenadas en rango
+si se pasan, y que el par no exista ya (`DUPLICATE`, por el `CLAVE` único).
+Inserta con `OFICIAL = 0` (para distinguirlo de los ~8.112 municipios
+oficiales del INE que trajo el seed) y registra en `admin_log`. Códigos:
+`CREATED` (+ `municipioId`), `INVALID_NOMBRE`, `INVALID_PROVINCIA`,
+`INVALID_COORDS`, `DUPLICATE`.
+
+### Consumo en el mapa público
+
+El mapa (`/mapa`, `/mapa/provincia/{slug}`) lee las coordenadas de esta misma
+tabla (`MunicipioRepo::conCoordenadas`) en vez del fichero estático
+`app/geo/municipios_es.php` — ver `docs/ux-analysis-estado.md` §4 para el
+detalle de la navegación en dos niveles y el cálculo de zoom.
+
+---
+
+## 10. Scripts de herramientas (`php/app/tools/`)
 
 Todos los scripts se ejecutan desde la raíz del repo (`mysql-simple/`). La variable de
 entorno `DB_PATH` permite apuntar a una BD distinta de la que resuelve `config.php`
