@@ -15,56 +15,42 @@
 Se comparó el catálogo actual con patrimoniomusical.com (portal de referencia
 del mismo dominio: marchas procesionales) en 4 frentes: ficha de marcha, home,
 listados/búsqueda, y páginas de entidad (compositor/banda/disco). De ahí salió
-un plan de actuación de 6 prioridades (0-5), de las cuales **4 están
-completadas, 1 en curso con una tarea de despliegue pendiente, y 1 sin
-empezar**.
+un plan de actuación de 6 prioridades (0-5), de las cuales **5 están
+completadas y solo queda la Prioridad 5** (consistencia visual del resto de
+fichas).
 
 ## 2. Estado por prioridad
 
 | # | Título | Estado | Pendiente |
 |---|--------|--------|-----------|
-| 0 | Infraestructura (servidor local, CSS 503) | ⬜ No empezada | Ver §3.1 |
+| 0 | Infraestructura (servidor local, CSS 503) | ✅ Hecha | — (ver §3.1) |
 | 1 | Ficha de marcha (compactar, pestañas) | ✅ Hecha | — |
 | 2 | Legibilidad global (versalitas monoespaciadas) | ✅ Hecha | — |
 | 3 | Listados (filtros facetados, tablas ordenables) | ✅ Hecha | — |
-| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | 🟡 Código completo | Ejecutar migración en producción (§3.2) |
-| 5 | Consistencia (aplicar compactación a compositor/banda/disco/home) | ⬜ No empezada | Es la siguiente tarea de UX pura si se retoma este plan |
+| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | ✅ Hecha | — (migración ejecutada en producción, 2026-07) |
+| 5 | Consistencia (aplicar compactación a compositor/banda/disco/home) | ⬜ No empezada | **Única tarea viva del plan** (§3.2) |
 
-## 3. Pendientes concretos para la próxima sesión
+## 3. Estado de los pendientes
 
-### 3.1 Prioridad 0 — Infraestructura (sin tocar desde el diagnóstico inicial)
+### 3.1 Prioridad 0 — Infraestructura (resuelta)
 
-- [ ] Arrancar el servidor local con varios workers para desarrollo con
-      assets: `PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t php/public php/public/index.php`
-      (el servidor embebido de PHP por defecto solo atiende una conexión a la
-      vez; con `WORKERS=1` una petición de HTML y otra de CSS en paralelo
-      hacen que una se descarte → CSS servido con 503 intermitente).
-- [ ] Documentar esto en `php/README.md` § "Desarrollo en local".
-- [ ] Para pruebas de UX/carga realistas, servir detrás de Apache/Nginx +
-      PHP-FPM en vez del servidor embebido.
+El 503 intermitente de `assets/app.css` no estaba en el código de la app: el
+servidor embebido de PHP procesa **una petición a la vez**
+(`PHP_CLI_SERVER_WORKERS=1`), así que el CSS/JS que el navegador pide en
+paralelo se encola detrás del HTML. Medido contra una página de 400 ms:
+`app.css` en ~350 ms con 1 worker frente a <1 ms con 4.
 
-### 3.2 Prioridad 4 — Ejecutar en producción (código ya en `main`/rama de feature, verificado con 81/81 smoke tests)
+- [x] `scripts/dev_server.sh`: arranca el servidor con 4 workers (configurable
+      por `WORKERS`/`HOST`/`PORT`/`DB_PATH`), comprueba que la BD existe y
+      avisa si falta `config.local.php`.
+- [x] Documentado en `php/README.md` § "Desarrollo en local" y en la
+      referencia rápida de `pendientes-post-cutover.md`.
+- [x] Cabecera MIME del CSS verificada: `Content-Type: text/css; charset=UTF-8`
+      (el `.htaccess`/servidor la emiten bien; no era parte del problema).
+- Nota: en Windows los workers se ignoran (usan `fork()`). Para pruebas de
+  carga o UX realistas, servir detrás de Apache/Nginx + PHP-FPM.
 
-El catálogo cerrado de municipios (tabla `municipio`, selector en cascada
-provincia→localidad en todo el panel admin) está completo y probado, pero
-**la migración no se ha ejecutado contra la base de datos real**:
-
-```bash
-php php/app/tools/migrate_ingest.php     # crea la tabla `municipio` (007_municipio.sql)
-php php/app/tools/seed_municipios.php    # la siembra: ~8.112 municipios oficiales (INE)
-                                          # + los pares LOCALIDAD/PROVINCIA ya usados
-                                          # en marcha/banda que no encajen (OFICIAL=0)
-```
-
-Mismo patrón que el resto de scripts de mantenimiento del proyecto: backup
-`VACUUM INTO` previo, transacción, `PRAGMA wal_checkpoint(TRUNCATE)`,
-re-ejecutable sin efecto si ya está aplicado. Tras ejecutarlo: el mapa
-(`/mapa`, `/mapa/provincia/{slug}`) empezará a leer coordenadas de esta tabla
-en vez del fichero estático `app/geo/municipios_es.php`, y los formularios de
-marcha/banda/dedicatoria/ingesta/propuestas dejarán de aceptar
-Localidad/Provincia como texto libre.
-
-### 3.3 Prioridad 5 — Consistencia (no empezada)
+### 3.2 Prioridad 5 — Consistencia (no empezada)
 
 Aplicar el mismo patrón de compactación + bloques rotulados con recuento que
 ya se aplicó a la ficha de marcha (Prioridad 1) a las fichas de **compositor,

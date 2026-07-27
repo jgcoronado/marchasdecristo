@@ -19,9 +19,14 @@ el **servidor embebido de PHP (`php -S`)**, que por defecto atiende **una conexi
 la vez** (`PHP_CLI_SERVER_WORKERS=1`): cuando el navegador pide HTML y CSS a la vez,
 una de las dos peticiones queda en cola o se descarta bajo carga.
 
-- [ ] Arrancar el servidor local con varios workers para desarrollo con assets:
-      `PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t php/public php/public/index.php`
-- [ ] Documentar esto en `php/README.md` (sección "Desarrollo en local").
+- [x] Arrancar el servidor local con varios workers para desarrollo con assets:
+      ya no hace falta recordarlo, lo hace `scripts/dev_server.sh` (4 workers por
+      defecto, `WORKERS`/`HOST`/`PORT`/`DB_PATH` configurables).
+- [x] Documentar esto en `php/README.md` (sección "Desarrollo en local").
+- [x] Confirmado el diagnóstico midiendo: con una página de 400 ms, `app.css`
+      tarda ~350 ms con `WORKERS=1` (encolado detrás del HTML) y <1 ms con
+      `WORKERS=4`. Cabecera MIME correcta (`text/css; charset=UTF-8`), no era
+      parte del problema.
 - [ ] Para pruebas de UX/carga realistas, servir detrás de Apache/Nginx + PHP-FPM.
 
 ## Análisis comparativo por vistas
@@ -56,9 +61,12 @@ enlaces con recuentos" es conceptualmente igual o mejor.
 
 ## Plan de actuación consolidado
 
-- [ ] **Prioridad 0 — Infraestructura.** Resolver el 503 del CSS y las caídas del
-      servidor en desarrollo local (workers del servidor embebido de PHP o servir
-      detrás de Apache/Nginx + PHP-FPM). Verificar cabeceras MIME del CSS.
+- [x] **Prioridad 0 — Infraestructura.** Resuelto: el 503 del CSS era la
+      serialización del servidor embebido con un solo worker, no un fallo de la
+      app. `scripts/dev_server.sh` arranca con 4 workers y comprueba BD y
+      `config.local.php`; documentado en `php/README.md`. Cabeceras MIME del CSS
+      verificadas (`text/css; charset=UTF-8`). Queda como mejora opcional servir
+      detrás de Apache/Nginx + PHP-FPM para pruebas de carga realistas.
 - [x] **Prioridad 1 — Ficha de marcha.** Compactar la rejilla de datos (menos espacio
       vertical, columnas más juntas), introducir pestañas/anclas "Datos / Escuchar /
       Grabaciones (n)", y limitar la altura del reproductor de vídeo para que no
@@ -78,7 +86,7 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         asc/desc). El orden por defecto se preserva idéntico al histórico (paridad).
       - Nota: compositores (autor) se deja como buscador por nombre; su único eje
         útil sería "nº de marchas", ya cubierto por Estadísticas.
-- [~] **Prioridad 4 — Datos.** Valorar campos adicionales que aporta
+- [x] **Prioridad 4 — Datos.** Valorar campos adicionales que aporta
       patrimoniomusical (ubicación geográfica, distinción tipo/estilo, campo libre de
       "notas/observaciones").
       - Ubicación (`LOCALIDAD`/`PROVINCIA`) y notas (`DETALLES_MARCHA`) ya existían y
@@ -280,11 +288,11 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         actualizado con la tabla `municipio` y dos filas de coordenadas
         (Sevilla, Cádiz) para no dejar ciego el smoke test del mapa de
         provincia; 81/81 smoke tests.
-        Pendiente de ejecutar por el usuario contra la BD real: `php
+        **Ejecutado contra la BD real (2026-07)**: `php
         php/app/tools/migrate_ingest.php` (crea la tabla) y luego `php
         php/app/tools/seed_municipios.php` (la siembra) — mismo patrón de
         backup VACUUM INTO + transacción + checkpoint WAL que el resto de
-        scripts de este apartado.
+        scripts de este apartado. Prioridad 4 cerrada.
 - [ ] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
       todas las vistas de entidad (compositor, banda, disco) y a home, manteniendo los
       puntos fuertes actuales (breadcrumbs, búsqueda global, "Véase también" con

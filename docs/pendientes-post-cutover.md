@@ -80,5 +80,6 @@
   (excepto `config.local.php`) → `app/`, y el contenido de `public/` → `marchasdecristo.com/`.
 - **Paridad** (tras cambios en la capa de datos):
   `cd php && node tools/parity_expected.cjs && php tools/parity_compare.php`  → 28/28.
-- **Servidor local**: `php -S localhost:8000 -t php/public php/public/index.php`.
+- **Servidor local**: `scripts/dev_server.sh` (servidor embebido con 4 workers; a
+  mano sin workers, el CSS/JS se encola detrás del HTML → 503 intermitente).
 - **Runbook de cutover** (referencia): [cutover-fase5.md](cutover-fase5.md).
