@@ -293,7 +293,29 @@ enlaces con recuentos" es conceptualmente igual o mejor.
         php/app/tools/seed_municipios.php` (la siembra) — mismo patrón de
         backup VACUUM INTO + transacción + checkpoint WAL que el resto de
         scripts de este apartado. Prioridad 4 cerrada.
-- [ ] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
+- [x] **Prioridad 5 — Consistencia.** Aplicar la compactación y el patrón de bloques a
       todas las vistas de entidad (compositor, banda, disco) y a home, manteniendo los
       puntos fuertes actuales (breadcrumbs, búsqueda global, "Véase también" con
       recuentos).
+      Al retomarla se comprobó (`git log -S` sobre `class="desc"`) que la propia
+      compactación — rejilla `dl.desc`/`.f`, cabeceras `.shead` con recuento,
+      `.vease`, tope de ancho del vídeo (`.ytembed { max-width: 30rem }`) — ya era
+      **CSS/clases compartidas** por las 4 fichas de entidad desde antes de la
+      comparativa UX (commit `4534242` para `.desc`, anterior a `8e3719c` de la
+      Prioridad 1). Lo único que la Prioridad 1 añadió y que de verdad faltaba en
+      el resto era la barra de anclas `.rectabs` ("Datos / Escuchar /
+      Grabaciones (n)") para saltar entre secciones sin scroll — eso sí no existía
+      fuera de la ficha de marcha.
+      **Hecho:** añadida la misma barra de anclas a compositor (Datos /
+      Biografía / Obra (n)), banda (Datos / Formaciones / Discografía (n) /
+      Estrenos (n) — la que más se beneficia, con 3 bloques de contenido
+      distinto igual que marcha) y disco (Datos / Notas / Contenido (n)).
+      Cada pestaña es condicional igual que en marcha: solo aparece si la
+      sección tiene contenido (p.ej. "Biografía" se omite si `BIO` está vacío).
+      Verificado sirviendo la fixture de CI a través de `scripts/dev_server.sh`:
+      los `id` de cada `.shead`/`dl.desc` casan con el `href="#..."` de su
+      pestaña en las 3 fichas, y 81/81 smoke tests.
+      **Home:** revisado sin encontrar ningún hueco real — ya usa `.ytembed`
+      (mismo tope de ancho) y `.vease`/`.cnt` en "Explorar el catálogo"; el
+      diagnóstico original ya reconocía que ganaba en estructura a
+      patrimoniomusical. Sin cambios.

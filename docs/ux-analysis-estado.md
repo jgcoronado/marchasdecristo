@@ -15,24 +15,24 @@
 Se comparó el catálogo actual con patrimoniomusical.com (portal de referencia
 del mismo dominio: marchas procesionales) en 4 frentes: ficha de marcha, home,
 listados/búsqueda, y páginas de entidad (compositor/banda/disco). De ahí salió
-un plan de actuación de 6 prioridades (0-5), de las cuales **5 están
-completadas y solo queda la Prioridad 5** (consistencia visual del resto de
-fichas).
+un plan de actuación de 6 prioridades (0-5), y **las 6 están completadas**. El
+plan que dio origen a este documento está cerrado; queda como referencia de
+arquitectura (§4) para quien retome esta zona del código.
 
 ## 2. Estado por prioridad
 
-| # | Título | Estado | Pendiente |
-|---|--------|--------|-----------|
-| 0 | Infraestructura (servidor local, CSS 503) | ✅ Hecha | — (ver §3.1) |
-| 1 | Ficha de marcha (compactar, pestañas) | ✅ Hecha | — |
-| 2 | Legibilidad global (versalitas monoespaciadas) | ✅ Hecha | — |
-| 3 | Listados (filtros facetados, tablas ordenables) | ✅ Hecha | — |
-| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | ✅ Hecha | — (migración ejecutada en producción, 2026-07) |
-| 5 | Consistencia (aplicar compactación a compositor/banda/disco/home) | ⬜ No empezada | **Única tarea viva del plan** (§3.2) |
+| # | Título | Estado |
+|---|--------|--------|
+| 0 | Infraestructura (servidor local, CSS 503) | ✅ Hecha (§3.1) |
+| 1 | Ficha de marcha (compactar, pestañas) | ✅ Hecha |
+| 2 | Legibilidad global (versalitas monoespaciadas) | ✅ Hecha |
+| 3 | Listados (filtros facetados, tablas ordenables) | ✅ Hecha |
+| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | ✅ Hecha (migración ejecutada en producción, 2026-07) |
+| 5 | Consistencia (anclas de navegación en compositor/banda/disco) | ✅ Hecha (§3.2) |
 
-## 3. Estado de los pendientes
+## 3. Resumen de las dos últimas prioridades
 
-### 3.1 Prioridad 0 — Infraestructura (resuelta)
+### 3.1 Prioridad 0 — Infraestructura
 
 El 503 intermitente de `assets/app.css` no estaba en el código de la app: el
 servidor embebido de PHP procesa **una petición a la vez**
@@ -50,12 +50,32 @@ paralelo se encola detrás del HTML. Medido contra una página de 400 ms:
 - Nota: en Windows los workers se ignoran (usan `fork()`). Para pruebas de
   carga o UX realistas, servir detrás de Apache/Nginx + PHP-FPM.
 
-### 3.2 Prioridad 5 — Consistencia (no empezada)
+### 3.2 Prioridad 5 — Consistencia
 
-Aplicar el mismo patrón de compactación + bloques rotulados con recuento que
-ya se aplicó a la ficha de marcha (Prioridad 1) a las fichas de **compositor,
-banda y disco**, y a **home**. Mantener lo que ya funciona bien: breadcrumbs,
-búsqueda global, "Véase también" con recuentos.
+Al retomarla se comprobó (`git log -S` sobre `class="desc"`) que la propia
+compactación de la Prioridad 1 — rejilla `dl.desc`/`.f`, cabeceras `.shead`
+con recuento, `.vease`, tope de ancho del vídeo (`.ytembed { max-width:
+30rem }`) — ya era **CSS/clases compartidas** por las 4 fichas de entidad
+desde antes de la comparativa UX; no había nada que "portar". Lo único
+genuinamente exclusivo de marcha era la barra de anclas `.rectabs` ("Datos /
+Escuchar / Grabaciones (n)"), así que el trabajo real fue añadir esa misma
+navegación a las otras 3 fichas:
+
+- **Compositor**: Datos / Biografía (si hay `BIO`) / Obra (n).
+- **Banda**: Datos / Formaciones / Discografía (n, si hay discos propios) /
+  Estrenos (n) — la que más se beneficia: 3 bloques de contenido distinto,
+  igual que marcha tenía Datos/Escuchar/Grabaciones.
+- **Disco**: Datos / Notas (si hay `D_DETALLES`) / Contenido (n).
+
+Cada pestaña es condicional como en marcha (se omite si la sección no tiene
+contenido). Verificado sirviendo la fixture de CI a través de
+`scripts/dev_server.sh`: los `id` de cada bloque casan con el `href="#..."`
+de su pestaña, y 81/81 smoke tests.
+
+**Home** se revisó sin encontrar ningún hueco real: ya usa `.ytembed` (mismo
+tope de ancho) y `.vease`/`.cnt` en "Explorar el catálogo", y el diagnóstico
+original ya reconocía que ganaba en estructura a patrimoniomusical. Sin
+cambios.
 
 ## 4. Decisiones de arquitectura relevantes para retomar el trabajo
 
