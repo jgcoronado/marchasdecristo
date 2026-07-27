@@ -22,6 +22,7 @@ ver [context.md](context.md) §7 y [archive/](archive/).
 11. **[entornos.md](entornos.md)** — Despliegue a producción: entornos local y PRO, pipeline (push a `main` → CI; deploy a PRO manual con mantenimiento + smoke remoto), puesta en marcha y limitaciones.
 12. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
 13. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
+14. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, qué está hecho, qué queda pendiente (incluida una migración de BD sin ejecutar en producción) y las decisiones de arquitectura clave para retomarlo. El log narrativo completo vive en `../ANALISIS_UX.md`.
 
 Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP con más detalle operativo del día a día que `context.md`.
 
