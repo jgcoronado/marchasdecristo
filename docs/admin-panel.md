@@ -365,15 +365,20 @@ DB_PATH=php/data/mdc.db php php/app/tools/export_marchas.php > tools/ingest/out/
 
 ---
 
-### `import_candidatos.php` — Importar candidatos de YouTube al panel de ingesta
+### `import_candidatos.php` — Importar candidatos al panel de ingesta
 
-Carga el fichero `candidatos.ndjson` generado por el pipeline de ingesta (Fase 2/3) en
-la tabla `ingest_candidato`. Upsert por `VIDEO_ID`: no sobreescribe candidatos ya
-revisados (aceptados/descartados/duplicados).
+Carga un `candidatos.ndjson` en la tabla `ingest_candidato`. Sirve a los dos
+descubridores: el de YouTube (`tools/ingest/*.mjs`) y el del catálogo de streaming
+de las bandas (`tools/music_links/descubrir_marchas.py`, ver
+[ingesta-streaming.md](ingesta-streaming.md)).
+
+Upsert por origen (`VIDEO_ID`): no sobreescribe candidatos ya revisados
+(aceptados/descartados/duplicados) y **salta los orígenes vetados**
+(`ingest_veto`), aunque su fila de candidato ya no exista.
 
 ```bash
 php php/app/tools/import_candidatos.php tools/ingest/out/candidatos.ndjson
-DB_PATH=php/data/mdc.db php php/app/tools/import_candidatos.php tools/ingest/out/candidatos.ndjson
+DB_PATH=php/data/mdc.db php php/app/tools/import_candidatos.php tools/music_links/out/candidatos.ndjson
 ```
 
 ---
@@ -393,7 +398,10 @@ DB_PATH=php/data/mdc.db php php/app/tools/load_canales.php tools/ingest/config/c
 ### `migrate_ingest.php` — Aplicar migraciones de staging (tablas de ingesta)
 
 Ejecuta en orden alfabético todos los `.sql` de `php/app/tools/sql/` contra la BD.
-Los `.sql` son todos `CREATE ... IF NOT EXISTS`, así que es idempotente.
+Los `.sql` son todos `CREATE ... IF NOT EXISTS`, así que es idempotente. Las
+columnas nuevas sobre tablas ya existentes (SQLite no tiene `ADD COLUMN IF NOT
+EXISTS`) se aplican al final del script comprobando antes `PRAGMA table_info`,
+que mantiene esa misma promesa.
 
 ```bash
 DB_PATH=php/data/mdc.db php php/app/tools/migrate_ingest.php
@@ -482,3 +490,60 @@ php php/app/tools/migrate_roles.php
 php php/app/tools/migrate_roles.php --admin estprocesional
 DB_PATH=/ruta/a/mdc.db php php/app/tools/migrate_roles.php
 ```
+
+---
+
+## 11. Ingesta de marchas — fuentes, veto de descartes y deshacer
+
+`/dashboard/ingesta` (solo rol `admin`) revisa los candidatos de
+`ingest_candidato` y los convierte en marchas. Desde 2026-07-28 deja de ser
+específico de YouTube: cada candidato lleva una columna `FUENTE`
+(`youtube` | `spotify` | `deezer` | `apple`). El pipeline completo del origen
+de streaming está en [ingesta-streaming.md](ingesta-streaming.md).
+
+### Qué cambia según la fuente
+
+| | `youtube` | `spotify` / `deezer` / `apple` |
+|---|---|---|
+| Reproductor en el detalle | embed de YouTube | widget de Deezer / reproductor de Spotify / enlace externo (Apple) |
+| Contexto extra | descripción del vídeo | disco de origen (`FUENTE_ALBUM`, con enlace) |
+| Al aceptar, la URL va a… | `marcha.AUDIO` | `enlace_streaming` (marcha + servicio, `VERIFICADO = 1`) |
+
+El resto del formulario es idéntico: mismos campos que "Añadir marcha",
+autocompletado de autor y dedicatoria, selector de municipio y estilo sugerido
+(ahora respeta el `P_ESTILO` que propone el descubridor, y si no lo hay lo
+deduce de las marchas previas de la banda, como antes).
+
+### Veto: un descarte no vuelve a aparecer
+
+Descartar (individual o masivo) escribe en **`ingest_veto`** una fila con el
+origen exacto (`FUENTE` + `FUENTE_ID`), la banda, el título y el motivo. Efectos:
+
+- `import_candidatos.php` salta ese origen en cualquier importación futura,
+  incluso si la fila de `ingest_candidato` se purgó.
+- `descubrir_marchas.py` no lo propone.
+- La reevaluación automática (`IngestaRepo::reevaluarTrasCrearMarcha`,
+  `reevaluar_ingesta.php`) **no reabre** candidatos vetados, aunque después se
+  cree una marcha de título parecido.
+
+El veto es **por origen exacto**: la misma marcha vista en otro servicio puede
+volver a proponerse, y ahí el revisor vuelve a decidir.
+
+### Deshacer el último descarte
+
+`POST /dashboard/ingesta/deshacer-descarte` (botón `↩ Deshacer último descarte`
+en el listado, visible solo cuando hay algo que deshacer). Devuelve los
+candidatos a `pendiente`, borra su `MOTIVO`/`REVIEWED_AT` y levanta su veto.
+
+- **Un solo paso**: `ingest_descarte_ultimo` es una fila única (`ID = 1`) que
+  cada descarte nuevo sustituye; deshacer la consume y el botón desaparece.
+- Un descarte masivo se deshace **entero** (guarda la lista de ids).
+- Queda registrado en `admin_log` como `UNDO_DISCARD`.
+- Para recuperar algo más antiguo: pestaña **Descartados** (el candidato sigue
+  ahí con su motivo).
+
+### Rutas de escritura añadidas
+
+| Ruta | Handler | Qué hace |
+|---|---|---|
+| `POST /dashboard/ingesta/deshacer-descarte` | `Admin::ingestaDeshacerDescarte` | Deshace el último descarte (CSRF + rol admin) |

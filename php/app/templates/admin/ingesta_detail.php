@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth; use App\Html as H;
+<?php use App\View as V; use App\Auth; use App\Html as H; use App\IngestaRepo;
 /** @var array $session @var array<string,mixed> $cand
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string,score:float}> $autoresAuto
  *  @var list<string> $autoresSugeridos @var string $back
@@ -15,12 +15,20 @@ $fields = [
 $candLocalidad = (string) ($cand['P_LOCALIDAD'] ?? '');
 $candProvincia = is_string($cand['P_PROVINCIA'] ?? null) && $cand['P_PROVINCIA'] !== '' ? (string) $cand['P_PROVINCIA'] : null;
 $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
+
+// Origen del candidato: YouTube (pipeline yt-dlp) o el catálogo de streaming
+// de la banda (Spotify/Deezer/Apple). Cambia el reproductor, la etiqueta de
+// los enlaces y dónde se guarda la URL al aceptar.
+$fuente = (string) ($cand['FUENTE'] ?? 'youtube');
+$fuenteLabel = IngestaRepo::FUENTE_LABEL[$fuente] ?? ucfirst($fuente);
+$esYoutube = $fuente === 'youtube';
+$embed = IngestaRepo::embedUrl($fuente, (string) $cand['VIDEO_ID']);
 ?>
 <div class="stack admin-form">
     <div class="admin-bar">
         <h1>Revisar candidato #<?= (int) $cand['ID_CAND'] ?></h1>
         <div class="row">
-            <a class="btn btn-sm btn-ghost" href="<?= V::e($cand['VIDEO_URL']) ?>" target="_blank">Vídeo original ↗</a>
+            <a class="btn btn-sm btn-ghost" href="<?= V::e($cand['VIDEO_URL']) ?>" target="_blank"><?= $esYoutube ? 'Vídeo original' : 'Escuchar en ' . V::e($fuenteLabel) ?> ↗</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta<?= $back !== '' ? '?' . V::e($back) : '' ?>">← Volver</a>
         </div>
     </div>
@@ -43,13 +51,28 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
     <div class="panel">
         <div class="row" style="flex-wrap:wrap;gap:1rem">
             <div style="flex:1;min-width:280px">
+<?php if ($embed !== null): ?>
                 <iframe width="100%" height="220" style="border-radius:var(--radius-sm);border:1px solid var(--border)"
-                        src="https://www.youtube.com/embed/<?= V::e($cand['VIDEO_ID']) ?>"
-                        title="Vídeo de YouTube" frameborder="0" allowfullscreen></iframe>
+                        src="<?= V::e($embed) ?>"
+                        title="Reproductor de <?= V::e($fuenteLabel) ?>" frameborder="0" allowfullscreen
+                        allow="encrypted-media; clipboard-write"></iframe>
+<?php else: ?>
+                <p class="small muted"><?= V::e($fuenteLabel) ?> no permite incrustar la pista aquí; ábrela con el enlace de arriba para escucharla.</p>
+<?php endif; ?>
             </div>
             <div style="flex:1;min-width:280px" class="stack">
                 <p><strong>Título original:</strong> <?= V::e($cand['VIDEO_TITULO']) ?></p>
-                <p class="small muted">Publicado: <?= V::e($cand['PUBLICADO_AT']) ?> ·
+<?php if (!empty($cand['FUENTE_ALBUM'])): ?>
+                <p class="small">Disco de origen:
+<?php if (!empty($cand['FUENTE_ALBUM_URL'])): ?>
+                    <a href="<?= V::e($cand['FUENTE_ALBUM_URL']) ?>" target="_blank"><?= V::e($cand['FUENTE_ALBUM']) ?> ↗</a>
+<?php else: ?>
+                    <?= V::e($cand['FUENTE_ALBUM']) ?>
+<?php endif; ?>
+                </p>
+<?php endif; ?>
+                <p class="small muted">Fuente: <?= V::e($fuenteLabel) ?> ·
+                    <?= $esYoutube ? 'Publicado' : 'Fecha' ?>: <?= V::e($cand['PUBLICADO_AT']) ?: '—' ?> ·
                     Duración: <?= $cand['DURACION_SEG'] ? gmdate('i:s', (int) $cand['DURACION_SEG']) : '—' ?> ·
                     Clasificación: <span class="badge badge-<?= V::e($cand['CLASIFICACION']) ?>"><?= V::e($cand['CLASIFICACION']) ?></span> ·
                     Confianza: <?= (int) round(((float) $cand['CONFIANZA']) * 100) ?>%
@@ -59,10 +82,12 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
 <?php endif; ?>
             </div>
         </div>
+<?php if (!empty($cand['VIDEO_DESC'])): ?>
         <details>
-            <summary class="small muted" style="cursor:pointer">Ver descripción original del vídeo</summary>
+            <summary class="small muted" style="cursor:pointer">Ver descripción original<?= $esYoutube ? ' del vídeo' : '' ?></summary>
             <p class="small" style="white-space:pre-wrap"><?= V::e($cand['VIDEO_DESC']) ?></p>
         </details>
+<?php endif; ?>
     </div>
 
 <?php if ($cand['ESTADO'] === 'pendiente'): ?>
@@ -134,8 +159,10 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
 
         <div class="field">
             <label class="row" style="align-items:center;gap:0.4rem;cursor:pointer">
-                <input type="checkbox" id="guardar_audio" name="guardar_audio" value="1" checked>
-                Guardar el vídeo como audio de la marcha
+                <input type="checkbox" id="guardar_origen" name="guardar_origen" value="1" checked>
+<?= $esYoutube
+    ? 'Guardar el vídeo como audio de la marcha'
+    : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha' ?>
             </label>
         </div>
 
@@ -149,6 +176,7 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
         <p class="small" style="color:var(--color-danger,#dc2626);font-weight:600;margin-bottom:0.5rem">⚠ Zona de descarte</p>
+        <p class="small muted" style="margin-bottom:0.5rem">Al descartarlo, este origen queda vetado y no volverá a proponerse en futuras pasadas. Si te equivocas, puedes deshacerlo desde el listado (solo el último descarte).</p>
         <div class="row" style="align-items:flex-end;gap:0.75rem;flex-wrap:wrap">
             <div class="field" style="flex:1;min-width:220px;margin-bottom:0">
                 <label class="field-label" for="motivo">Motivo del descarte (opcional)</label>

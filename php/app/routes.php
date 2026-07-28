@@ -209,6 +209,7 @@ $router->post('/dashboard/propuesta/{id}/rechazar', [Admin::class, 'propuestaRec
 // ── Ingesta (revisión de candidatos de YouTube, ver tools/ingest/) ───────────
 $router->get('/dashboard/ingesta', [Admin::class, 'ingestaList']);
 $router->post('/dashboard/ingesta/descartar-multiple', [Admin::class, 'ingestaDescartarMultiple']);
+$router->post('/dashboard/ingesta/deshacer-descarte', [Admin::class, 'ingestaDeshacerDescarte']);
 $router->get('/dashboard/ingesta/{id}', [Admin::class, 'ingestaDetail']);
 $router->post('/dashboard/ingesta/{id}/aceptar', [Admin::class, 'ingestaAceptar']);
 $router->post('/dashboard/ingesta/{id}/descartar', [Admin::class, 'ingestaDescartar']);
