@@ -26,6 +26,14 @@ if (!empty($config['debug'])) {
     error_reporting(E_ALL & ~E_DEPRECATED);
 }
 
+// Preproducción: además del noindex por página (layout) y del robots.txt en
+// Disallow total (Pages::robots), la cabecera cubre TODA respuesta PHP —
+// sitemap, API JSON, feeds, llms.txt — para que ningún rastreador indexe el
+// host de pruebas aunque llegue por una ruta que no emite HTML.
+if (!empty($config['preproduccion'])) {
+    header('X-Robots-Tag: noindex, nofollow');
+}
+
 // Modo mantenimiento: scripts/sync_db_to_prod.php crea/borra este centinela
 // (mismo directorio que el .db, sin config nueva) mientras reemplaza el
 // fichero por FTP. Se comprueba antes que nada más para no leer un .db a

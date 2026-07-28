@@ -148,6 +148,9 @@ main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
 
+/* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
+   las páginas del host de pruebas para no confundir nunca PRE con PRO. */
+.pre-ribbon { background: var(--rec-bg); color: var(--rec); font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; text-align: center; padding: 0.35rem 1rem; border-bottom: 1px solid var(--line); }
 
 footer { border-top: 1px solid var(--line); background: var(--card); }
 footer .inner { max-width: var(--wrap); margin: 0 auto; padding: 0.9rem 1rem; text-align: center; font-size: 0.74rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }

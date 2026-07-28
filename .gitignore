@@ -2,6 +2,10 @@
 /.env
 /.env.ftp
 
+# Desvío de APP_DIR por host: lo genera el deploy de PRE y solo debe existir
+# allí — versionarlo haría que producción cargase el app/ de preproducción.
+/php/public/env.php
+
 # Runtime data
 /data
 /snapshots

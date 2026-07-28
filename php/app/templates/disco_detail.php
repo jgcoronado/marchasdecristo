@@ -7,7 +7,7 @@ $did = (int) $d['ID_DISCO'];
 $anio = (int) (float) ($d['FECHA_CD'] ?? 0);
 $multi = (int) $d['DISCOS'] > 1;
 $nP = (int) $d['marchasLength'];
-$coverSrc = '/cover/' . $did . '.png';
+$coverSrc = H::coverSrc($did);
 $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
 
 $asiento = [];

@@ -1,19 +1,20 @@
 name: Deploy
 
-# Pipeline de despliegue de CÓDIGO a PRODUCCIÓN. La base de datos va aparte y
-# siempre manual: scripts/sync_db_to_prod.php.
+# Pipeline de despliegue de CÓDIGO. La base de datos va aparte y siempre
+# manual: scripts/sync_db_to_prod.php.
 #
-#   push a main       → verify (CI reutilizable). NO despliega solo.
-#   workflow_dispatch → verify → deploy a PRO (el gesto de «valido en local y
-#                       promociono»). Para rollback: Run workflow eligiendo un
-#                       tag/commit anterior en el desplegable de ref.
-#
-# La validación previa se hace en LOCAL (no hay entorno de preproducción).
+#   push a pre        → verify (CI reutilizable) → deploy a PRE → smoke remoto PRE
+#   push a main       → verify → deploy a PRO (con mantenimiento) → smoke remoto PRO
+#                       (una fusión de `pre` en `main` es un push a main: promociona)
+#   workflow_dispatch → verify → deploy al entorno elegido. Para rollback: Run
+#                       workflow eligiendo un tag/commit anterior en el
+#                       desplegable de ref.
 #
 # Secrets requeridos (Settings → Secrets and variables → Actions):
 #   FTP_HOST, FTP_USER, FTP_PASSWORD  — credenciales FTP de HelioHost
 # Variables opcionales:
-#   PRO_BASE_URL                      — para sobrescribir la URL por defecto
+#   PRE_BASE_URL / PRO_BASE_URL       — para sobrescribir las URLs por defecto
+#   PRE_REMOTE_DOCROOT                — docroot del subdominio de PRE en el FTP
 #
 # El pipeline NUNCA toca: config.local.php (secretos por host), private/
 # (BD, backups, propuestas, rate-limit), cover/ (las portadas solo viven en
@@ -21,11 +22,18 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, pre]
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Entorno de destino'
+        type: choice
+        options: [pro, pre]
+        default: pro
 
 # Un despliegue cada vez, sin cancelar el que esté en curso (un mirror FTP
-# interrumpido a mitad deja el entorno en un estado mixto).
+# interrumpido a mitad deja el entorno en un estado mixto). PRE y PRO comparten
+# grupo a propósito: es la misma cuenta FTP.
 concurrency:
   group: deploy
   cancel-in-progress: false
@@ -49,9 +57,81 @@ jobs:
         run: |
           [ -n "$FTP_HOST" ] && echo "ftp=true" >> "$GITHUB_OUTPUT" || echo "ftp=false" >> "$GITHUB_OUTPUT"
 
+  deploy-pre:
+    needs: [verify, check-config]
+    if: |
+      needs.check-config.outputs.ftp == 'true' && (
+        (github.event_name == 'push' && github.ref_name == 'pre') ||
+        (github.event_name == 'workflow_dispatch' && inputs.target == 'pre')
+      )
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ vars.PRE_BASE_URL || 'https://marchasdecristo.jaguerra27.helioho.st' }}
+      PRE_DOCROOT: ${{ vars.PRE_REMOTE_DOCROOT || 'marchasdecristo.jaguerra27.helioho.st' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, json
+          coverage: none
+
+      - name: Instalar lftp
+        run: sudo apt-get update -q && sudo apt-get install -y -q lftp
+
+      # El subdominio de PRE es HERMANO del docroot de PRO dentro de la misma
+      # cuenta, así que index.php resolvería el mismo app/ en los dos y PRE
+      # serviría el código de producción. env.php desvía APP_DIR a pre/app. Se
+      # genera aquí (no está en el repo) para que el mirror de PRO nunca lo
+      # lleve; si faltara, el smoke de PRE lo caza: /health diría «entorno: prod».
+      - name: Generar el desvío de APP_DIR para PRE
+        run: |
+          cat > php/public/env.php <<'PHP'
+          <?php
+
+          declare(strict_types=1);
+
+          // Generado por .github/workflows/deploy.yml (job deploy-pre). No editar a mano.
+          //
+          // Rutas SIEMPRE relativas al docroot: el home de HelioHost está
+          // enjaulado y su ruta absoluta no es la que se ve en el panel.
+          // __DIR__ = docroot de PRE, así que dirname(__DIR__) = raíz de la cuenta.
+          return [
+              'app_dir'       => dirname(__DIR__) . '/pre/app',
+              'data_dir'      => dirname(__DIR__) . '/private',  // BD compartida con PRO
+              'preproduccion' => true,   // fail-safe de noindex, aunque falte config.local.php
+          ];
+          PHP
+          php -l php/public/env.php
+
+      - name: Desplegar código a PRE (lftp mirror)
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -u "$FTP_USER,$FTP_PASSWORD" "ftp://$FTP_HOST" <<LFTP
+          set cmd:fail-exit true
+          set ftp:ssl-allow false
+          set net:max-retries 2
+          set net:timeout 30
+          mirror -R --delete --parallel=2 -x '^config\.local\.php\$' php/app pre/app
+          mirror -R --delete --parallel=2 -x '^cover/' -x '^\.well-known/' php/public $PRE_DOCROOT
+          quit
+          LFTP
+
+      - name: Smoke remoto contra PRE
+        run: php php/tools/smoke_remote.php "$BASE_URL" --pre
+
   deploy-pro:
     needs: [verify, check-config]
-    if: github.event_name == 'workflow_dispatch' && needs.check-config.outputs.ftp == 'true'
+    if: |
+      needs.check-config.outputs.ftp == 'true' && (
+        (github.event_name == 'push' && github.ref_name == 'main') ||
+        (github.event_name == 'workflow_dispatch' && inputs.target == 'pro')
+      )
     runs-on: ubuntu-latest
     env:
       BASE_URL: ${{ vars.PRO_BASE_URL || 'https://marchasdecristo.com' }}
@@ -82,6 +162,9 @@ jobs:
           quit
           LFTP
 
+      # -x env.php: red de seguridad. Ese fichero solo debe existir en PRE (lo
+      # genera deploy-pre); si alguna vez acabara en el repo, subirlo aquí haría
+      # que PRODUCCIÓN cargase el app/ de preproducción.
       - name: Desplegar código a PRO (lftp mirror)
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
@@ -94,7 +177,7 @@ jobs:
           set net:max-retries 2
           set net:timeout 30
           mirror -R --delete --parallel=2 -x ^config\.local\.php$ php/app app
-          mirror -R --delete --parallel=2 -x ^cover/ -x ^\.well-known/ php/public marchasdecristo.com
+          mirror -R --delete --parallel=2 -x ^cover/ -x ^\.well-known/ -x ^env\.php$ php/public marchasdecristo.com
           quit
           LFTP
 

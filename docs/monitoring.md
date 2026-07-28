@@ -80,7 +80,7 @@ lo detecta por keyword ausente + código 503).
   rota en `/marcha/{id}` que lance una excepción solo en esa ruta).
 - Expiración de certificado TLS con antelación (ver tabla arriba).
 - Regresiones de contenido/SEO — de eso se encargan el CI (`ci_smoke.php`,
-  contra una fixture) y el smoke remoto tras cada deploy a PRO
+  contra una fixture) y el smoke remoto tras cada deploy a PRE y a PRO
   (`php/tools/smoke_remote.php`, contra datos reales — ver
   [entornos.md](entornos.md)), no el monitor de uptime.
 - Cualquier cosa mientras la respuesta siga conteniendo `db: ok` con 2xx/3xx.
@@ -115,13 +115,13 @@ del despliegue.
 o, si se actualiza primero el monitor, hay que esperar al despliegue antes
 de fiarse del resultado.
 
-> **Actualización (M5, 2026-07-16)**: con el pipeline de despliegue de
-> [entornos.md](entornos.md) este desfase ya no ocurre por olvido — el código
-> de `main` llega a producción con el botón de deploy, no por FTP a mano.
-> Quedan dos ecos menores del mismo fenómeno: el desfase existe *hasta que
-> pulses el botón* (la validación previa se hace en local), y el propio deploy
-> de PRO activa el modo mantenimiento unos segundos (mismo caso benigno que el
-> sync de BD, caso 1).
+> **Actualización (M5, 2026-07-16 · PRE reintroducido el 2026-07-28)**: con el
+> pipeline de despliegue de [entornos.md](entornos.md) este desfase ya no ocurre
+> por olvido — el código de `main` llega a producción solo, no por FTP a mano.
+> Queda un eco menor del mismo fenómeno: PRE va por delante de PRO mientras la
+> rama no se fusiona (que es justo el diseño), y el propio deploy de PRO activa
+> el modo mantenimiento unos segundos (mismo caso benigno que el sync de BD,
+> caso 1).
 
 ## Runbook — qué hacer si salta la alerta
 

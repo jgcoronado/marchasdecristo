@@ -1131,6 +1131,14 @@ final class Pages
         header('Content-Type: text/plain; charset=UTF-8');
         Http::cachePublic(86400);
 
+        // Preproducción: bloqueo total, sin anunciar el sitemap. El host de
+        // pruebas jamás debe competir con producción como contenido duplicado.
+        if (!empty($GLOBALS['config']['preproduccion'])) {
+            echo "User-Agent: *\n";
+            echo "Disallow: /\n";
+            return;
+        }
+
         $base = self::base();
         echo "User-Agent: *\n";
         echo "Allow: /\n";
