@@ -380,8 +380,13 @@ $tests = [
     },
     'mapa de provincia: municipio clicable, rotulado y con color de contraste + viewBox recortado' => static function () use ($base): void {
         $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
-        if (!str_contains($r['body'], '<a href="/marcha?localidad=Sevilla"><circle class="mapa-punto mapa-punto-n')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería ser un punto clicable');
+        // El enlace abre con la diana transparente (App\Mapa::radioHit) y el
+        // punto visible va detrás: un blanco de 8 px no se puede pulsar.
+        if (!str_contains($r['body'], '<a href="/marcha?localidad=Sevilla"><circle class="mapa-punto-hit"')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería ser un punto clicable, con su diana de clic');
+        }
+        if (!str_contains($r['body'], '<circle class="mapa-punto mapa-punto-n')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → falta el punto visible coloreado por recuento');
         }
         if (!str_contains($r['body'], '<text class="mapa-punto-label"') || !str_contains($r['body'], '>Sevilla</text>')) {
             throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería llevar su nombre rotulado');

@@ -305,11 +305,24 @@ ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
 .toolbar .sortby a.on { color: var(--acc); font-weight: 600; }
 .toolbar .clearall { margin-left: auto; font-size: 0.88rem; color: var(--muted-c); text-decoration: none; }
 .toolbar .clearall:hover { color: var(--acc); }
-details.adv > summary { cursor: pointer; font-size: 0.88rem; color: var(--muted-c); list-style: none; }
+/* Búsqueda avanzada: desplegable en línea, sin tarjeta. Complementa a las
+   facetas de la izquierda (que solo cubren tipo, estilo, provincia y década);
+   aquí van los criterios de texto libre que aquéllas no pueden ofrecer. */
+details.adv { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+details.adv > summary { cursor: pointer; font-size: 0.9rem; color: var(--muted-c); list-style: none; display: inline-flex; align-items: baseline; gap: 0.35rem; }
 details.adv > summary::-webkit-details-marker { display: none; }
-details.adv > summary::before { content: "▸ "; }
-details.adv[open] > summary::before { content: "▾ "; }
-details.adv[open] > summary { margin-bottom: 0.5rem; }
+details.adv > summary:hover { color: var(--acc); }
+details.adv > summary::before { content: "▸"; font-size: 0.7em; color: var(--faint); }
+details.adv[open] > summary::before { content: "▾"; }
+.adv-form { margin-top: 0.8rem; }
+.adv-grid { display: grid; grid-template-columns: 1fr; gap: 0.7rem 1.1rem; }
+@media (min-width: 640px) { .adv-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .adv-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.adv-rango { display: flex; align-items: center; gap: 0.4rem; }
+.adv-rango .input { width: 100%; min-width: 0; }
+.adv-rango span { color: var(--faint); }
+.adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
+.adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
 .results-layout { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: start; }
 @media (min-width: 720px) { .results-layout { grid-template-columns: 12.5rem 1fr; } }
 .facet-rail { display: flex; flex-direction: column; gap: 1.1rem; }
@@ -634,7 +647,11 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
    rampa --pt-1..4, ver :root) y el nombre va rotulado al lado. Posición
    aproximada: transformación afín calibrada contra el propio SVG, no una
    proyección cartográfica exacta. */
-.mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease; }
+/* Diana invisible que recibe el clic (App\Mapa::radioHit): el punto visible es
+   pequeño a propósito, pero pulsar un blanco de 8 px es imposible. No se pinta
+   —solo captura el puntero— así que no añade nada al mapa. */
+.mapa-punto-hit { fill: transparent; stroke: none; }
+.mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; pointer-events: none; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease, r 0.12s ease; }
 /* background además de fill: estas mismas clases se reutilizan en la
    leyenda (span de HTML, no SVG), que solo pinta con background. */
 .mapa-punto-n1 { fill: var(--pt-1); background: var(--pt-1); }
@@ -647,8 +664,19 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 /* .mapa-svg text (arriba) fija font-size/stroke para el rótulo de provincia
    del mapa nacional; sube la especificidad aquí para que no se lo lleve por
    delante también en el mapa de provincia. */
-.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.22); stroke-linejoin: round; }
-.mapa-puntos a:hover .mapa-punto, .mapa-puntos a:focus-visible .mapa-punto { stroke-opacity: 1; stroke-width: 0.9; }
+/* El rótulo va oculto y solo sale al señalar su punto. Pintados todos a la vez,
+   un centenar de nombres se solapaban en una maraña ilegible que además tapaba
+   los propios puntos. Los nombres completos siguen en la tabla de la página,
+   que es donde se leen bien y se pueden buscar. */
+.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.3); stroke-linejoin: round; opacity: 0; transition: opacity 0.12s ease; }
+.mapa-puntos a:hover .mapa-punto-label, .mapa-puntos a:focus-visible .mapa-punto-label { opacity: 1; }
+/* Realce al señalar: el mismo trazo, pero opaco. Ni se engorda (con
+   stroke-width 0.9 sobre un radio de 0.41 el trazo se comía el círculo entero
+   y el punto salía como un borrón negro) ni se tiñe de --acc (que es el color
+   de fondo de la propia provincia: el punto desaparecía). Quien de verdad
+   señala cuál es el municipio activo es el rótulo, que aparece justo encima. */
+.mapa-puntos a:hover .mapa-punto, .mapa-puntos a:focus-visible .mapa-punto { stroke-opacity: 1; }
+.mapa-puntos a { cursor: pointer; }
 .mapa-puntos a:focus-visible { outline: 1px solid var(--ink); }
 .mapa-leyenda { display: flex; flex-wrap: wrap; gap: 0.9rem; list-style: none; margin: 0.8rem 0 0; padding: 0; font-size: 0.76rem; color: var(--muted-c); }
 .mapa-leyenda li { display: flex; align-items: center; gap: 0.35rem; }

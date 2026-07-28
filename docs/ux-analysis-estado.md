@@ -203,6 +203,52 @@ oscuro y móvil (390px).
 > noche», gramática de catálogo bibliográfico). Se conserva como registro
 > histórico: los criterios vigentes son los de la cabecera de `app.css`.
 
+### Correcciones posteriores
+
+**Mapa de provincia: no se podía pulsar ningún municipio.** Reportado sobre
+`/mapa/provincia/sevilla`, con el cursor parpadeando entre la mano y la flecha.
+Reproducido sembrando la fixture con los 105 municipios reales de Sevilla desde
+`app/geo/municipios_es.php`. Dos causas, ambas arregladas:
+
+1. *El blanco de clic medía 8 px.* El punto visible es pequeño a propósito
+   (`Mapa::radio`, para que no se fundan unos con otros), pero era también el
+   área pulsable. Ahora cada municipio lleva delante un círculo transparente
+   (`Mapa::radioHit`, `.mapa-punto-hit`) de unos **27 px de diámetro**. El
+   rótulo, que es lo que el visitante intenta pulsar, nunca fue pulsable: no
+   se ha hecho pulsable porque con un centenar de nombres solapados robaría
+   clics a los vecinos; la salida sigue siendo el zoom, que separa los puntos
+   manteniendo su tamaño aparente.
+2. *Se reordenaba el DOM al pasar el ratón.* `initTraerAlFrente` hacía
+   `capa.appendChild(a)` en cada `pointerenter` para pintar el punto señalado
+   sobre sus vecinos. Mover un nodo lo saca y lo reinserta en el árbol, con lo
+   que el navegador recalcula el hover: de ahí el parpadeo del cursor y los
+   clics perdidos. **Eliminado**; el orden de pintado se decide ahora en
+   servidor y es fijo (por número de marchas ascendente, así los de más
+   recuento quedan delante). Los tres comentarios de `mapa.js` que describían
+   parches contra este mismo reordenamiento quedan sin objeto.
+
+De paso, los 105 rótulos se solapaban en una maraña ilegible que además tapaba
+los propios puntos: ahora **el nombre solo aparece al señalar su municipio**.
+Los nombres completos siguen, ordenados y buscables, en la tabla de la misma
+página. Verificado: diana de 27,7 px, **0 reordenamientos del DOM** en 60
+movimientos sobre la zona densa y **8/8 municipios navegan** al pulsarlos.
+
+> No se pudo reproducir el parpadeo exacto en Chromium *headless*, que es el
+> único navegador disponible en el entorno de desarrollo; el reportante usa
+> Firefox. La causa señalada es, aun así, la única parte del código que movía
+> nodos bajo el cursor, y se ha retirado.
+
+**Búsqueda avanzada de los listados.** Era un `.panel` (tarjeta con borde) que,
+plegado, dejaba un bloque en blanco de ~110 px entre la barra y los resultados;
+ahora son **34 px**: un desplegable en línea separado por un filete, sin
+tarjeta, con la rejilla a tres columnas. Además, «Resultados por página» era un
+`<select>` **dentro del formulario de búsqueda**: cambiar cuántos resultados ver
+obligaba a desplegar el panel y enviar el formulario, cuando no es un criterio
+de búsqueda sino una preferencia de visualización. Pasa a la barra de
+resultados, junto a «orden», como enlaces (`Html::porPagina()`). Aplicado a los
+cinco listados —marchas, bandas, discos, dedicatorias y compositores— porque
+dejar solo uno cambiado era justo la incoherencia que se quería corregir.
+
 ## 5. Dónde está cada cosa
 
 - **Log narrativo completo** (todo el detalle de bugs, criterios, decisiones

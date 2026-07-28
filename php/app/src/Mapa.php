@@ -243,6 +243,17 @@ final class Mapa
         return $viewBoxWidth * 0.0055;
     }
 
+    /** Radio del círculo transparente que recibe el clic. Más de tres veces el
+     *  del punto visible: con la escala típica de una provincia eso son unos
+     *  26 px de diámetro en pantalla (el punto visible ronda los 8), que ya es
+     *  un blanco cómodo de pulsar, también con el dedo. En zonas muy densas
+     *  las dianas se solapan; la salida es el zoom, que separa los puntos
+     *  manteniendo su tamaño aparente (mapa.js: rescalePuntos). */
+    private static function radioHit(float $viewBoxWidth): float
+    {
+        return $viewBoxWidth * 0.018;
+    }
+
     /** Añade la capa de puntos (uno por localidad) a un <svg> ya cargado en
      *  $dom, coloreados por recuento (self::nivelLocalidad) y con el nombre
      *  del municipio rotulado encima — solo para el mapa ampliado de una
@@ -256,31 +267,58 @@ final class Mapa
         }
         $fontSize = $viewBoxWidth * 0.015;
         $r = self::radio($viewBoxWidth);
+        $rHit = self::radioHit($viewBoxWidth);
         $capa = $dom->createElement('g');
         $capa->setAttribute('class', 'mapa-puntos');
         $capa->setAttribute('style', "--mapa-punto-font: {$fontSize}px");
-        foreach ($puntos as $p) {
-            $c = $dom->createElement('circle');
-            $c->setAttribute('class', 'mapa-punto mapa-punto-n' . self::nivelLocalidad($p['n']));
-            $c->setAttribute('cx', (string) round($p['x'], 2));
-            $c->setAttribute('cy', (string) round($p['y'], 2));
-            $c->setAttribute('r', (string) round($r, 2));
 
-            $label = $dom->createElement('text');
-            $label->setAttribute('class', 'mapa-punto-label');
-            $label->setAttribute('x', (string) round($p['x'], 2));
-            $label->setAttribute('y', (string) round($p['y'] - $r - $fontSize * 0.3, 2));
-            $label->setAttribute('text-anchor', 'middle');
-            $label->appendChild($dom->createTextNode($p['localidad']));
+        // Orden de pintado FIJO, decidido aquí y no al pasar el ratón: los
+        // municipios con menos marchas van primero, así los de más recuento
+        // (los que más se buscan) quedan por delante donde se solapen. Antes
+        // esto se hacía moviendo el <a> en el DOM en cada pointerenter, lo que
+        // deja el cursor parpadeando y se come el clic — ver mapa.js.
+        usort($puntos, static fn(array $a, array $b): int => $a['n'] <=> $b['n']);
+
+        foreach ($puntos as $p) {
+            $cx = (string) round($p['x'], 2);
+            $cy = (string) round($p['y'], 2);
+
+            // Diana invisible: el punto visible es deliberadamente pequeño
+            // (con un centenar de municipios, puntos grandes se funden unos con
+            // otros), pero un blanco de 8 px es imposible de pulsar. Este
+            // círculo transparente le da un área cómoda sin ocupar tinta.
+            $hit = $dom->createElement('circle');
+            $hit->setAttribute('class', 'mapa-punto-hit');
+            $hit->setAttribute('cx', $cx);
+            $hit->setAttribute('cy', $cy);
+            $hit->setAttribute('r', (string) round($rHit, 2));
 
             $title = $dom->createElement('title');
             $title->appendChild($dom->createTextNode(
                 $p['localidad'] . ' (' . $p['provincia'] . '): ' . number_format($p['n'], 0, ',', '.') . ' marcha' . ($p['n'] === 1 ? '' : 's')
             ));
-            $c->appendChild($title);
+            $hit->appendChild($title);
+
+            $c = $dom->createElement('circle');
+            $c->setAttribute('class', 'mapa-punto mapa-punto-n' . self::nivelLocalidad($p['n']));
+            $c->setAttribute('cx', $cx);
+            $c->setAttribute('cy', $cy);
+            $c->setAttribute('r', (string) round($r, 2));
+
+            // El rótulo va oculto y solo aparece al señalar su punto (ver
+            // app.css). Con 105 municipios, pintarlos todos a la vez tapaba el
+            // mapa de texto ilegible y escondía los propios puntos. Los
+            // nombres siguen estando, completos, en la tabla de la página.
+            $label = $dom->createElement('text');
+            $label->setAttribute('class', 'mapa-punto-label');
+            $label->setAttribute('x', $cx);
+            $label->setAttribute('y', (string) round($p['y'] - $r - $fontSize * 0.35, 2));
+            $label->setAttribute('text-anchor', 'middle');
+            $label->appendChild($dom->createTextNode($p['localidad']));
 
             $a = $dom->createElement('a');
             $a->setAttribute('href', '/marcha?' . http_build_query(['localidad' => $p['localidad']]));
+            $a->appendChild($hit);
             $a->appendChild($c);
             $a->appendChild($label);
             $capa->appendChild($a);

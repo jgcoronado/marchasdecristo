@@ -27,10 +27,10 @@ $letras = array_keys($grupos);
     <p class="asiento">Advocaciones, hermandades, cofradías y agrupaciones a las que están dedicadas las marchas del catálogo.
         <?= $num(count($items)) ?> advocaciones · <?= $num($totalMarchas) ?> marchas dedicadas.</p>
 
-    <details class="panel adv"<?= $hayFiltro ? ' open' : '' ?>>
+    <details class="adv"<?= $hayFiltro ? ' open' : '' ?>>
         <summary>Búsqueda avanzada</summary>
-        <form action="/dedicatorias" method="GET">
-            <div class="form-grid">
+        <form class="adv-form" action="/dedicatorias" method="GET">
+            <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="localidad">Localidad</label>
                     <input id="localidad" class="input" type="text" name="localidad" value="<?= $val('localidad') ?>" placeholder="Osuna…">
@@ -40,10 +40,10 @@ $letras = array_keys($grupos);
                     <input id="provincia" class="input" type="text" name="provincia" value="<?= $val('provincia') ?>" placeholder="Sevilla…">
                 </div>
             </div>
-            <div class="search-actions">
+            <div class="adv-actions">
                 <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
 <?php if ($hayFiltro): ?>
-                <a class="btn btn-sm btn-ghost" href="/dedicatorias">limpiar filtros ×</a>
+                <a href="/dedicatorias">limpiar</a>
 <?php endif; ?>
             </div>
         </form>
