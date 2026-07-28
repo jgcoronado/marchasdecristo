@@ -10,8 +10,21 @@ namespace App;
  */
 final class AdminRepo
 {
-    public const EDITABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'AUDIO', 'BANDA_ESTRENO', 'ESTILO', 'DETALLES_MARCHA'];
-    public const INSERTABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'BANDA_ESTRENO', 'ESTILO', 'DETALLES_MARCHA'];
+    public const EDITABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'AUDIO', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA'];
+    public const INSERTABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA'];
+
+    /**
+     * Valores reales de marcha.TIPO en producción (consultado 2026-07:
+     * MARCHA PROCESIONAL=4182, vacío=657, el resto son adaptaciones minoritarias).
+     * Campo heredado de la importación original — se valida contra esta lista
+     * cerrada para no admitir texto libre nuevo, igual que ESTILO.
+     */
+    public const MARCHA_TIPOS = [
+        'MARCHA PROCESIONAL',
+        'ADAPTACIÓN MARCHA DE BANDA DE MÚSICA',
+        'ADAPTACIÓN MÚSICA RELIGIOSA',
+        'ADAPTACIÓN MÚSICA POPULAR',
+    ];
     public const EDITABLE_AUTOR = ['NOMBRE', 'APELLIDOS', 'NOMBRE_ART', 'F_NAC', 'LUGAR_NAC', 'F_DEF', 'BIO'];
     public const EDITABLE_BANDA = ['NOMBRE_COMPLETO', 'NOMBRE_BREVE', 'LOCALIDAD', 'PROVINCIA', 'FECHA_FUND', 'FECHA_EXT', 'DIRECTOR_ACTUAL', 'DIR_MUS_ACTUAL', 'WEB'];
 
@@ -23,6 +36,89 @@ final class AdminRepo
             return $t === '' ? null : $t;
         }
         return $v;
+    }
+
+    /**
+     * Fija el par localidad-provincia contra el catálogo `municipio` (ver
+     * app/tools/sql/007_municipio.sql). Un municipio pertenece a una sola
+     * provincia, así que la provincia NO se toma de lo que mande el
+     * formulario: se deriva de la localidad elegida. De paso devuelve la
+     * grafía canónica del catálogo, así que guardar "ecija" o "ÉCIJA" escribe
+     * "Écija" — el origen de las variantes que hubo que limpiar a mano.
+     *
+     * - Provincia sola (sin localidad) es válida: muchas fichas solo tienen eso.
+     * - Localidad sin provincia se admite si el nombre solo existe en una
+     *   provincia; si está repetido (los hay), hace falta la provincia.
+     * - Si la tabla aún no existe (BD sin migrar) no valida nada y deja pasar
+     *   los valores tal cual: el panel debe seguir usable antes del seed.
+     *
+     * @return array{0:?string,1:?string,2:?string}  [localidad, provincia, códigoError|null]
+     */
+    private static function fijarMunicipio(?string $localidad, ?string $provincia): array
+    {
+        if (!MunicipioRepo::tablaDisponible()) {
+            return [$localidad, $provincia, null];
+        }
+        $localidad = self::normalize($localidad);
+        $provincia = self::normalize($provincia);
+
+        if ($localidad === null) {
+            if ($provincia !== null && !MunicipioRepo::esProvinciaValida($provincia)) {
+                return [null, null, 'INVALID_PROVINCIA'];
+            }
+            return [null, $provincia, null];
+        }
+
+        // Con provincia, el par exacto manda: es lo que desambigua los nombres
+        // de municipio que se repiten en varias provincias.
+        if ($provincia !== null) {
+            $m = MunicipioRepo::buscarPar($provincia, $localidad);
+            if ($m !== null) {
+                return [(string) $m['NOMBRE'], (string) $m['PROVINCIA'], null];
+            }
+        }
+
+        // Sin provincia, o con una que no casa con la localidad: manda la
+        // localidad y la provincia se deriva de ella (un municipio pertenece a
+        // una sola provincia). Solo se rechaza si el nombre no existe, o si
+        // está repetido y sin provincia no se puede saber a cuál se refiere.
+        $candidatas = MunicipioRepo::provinciasDe($localidad);
+        if (count($candidatas) === 1) {
+            $m = MunicipioRepo::buscarPar($candidatas[0], $localidad);
+            return [(string) $m['NOMBRE'], (string) $m['PROVINCIA'], null];
+        }
+        return [null, null, $candidatas === [] ? 'INVALID_LOCALIDAD' : 'AMBIGUOUS_LOCALIDAD'];
+    }
+
+    /**
+     * Aplica fijarMunicipio() sobre el mapa campo=>valor de una escritura,
+     * completando con los valores actuales de la fila cuando la edición solo
+     * manda uno de los dos campos.
+     *
+     * @param  array<string,mixed> $safe     campos que se van a escribir (se modifica)
+     * @param  array<string,mixed> $actuales valores actuales de la fila ([] en altas)
+     * @return string|null                   código de error, o null si todo bien
+     */
+    private static function aplicarMunicipio(array &$safe, array $actuales = []): ?string
+    {
+        if (!array_key_exists('LOCALIDAD', $safe) && !array_key_exists('PROVINCIA', $safe)) {
+            return null;
+        }
+        $loc = array_key_exists('LOCALIDAD', $safe) ? $safe['LOCALIDAD'] : ($actuales['LOCALIDAD'] ?? null);
+        $prov = array_key_exists('PROVINCIA', $safe) ? $safe['PROVINCIA'] : ($actuales['PROVINCIA'] ?? null);
+
+        [$loc, $prov, $err] = self::fijarMunicipio(
+            $loc === null ? null : (string) $loc,
+            $prov === null ? null : (string) $prov
+        );
+        if ($err !== null) {
+            return $err;
+        }
+        // La provincia se escribe siempre que haya localidad, venga o no en el
+        // formulario: es la garantía de que el par nunca queda descuadrado.
+        $safe['LOCALIDAD'] = $loc;
+        $safe['PROVINCIA'] = $prov;
+        return null;
     }
 
     /** @param list<int> $ids */
@@ -54,6 +150,13 @@ final class AdminRepo
         if (array_key_exists('ESTILO', $safe) && $safe['ESTILO'] !== null && !in_array($safe['ESTILO'], ['CCTT', 'AM'], true)) {
             return ['code' => 'INVALID_ESTILO'];
         }
+        if (array_key_exists('TIPO', $safe) && $safe['TIPO'] !== null && !in_array($safe['TIPO'], self::MARCHA_TIPOS, true)) {
+            return ['code' => 'INVALID_TIPO'];
+        }
+        $actual = Db::one('SELECT LOCALIDAD, PROVINCIA FROM marcha WHERE ID_MARCHA = ?', [$marchaId]) ?? [];
+        if (($err = self::aplicarMunicipio($safe, $actual)) !== null) {
+            return ['code' => $err];
+        }
 
         $set = implode(', ', array_map(static fn(string $k): string => "$k = ?", array_keys($safe)));
         $changes = Db::run("UPDATE marcha SET $set WHERE ID_MARCHA = ?", [...array_values($safe), $marchaId]);
@@ -84,6 +187,12 @@ final class AdminRepo
         }
         if (array_key_exists('ESTILO', $safe) && $safe['ESTILO'] !== null && !in_array($safe['ESTILO'], ['CCTT', 'AM'], true)) {
             return ['code' => 'INVALID_ESTILO'];
+        }
+        if (array_key_exists('TIPO', $safe) && $safe['TIPO'] !== null && !in_array($safe['TIPO'], self::MARCHA_TIPOS, true)) {
+            return ['code' => 'INVALID_TIPO'];
+        }
+        if (($err = self::aplicarMunicipio($safe)) !== null) {
+            return ['code' => $err];
         }
 
         $ids = array_values(array_unique(array_filter(
@@ -197,6 +306,10 @@ final class AdminRepo
                 return ['code' => 'INVALID_FECHA'];
             }
         }
+        $actual = Db::one('SELECT LOCALIDAD, PROVINCIA FROM banda WHERE ID_BANDA = ?', [$bandaId]) ?? [];
+        if (($err = self::aplicarMunicipio($safe, $actual)) !== null) {
+            return ['code' => $err];
+        }
         $set = implode(', ', array_map(static fn(string $k): string => "$k = ?", array_keys($safe)));
         Db::run("UPDATE banda SET $set WHERE ID_BANDA = ?", [...array_values($safe), $bandaId]);
         Db::logAdmin('UPDATE', 'banda', $bandaId, ['campos' => array_keys($safe)]);
@@ -223,6 +336,9 @@ final class AdminRepo
             if (array_key_exists($f, $safe) && $safe[$f] !== null && !preg_match('/^\d{4}$/', (string) $safe[$f])) {
                 return ['code' => 'INVALID_FECHA'];
             }
+        }
+        if (($err = self::aplicarMunicipio($safe)) !== null) {
+            return ['code' => $err];
         }
         $cols = array_keys($safe);
         $ph = implode(', ', array_fill(0, count($cols), '?'));
@@ -537,9 +653,15 @@ final class AdminRepo
     {
         $nombre = trim($nombre);
         if ($nombre === '') return ['code' => 'NOMBRE_REQUERIDO'];
+        // Mismo catálogo que marcha/banda. La localidad vacía sigue siendo
+        // válida aquí ('' = advocación sin localidad), y la columna es NOT NULL.
+        $campos = ['LOCALIDAD' => trim($localidad), 'PROVINCIA' => $provincia];
+        if (($err = self::aplicarMunicipio($campos)) !== null) {
+            return ['code' => $err];
+        }
         $changes = Db::run(
             'UPDATE dedicatoria SET NOMBRE = ?, LOCALIDAD = ?, PROVINCIA = ?, PERSONAL = ? WHERE ID_DEDIC = ?',
-            [$nombre, trim($localidad), self::normalize($provincia), $personal ? 1 : 0, $id]
+            [$nombre, (string) ($campos['LOCALIDAD'] ?? ''), $campos['PROVINCIA'], $personal ? 1 : 0, $id]
         );
         if ($changes === 0) return ['code' => 'NOT_FOUND'];
         Db::logAdmin('UPDATE', 'dedicatoria', $id, ['nombre' => $nombre, 'localidad' => $localidad, 'personal' => $personal]);

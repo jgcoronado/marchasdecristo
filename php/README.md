@@ -42,10 +42,33 @@ deben ser hermanos del document root** tanto en local (`php/`) como en el host
    ```bash
    cp php/app/config.local.example.php php/app/config.local.php   # y pon 'debug' => true
    ```
-3. Arranca el servidor embebido de PHP:
+3. Arranca el servidor de desarrollo:
    ```bash
-   php -S localhost:8000 -t php/public php/public/index.php
+   scripts/dev_server.sh              # localhost:8000, 4 workers
+   scripts/dev_server.sh 8080         # otro puerto
+   HOST=0.0.0.0 WORKERS=8 scripts/dev_server.sh
+   DB_PATH=/ruta/otra.db scripts/dev_server.sh   # BD alternativa (p. ej. una fixture de CI)
    ```
+   El script comprueba que la BD existe, avisa si falta `config.local.php` y
+   arranca el servidor embebido **con varios workers**, que es lo que evita el
+   problema siguiente.
+
+   > ⚠️ **No lo arranques a mano sin workers.** Por defecto el servidor embebido
+   > procesa **una petición a la vez** (`PHP_CLI_SERVER_WORKERS=1`): mientras
+   > genera una página, el CSS/JS que el navegador pide en paralelo se queda
+   > encolado detrás. Medido en este proyecto, con una página de 400 ms:
+   > `app.css` tarda ~350 ms con 1 worker frente a <1 ms con 4. Con la BD real y
+   > varias pestañas abiertas eso degenera en assets que llegan tarde o se
+   > descartan bajo carga → **503 intermitente en `app.css`** y páginas sin
+   > estilos. El equivalente manual del script es:
+   > ```bash
+   > PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t php/public php/public/index.php
+   > ```
+   > En Windows la variable se ignora (los workers usan `fork()`): allí el
+   > servidor embebido sirve de una en una, sin remedio.
+   >
+   > Para pruebas de carga o UX realistas, sirve detrás de Apache/Nginx + PHP-FPM
+   > en vez del servidor embebido.
 4. Abre:
    - http://localhost:8000/        → home (conteos reales en el pie = BD OK)
    - http://localhost:8000/health  → diagnóstico app → PDO → SQLite → FTS5

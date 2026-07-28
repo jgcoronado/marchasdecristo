@@ -79,8 +79,10 @@ lo detecta por keyword ausente + código 503).
 - Errores en páginas concretas que no sea `/health` (p. ej. una plantilla
   rota en `/marcha/{id}` que lance una excepción solo en esa ruta).
 - Expiración de certificado TLS con antelación (ver tabla arriba).
-- Regresiones de contenido/SEO — de eso se encarga el CI (`ci_smoke.php`),
-  no el monitor de uptime.
+- Regresiones de contenido/SEO — de eso se encargan el CI (`ci_smoke.php`,
+  contra una fixture) y el smoke remoto tras cada deploy a PRO
+  (`php/tools/smoke_remote.php`, contra datos reales — ver
+  [entornos.md](entornos.md)), no el monitor de uptime.
 - Cualquier cosa mientras la respuesta siga conteniendo `db: ok` con 2xx/3xx.
 
 ## Falsas alarmas esperadas (no son bugs)

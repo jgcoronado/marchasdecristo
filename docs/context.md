@@ -1,6 +1,6 @@
 # Contexto del proyecto — marchasdecristo.com
 
-> Última actualización: 2026-07-16 (C8 — documentación alineada al stack PHP real)
+> Última actualización: 2026-07-27 (sincronizado con las rutas/módulos reales tras la auditoría documental)
 > Documento de entrada para nuevas sesiones.
 > Documentos complementarios en esta misma carpeta:
 > - [architecture.md](architecture.md) — diagrama, flujos y decisiones arquitectónicas.
@@ -9,6 +9,7 @@
 > - [db-analysis.md](db-analysis.md) — auditoría de la base de datos.
 > - [admin-panel.md](admin-panel.md) — panel de administración.
 > - [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md) — evaluación integral (DAFOs, plan de acción, catálogo de automatizaciones).
+> - [ux-analysis-estado.md](ux-analysis-estado.md) — estado del análisis UX comparativo vigente (patrimoniomusical.com): qué está hecho, qué queda pendiente, decisiones de arquitectura clave (mapa, catálogo de municipios).
 
 ---
 
@@ -37,7 +38,7 @@ Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N
 
 ### Aplicación — PHP 8.4 plano, sin build step
 
-- **PHP 8.4**, sin Composer ni `vendor/` — namespace `App\*` con autoload manual en `bootstrap.php` (mapa clase → fichero, sin PSR-4 automático).
+- **PHP 8.4**, sin Composer ni `vendor/` — namespace `App\*` con un autoload PSR-4 mínimo propio en `bootstrap.php` (`spl_autoload_register`, `App\Foo\Bar` → `src/Foo/Bar.php`).
 - **Front controller** (`public/index.php`) + **`App\Router`** minimalista: rutas registradas en `app/routes.php` con patrones `{param}` nombrados.
 - **Plantillas PHP nativas** (`App\View`): cada vista se renderiza a un buffer y se inyecta como `$content` en `templates/layout.php`. Sin motor de plantillas externo.
 - **Sin SSR/hidratación/JS framework**: HTML servido directo por PHP; JS del lado cliente es vanilla (`public/assets/admin.js`, `catalog.js`, `banda-relaciones.js`) solo para el panel admin y mejoras progresivas del catálogo público.
@@ -65,7 +66,18 @@ Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N
 - `sitemap.xml` dinámico con `<lastmod>` real (derivado del último sync/edición) y `robots.txt`.
 - **Ping IndexNow** tras cada sync a producción (`scripts/sync_db_to_prod.php`), más verificación de clave servida en `/{indexnow_key}.txt` (ruta condicional en `routes.php`, solo si `config['indexnow_key']` está definida).
 - **Hubs indexables** de catálogo: `/marcha/ano/{yyyy}`, `/marcha/estilo/{slug}`, `/marcha/provincia/{slug}` — con `noindex` automático si el hub tiene menos de `Repo::HUB_MIN_MARCHAS` (2) resultados, para no publicar páginas finas.
-- `og:image` de marca + Twitter Card (`summary_large_image`) en `layout.php`, con fallback genérico si la página no define uno propio.
+- **`og:image` dinámica por entidad** (`App\Og`, ruta `/og/{tipo}/{id}.png`): tarjeta social generada con GD+FreeType a partir de los datos reales de la ficha (título, autor, banda…), cacheada a disco. El `og-image.png` de marca es solo el **fallback** — se usa cuando la generación falla o la entidad no existe (redirect 302), no el caso normal.
+- **Puente de URLs heredadas** (`App\Legacy`): las URLs `.html` del sitio MySQL original (p.ej. `…-marcha-730.html`) que Google tenga indexadas se traducen a su ficha canónica nueva con **301**, para no perder el posicionamiento histórico. Se intenta justo antes de servir el 404 (`routes.php`, `notFound`).
+- **API JSON pública de solo lectura** (`App\Api`, M1): `/api/{marcha,autor,banda,disco}/{id}.json` — mismas lecturas que el HTML, forma estable, licencia CC BY 4.0, documentada en `/datos`. Además `/feed.xml` (RSS), `/feed.json` y `/llms.txt`.
+
+### Otras páginas de catálogo (más allá de las 4 entidades)
+
+- **Búsqueda global** (M3): `/buscar` + `/api/buscar` (autocompletado JSON).
+- **Rankings** (N-07): `/rankings` (índice) + `/rankings/{anio}` (drill-down).
+- **Aniversarios** (N-09): `/aniversarios` + `/aniversarios/{anio}` (tramos de 25 en 25, centenarios destacados). `/estadisticas` es ahora un 301 permanente a `/rankings`.
+- **Mapa** (N-10, `App\Mapa`): `/mapa` (coropleta SVG por provincia) + `/mapa/provincia/{slug}` (municipios como puntos clicables, zoom/pan). Lee coordenadas del catálogo `municipio` (`App\MunicipioRepo`) — ver `docs/ux-analysis-estado.md` §4 para el detalle.
+- **Temporada** (N-04/N-05): `/temporada` + `/temporada/{anio}` — contratos banda↔hermandad de una Semana Santa, con alta manual desde el panel (`/dashboard/temporada/{anio}`).
+- **Dedicatorias** (N-01/N-02): `/dedicatorias` (índice A-Z) + `/dedicatoria/{slugAndId}` (hub de advocación con alias unificados).
 
 ### Infraestructura
 
@@ -93,7 +105,8 @@ mdc-back/
     ├── public/                    → contenido de public_html/ en HelioHost
     │   ├── index.php                front controller
     │   ├── .htaccess                mod_rewrite: todo → index.php (estáticos reales tal cual)
-    │   └── assets/                  app.css, admin.js, catalog.js, banda-relaciones.js, og-image.png, favicon.svg
+    │   └── assets/                  app.css, admin.js, catalog.js, banda-relaciones.js, mapa.js,
+    │                                 mapa-provincias.svg (+.README.md), og-image.png, favicon.svg
     ├── app/                        → FUERA de public_html (hermano, p.ej. /home/USER/app)
     │   ├── bootstrap.php             autoload + config + maintenance check + dispatch
     │   ├── config.php                defaults (sin secretos)
@@ -103,17 +116,22 @@ mdc-back/
     │   │   ├── Router.php            router mínimo con parámetros nombrados
     │   │   ├── Db.php                PDO/SQLite singleton + ReadOnlyModeException
     │   │   ├── Repo.php              lecturas públicas (marchas, autores, bandas, discos, hubs, home)
-    │   │   ├── Pages.php             controladores de páginas públicas
+    │   │   ├── Pages.php             controladores de páginas públicas (incluye rankings, aniversarios, mapa, temporada, dedicatorias, buscar)
+    │   │   ├── Api.php               API JSON pública de solo lectura (M1, licencia CC BY 4.0)
+    │   │   ├── Og.php                og:image dinámica por entidad (GD+FreeType, cacheada a disco)
+    │   │   ├── Legacy.php            puente 301 de URLs .html del sitio MySQL original
+    │   │   ├── Mapa.php              coropleta SVG de provincias + puntos por municipio (N-10)
+    │   │   ├── MunicipioRepo.php     catálogo cerrado de municipios (localidad→provincia, coords del mapa)
     │   │   ├── Seo.php                JSON-LD (schema.org)
     │   │   ├── Slug.php              slugify + construcción/parseo de slug-id
-    │   │   ├── Html.php               componentes de presentación reutilizables (paginación, streaming, portadas)
+    │   │   ├── Html.php               componentes de presentación reutilizables (paginación, streaming, portadas, selector de municipio)
     │   │   ├── Http.php               helpers HTTP (redirect, cache-control, 404, maintenance 503)
     │   │   ├── View.php               renderizado de plantillas
-    │   │   ├── Auth.php               sesión HMAC, PBKDF2/MD5, rate limit a fichero, CSRF
+    │   │   ├── Auth.php               sesión HMAC, PBKDF2/MD5, rate limit a fichero (con purga de entradas expiradas), CSRF
     │   │   ├── Admin.php              controladores del panel (PRG)
-    │   │   ├── AdminRepo.php          escrituras admin (allowlists, transacciones, audit log)
-    │   │   ├── Roles.php              capacidades admin/editor
-    │   │   ├── PropuestaRepo.php      propuestas de editor en JSON de fichero (no en BD)
+    │   │   ├── AdminRepo.php          escrituras admin (allowlists, transacciones, audit log, fijarMunicipio)
+    │   │   ├── Roles.php              capacidades admin/editor (`Roles::has($rol, $cap)`)
+    │   │   ├── PropuestaRepo.php      propuestas de editor en JSON de fichero (no en BD) — `PropuestaRepo::create()`
     │   │   ├── IngestaRepo.php        lecturas de candidatos de ingesta (YouTube)
     │   │   ├── EnlaceRepo.php         lecturas de candidatos de streaming (Spotify/Apple/Deezer)
     │   │   ├── UserRepo.php           gestión de usuarios del panel
@@ -125,7 +143,9 @@ mdc-back/
     │   └── mdc.db                    BD de desarrollo (no versionada)
     └── tools/                      # Utilidades de desarrollo/CI (no de producción)
         ├── ci_fixture.php            genera una BD SQLite determinista para CI
-        ├── ci_smoke.php               33 aserciones de humo contra el servidor embebido
+        ├── ci_smoke.php               suite de smoke tests contra el servidor embebido (81 casos y creciendo con cada
+        │                              feature — ver el conteo real que imprime el propio script en vez de fiarse de un
+        │                              número fijo en la documentación)
         ├── parity_compare.php         (histórico) comparaba Repo.php vs. api.ts durante la migración
         └── parity_expected.cjs        (histórico) generador del JSON esperado desde better-sqlite3
 ```
@@ -134,16 +154,20 @@ mdc-back/
 
 | Script | Qué hace |
 |---|---|
+| `migrate_ingest.php` | Runner genérico: aplica en orden alfabético todos los `.sql` de `app/tools/sql/` (`CREATE ... IF NOT EXISTS`, idempotente). Es como se crean todas las tablas nuevas (ingesta, dedicatoria, enlaces, contrato, municipio). |
 | `backup.php` | Copia consistente del `.db` (`VACUUM INTO`) + purga por retención. Vía cron de Plesk. |
 | `completar_provincia.php` | Backfill de `PROVINCIA` en marchas/bandas a partir de `LOCALIDAD`. |
 | `export_marchas.php` | Exporta el catálogo a un formato plano (soporte a tareas puntuales). |
-| `import_candidatos.php` / `load_canales.php` / `migrate_ingest.php` / `reevaluar_ingesta.php` | Pipeline de ingesta de candidatos de marcha desde YouTube (alimentan `/dashboard/ingesta`). |
-| `migrate_banda_relacion.php` | Migración puntual del linaje de bandas. |
-| `migrate_marcha_estilo.php` | Migración puntual de clasificación de estilo (CCTT/AM). |
-| `migrate_roles.php` | Migración puntual de roles de usuario. |
+| `import_candidatos.php` / `load_canales.php` / `reevaluar_ingesta.php` | Pipeline de ingesta de candidatos de marcha desde YouTube (alimentan `/dashboard/ingesta`). |
+| `migrate_banda_relacion.php` | Migración puntual (one-shot) del linaje de bandas: de columnas `FORMACION_ANT/SIG` a la tabla `banda_relacion`. |
+| `migrate_marcha_estilo.php` | Migración puntual (one-shot) de clasificación de estilo (CCTT/AM): añade `marcha.ESTILO`. |
+| `migrate_roles.php` | Migración puntual (one-shot) de roles de usuario: añade `usuarios.ROL`. |
 | `seed_dedicatorias.php` | Siembra inicial de dedicatorias/alias para los hubs N-01/N-02. |
+| `seed_municipios.php` | Siembra el catálogo `municipio`: ~8.112 municipios oficiales (INE) + los pares LOCALIDAD/PROVINCIA ya usados en marcha/banda que no encajen. |
 | `fill_estilo_por_banda.php` | Backfill de `ESTILO` en marchas sin clasificar, por el estilo mayoritario de su banda de estreno. Re-ejecutable, con backup previo. |
 | `fill_enlaces_streaming.php` | Cruza el catálogo de Spotify de cada banda (álbumes → discos, pistas → marchas) por similitud difusa; inserta enlaces verificados o candidatos a curar en `/dashboard/enlaces`. |
+| `normalizar_localidades.php` / `normalizar_preposiciones_localidad.php` / `corregir_acentos_localidad.php` | Limpieza puntual (one-shot) de variantes de mayúsculas/acentos/preposiciones en `LOCALIDAD`/`PROVINCIA`, previas al catálogo `municipio`. |
+| `reconciliar_alias_localidad.php` | Resuelve a mano los casos ambiguos que el trigger de sincronización `dedicatoria_alias`↔`marcha.LOCALIDAD` no puede decidir solo. |
 
 ---
 

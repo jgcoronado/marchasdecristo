@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Slug as S; use App\Auth;
+<?php use App\View as V; use App\Slug as S; use App\Auth; use App\Html as H;
 /** @var array{ID_DEDIC:int,NOMBRE:string,LOCALIDAD:string,PROVINCIA:?string,variantes:list<array<string,mixed>>} $dedic
  *  @var array|null $notice @var string|null $error @var array $session */
 $csrf = Auth::csrfToken($session);
@@ -21,7 +21,7 @@ $nVar = count($dedic['variantes']);
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-error"><?= V::e($error) ?></div><?php endif; ?>
 
-    <form class="panel" action="<?= $base ?>" method="POST">
+    <form class="panel" action="<?= $base ?>" method="POST" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <h2 class="section-title">Datos de la advocación canónica</h2>
         <div class="form-grid">
@@ -29,14 +29,7 @@ $nVar = count($dedic['variantes']);
                 <label class="field-label" for="NOMBRE">Nombre (advocación)</label>
                 <input class="input" id="NOMBRE" name="NOMBRE" type="text" value="<?= V::e($dedic['NOMBRE']) ?>" required>
             </div>
-            <div class="field">
-                <label class="field-label" for="LOCALIDAD">Localidad</label>
-                <input class="input" id="LOCALIDAD" name="LOCALIDAD" type="text" value="<?= V::e($dedic['LOCALIDAD']) ?>">
-            </div>
-            <div class="field">
-                <label class="field-label" for="PROVINCIA">Provincia</label>
-                <input class="input" id="PROVINCIA" name="PROVINCIA" type="text" value="<?= V::e($dedic['PROVINCIA'] ?? '') ?>">
-            </div>
+<?= H::municipioFields($dedic['LOCALIDAD'], $dedic['PROVINCIA'] ?? null) ?>
         </div>
         <div class="field">
             <label class="chip">

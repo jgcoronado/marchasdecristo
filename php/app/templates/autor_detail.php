@@ -43,7 +43,15 @@ $ppal = $a['BANDA_PPAL'] ?? null;
     <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
 <?php endif; ?>
 
-    <dl class="desc">
+    <nav class="rectabs" aria-label="Secciones de la ficha">
+        <a href="#datos">Datos</a>
+<?php if ($t($a['BIO'])): ?>
+        <a href="#bio">Biografía</a>
+<?php endif; ?>
+        <a href="#obra">Obra (<?= $num($nM) ?>)</a>
+    </nav>
+
+    <dl class="desc" id="datos">
 <?php if ($t($a['NOMBRE_ART'])): ?>
         <div class="f"><dt>Nombre artístico</dt><dd><?= V::e($a['NOMBRE_ART']) ?></dd></div>
 <?php endif; ?>
@@ -66,13 +74,13 @@ $ppal = $a['BANDA_PPAL'] ?? null;
     </dl>
 
 <?php if ($t($a['BIO'])): ?>
-    <div class="shead"><h2>Biografía</h2></div>
+    <div class="shead" id="bio"><h2>Biografía</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($a['BIO'])) ?></p>
 <?php else: ?>
     <p class="bio-empty">Sin biografía documentada todavía.</p>
 <?php endif; ?>
 
-    <div class="shead">
+    <div class="shead" id="obra">
         <h2>Obra</h2>
         <span class="n" id="obra-count"><?= $num($nM) ?> marchas · orden cronológico</span>
 <?php if ($nM >= 8): ?>

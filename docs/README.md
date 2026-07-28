@@ -15,13 +15,14 @@ ver [context.md](context.md) §7 y [archive/](archive/).
 4. **[roadmap.md](roadmap.md)** — Estado de ejecución del plan de acción vigente (apunta a `consejo-de-sabios-2026-07.md`).
 5. **[consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md)** — Evaluación integral del proyecto (DAFO de UX/UI/QA/desarrollo/producto, veredicto de síntesis, plan de acción corto/medio/largo plazo con coste/repercusión, catálogo de automatizaciones). Documento de referencia para el roadmap.
 6. **[db-analysis.md](db-analysis.md)** — Auditoría del esquema SQLite (actualizado 2026-06-05; el análisis MySQL original es histórico).
-7. **[admin-panel.md](admin-panel.md)** — Estado del panel de administración: URL, acceso, funcionalidades, implementación PHP actual.
-8. **[pendientes-post-cutover.md](pendientes-post-cutover.md)** — Checklist operativo pendiente tras el cutover a PHP (verificación en producción, cron de backup, Search Console, desmantelar el VPS).
+7. **[admin-panel.md](admin-panel.md)** — Panel de administración en PHP: acceso, roles/capacidades, funcionalidades, más las secciones específicas de linaje de bandas, curación de estilo, selector de municipio y scripts de herramientas.
+8. **[pendientes-post-cutover.md](pendientes-post-cutover.md)** — Lo que queda del cierre operativo del cutover: cron de backup por confirmar, correo del dominio, desmantelar el VPS, limpieza. (La verificación del panel y Search Console ya están resueltas.)
 9. **[cutover-fase5.md](cutover-fase5.md)** — Runbook ejecutado del cutover DNS a PHP.
 10. **[monitoring.md](monitoring.md)** — Monitorización externa de uptime (UptimeRobot sobre `/health`): configuración, qué cubre y qué no, falsas alarmas esperadas, runbook.
 11. **[entornos.md](entornos.md)** — Despliegue a producción: entornos local y PRO, pipeline (push a `main` → CI; deploy a PRO manual con mantenimiento + smoke remoto), puesta en marcha y limitaciones.
 12. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
 13. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
+14. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
 
 Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP con más detalle operativo del día a día que `context.md`.
 

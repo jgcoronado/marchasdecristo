@@ -219,6 +219,7 @@ final class Repo
         if ($on('localidad')) { $conditions[] = 'NOACC(m.LOCALIDAD) LIKE ?'; $values[] = '%' . Db::noAcc($params['localidad']) . '%'; }
         if ($on('provincia')) { $conditions[] = 'NOACC(m.PROVINCIA) LIKE ?'; $values[] = '%' . Db::noAcc($params['provincia']) . '%'; }
         if ($on('tipo')) { $conditions[] = 'm.TIPO = ?'; $values[] = $params['tipo']; }
+        if ($on('estilo')) { $conditions[] = 'm.ESTILO = ?'; $values[] = $params['estilo']; }
 
         $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
         return ["EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA) AND $where", $values];
@@ -259,9 +260,9 @@ final class Repo
     }
 
     /**
-     * Facetas del explorador de marchas: tipo, provincia y década, cada una
-     * contada sobre el resultado filtrado sin su propio criterio.
-     * @return array{tipo:list<array>,provincia:list<array>,decada:list<array>}
+     * Facetas del explorador de marchas: tipo, estilo, provincia y década, cada
+     * una contada sobre el resultado filtrado sin su propio criterio.
+     * @return array{tipo:list<array>,estilo:list<array>,provincia:list<array>,decada:list<array>}
      */
     public static function marchaFacets(string $query): array
     {
@@ -271,6 +272,11 @@ final class Repo
         $tipo = Db::all("SELECT m.TIPO AS K, COUNT(*) AS N FROM marcha m
                          WHERE $w AND m.TIPO IS NOT NULL AND m.TIPO != ''
                          GROUP BY m.TIPO ORDER BY N DESC LIMIT 6", $v);
+
+        [$w, $v] = self::marchaWhere($params, 'estilo');
+        $estilo = Db::all("SELECT m.ESTILO AS K, COUNT(*) AS N FROM marcha m
+                           WHERE $w AND m.ESTILO IS NOT NULL AND m.ESTILO != ''
+                           GROUP BY m.ESTILO ORDER BY N DESC LIMIT 6", $v);
 
         [$w, $v] = self::marchaWhere($params, 'provincia');
         $prov = Db::all("SELECT m.PROVINCIA AS K, COUNT(*) AS N FROM marcha m
@@ -282,7 +288,7 @@ final class Repo
                         WHERE $w AND m.FECHA > 1900
                         GROUP BY K ORDER BY K DESC LIMIT 8", $v);
 
-        return ['tipo' => $tipo, 'provincia' => $prov, 'decada' => $dec];
+        return ['tipo' => $tipo, 'estilo' => $estilo, 'provincia' => $prov, 'decada' => $dec];
     }
 
     // ── Hubs de catálogo: año / estilo / provincia (C1, indexables) ──────────
@@ -417,6 +423,52 @@ final class Repo
                AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
              GROUP BY m.PROVINCIA ORDER BY N DESC, m.PROVINCIA ASC"
         );
+    }
+
+    /**
+     * Localidades con marchas vivas, con recuento y su provincia, de más a
+     * menos marchas. Para el mapa por localidad (App\Mapa::puntos). Con
+     * $provincia, filtra a una sola provincia (mapa ampliado de provincia).
+     * @return list<array{LOCALIDAD:string,PROVINCIA:string,N:int}>
+     */
+    public static function hubLocalidades(?string $provincia = null): array
+    {
+        $where = "m.LOCALIDAD IS NOT NULL AND m.LOCALIDAD != ''
+               AND m.PROVINCIA IS NOT NULL AND m.PROVINCIA != ''
+               AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)";
+        $values = [];
+        if ($provincia !== null) {
+            $where .= ' AND m.PROVINCIA = ?';
+            $values[] = $provincia;
+        }
+        $rows = Db::all(
+            "SELECT m.LOCALIDAD, m.PROVINCIA, COUNT(*) AS N FROM marcha m
+             WHERE $where
+             GROUP BY m.LOCALIDAD, m.PROVINCIA",
+            $values
+        );
+
+        // Fusiona variantes de mayúsculas/acentos de una misma localidad —
+        // dato heredado sin capitalización consistente (p.ej. "Aguilar De La
+        // Frontera" y "Aguilar de la Frontera" en la misma provincia): sin
+        // esto, GROUP BY las trata como localidades distintas y el mapa
+        // acaba pintando dos puntos superpuestos en las mismas coordenadas
+        // (misma localidad real → mismo match en municipios_es.php), cada
+        // uno con su rótulo, ilegibles al solaparse.
+        $grupos = [];
+        foreach ($rows as $r) {
+            $key = Db::noAcc((string) $r['PROVINCIA']) . '|' . Db::noAcc((string) $r['LOCALIDAD']);
+            $grupos[$key]['provincia'] = $r['PROVINCIA'];
+            $grupos[$key]['total'] = ($grupos[$key]['total'] ?? 0) + (int) $r['N'];
+            $grupos[$key]['variantes'][$r['LOCALIDAD']] = (int) $r['N'];
+        }
+        $out = [];
+        foreach ($grupos as $g) {
+            arsort($g['variantes']);
+            $out[] = ['LOCALIDAD' => array_key_first($g['variantes']), 'PROVINCIA' => $g['provincia'], 'N' => $g['total']];
+        }
+        usort($out, static fn(array $a, array $b): int => $b['N'] <=> $a['N'] ?: strcmp((string) $a['LOCALIDAD'], (string) $b['LOCALIDAD']));
+        return $out;
     }
 
     // ── Admin: cargadores en crudo (para formularios de edición) ─────────────
@@ -735,15 +787,39 @@ final class Repo
         return $banda;
     }
 
+    /**
+     * WHERE + values de la búsqueda de bandas. $exclude omite un criterio
+     * (para calcular facetas sin su propio filtro).
+     * @return array{0:string,1:list<mixed>}
+     */
+    private static function bandaWhere(array $params, ?string $exclude = null): array
+    {
+        $conditions = [];
+        $values = [];
+        $on = static fn(string $k): bool => $k !== $exclude && !empty($params[$k]);
+        if (!empty($params['titulo'])) { $conditions[] = 'NOACC(b.NOMBRE_COMPLETO) LIKE ?'; $values[] = '%' . Db::noAcc($params['titulo']) . '%'; }
+        if ($on('localidad')) { $conditions[] = 'NOACC(b.LOCALIDAD) LIKE ?'; $values[] = '%' . Db::noAcc($params['localidad']) . '%'; }
+        if ($on('provincia')) { $conditions[] = 'NOACC(b.PROVINCIA) LIKE ?'; $values[] = '%' . Db::noAcc($params['provincia']) . '%'; }
+        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        return [$where, $values];
+    }
+
+    /** Columnas ordenables del explorador de bandas: clave pública → SQL. */
+    private const BANDA_ORDEN = ['nombre' => 'b.NOMBRE_BREVE', 'localidad' => 'b.LOCALIDAD', 'fundacion' => 'b.FECHA_FUND'];
+
     public static function searchBandas(string $query, int $page = 1, int $limit = 20): array
     {
         parse_str($query, $params);
-        $conditions = [];
-        $values = [];
-        if (!empty($params['titulo'])) { $conditions[] = 'NOACC(b.NOMBRE_COMPLETO) LIKE ?'; $values[] = '%' . Db::noAcc($params['titulo']) . '%'; }
-        if (!empty($params['localidad'])) { $conditions[] = 'NOACC(b.LOCALIDAD) LIKE ?'; $values[] = '%' . Db::noAcc($params['localidad']) . '%'; }
-        if (!empty($params['provincia'])) { $conditions[] = 'NOACC(b.PROVINCIA) LIKE ?'; $values[] = '%' . Db::noAcc($params['provincia']) . '%'; }
-        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        [$where, $values] = self::bandaWhere($params);
+
+        // Sin 'orden' explícito se preserva el orden histórico (paridad con Next).
+        if (isset(self::BANDA_ORDEN[(string) ($params['orden'] ?? '')])) {
+            $col = self::BANDA_ORDEN[$params['orden']];
+            $dir = ((string) ($params['dir'] ?? '')) === 'desc' ? 'DESC' : 'ASC';
+            $orderBy = "$col $dir, b.NOMBRE_BREVE ASC";
+        } else {
+            $orderBy = 'b.NOMBRE_BREVE ASC';
+        }
 
         $countRow = Db::one("SELECT COUNT(*) AS n FROM banda b WHERE $where", $values);
         $totalRows = (int) ($countRow['n'] ?? 0);
@@ -754,10 +830,24 @@ final class Repo
                     b.LOCALIDAD, b.FECHA_FUND, b.FECHA_EXT,
                     (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
              FROM banda b WHERE $where
-             GROUP BY b.ID_BANDA ORDER BY b.NOMBRE_BREVE ASC LIMIT ? OFFSET ?",
+             GROUP BY b.ID_BANDA ORDER BY $orderBy LIMIT ? OFFSET ?",
             [...$values, $limit, $offset]
         );
         return ['rowsReturned' => count($rows), 'totalRows' => $totalRows, 'data' => $rows];
+    }
+
+    /**
+     * Facetas del explorador de bandas: provincia, contada sin su propio filtro.
+     * @return array{provincia:list<array>}
+     */
+    public static function bandaFacets(string $query): array
+    {
+        parse_str($query, $params);
+        [$w, $v] = self::bandaWhere($params, 'provincia');
+        $prov = Db::all("SELECT b.PROVINCIA AS K, COUNT(*) AS N FROM banda b
+                         WHERE $w AND b.PROVINCIA IS NOT NULL AND b.PROVINCIA != ''
+                         GROUP BY b.PROVINCIA ORDER BY N DESC, b.PROVINCIA ASC LIMIT 12", $v);
+        return ['provincia' => $prov];
     }
 
     /** Fila cruda de banda (para el panel de relaciones). */
@@ -933,12 +1023,42 @@ final class Repo
         return $disco;
     }
 
+    /**
+     * WHERE + values de la búsqueda de discos. $exclude omite un criterio
+     * (para calcular facetas sin su propio filtro).
+     * @return array{0:string,1:list<mixed>}
+     */
+    private static function discoWhere(array $params, ?string $exclude = null): array
+    {
+        $conditions = [];
+        $values = [];
+        $nombre = (string) ($params['nombre'] ?? '');
+        if ($nombre !== '') { $conditions[] = 'NOACC(d.NOMBRE_CD) LIKE ?'; $values[] = '%' . Db::noAcc($nombre) . '%'; }
+        if ($exclude !== 'decada' && !empty($params['decada'])) {
+            $d0 = (int) $params['decada'];
+            $conditions[] = 'CAST(d.FECHA_CD AS INTEGER) BETWEEN ? AND ?';
+            $values[] = $d0; $values[] = $d0 + 9;
+        }
+        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        return [$where, $values];
+    }
+
+    /** Columnas ordenables del explorador de discos: clave pública → SQL. */
+    private const DISCO_ORDEN = ['nombre' => 'd.NOMBRE_CD', 'banda' => 'b.NOMBRE_BREVE', 'anio' => 'CAST(d.FECHA_CD AS INTEGER)'];
+
     public static function searchDiscos(string $query, int $page = 1, int $limit = 20): array
     {
         parse_str($query, $params);
-        $nombre = (string) ($params['nombre'] ?? '');
-        $where = $nombre !== '' ? 'NOACC(d.NOMBRE_CD) LIKE ?' : '1=1';
-        $values = $nombre !== '' ? ['%' . Db::noAcc($nombre) . '%'] : [];
+        [$where, $values] = self::discoWhere($params);
+
+        // Sin 'orden' explícito se preserva el orden histórico (paridad con Next).
+        if (isset(self::DISCO_ORDEN[(string) ($params['orden'] ?? '')])) {
+            $col = self::DISCO_ORDEN[$params['orden']];
+            $dir = ((string) ($params['dir'] ?? '')) === 'desc' ? 'DESC' : 'ASC';
+            $orderBy = "$col $dir, d.NOMBRE_CD ASC";
+        } else {
+            $orderBy = 'd.FECHA_CD ASC';
+        }
 
         $countRow = Db::one("SELECT COUNT(*) AS n FROM disco d WHERE $where", $values);
         $totalRows = (int) ($countRow['n'] ?? 0);
@@ -948,10 +1068,24 @@ final class Repo
             "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, b.ID_BANDA,
                     (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
              FROM disco d LEFT JOIN banda b ON b.ID_BANDA = d.BANDADISCO
-             WHERE $where ORDER BY d.FECHA_CD ASC LIMIT ? OFFSET ?",
+             WHERE $where ORDER BY $orderBy LIMIT ? OFFSET ?",
             [...$values, $limit, $offset]
         );
         return ['rowsReturned' => count($rows), 'totalRows' => $totalRows, 'data' => $rows];
+    }
+
+    /**
+     * Facetas del explorador de discos: década (de FECHA_CD), sin su propio filtro.
+     * @return array{decada:list<array>}
+     */
+    public static function discoFacets(string $query): array
+    {
+        parse_str($query, $params);
+        [$w, $v] = self::discoWhere($params, 'decada');
+        $dec = Db::all("SELECT (CAST(d.FECHA_CD AS INTEGER) / 10) * 10 AS K, COUNT(*) AS N FROM disco d
+                        WHERE $w AND CAST(d.FECHA_CD AS INTEGER) > 1900
+                        GROUP BY K ORDER BY K DESC LIMIT 10", $v);
+        return ['decada' => $dec];
     }
 
     // ── Búsqueda global unificada (M3) ───────────────────────────────────────
@@ -1436,19 +1570,31 @@ final class Repo
     // ── Temporada / contratos (N-04/N-05) ───────────────────────────────────
     /**
      * Contratos de un año, ordenados para agrupar por hermandad en la
-     * plantilla (misma hermandad = filas consecutivas). FUENTE se expone
-     * (es la cita pública); NOTA es interna del admin y no se selecciona.
+     * plantilla (misma hermandad = filas consecutivas). FUENTE se selecciona
+     * por si se necesita más adelante, pero la plantilla ya no la muestra
+     * (info pública sin contraste, no aporta como enlace visible); NOTA es
+     * interna del admin y no se selecciona.
+     * BANDA_LOCALIDAD viaja aparte (no solo dentro de BANDA ya formateado)
+     * para que Pages::temporada pueda inferir una "ciudad" aproximada por
+     * hermandad (localidad más frecuente entre sus bandas contratadas) sin
+     * esperar a la entidad `hermandad` real (N-03, ver docs/n03-hermandad.md).
+     * Orden: por ID_CONTRATO (orden de alta), no alfabético — el pipeline de
+     * carga inserta las filas en el mismo orden del CSV de origen (día →
+     * hermandad → paso), así que el ID autoincremental ya reconstruye ese
+     * orden sin necesidad de guardarlo aparte.
      * @return list<array{ID_CONTRATO:int,HERMANDAD:string,HERMANDAD_SLUG:string,
-     *                     TITULAR:?string,FUENTE:?string,ID_BANDA:int,BANDA:string}>
+     *                     TITULAR:?string,FUENTE:?string,ID_BANDA:int,BANDA:string,
+     *                     BANDA_LOCALIDAD:string}>
      */
     public static function temporada(string $anio): array
     {
         return Db::all(
             "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.FUENTE,
-                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
+                    b.LOCALIDAD AS BANDA_LOCALIDAD
              FROM contrato c INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
              WHERE c.ANIO = ?
-             ORDER BY c.HERMANDAD_SLUG ASC, c.TITULAR ASC, b.NOMBRE_BREVE ASC",
+             ORDER BY c.ID_CONTRATO ASC",
             [$anio]
         );
     }

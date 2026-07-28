@@ -951,7 +951,13 @@ final class Admin
     }
 
     /** Localidades y provincias únicas (marcha + banda) para el autocompletado del formulario. */
-    public static function localidadFastSearch(): void
+    /**
+     * Municipios de una provincia que casan con ?q — para el selector en
+     * cascada provincia→localidad (MunicipioRepo, catálogo cerrado). Sin
+     * provincia (aún no elegida en el formulario) no hay nada que sugerir:
+     * la localidad depende de ella, no al revés.
+     */
+    public static function municipioFastSearch(): void
     {
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
@@ -960,22 +966,42 @@ final class Admin
             echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
             return;
         }
+        $provincia = trim((string) ($_GET['provincia'] ?? ''));
+        if ($provincia === '' || !MunicipioRepo::esProvinciaValida($provincia)) {
+            echo json_encode(['rowsReturned' => 0, 'data' => []]);
+            return;
+        }
         $q = trim((string) ($_GET['q'] ?? ''));
-        $campo = ($_GET['campo'] ?? 'localidad') === 'provincia' ? 'provincia' : 'localidad';
-        if (mb_strlen($q) < 2) { echo json_encode(['rowsReturned' => 0, 'data' => []]); return; }
-
-        $col = strtoupper($campo);
-        $needle = '%' . Db::noAcc($q) . '%';
-        $rows = Db::all(
-            "SELECT DISTINCT $col AS valor FROM (
-                SELECT $col FROM marcha WHERE $col IS NOT NULL AND $col != '' AND NOACC($col) LIKE ?
-                UNION
-                SELECT $col FROM banda WHERE $col IS NOT NULL AND $col != '' AND NOACC($col) LIKE ?
-             ) t ORDER BY valor ASC LIMIT 15",
-            [$needle, $needle]
-        );
-        $data = array_column($rows, 'valor');
+        $rows = MunicipioRepo::buscar($provincia, $q, 15);
+        $data = array_map(static fn(array $r): string => (string) $r['NOMBRE'], $rows);
         echo json_encode(['rowsReturned' => count($data), 'data' => $data], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Alta de un par (provincia, localidad) nuevo en el catálogo — solo admin
+     * (el editor no escribe nunca en la BD; para él, la localidad que escriba
+     * viaja tal cual dentro de su propuesta y el admin la da de alta al
+     * revisarla, con este mismo endpoint). JSON, pensado para fetch() desde
+     * el selector del formulario, sin recargar la página.
+     */
+    public static function municipioAddPost(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $session = Auth::requireAdmin();
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) {
+            http_response_code(403);
+            echo json_encode(['code' => 'CSRF']);
+            return;
+        }
+        $r = MunicipioRepo::crear(
+            trim((string) ($_POST['provincia'] ?? '')),
+            trim((string) ($_POST['nombre'] ?? ''))
+        );
+        if ($r['code'] !== 'CREATED') {
+            http_response_code(400);
+        }
+        echo json_encode($r);
     }
 
     /**

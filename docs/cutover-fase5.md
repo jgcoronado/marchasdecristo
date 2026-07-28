@@ -130,6 +130,12 @@ así que el riesgo es bajo. Aun así, recomendable cerrar la puerta:
 
 No borres ni apagues el VPS hasta que la Fase 8 esté hecha.
 
+> Este es el rollback de **infraestructura/DNS** (todo el dominio, no un
+> commit). [entornos.md](entornos.md) enlaza aquí para quien necesite
+> encontrarlo sin saber que vive en un runbook histórico — sigue siendo válido
+> mientras el VPS no se desmantele (ver
+> [pendientes-post-cutover.md](pendientes-post-cutover.md), tarea 5).
+
 ---
 
 ## 8. Limpieza (semanas después, con todo estable)

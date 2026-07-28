@@ -77,7 +77,16 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
     <p class="asiento"><?= implode('. — ', array_filter($asiento, static fn($s) => $s !== '')) ?>.</p>
 <?php endif; ?>
 
-    <dl class="desc">
+<?php $hayEscuchar = $t($m['AUDIO']) || ($enlaces ?? []) !== []; ?>
+    <nav class="rectabs" aria-label="Secciones de la ficha">
+        <a href="#datos">Datos</a>
+<?php if ($hayEscuchar): ?>
+        <a href="#escuchar">Escuchar</a>
+<?php endif; ?>
+        <a href="#grabaciones">Grabaciones (<?= $num($nGrab) ?>)</a>
+    </nav>
+
+    <dl class="desc" id="datos">
 <?php /* Fila 1: Compositor(es) / Estrenada por — Fila 2: Año / Grabaciones —
          Fila 3: Dedicatoria / Localidad — Fila 4: Estilo / Duración.
          Tipo se omite casi siempre (ver condición abajo); cuando aparece
@@ -110,8 +119,8 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 <?php endif; ?>
     </dl>
 
-<?php $enl = $enlaces ?? []; if ($t($m['AUDIO']) || $enl !== []): ?>
-    <details class="collapse listen">
+<?php $enl = $enlaces ?? []; if ($hayEscuchar): ?>
+    <details class="collapse listen" id="escuchar">
         <summary class="collapse-title">Escuchar</summary>
         <div class="collapse-content">
 <?php if ($ytid !== null): ?>
@@ -141,7 +150,7 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
     <p class="notas"><?= $notas ?></p>
 <?php endif; ?>
 
-    <div class="shead">
+    <div class="shead" id="grabaciones">
         <h2>Grabaciones</h2>
 <?php if ($nGrab > 0): ?>
         <span class="n" id="grab-count"><?= $num($nGrab) ?> · orden cronológico</span>

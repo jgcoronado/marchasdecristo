@@ -1,7 +1,9 @@
 <?php use App\View as V; use App\Slug as S;
-/** Contratos banda↔hermandad de una temporada (N-04/N-05).
+/** Contratos banda↔hermandad de una temporada (N-04/N-05), agrupados por
+ *  ciudad (heurístico: localidad más frecuente entre las bandas de cada
+ *  hermandad ese año — ver docs/n03-hermandad.md) y luego por hermandad.
  *  @var string $h1  @var string $anio
- *  @var array<string,array{nombre:string,items:list<array<string,mixed>>}> $grupos  agrupados por HERMANDAD_SLUG */
+ *  @var array<string,array<string,array{nombre:string,ciudad:string,items:list<array<string,mixed>>}>> $porCiudad */
 $anioInt = (int) $anio;
 ?>
 <div class="stack">
@@ -22,11 +24,13 @@ $anioInt = (int) $anio;
         <h1><?= V::e($h1) ?></h1>
         <p class="asiento">Qué banda toca este año tras cada paso, hermandad a hermandad.</p>
 
-<?php if ($grupos === []): ?>
+<?php if ($porCiudad === []): ?>
         <p class="bio-empty">Todavía no hay contratos registrados para <?= V::e($anio) ?>.</p>
 <?php else: ?>
-<?php foreach ($grupos as $g): ?>
-        <div class="shead"><h2><?= V::e($g['nombre']) ?></h2></div>
+<?php foreach ($porCiudad as $ciudad => $hermandades): ?>
+        <div class="shead shead-ciudad"><h2><?= V::e($ciudad) ?></h2></div>
+<?php foreach ($hermandades as $g): ?>
+        <div class="shead"><h3><?= V::e($g['nombre']) ?></h3></div>
         <ul class="vease">
 <?php foreach ($g['items'] as $it): ?>
             <li>→
@@ -40,6 +44,7 @@ $anioInt = (int) $anio;
             </li>
 <?php endforeach; ?>
         </ul>
+<?php endforeach; ?>
 <?php endforeach; ?>
 <?php endif; ?>
     </article>

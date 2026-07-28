@@ -19,8 +19,6 @@ $val = static function (string $k) use ($banda): string {
 $fields = [
     ['NOMBRE_BREVE', 'Nombre breve', 'text'],
     ['NOMBRE_COMPLETO', 'Nombre completo', 'text'],
-    ['LOCALIDAD', 'Localidad', 'text'],
-    ['PROVINCIA', 'Provincia', 'text'],
     ['FECHA_FUND', 'Fecha de fundación (año)', 'number'],
     ['FECHA_EXT', 'Fecha de extinción (año)', 'number'],
     ['DIRECTOR_ACTUAL', 'Director actual', 'text'],
@@ -64,13 +62,16 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
     </div>
 
     <div data-tab-panel="datos">
-    <form class="panel" id="bandaForm" action="<?= V::e($action) ?>" method="POST">
+    <form class="panel" id="bandaForm" action="<?= V::e($action) ?>" method="POST" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
 <?php foreach ($fields as [$key, $label, $type]): ?>
         <div class="field">
             <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
             <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>"<?= $type === 'number' ? ' min="1800" max="2100"' : '' ?> value="<?= $val($key) ?>">
         </div>
+<?php if ($key === 'NOMBRE_COMPLETO'): ?>
+<?= H::municipioFields((string) ($banda['LOCALIDAD'] ?? ''), $banda['PROVINCIA'] ?? null) ?>
+<?php endif; ?>
 <?php endforeach; ?>
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : 'Guardar cambios' ?></button></div>
     </form>

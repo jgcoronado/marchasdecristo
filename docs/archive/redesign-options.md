@@ -164,7 +164,8 @@ El cuello de botella real no es ni el rendimiento ni el lenguaje: es **complejid
 
 ### Recomendación: **Opción B** (unificación en Next.js)
 - Decisión ya tomada en sesión 2026-06-01.
-- Detalle de implementación en [roadmap.md](roadmap.md) §3.
+- Detalle de implementación: ver el roadmap de la época en el historial de git
+  (`git log -p -- docs/roadmap.md`) — el roadmap vigente ya no describe fases Next.js.
 
 ## 6. Otras tecnologías a considerar
 

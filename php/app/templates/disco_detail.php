@@ -34,7 +34,14 @@ $asiento[] = $num($nP) . ' pistas' . ($multi ? ' en ' . (int) $d['DISCOS'] . ' v
         <div class="disco-meta">
             <h1><?= V::e($d['NOMBRE_CD']) ?></h1>
             <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
-            <dl class="desc">
+            <nav class="rectabs" aria-label="Secciones de la ficha">
+                <a href="#datos">Datos</a>
+<?php if ($t($detalles)): ?>
+                <a href="#notas">Notas</a>
+<?php endif; ?>
+                <a href="#contenido">Contenido (<?= $num($nP) ?>)</a>
+            </nav>
+            <dl class="desc" id="datos">
 <?php if ($t($d['ID_BANDA'])): ?>
                 <div class="f"><dt>Banda</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?>, <?= V::e($d['BANDA_LOC']) ?><?php endif; ?></dd></div>
 <?php endif; ?>
@@ -51,11 +58,11 @@ $asiento[] = $num($nP) . ' pistas' . ($multi ? ' en ' . (int) $d['DISCOS'] . ' v
     </div>
 
 <?php if ($t($detalles)): ?>
-    <div class="shead"><h2>Notas</h2></div>
+    <div class="shead" id="notas"><h2>Notas</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($detalles)) ?></p>
 <?php endif; ?>
 
-    <div class="shead">
+    <div class="shead" id="contenido">
         <h2>Contenido</h2>
         <span class="n" id="pistas-count"><?= $num($nP) ?> pistas</span>
 <?php if ($nP >= 10): ?>

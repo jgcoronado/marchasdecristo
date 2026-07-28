@@ -34,7 +34,7 @@ reciente y propuestas de editores pendientes bajadas) y nunca al revés.
 ```
 cambio de código → validar en LOCAL (servidor embebido + smoke)
                  → push/merge a main
-                 → CI (lint + 44 smoke sobre fixture)   ← se ejecuta solo, no despliega
+                 → CI (lint + smoke sobre fixture, ver ci_smoke.php para el conteo real)   ← se ejecuta solo, no despliega
                  → Actions → Deploy → Run workflow       ← promoción manual a PRO
                  → mantenimiento ON → mirror FTP a PRO → mantenimiento OFF (siempre)
                  → smoke remoto contra PRO (datos reales)
@@ -46,6 +46,11 @@ haya que subir datos nuevos. El pipeline de código **nunca** toca `private/`,
 
 **Rollback de código en PRO**: Actions → Deploy → *Run workflow* → en el
 desplegable de ref, elegir el commit/tag anterior.
+
+**Rollback de infraestructura/DNS** (distinto del anterior: volver todo el
+dominio al VPS antiguo, no solo un commit): procedimiento en
+[cutover-fase5.md §7](cutover-fase5.md) — vigente solo **mientras el VPS
+no se desmantele** (ver [pendientes-post-cutover.md](pendientes-post-cutover.md)).
 
 ## Puesta en marcha (una sola vez)
 
@@ -72,3 +77,6 @@ deja runs en rojo.
 - El mirror pisa `marchasdecristo.com/.htaccess` y `app/*` en cada deploy:
   cualquier ajuste manual hecho por FTP se pierde. El sitio legítimo para
   configuración por-host es `config.local.php`.
+- **Cloudflare**: si HelioHost pone Cloudflare delante del dominio, purgar su
+  caché tras un deploy con cambios de contenido grandes (no solo en el
+  cutover inicial) — si no, puede servir HTML/assets viejos un rato.

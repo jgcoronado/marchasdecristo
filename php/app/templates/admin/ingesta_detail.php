@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth;
+<?php use App\View as V; use App\Auth; use App\Html as H;
 /** @var array $session @var array<string,mixed> $cand
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string,score:float}> $autoresAuto
  *  @var list<string> $autoresSugeridos @var string $back
@@ -11,9 +11,9 @@ $flags = $cand['FLAGS'] ? (json_decode((string) $cand['FLAGS'], true) ?: []) : [
 $fields = [
     ['TITULO', 'Título', 'text', $cand['P_TITULO'] ?? ''],
     ['FECHA', 'Fecha (año de 4 dígitos)', 'text', $cand['P_FECHA'] ?? ''],
-    ['LOCALIDAD', 'Localidad', 'text', $cand['P_LOCALIDAD'] ?? ''],
-    ['PROVINCIA', 'Provincia', 'text', $cand['P_PROVINCIA'] ?? ''],
 ];
+$candLocalidad = (string) ($cand['P_LOCALIDAD'] ?? '');
+$candProvincia = is_string($cand['P_PROVINCIA'] ?? null) && $cand['P_PROVINCIA'] !== '' ? (string) $cand['P_PROVINCIA'] : null;
 $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
 ?>
 <div class="stack admin-form">
@@ -66,11 +66,15 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
     </div>
 
 <?php if ($cand['ESTADO'] === 'pendiente'): ?>
-    <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/aceptar" method="POST" id="aceptarForm">
+    <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/aceptar" method="POST" id="aceptarForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
 <?php foreach ($fields as [$key, $label, $type, $default]): ?>
-<?php if ($key === 'LOCALIDAD'): ?>
+        <div class="field">
+            <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
+            <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>" value="<?= V::e($default) ?>">
+        </div>
+<?php endforeach; ?>
         <div class="field">
             <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
             <div class="autocomplete">
@@ -80,12 +84,7 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
             </div>
             <p class="muted">Escribe 7+ caracteres para buscar hermandades ya existentes en la BD. Al elegir una, se rellenan también localidad y provincia.</p>
         </div>
-<?php endif; ?>
-        <div class="field">
-            <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
-            <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>" value="<?= V::e($default) ?>">
-        </div>
-<?php endforeach; ?>
+<?= H::municipioFields($candLocalidad, $candProvincia) ?>
         <div class="field">
             <label class="field-label" for="BANDA_ESTRENO">ID de la banda de estreno</label>
             <input class="input" id="BANDA_ESTRENO" name="BANDA_ESTRENO" type="number" value="<?= V::e($bandaEstrenoVal) ?>">
@@ -231,11 +230,11 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
                     b.textContent = label;
                     b.addEventListener('click', function () {
                         input.value = r.DEDICATORIA;
-                        if (esHermandad) {
-                            var loc = document.getElementById('LOCALIDAD');
-                            var prov = document.getElementById('PROVINCIA');
-                            if (loc && r.LOCALIDAD) loc.value = r.LOCALIDAD;
-                            if (prov && r.PROVINCIA) prov.value = r.PROVINCIA;
+                        if (esHermandad && r.LOCALIDAD) {
+                            var form = document.getElementById('aceptarForm');
+                            if (form && typeof form.municipioSetValue === 'function') {
+                                form.municipioSetValue(r.PROVINCIA || '', r.LOCALIDAD);
+                            }
                         }
                         closeSuggest();
                         input.focus();

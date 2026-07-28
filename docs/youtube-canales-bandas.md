@@ -52,9 +52,15 @@ ORDER BY b.ID_BANDA
 
 ## Resultado (267 bandas revisadas)
 
-- **102 exactas** → ya cargadas en `tools/ingest/config/canales.csv` (real,
+> Recuento verificado 2026-07-27 directamente contra
+> `tools/ingest/config/canales_propuesta.csv` (10 casos dudosos se resolvieron
+> a mano desde que se escribió este documento por primera vez; el recuento de
+> abajo y la lista de la sección siguiente ya reflejan el estado actual del
+> CSV, no el original).
+
+- **112 exactas** → ya cargadas en `tools/ingest/config/canales.csv` (real,
   entregado directamente al usuario como fichero, no está en git).
-- **33 dudosas** → pendientes de confirmación manual del usuario.
+- **23 dudosas** → pendientes de confirmación manual del usuario.
 - **132 no encontradas** → la mayoría bandas extintas o sin disco en 20+
   años, como se esperaba.
 
@@ -71,25 +77,30 @@ FECHA_EXT, ULTIMO_DISCO, STATUS, CANAL_URL, CANDIDATOS, NOTA`.
 - Filas `STATUS=no_encontrado`: sin acción prevista, salvo que el usuario
   quiera reabrir la búsqueda de alguna en concreto.
 
-## Los 33 casos dudosos (resumen para decidir)
+## Los 23 casos dudosos vigentes (resumen para decidir)
 
 Agrupados por motivo de duda — ver `canales_propuesta.csv` para el detalle
-completo de cada uno:
+completo de cada uno. Los IDs tachados de la lista original ya se resolvieron
+(pasaron a `STATUS=exacto`) y se han quitado de aquí:
 
 1. **Solo canal "Topic" autogenerado** (no gestionado por la banda): IDs
-   2, 57, 62, 74, 75, 83, 121, 130.
+   62, 75, 83, 121 (resueltos: ~~2, 57, 74, 130~~).
 2. **Solo playlist localizada, canal propietario no confirmado**: IDs 176,
-   183, 226, 242, 263, 271.
-3. **Dos canales candidatos, no está claro cuál es el vigente**: IDs 110
-   (Vera Cruz, Campillos), 136 (Amor y Sacrificio, Lebrija), 255 (Virgen de
-   Gracia, Vila-real).
+   183, 242, 263, 271 (resuelto: ~~226~~).
+3. **Dos canales candidatos, no está claro cuál es el vigente**: ID 255
+   (Virgen de Gracia, Vila-real) (resueltos: ~~110~~ Vera Cruz/Campillos,
+   ~~136~~ Amor y Sacrificio/Lebrija).
 4. **Podría ser el canal de la hermandad/cofradía, no de la banda musical**:
-   IDs 63, 79, 97, 157, 227, 239.
-5. **Riesgo de confusión con banda homónima de otra localidad**: IDs 17, 61,
-   89, 98, 150, 184, 243.
-6. **Banda fusionada con otra (cambió de nombre)**: IDs 86, 209, 210 (209 y
-   210 se fusionaron en 2019 en "Expiración, Salud y Esperanza"; el canal
-   encontrado es de la banda sucesora, no de cada entidad original).
+   IDs 63, 79, 97, 157, 227, 239 (sin cambios).
+5. **Riesgo de confusión con banda homónima de otra localidad**: IDs 89, 98,
+   150, 184, 243 (resueltos: ~~17, 61~~).
+6. **Banda fusionada con otra (cambió de nombre)**: IDs 86, 210 (resuelto:
+   ~~209~~; 209 y 210 se fusionaron en 2019 en "Expiración, Salud y
+   Esperanza"; el canal encontrado es de la banda sucesora).
+
+Para no volver a desincronizar esta lista si se resuelven más casos: filtrar
+`STATUS=dudoso` directamente en el CSV (ver "Cómo retomar" abajo) es más
+fiable que mantener esta enumeración a mano.
 
 ## Cómo retomar este trabajo en otra sesión
 

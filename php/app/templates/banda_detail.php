@@ -75,7 +75,16 @@ $nMarchas = (int) $b['marchasLength'];
     <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
     <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
 
-    <dl class="desc">
+    <nav class="rectabs" aria-label="Secciones de la ficha">
+        <a href="#datos">Datos</a>
+        <a href="#formaciones">Formaciones</a>
+<?php if ($nDiscos > 0): ?>
+        <a href="#discografia">Discografía (<?= $num($nDiscos) ?>)</a>
+<?php endif; ?>
+        <a href="#estrenos">Estrenos (<?= $num($nMarchas) ?>)</a>
+    </nav>
+
+    <dl class="desc" id="datos">
 <?php if ($t($b['NOMBRE_COMPLETO'])): ?>
         <div class="f"><dt>Nombre completo</dt><dd><?= V::e($b['NOMBRE_COMPLETO']) ?></dd></div>
 <?php endif; ?>
@@ -104,7 +113,7 @@ $nMarchas = (int) $b['marchasLength'];
     </dl>
     <?= H::streaming($enlaces ?? []) ?>
 
-    <div class="shead">
+    <div class="shead" id="formaciones">
         <h2>Formaciones</h2>
         <span class="n"><?= $nSuc === 1 ? '1 formación' : $nSuc . ' sucesivas' ?><?php if ($nJuv > 0): ?> · <?= $nJuv ?> juvenil<?= $nJuv > 1 ? 'es' : '' ?><?php endif; ?></span>
     </div>
@@ -126,7 +135,7 @@ $nMarchas = (int) $b['marchasLength'];
     </ul>
 
 <?php if ($nDiscos > 0): ?>
-    <div class="shead">
+    <div class="shead" id="discografia">
         <h2>Discografía propia</h2>
         <span class="n"><?= $num($nDiscos) ?> discos · orden cronológico</span>
     </div>
@@ -150,7 +159,7 @@ $nMarchas = (int) $b['marchasLength'];
     </div>
 <?php endif; ?>
 
-    <div class="shead">
+    <div class="shead" id="estrenos">
         <h2>Marchas estrenadas</h2>
 <?php if ($nMarchas > 0): ?>
         <span class="n" id="est-count"><?= $num($nMarchas) ?> · más recientes primero</span>

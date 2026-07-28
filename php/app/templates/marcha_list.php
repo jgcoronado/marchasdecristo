@@ -78,6 +78,19 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <?php endforeach; ?>
             </div>
 <?php endif; ?>
+<?php if ($facets['estilo'] !== []):
+    $estiloLabel = static fn(string $k): string => match ($k) {
+        'CCTT' => 'Cornetas y Tambores',
+        'AM' => 'Agrupación Musical',
+        default => $k,
+    }; ?>
+            <div class="fgroup">
+                <div class="ftitle">Estilo</div>
+<?php foreach ($facets['estilo'] as $f): $on = ($criteria['estilo'] ?? '') === $f['K']; ?>
+                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['estilo' => $on ? '' : $f['K']])) ?>"><?= V::e($estiloLabel((string) $f['K'])) ?><?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
+<?php endforeach; ?>
+            </div>
+<?php endif; ?>
 <?php if ($facets['provincia'] !== []): ?>
             <div class="fgroup">
                 <div class="ftitle">Provincia</div>

@@ -359,11 +359,14 @@ $tests = [
     'mapa 200 + JSON-LD breadcrumbs' => static fn() => assertJsonLd('/mapa', $base, 'BreadcrumbList'),
     'mapa: provincia con datos es un enlace con recuento' => static function () use ($base): void {
         $r = assertStatus('/mapa', 200, $base);
-        if (!str_contains($r['body'], '<a href="/marcha/provincia/sevilla"><g id="ES-SE" class="prov prov-1"><title>Sevilla: 4 marchas</title>')) {
-            throw new RuntimeException('/mapa → Sevilla (ES-SE) no aparece como región enlazada con su recuento');
+        if (!str_contains($r['body'], '<a href="/mapa/provincia/sevilla"><g id="ES-SE" class="prov prov-1"><title>Sevilla: 4 marchas</title>')) {
+            throw new RuntimeException('/mapa → Sevilla (ES-SE) no aparece como región enlazada con su recuento (mapa ampliado)');
         }
         if (!str_contains($r['body'], '<td><a href="/marcha/provincia/sevilla">Sevilla</a></td>')) {
-            throw new RuntimeException('/mapa → falta la fila de Sevilla en la tabla accesible');
+            throw new RuntimeException('/mapa → falta la fila de Sevilla en la tabla accesible (catálogo directo)');
+        }
+        if (str_contains($r['body'], 'mapa-punto')) {
+            throw new RuntimeException('/mapa → el mapa nacional no debería pintar puntos de localidad');
         }
     },
     'mapa: provincia sin datos no es un enlace' => static function () use ($base): void {
@@ -371,10 +374,27 @@ $tests = [
         if (!str_contains($r['body'], '<g id="ES-M" class="prov prov-0">')) {
             throw new RuntimeException('/mapa → Madrid (ES-M, sin marchas) debería quedar sin enlazar (nivel 0)');
         }
-        if (str_contains($r['body'], '<a href="/marcha/provincia/madrid">')) {
+        if (str_contains($r['body'], '<a href="/mapa/provincia/madrid">')) {
             throw new RuntimeException('/mapa → Madrid no debería tener enlace de provincia (0 marchas en la fixture)');
         }
     },
+    'mapa de provincia: municipio clicable, rotulado y con color de contraste + viewBox recortado' => static function () use ($base): void {
+        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
+        if (!str_contains($r['body'], '<a href="/marcha?localidad=Sevilla"><circle class="mapa-punto mapa-punto-n')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería ser un punto clicable');
+        }
+        if (!str_contains($r['body'], '<text class="mapa-punto-label"') || !str_contains($r['body'], '>Sevilla</text>')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería llevar su nombre rotulado');
+        }
+        if (!str_contains($r['body'], 'class="prov prov-provincia"')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → la provincia debería pintarse con el color de contraste, no la coropleta nacional');
+        }
+        if (str_contains($r['body'], 'viewBox="0 0 569 392"')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → el viewBox debería estar recortado a la provincia, no ser el del mapa nacional');
+        }
+    },
+    'mapa de provincia: slug incorrecto → 308 canónico' => static fn() => assertRedirect('/mapa/provincia/SEVILLA', '/mapa/provincia/sevilla', $base),
+    'mapa de provincia: inexistente → 404' => static fn() => assertStatus('/mapa/provincia/marte', 404, $base),
 
     // ── Temporada (N-04): contratos banda↔hermandad, alta manual ────────────
     'temporada sin año → 302 al año en curso' => static function () use ($base): void {

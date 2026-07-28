@@ -172,9 +172,12 @@ final class Pages
     public static function bandaList(): void
     {
         [$criteria, $hasQuery, $page, $limit] = self::searchParams();
-        $result = $hasQuery ? Repo::searchBandas(http_build_query($criteria), $page, $limit) : null;
-        $result !== null ? Http::noStore() : Http::cachePublic(3600);
-        View::render('banda_list', compact('criteria', 'result', 'page', 'limit'), [
+        // Explorador: lista siempre (sin filtros = catálogo completo paginado).
+        $qs = http_build_query($criteria);
+        $result = Repo::searchBandas($qs, $page, $limit);
+        $facets = Repo::bandaFacets($qs);
+        $hasQuery ? Http::noStore() : Http::cachePublic(3600);
+        View::render('banda_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
             'title' => 'Buscador de bandas — Marchas de Cristo',
             'description' => 'Busca bandas de cornetas y tambores y agrupaciones musicales por nombre, localidad y provincia.',
             'noindex' => true,
@@ -184,9 +187,12 @@ final class Pages
     public static function discoList(): void
     {
         [$criteria, $hasQuery, $page, $limit] = self::searchParams();
-        $result = $hasQuery ? Repo::searchDiscos(http_build_query($criteria), $page, $limit) : null;
-        $result !== null ? Http::noStore() : Http::cachePublic(3600);
-        View::render('disco_list', compact('criteria', 'result', 'page', 'limit'), [
+        // Explorador: lista siempre (sin filtros = catálogo completo paginado).
+        $qs = http_build_query($criteria);
+        $result = Repo::searchDiscos($qs, $page, $limit);
+        $facets = Repo::discoFacets($qs);
+        $hasQuery ? Http::noStore() : Http::cachePublic(3600);
+        View::render('disco_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
             'title' => 'Buscador de discos — Marchas de Cristo',
             'description' => 'Busca discos de música procesional de Semana Santa por nombre.',
             'noindex' => true,
@@ -225,6 +231,11 @@ final class Pages
     public static function provinciaHubPath(string $provincia): string
     {
         return '/marcha/provincia/' . Slug::slugify($provincia);
+    }
+
+    public static function mapaProvinciaPath(string $provincia): string
+    {
+        return '/mapa/provincia/' . Slug::slugify($provincia);
     }
 
     /** Ruta del hub para un valor de BD ('CCTT'/'AM'), o null si no es un estilo conocido. */
@@ -826,7 +837,7 @@ final class Pages
 
         $base = self::base();
         $canonical = $base . '/mapa';
-        $desc = 'Mapa de España con el número de marchas procesionales del catálogo por provincia: pulsa una provincia para ver su catálogo completo.';
+        $desc = 'Mapa de España con el número de marchas procesionales del catálogo por provincia: pulsa una provincia para ver sus municipios.';
 
         Http::cachePublic(3600);
         View::render('mapa', [
@@ -842,6 +853,56 @@ final class Pages
                 Seo::breadcrumbs([
                     ['name' => 'Inicio', 'url' => $base],
                     ['name' => 'Mapa', 'url' => $canonical],
+                ]),
+            ],
+        ]);
+    }
+
+    /** Mapa ampliado de una provincia: municipios clicables (self::mapaProvinciaPath). */
+    public static function mapaProvincia(array $p): void
+    {
+        $raw = (string) $p['slug'];
+        $slug = Slug::slugify($raw);
+        $prov = null;
+        foreach (Repo::hubProvincias() as $r) {
+            if (Slug::slugify((string) $r['K']) === $slug) {
+                $prov = $r;
+                break;
+            }
+        }
+        if ($prov === null) {
+            Http::notFound();
+        }
+        if ($raw !== $slug) {
+            Http::redirect(self::mapaProvinciaPath((string) $prov['K']));
+        }
+        $nombre = (string) $prov['K'];
+
+        $porLocalidad = Repo::hubLocalidades($nombre);
+        $puntos = Mapa::puntos($porLocalidad);
+        $svgMapa = Mapa::renderProvincia($nombre, $puntos);
+        if ($svgMapa === null) {
+            Http::notFound();
+        }
+
+        $base = self::base();
+        $canonical = $base . self::mapaProvinciaPath($nombre);
+
+        Http::cachePublic(3600);
+        View::render('mapa_provincia', [
+            'svgMapa' => $svgMapa,
+            'provincia' => $nombre,
+            'porLocalidad' => $porLocalidad,
+            'total' => (int) $prov['N'],
+        ], [
+            'title' => 'Mapa de ' . $nombre . ' — Marchas de Cristo',
+            'description' => 'Localidades con marchas procesionales en la provincia de ' . $nombre . ': pulsa un municipio para ver su catálogo.',
+            'canonical' => $canonical,
+            'jsonld' => [
+                Seo::breadcrumbs([
+                    ['name' => 'Inicio', 'url' => $base],
+                    ['name' => 'Mapa', 'url' => $base . '/mapa'],
+                    ['name' => $nombre, 'url' => $canonical],
                 ]),
             ],
         ]);
@@ -879,23 +940,52 @@ final class Pages
             error_log('[temporada] ' . $e->getMessage());
             $contratos = [];
         }
+        // Agrupado por hermandad (comportamiento original) + una "ciudad"
+        // heurística por hermandad: la localidad más frecuente entre las
+        // bandas que le tocan ese año. Es una aproximación deliberada
+        // mientras no existe la entidad `hermandad` real (N-03): sirve para
+        // no mezclar en una sola lista plana las hermandades de varias
+        // localidades (Sevilla, Málaga, ...) a medida que se cargan más
+        // temporadas. Ver docs/n03-hermandad.md para el reemplazo definitivo.
         $grupos = [];
         foreach ($contratos as $c) {
             $key = (string) $c['HERMANDAD_SLUG'];
             $grupos[$key]['nombre'] ??= $c['HERMANDAD'];
             $grupos[$key]['items'][] = $c;
+            $loc = trim((string) ($c['BANDA_LOCALIDAD'] ?? ''));
+            if ($loc !== '') {
+                $grupos[$key]['localidades'][$loc] = ($grupos[$key]['localidades'][$loc] ?? 0) + 1;
+            }
         }
+        foreach ($grupos as $key => &$g) {
+            $locs = $g['localidades'] ?? [];
+            arsort($locs);
+            $g['ciudad'] = $locs === [] ? 'Sin localidad' : (string) array_key_first($locs);
+            unset($g['localidades']);
+        }
+        unset($g);
+
+        $porCiudad = [];
+        foreach ($grupos as $key => $g) {
+            $porCiudad[$g['ciudad']][$key] = $g;
+        }
+        ksort($porCiudad, SORT_STRING);
+        // Dentro de cada ciudad, las hermandades NO se alfabetizan: se dejan
+        // en el orden en que llegaron desde Repo::temporada() (ID_CONTRATO
+        // ASC = orden del CSV de origen: día → hermandad → paso). Mismo
+        // criterio para los acompañamientos de cada hermandad (ya venían así
+        // en $g['items']).
 
         $base = self::base();
         $canonical = $base . '/temporada/' . $anio;
         $h1 = "Temporada $anio";
-        $desc = "Qué banda toca este año tras cada paso: contratos de la temporada $anio por hermandad.";
+        $desc = "Qué banda toca este año tras cada paso: contratos de la temporada $anio por hermandad y localidad.";
 
         Http::cachePublic(3600);
         View::render('temporada', [
             'h1' => $h1,
             'anio' => $anio,
-            'grupos' => $grupos,
+            'porCiudad' => $porCiudad,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,
