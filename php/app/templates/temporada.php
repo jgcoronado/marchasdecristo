@@ -17,10 +17,6 @@ $anioInt = (int) $anio;
     </div>
 
     <article class="record">
-        <div class="head">
-            <span class="eb">Temporada</span>
-            <span class="sig">MDC · contratos</span>
-        </div>
         <h1><?= V::e($h1) ?></h1>
         <p class="asiento">Qué banda toca este año tras cada paso, hermandad a hermandad.</p>
 

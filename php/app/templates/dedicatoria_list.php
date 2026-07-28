@@ -23,10 +23,6 @@ $letras = array_keys($grupos);
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Índice</span>
-        <span class="sig">MDC · dedicatorias</span>
-    </div>
     <h1>Dedicatorias</h1>
     <p class="asiento">Advocaciones, hermandades, cofradías y agrupaciones a las que están dedicadas las marchas del catálogo.
         <?= $num(count($items)) ?> advocaciones · <?= $num($totalMarchas) ?> marchas dedicadas.</p>
