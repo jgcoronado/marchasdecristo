@@ -940,23 +940,52 @@ final class Pages
             error_log('[temporada] ' . $e->getMessage());
             $contratos = [];
         }
+        // Agrupado por hermandad (comportamiento original) + una "ciudad"
+        // heurística por hermandad: la localidad más frecuente entre las
+        // bandas que le tocan ese año. Es una aproximación deliberada
+        // mientras no existe la entidad `hermandad` real (N-03): sirve para
+        // no mezclar en una sola lista plana las hermandades de varias
+        // localidades (Sevilla, Málaga, ...) a medida que se cargan más
+        // temporadas. Ver docs/n03-hermandad.md para el reemplazo definitivo.
         $grupos = [];
         foreach ($contratos as $c) {
             $key = (string) $c['HERMANDAD_SLUG'];
             $grupos[$key]['nombre'] ??= $c['HERMANDAD'];
             $grupos[$key]['items'][] = $c;
+            $loc = trim((string) ($c['BANDA_LOCALIDAD'] ?? ''));
+            if ($loc !== '') {
+                $grupos[$key]['localidades'][$loc] = ($grupos[$key]['localidades'][$loc] ?? 0) + 1;
+            }
         }
+        foreach ($grupos as $key => &$g) {
+            $locs = $g['localidades'] ?? [];
+            arsort($locs);
+            $g['ciudad'] = $locs === [] ? 'Sin localidad' : (string) array_key_first($locs);
+            unset($g['localidades']);
+        }
+        unset($g);
+
+        $porCiudad = [];
+        foreach ($grupos as $key => $g) {
+            $porCiudad[$g['ciudad']][$key] = $g;
+        }
+        ksort($porCiudad, SORT_STRING);
+        // Dentro de cada ciudad, las hermandades NO se alfabetizan: se dejan
+        // en el orden en que llegaron desde Repo::temporada() (ID_CONTRATO
+        // ASC = orden del CSV de origen: día → hermandad → paso). Mismo
+        // criterio para los acompañamientos de cada hermandad (ya venían así
+        // en $g['items']).
 
         $base = self::base();
         $canonical = $base . '/temporada/' . $anio;
         $h1 = "Temporada $anio";
-        $desc = "Qué banda toca este año tras cada paso: contratos de la temporada $anio por hermandad.";
+        $desc = "Qué banda toca este año tras cada paso: contratos de la temporada $anio por hermandad y localidad.";
 
         Http::cachePublic(3600);
         View::render('temporada', [
             'h1' => $h1,
             'anio' => $anio,
-            'grupos' => $grupos,
+            'porCiudad' => $porCiudad,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,

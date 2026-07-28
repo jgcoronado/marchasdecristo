@@ -1570,19 +1570,31 @@ final class Repo
     // ── Temporada / contratos (N-04/N-05) ───────────────────────────────────
     /**
      * Contratos de un año, ordenados para agrupar por hermandad en la
-     * plantilla (misma hermandad = filas consecutivas). FUENTE se expone
-     * (es la cita pública); NOTA es interna del admin y no se selecciona.
+     * plantilla (misma hermandad = filas consecutivas). FUENTE se selecciona
+     * por si se necesita más adelante, pero la plantilla ya no la muestra
+     * (info pública sin contraste, no aporta como enlace visible); NOTA es
+     * interna del admin y no se selecciona.
+     * BANDA_LOCALIDAD viaja aparte (no solo dentro de BANDA ya formateado)
+     * para que Pages::temporada pueda inferir una "ciudad" aproximada por
+     * hermandad (localidad más frecuente entre sus bandas contratadas) sin
+     * esperar a la entidad `hermandad` real (N-03, ver docs/n03-hermandad.md).
+     * Orden: por ID_CONTRATO (orden de alta), no alfabético — el pipeline de
+     * carga inserta las filas en el mismo orden del CSV de origen (día →
+     * hermandad → paso), así que el ID autoincremental ya reconstruye ese
+     * orden sin necesidad de guardarlo aparte.
      * @return list<array{ID_CONTRATO:int,HERMANDAD:string,HERMANDAD_SLUG:string,
-     *                     TITULAR:?string,FUENTE:?string,ID_BANDA:int,BANDA:string}>
+     *                     TITULAR:?string,FUENTE:?string,ID_BANDA:int,BANDA:string,
+     *                     BANDA_LOCALIDAD:string}>
      */
     public static function temporada(string $anio): array
     {
         return Db::all(
             "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.FUENTE,
-                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
+                    b.LOCALIDAD AS BANDA_LOCALIDAD
              FROM contrato c INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
              WHERE c.ANIO = ?
-             ORDER BY c.HERMANDAD_SLUG ASC, c.TITULAR ASC, b.NOMBRE_BREVE ASC",
+             ORDER BY c.ID_CONTRATO ASC",
             [$anio]
         );
     }
