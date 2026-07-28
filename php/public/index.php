@@ -22,4 +22,9 @@ define('BASE_DIR', dirname(__DIR__));   // php/ en local · /home/USER en HelioH
 define('APP_DIR', $envOverrides['app_dir'] ?? BASE_DIR . '/app');
 define('DATA_DIR', $envOverrides['data_dir'] ?? BASE_DIR . '/data');
 
+// Fail-safe de indexación: lo pone el propio deploy, así que un host de PRE al
+// que aún le falte config.local.php ya nace con noindex en vez de duplicar
+// producción en Google. config.local.php puede sobrescribirlo (config.php).
+define('ENV_PREPRODUCCION', !empty($envOverrides['preproduccion']));
+
 require APP_DIR . '/bootstrap.php';

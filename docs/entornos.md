@@ -43,7 +43,7 @@ El desvío lo hace **`env.php`**, un fichero en el docroot de PRE que
 `index.php` lee (si existe) para sobrescribir `APP_DIR`:
 
 ```
-/home/USUARIO/
+/home/jaguerra27/
 ├── marchasdecristo.com/          ← docroot PRO · index.php → APP_DIR = ../app
 ├── app/                          ← código de PRO
 ├── private/mdc.db                ← BD (la leen los DOS entornos)
@@ -57,6 +57,12 @@ El desvío lo hace **`env.php`**, un fichero en el docroot de PRE que
 cada despliegue. Así el mirror de producción no puede llevárselo nunca — y por
 si acaso, el mirror de PRO lo excluye explícitamente. Si faltara, PRE cargaría
 el `app/` de PRO y el smoke lo cazaría: `/health` diría `entorno: prod`.
+
+Además de la ruta, `env.php` marca `'preproduccion' => true`. Es el **fail-safe
+de indexación**: un PRE recién desplegado al que todavía le falte su
+`config.local.php` ya nace con `noindex`, en vez de duplicar producción en
+Google mientras alguien se acuerda de crear el fichero. `config.local.php`
+puede sobrescribirlo si hiciera falta.
 
 **La BD es compartida y PRE la trata como solo lectura**: su `config.local.php`
 mantiene `env => 'production'`, que es el fail-safe que bloquea las escrituras
@@ -105,20 +111,20 @@ no se desmantele** (ver [pendientes-post-cutover.md](pendientes-post-cutover.md)
    return [
        'debug' => false,
        'env'   => 'production',           // solo lectura: fail-safe de escrituras
-       'preproduccion' => true,           // noindex + robots Disallow + cinta
        'site_url' => 'https://marchasdecristo.jaguerra27.helioho.st',
        'force_canonical_host' => false,   // OBLIGATORIO: si no, PRE redirige 301 a PRO
-       'db_path' => '/home/USUARIO/private/mdc.db',   // la MISMA BD que producción
+       'db_path' => '/home/jaguerra27/private/mdc.db', // la MISMA BD que producción
        'cover_base_url' => 'https://marchasdecristo.com',
        'secret_key' => '...(96 chars nuevos, NO el de PRO)...',
-       // indexnow_key y goatcounter_code se quedan null (defaults)
+       // 'preproduccion' ya lo pone env.php; indexnow_key y goatcounter_code
+       // se quedan null (defaults)
    ];
    ```
    El directorio `pre/app/` lo crea el propio mirror en el primer deploy, así
    que este paso va **después** de él (o se crea el directorio a mano antes).
-   **El primer deploy fallará en el smoke** (sin `config.local.php`, `/health`
-   dice `entorno: prod` y no encuentra la BD): es su forma de recordarte este
-   paso. Con el fichero puesto, relanzar el deploy.
+   **El primer deploy fallará en el smoke** mientras falte el fichero: sin
+   `db_path`, `/health` dice `db: error`. El `noindex` sí está desde el primer
+   segundo (lo pone `env.php`). Con el fichero puesto, relanzar el deploy.
 
 ### En GitHub (Settings → Secrets and variables → Actions)
 4. Secrets `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD` (los mismos de `.env.ftp`):

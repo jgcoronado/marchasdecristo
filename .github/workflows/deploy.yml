@@ -94,7 +94,10 @@ jobs:
           declare(strict_types=1);
 
           // Generado por .github/workflows/deploy.yml (job deploy-pre). No editar a mano.
-          return ['app_dir' => dirname(__DIR__) . '/pre/app'];
+          return [
+              'app_dir'       => dirname(__DIR__) . '/pre/app',
+              'preproduccion' => true,   // fail-safe de noindex, aunque falte config.local.php
+          ];
           PHP
           php -l php/public/env.php
 

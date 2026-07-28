@@ -34,7 +34,11 @@ $defaults = [
     // visible «PREPRODUCCIÓN» en todas las páginas. Independiente de 'env' (que
     // controla la escritura en BD): PRE mantiene env=production para tener
     // paridad de solo-lectura con producción. Ver docs/entornos.md.
-    'preproduccion'      => false,
+    // El valor por defecto lo marca el env.php del docroot (ENV_PREPRODUCCION,
+    // ver public/index.php), que solo existe en PRE porque lo genera su deploy:
+    // así el noindex no depende de que alguien acierte con config.local.php.
+    // Las herramientas CLI no pasan por index.php, de ahí el defined().
+    'preproduccion'      => defined('ENV_PREPRODUCCION') && ENV_PREPRODUCCION,
     // Origen de las portadas. '' = /cover/ del propio host (local y producción,
     // que es donde viven los ficheros). PRE tiene docroot propio y sin portadas,
     // así que apunta al de producción para verlas. Ver docs/entornos.md.
