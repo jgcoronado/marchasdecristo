@@ -16,7 +16,7 @@ mdc-back/
 │   ├── data/            # mdc.db en local (no versionado)
 │   └── tools/           # scripts de paridad, import, backup
 ├── scripts/            # sync_db_to_prod.php, sync_propuestas_from_prod.php (ver docs/entornos.md)
-├── .github/workflows/  # CI (lint + smoke tests) y deploy a producción (FTP, manual)
+├── .github/workflows/  # CI (lint + smoke tests) y deploy automático por FTP (rama `pre` → PRE, `main` → PRO)
 ├── tools/
 │   ├── ingest/          # herramienta offline de ingesta de YouTube (yt-dlp → candidatos → panel admin)
 │   └── music_links/     # matching de enlaces de streaming (Spotify/Apple/Deezer) — ver docs/plan-music-apps.md

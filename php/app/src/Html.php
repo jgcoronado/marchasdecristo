@@ -58,6 +58,12 @@ final class Html
     }
 
     // ── CoverImage ───────────────────────────────────────────────────────────
+    /** Los .png de las portadas solo viven en el docroot de producción (ver 'cover_base_url'). */
+    public static function coverSrc(int $idDisco): string
+    {
+        return (string) ($GLOBALS['config']['cover_base_url'] ?? '') . '/cover/' . $idDisco . '.png';
+    }
+
     public static function cover(string $src, string $alt, string $class = ''): string
     {
         // JS mínimo: oculta la imagen si no existe y desactiva el menú contextual.
@@ -140,7 +146,7 @@ final class Html
     // ── CdList ───────────────────────────────────────────────────────────────
     public static function cdList(array $disco): string
     {
-        $coverSrc = '/cover/' . $disco['ID_DISCO'] . '.png';
+        $coverSrc = self::coverSrc((int) $disco['ID_DISCO']);
         $discoPath = Slug::buildDetailPath('disco', $disco['ID_DISCO'], (string) $disco['NOMBRE_CD']);
         $hasBanda = !empty($disco['ID_BANDA']) && !empty($disco['BANDA']);
         $bandaPath = $hasBanda ? Slug::buildDetailPath('banda', $disco['ID_BANDA'], (string) $disco['BANDA']) : null;

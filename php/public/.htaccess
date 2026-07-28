@@ -1,6 +1,14 @@
 DirectoryIndex index.php
 Options -MultiViews -Indexes
 
+# env.php lleva rutas absolutas del host (ver index.php) y solo debe leerlo el
+# front controller: la regla de reescritura sirve los ficheros reales tal cual.
+<IfModule mod_authz_core.c>
+    <Files "env.php">
+        Require all denied
+    </Files>
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
@@ -35,7 +43,10 @@ Options -MultiViews -Indexes
     # catalog.js). *.goatcounter.com/gc.zgo.at: analítica opcional, solo se
     # usan si 'goatcounter_code' está configurado (ver config.php) — se
     # permiten ya para que activarla no rompa nada bajo esta CSP.
-    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://i.ytimg.com https://*.goatcounter.com; frame-src https://www.youtube-nocookie.com; script-src 'self' 'unsafe-inline' https://gc.zgo.at; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+    # marchasdecristo.com en img-src: las portadas solo viven en el docroot de
+    # producción, así que preproducción las carga desde ahí ('cover_base_url',
+    # ver docs/entornos.md). En producción es redundante con 'self'.
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://i.ytimg.com https://*.goatcounter.com https://marchasdecristo.com; frame-src https://www.youtube-nocookie.com; script-src 'self' 'unsafe-inline' https://gc.zgo.at; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.goatcounter.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
 
     # HSTS. max-age moderado (6 meses), sin includeSubDomains/preload todavía:
     # hay un subdominio heredado (marchasdecristo.jaguerra27.helioho.st, ver

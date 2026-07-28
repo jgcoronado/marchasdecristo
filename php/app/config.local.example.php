@@ -25,4 +25,12 @@ return [
     //      (el admin lo necesita para firmar el ping tras el sync; producción
     //      lo necesita para servir /<clave>.txt, que IndexNow usa para verificar
     //      que el sitio es tuyo). Sin esto, sync_db_to_prod.php omite el ping.
+
+    // 'preproduccion' => true, // SOLO en el host de PRE (subdominio de pruebas):
+    //                          // noindex global + robots.txt Disallow + cinta visible.
+    //                          // En PRE, dejar 'env' => 'production' (solo lectura,
+    //                          // paridad con producción) y site_url apuntando al
+    //                          // subdominio. Ver docs/entornos.md.
+    // 'cover_base_url' => 'https://marchasdecristo.com', // SOLO en PRE: las portadas
+    //                          // solo existen en el docroot de producción.
 ];

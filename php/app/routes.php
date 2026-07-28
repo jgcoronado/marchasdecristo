@@ -113,6 +113,9 @@ $router->get('/health', static function (): void {
     Http::noStore();
     echo "status: ok\n";
     echo 'php: ' . PHP_VERSION . "\n";
+    // Identificador de entorno: confirma de un vistazo (o desde el smoke
+    // remoto del pipeline) contra qué host se ha resuelto la petición.
+    echo 'entorno: ' . (!empty($GLOBALS['config']['preproduccion']) ? 'pre' : 'prod') . "\n";
 
     // Chequeo de BD visible para cualquiera (incluido un monitor externo):
     // solo ok/error, sin ruta ni mensaje de excepción — el detalle completo

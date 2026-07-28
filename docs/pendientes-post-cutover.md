@@ -74,11 +74,10 @@
 - [ ] Subir de nuevo el **TTL** del DNS a su valor normal.
 
 ### 6. Opcionales / limpieza
-- [ ] Eliminar el subdominio vacío `marchasdecristo.jaguerra27.helioho.st`. Se
-      intentó reaprovechar como entorno de PREPRODUCCIÓN (2026-07-16) pero se
-      **descartó el 2026-07-23** (HelioHost no permite mover su document root
-      desde el panel). Vuelve a quedar libre para borrar. Ver
-      [entornos.md](entornos.md).
+- [x] ~~Eliminar el subdominio vacío `marchasdecristo.jaguerra27.helioho.st`~~ —
+      **reaprovechado como entorno de PREPRODUCCIÓN** (2026-07-28, tras un primer
+      intento descartado el 2026-07-23). Ver [entornos.md](entornos.md) para su
+      configuración y el pipeline de despliegue.
 - [ ] Revisar logs del host y espacio en disco (crecimiento de `private/backups/`).
 - [ ] Borrar el `.sql.zip` viejo del *home* si sigue ahí.
 
@@ -87,8 +86,8 @@
 ## Referencia rápida
 
 El despliegue de código ya **no** es un paso manual por FTP — está
-automatizado desde CI (botón *Run workflow*, ver [entornos.md](entornos.md),
-que sustituye por completo lo que decía aquí antes). Lo que sigue siendo
+automatizado desde CI (push a `pre` → PRE, fusión en `main` → PRO; ver
+[entornos.md](entornos.md), que sustituye por completo lo que decía aquí antes). Lo que sigue siendo
 específico de esta fase de cierre:
 
 - **Paridad** (histórico, solo si se toca la capa de datos de forma que

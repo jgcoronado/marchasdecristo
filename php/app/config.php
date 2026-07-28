@@ -29,6 +29,16 @@ $defaults = [
     // enviar el ping tras el sync) y en el de producción (para servir el
     // fichero de verificación en /<clave>.txt). null = IndexNow desactivado.
     'indexnow_key'       => null,
+    // true SOLO en el host de preproducción (marchasdecristo.jaguerra27.helioho.st):
+    // noindex global (meta + X-Robots-Tag), robots.txt en Disallow total y cinta
+    // visible «PREPRODUCCIÓN» en todas las páginas. Independiente de 'env' (que
+    // controla la escritura en BD): PRE mantiene env=production para tener
+    // paridad de solo-lectura con producción. Ver docs/entornos.md.
+    'preproduccion'      => false,
+    // Origen de las portadas. '' = /cover/ del propio host (local y producción,
+    // que es donde viven los ficheros). PRE tiene docroot propio y sin portadas,
+    // así que apunta al de producción para verlas. Ver docs/entornos.md.
+    'cover_base_url'     => '',
 ];
 
 $localFile = APP_DIR . '/config.local.php';
