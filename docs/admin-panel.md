@@ -85,13 +85,13 @@ Si aparece deuda de seguridad nueva en el panel, va en [technical-debt.md](techn
 
 | Prioridad | Función | Notas |
 |-----------|---------|-------|
-| 🟢 B4 | Alta y edición de discos + pistas | No existe ningún `/dashboard/disco/*` — las relaciones `disco_marcha` solo se tocan indirectamente. Ver [technical-debt.md §5.1](technical-debt.md) |
 | — | Aviso en UI al crear marcha sin autores | No se encontró validación explícita que avise/bloquee una alta con `autoresIds` vacío (más allá de que la marcha exista igualmente, invisible en búsquedas públicas — ver [db-analysis.md](db-analysis.md) "Problema 3") |
 
 Todo lo demás que este documento marcaba como faltante en versiones anteriores
 (`PROVINCIA` en edición de marcha, `NOMBRE_ART` en autor, edición de autores,
 editar autores de una marcha, buscador en el dashboard, enlace tras crear,
-alta/edición de banda) **ya está implementado** — ver §2 y §3 arriba.
+alta/edición de banda, **alta y edición de discos + pistas**) **ya está
+implementado** — ver §2, §3 y §11.
 
 ---
 
@@ -482,3 +482,68 @@ php php/app/tools/migrate_roles.php
 php php/app/tools/migrate_roles.php --admin estprocesional
 DB_PATH=/ruta/a/mdc.db php php/app/tools/migrate_roles.php
 ```
+
+---
+
+## 11. Discos: alta, portada y pistas
+
+`/dashboard/disco/add` (alta) y `/dashboard/disco/{id}` (datos + pistas + vista
+previa). **Solo administrador**: a diferencia de marcha/banda/autor, el disco no
+pasa por la cola de propuestas (`PropuestaRepo` no conoce esta entidad) y su
+alta escribe un fichero en el docroot.
+
+### Portada
+
+Se sube en el mismo formulario (`enctype="multipart/form-data"`) y la guarda
+`Media::guardarPortada()` como `public/cover/{ID_DISCO}.png`, que es donde
+`Html::coverSrc()` las busca. Tres decisiones que conviene no deshacer:
+
+- **El fichero no se mueve tal cual**: se descodifica con GD y se vuelve a
+  codificar a PNG. Eso normaliza el formato (entra JPEG/PNG/WebP/GIF, sale
+  siempre PNG) y descarta cualquier carga útil incrustada — un `.jpg` con PHP
+  dentro deja de serlo al reencodificarlo.
+- **El tipo se decide por el contenido** (`getimagesize`), nunca por la
+  extensión ni por el `Content-Type` del navegador, que el cliente controla.
+  Además hay tope de bytes *y* de píxeles: una imagen de 20 000×20 000 pesa poco
+  comprimida pero reventaría la memoria al descodificarla.
+- **Escritura atómica** (fichero temporal + `rename`): si el proceso muere a
+  medias, la portada anterior sigue intacta en vez de quedar un PNG truncado
+  servido a todo el mundo.
+
+La portada se guarda **después** de crear el disco, porque el nombre del fichero
+es su ID. Si la subida falla, el disco ya existe: se avisa en la pantalla de
+edición en vez de deshacer el alta.
+
+`public/cover/` está en `php/.gitignore`: las portadas viven solo en el
+servidor y el mirror del deploy excluye ese directorio
+(`.github/workflows/deploy.yml`), así que un despliegue nunca las pisa.
+
+### Pistas
+
+Se busca la marcha por **identificador exacto o por título**
+(`/api/marcha/fastSearch`, `AdminRepo::marchaCandidatosPorTexto()`): en la
+carátula suele venir el número, pero no siempre se tiene a mano. Al elegir una
+aparece una **vista previa** de lo que se va a añadir (pista, título, ID) antes
+de enviar.
+
+El número de pista **no se autoincrementa ni tiene que ser consecutivo** — se
+propone el siguiente libre como sugerencia, pero un disco puede documentarse a
+trozos o llevar cortes que no son marchas. Sí se valida que sea único dentro de
+su volumen (`PISTA_OCUPADA`) y que la marcha no esté ya en el disco
+(`MARCHA_YA_EN_DISCO`): las dos cosas son siempre errores de captura.
+
+> **El nº de volúmenes no es un campo editable.** La columna `disco.DISCOS`
+> existe en el esquema heredado pero **la aplicación nunca la lee**: `Repo` lo
+> calcula como `MAX(disco_marcha.N_DISCO)` en las dos consultas que lo exponen.
+> Por eso `EDITABLE_DISCO` no la incluye — guardarla sería dato muerto que
+> además podría contradecir a las pistas reales. El volumen se fija pista a
+> pista y el recuento sale solo.
+
+### Cobertura
+
+Los smoke tests de CI no pueden autenticarse, así que comprueban lo que sí se
+puede sin sesión: que las rutas existen (un 404 significaría que `routes.php` no
+las registró) y que el guard redirige al login. El flujo completo —alta con
+portada, búsqueda por nombre y por ID, pistas no consecutivas, rechazo de
+duplicados— se verificó de punta a punta con un navegador contra una BD de
+pruebas con un usuario administrador.

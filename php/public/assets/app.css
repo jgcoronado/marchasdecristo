@@ -593,6 +593,16 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 
 /* Texto de ayuda debajo de los campos del formulario admin */
 .field-help { margin-top: 0.25rem; }
+
+/* Vista previa de la pista antes de añadirla al disco */
+.panel-previa { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem 0.7rem; background: var(--zebra); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; }
+.panel-previa[hidden] { display: none; }
+.previa-et { font-size: 0.82rem; color: var(--faint); }
+.previa-num { font-size: 0.86rem; font-weight: 600; color: var(--acc); background: var(--acc-tint); border-radius: 3px; padding: 0.1rem 0.45rem; font-variant-numeric: tabular-nums; }
+.previa-titulo { font-weight: 600; }
+/* Vista previa de la ficha pública dentro del panel */
+.previa-ficha { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.6rem; background: var(--bg); }
+.cover-vacia { width: 12rem; height: 12rem; display: grid; place-items: center; background: var(--s2); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--faint); font-size: 0.85rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
 .link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
 
@@ -650,7 +660,13 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 /* Diana invisible que recibe el clic (App\Mapa::radioHit): el punto visible es
    pequeño a propósito, pero pulsar un blanco de 8 px es imposible. No se pinta
    —solo captura el puntero— así que no añade nada al mapa. */
-.mapa-punto-hit { fill: transparent; stroke: none; }
+/* pointer-events: all es IMPRESCINDIBLE aquí, no un extra. El valor por
+   defecto en SVG es 'visiblePainted', que solo entrega el puntero donde el
+   elemento está realmente pintado: un círculo con fill: transparent no lo
+   está, así que Firefox no lo consideraba pulsable (Chromium sí, de ahí que
+   pasara la primera verificación). Con 'all' el círculo recibe el clic
+   independientemente de su relleno, en cualquier navegador. */
+.mapa-punto-hit { fill: transparent; stroke: none; pointer-events: all; }
 .mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; pointer-events: none; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease, r 0.12s ease; }
 /* background además de fill: estas mismas clases se reutilizan en la
    leyenda (span de HTML, no SVG), que solo pinta con background. */
@@ -664,12 +680,13 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 /* .mapa-svg text (arriba) fija font-size/stroke para el rótulo de provincia
    del mapa nacional; sube la especificidad aquí para que no se lo lleve por
    delante también en el mapa de provincia. */
-/* El rótulo va oculto y solo sale al señalar su punto. Pintados todos a la vez,
-   un centenar de nombres se solapaban en una maraña ilegible que además tapaba
-   los propios puntos. Los nombres completos siguen en la tabla de la página,
-   que es donde se leen bien y se pueden buscar. */
-.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.3); stroke-linejoin: round; opacity: 0; transition: opacity 0.12s ease; }
-.mapa-puntos a:hover .mapa-punto-label, .mapa-puntos a:focus-visible .mapa-punto-label { opacity: 1; }
+/* El nombre de cada municipio, siempre visible. pointer-events: none a
+   propósito: con un centenar de rótulos que se solapan, hacerlos pulsables
+   haría que al pulsar un nombre navegaras al municipio del nombre de al lado.
+   El blanco de clic es el círculo (.mapa-punto-hit, unos 27 px), justo debajo
+   del rótulo. Al señalar, el nombre se refuerza para saber cuál está activo. */
+.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.3); stroke-linejoin: round; opacity: 0.85; transition: opacity 0.12s ease; }
+.mapa-puntos a:hover .mapa-punto-label, .mapa-puntos a:focus-visible .mapa-punto-label { opacity: 1; fill: var(--acc); }
 /* Realce al señalar: el mismo trazo, pero opaco. Ni se engorda (con
    stroke-width 0.9 sobre un radio de 0.41 el trazo se comía el círculo entero
    y el punto salía como un borrón negro) ni se tiñe de --acc (que es el color

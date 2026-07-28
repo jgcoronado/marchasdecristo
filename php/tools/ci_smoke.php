@@ -398,7 +398,52 @@ $tests = [
             throw new RuntimeException('/mapa/provincia/sevilla → el viewBox debería estar recortado a la provincia, no ser el del mapa nacional');
         }
     },
+    'mapa de provincia: el punto lleva a la misma URL que el listado' => static function () use ($base): void {
+        // Pulsar el círculo del municipio y pulsar su nombre en la tabla de
+        // abajo tienen que acabar en la misma pantalla.
+        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
+        if (preg_match('~<g class="mapa-puntos".*?<a href="([^"]+)"~s', $r['body'], $mMapa) !== 1) {
+            throw new RuntimeException('/mapa/provincia/sevilla → no se encuentra el enlace del punto');
+        }
+        if (preg_match('~<table class="reg".*?<tbody>.*?<a href="([^"]+)"~s', $r['body'], $mTabla) !== 1) {
+            throw new RuntimeException('/mapa/provincia/sevilla → no se encuentra el enlace de la tabla');
+        }
+        if ($mMapa[1] !== $mTabla[1]) {
+            throw new RuntimeException("/mapa/provincia/sevilla → el punto va a {$mMapa[1]} y la tabla a {$mTabla[1]}");
+        }
+    },
+    'mapa de provincia: el rótulo del municipio se pinta' => static function () use ($base): void {
+        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
+        if (!str_contains($r['body'], '<text class="mapa-punto-label"') || !str_contains($r['body'], '>Sevilla</text>')) {
+            throw new RuntimeException('/mapa/provincia/sevilla → el municipio debería llevar su nombre rotulado');
+        }
+    },
     'mapa de provincia: slug incorrecto → 308 canónico' => static fn() => assertRedirect('/mapa/provincia/SEVILLA', '/mapa/provincia/sevilla', $base),
+
+    // ── Panel: discos (rutas registradas y protegidas) ──────────────────────
+    // Sin sesión no se puede probar el alta entera, pero sí que las rutas
+    // existen (un 404 aquí significaría que routes.php no las registró) y que
+    // el guard de autenticación está puesto.
+    'panel: las rutas de disco existen y exigen sesión' => static function () use ($base): void {
+        // 302 al login (no el 308/301 canónico que comprueba assertRedirect).
+        foreach (['/dashboard/disco/add', '/dashboard/disco/1'] as $ruta) {
+            $r = httpGet($base . $ruta);
+            if ($r['status'] !== 302) {
+                throw new RuntimeException("$ruta → esperado 302 al login, obtenido {$r['status']}");
+            }
+            $loc = $r['headers']['location'] ?? '';
+            if (!str_ends_with($loc, '/login')) {
+                throw new RuntimeException("$ruta → redirige a '$loc' en vez de /login");
+            }
+        }
+    },
+    'api: /api/marcha/fastSearch sin sesión → 401 JSON' => static function () use ($base): void {
+        $r = assertStatus('/api/marcha/fastSearch?q=Consuelo', 401, $base);
+        $j = json_decode($r['body'], true);
+        if (!is_array($j) || ($j['code'] ?? '') !== 'AUTH_REQUIRED') {
+            throw new RuntimeException('/api/marcha/fastSearch → esperado {"code":"AUTH_REQUIRED"}');
+        }
+    },
     'mapa de provincia: inexistente → 404' => static fn() => assertStatus('/mapa/provincia/marte', 404, $base),
 
     // ── Temporada (N-04): contratos banda↔hermandad, alta manual ────────────

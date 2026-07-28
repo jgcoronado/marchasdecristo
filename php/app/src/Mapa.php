@@ -305,10 +305,10 @@ final class Mapa
             $c->setAttribute('cy', $cy);
             $c->setAttribute('r', (string) round($r, 2));
 
-            // El rótulo va oculto y solo aparece al señalar su punto (ver
-            // app.css). Con 105 municipios, pintarlos todos a la vez tapaba el
-            // mapa de texto ilegible y escondía los propios puntos. Los
-            // nombres siguen estando, completos, en la tabla de la página.
+            // Nombre del municipio, siempre visible (ver app.css). No es
+            // pulsable: con un centenar de rótulos solapados, pulsar un nombre
+            // acabaría llevando al municipio de al lado. El blanco de clic es
+            // la diana de arriba.
             $label = $dom->createElement('text');
             $label->setAttribute('class', 'mapa-punto-label');
             $label->setAttribute('x', $cx);
