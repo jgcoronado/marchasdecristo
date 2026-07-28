@@ -49,7 +49,7 @@ El desvío lo hace **`env.php`**, un fichero en el docroot de PRE que
 ├── private/mdc.db                ← BD (la leen los DOS entornos)
 ├── marchasdecristo.jaguerra27.helioho.st/
 │   ├── index.php                 ← el mismo del repo
-│   └── env.php                   ← APP_DIR = ../pre/app   (lo genera el deploy)
+│   └── env.php                   ← APP_DIR = ../pre/app, DATA_DIR = ../private
 └── pre/app/                      ← código de PRE
 ```
 
@@ -58,11 +58,16 @@ cada despliegue. Así el mirror de producción no puede llevárselo nunca — y 
 si acaso, el mirror de PRO lo excluye explícitamente. Si faltara, PRE cargaría
 el `app/` de PRO y el smoke lo cazaría: `/health` diría `entorno: prod`.
 
-Además de la ruta, `env.php` marca `'preproduccion' => true`. Es el **fail-safe
-de indexación**: un PRE recién desplegado al que todavía le falte su
-`config.local.php` ya nace con `noindex`, en vez de duplicar producción en
-Google mientras alguien se acuerda de crear el fichero. `config.local.php`
-puede sobrescribirlo si hiciera falta.
+`env.php` lleva otras dos cosas, ambas derivadas de `__DIR__` para no depender
+de rutas absolutas:
+
+- `data_dir` → `private/`, de donde sale el `db_path` por defecto. Así PRE
+  encuentra la BD compartida **sin configurar nada**.
+- `preproduccion => true`, el **fail-safe de indexación**: un PRE recién
+  desplegado al que todavía le falte su `config.local.php` ya nace con
+  `noindex`, en vez de duplicar producción en Google.
+
+`config.local.php` puede sobrescribir ambas si hiciera falta.
 
 **La BD es compartida y PRE la trata como solo lectura**: su `config.local.php`
 mantiene `env => 'production'`, que es el fail-safe que bloquea las escrituras
@@ -113,18 +118,28 @@ no se desmantele** (ver [pendientes-post-cutover.md](pendientes-post-cutover.md)
        'env'   => 'production',           // solo lectura: fail-safe de escrituras
        'site_url' => 'https://marchasdecristo.jaguerra27.helioho.st',
        'force_canonical_host' => false,   // OBLIGATORIO: si no, PRE redirige 301 a PRO
-       'db_path' => '/home/jaguerra27/private/mdc.db', // la MISMA BD que producción
        'cover_base_url' => 'https://marchasdecristo.com',
        'secret_key' => '...(96 chars nuevos, NO el de PRO)...',
-       // 'preproduccion' ya lo pone env.php; indexnow_key y goatcounter_code
-       // se quedan null (defaults)
+       // NO pongas 'db_path': env.php ya apunta a private/mdc.db (la de PRO).
+       // 'preproduccion' también lo pone env.php. indexnow_key y
+       // goatcounter_code se quedan null (defaults) — son de producción.
    ];
    ```
+
+   ⚠️ **Nunca escribas rutas absolutas en la config del host.** El home de
+   HelioHost está enjaulado: lo que el panel muestra como `/home/USUARIO` no es
+   la ruta que ve PHP, así que un `db_path` absoluto copiado del File Manager
+   apunta a un fichero inexistente. Por eso producción usa
+   `dirname(__DIR__) . '/private/mdc.db'` y por eso `env.php` deriva todas sus
+   rutas de `__DIR__`. Si alguna vez hiciera falta fijar `db_path` en PRE, la
+   forma correcta desde `pre/app/` es `dirname(__DIR__, 2) . '/private/mdc.db'`.
+
    El directorio `pre/app/` lo crea el propio mirror en el primer deploy, así
    que este paso va **después** de él (o se crea el directorio a mano antes).
    **El primer deploy fallará en el smoke** mientras falte el fichero: sin
-   `db_path`, `/health` dice `db: error`. El `noindex` sí está desde el primer
-   segundo (lo pone `env.php`). Con el fichero puesto, relanzar el deploy.
+   `site_url` ni `force_canonical_host`, PRE responde 301 hacia producción. El
+   `noindex` y la BD sí funcionan desde el primer segundo (los da `env.php`).
+   Con el fichero puesto, relanzar el deploy.
 
 ### En GitHub (Settings → Secrets and variables → Actions)
 4. Secrets `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD` (los mismos de `.env.ftp`):

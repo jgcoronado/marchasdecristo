@@ -94,8 +94,13 @@ jobs:
           declare(strict_types=1);
 
           // Generado por .github/workflows/deploy.yml (job deploy-pre). No editar a mano.
+          //
+          // Rutas SIEMPRE relativas al docroot: el home de HelioHost está
+          // enjaulado y su ruta absoluta no es la que se ve en el panel.
+          // __DIR__ = docroot de PRE, así que dirname(__DIR__) = raíz de la cuenta.
           return [
               'app_dir'       => dirname(__DIR__) . '/pre/app',
+              'data_dir'      => dirname(__DIR__) . '/private',  // BD compartida con PRO
               'preproduccion' => true,   // fail-safe de noindex, aunque falte config.local.php
           ];
           PHP
