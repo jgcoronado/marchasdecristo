@@ -68,10 +68,21 @@ PRIORIDAD_FUENTE = ['spotify', 'deezer', 'apple']
 SERVICIOS_CATALOGO = ('spotify', 'deezer', 'apple')
 
 # Títulos que no son marchas: ruido habitual de los discos de estas bandas.
+# Incluye los tramos de un disco en directo, que se titulan por el sitio del
+# recorrido ("Jesús Despojado llegando al Postigo 2025") y no por la marcha.
 RUIDO = re.compile(
-    r'\b(intro|introduccion|presentacion del disco|entrevista|locucion|narracion|pregon|'
+    r'\b(intro|introduccion|obertura|presentacion del disco|entrevista|locucion|narracion|pregon|'
     r'saeta|campanas|tambor de|toque de|llamada de|ensayo|making of|bonus track|'
-    r'himno nacional|marcha real)\b'
+    r'himno nacional|marcha real|villancico|'
+    r'llegando a|saliendo de|entrando en|por la calle|en la plaza|revira|levanta)\b'
+)
+
+# Discos que no son de música procesional: Navidad, cabalgata de Reyes,
+# carnaval… Las bandas los graban igual, pero sus pistas no son marchas y no
+# deben proponerse. Ojo con "Reyes": muchas bandas se llaman "Virgen de los
+# Reyes", así que solo cuenta "reyes magos" / "cabalgata".
+ALBUM_NO_PROCESIONAL = re.compile(
+    r'\b(navidad|navideñ|villancico|zambomba|cabalgata|reyes magos|carnaval)\b', re.I
 )
 
 # Pistas que encadenan varias piezas ("X, Marcha Real y Z", "Popurrí de…"):
@@ -102,7 +113,7 @@ def limpiar_titulo(t):
     t = (t or '').strip()
     t = re.sub(r'^\s*\d{1,2}\s*[.\-–)]\s*', '', t)
     t = re.sub(
-        r'\s*[\(\[][^)\]]*(directo|live|remaster|remasteriz|bonus|version|versión|instrumental|edit|'
+        r'\s*[\(\[][^)\]]*(directo|en vivo|live|remaster|remasteriz|bonus|version|versión|instrumental|edit|'
         r'estreno|with |feat|ft\.|junto a)[^)\]]*[\)\]]\s*',
         ' ', t, flags=re.I)
     t = re.sub(r'\s+[-–]\s+(remaster|remasteriz|en\s+directo|directo|live)\b[^-–]*$', '', t, flags=re.I)
@@ -601,6 +612,10 @@ def procesar(args):
         agrupadas = {}
         n_pistas = 0
         for album, pistas in catalogo:
+            # Disco de Navidad, cabalgata o carnaval: la banda lo graba, pero
+            # ahí no hay marchas procesionales que proponer.
+            if ALBUM_NO_PROCESIONAL.search(album['titulo'] or ''):
+                continue
             for p in pistas:
                 titulo = limpiar_titulo(p['titulo'])
                 clave = norm(titulo)
