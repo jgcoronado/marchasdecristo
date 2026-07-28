@@ -1,8 +1,8 @@
 # Ingesta de marchas desde el catálogo de streaming de las bandas
 
-> Estado: **operativo**, primera pasada real hecha (2026-07-28) sobre las 43
-> bandas con perfil de artista en Spotify o Deezer → **420 candidatos**
-> pendientes de revisar en `/dashboard/ingesta`.
+> Estado: **operativo**, primera pasada real hecha (2026-07-28) sobre las
+> bandas con perfil de artista enlazado en Spotify, Deezer o Apple Music →
+> candidatos pendientes de revisar en `/dashboard/ingesta`.
 
 ## Por qué
 
@@ -21,7 +21,7 @@ El flujo es el mismo de siempre: descubrir fuera → volcar candidatos a
 ## El pipeline
 
 ```
-  enlace_streaming (TIPO_ENT='banda', spotify|deezer)
+  enlace_streaming (TIPO_ENT='banda', spotify|deezer|apple — YouTube no)
             ▼
   [descubrir_marchas.py]  discografía → pistas → cotejo contra `marcha`
             ▼
@@ -37,20 +37,30 @@ El flujo es el mismo de siempre: descubrir fuera → volcar candidatos a
 ### 1. Descubrir — `tools/music_links/descubrir_marchas.py`
 
 ```bash
-# Pasada completa (Deezer; + Spotify si hay credenciales en .env)
+# Pasada completa (Deezer + Apple; y Spotify si hay credenciales en .env)
 python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db
 
 # Acotado a unas bandas, sin escribir el NDJSON
 python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --solo 16,10 --dry-run
 
-# Añadir iTunes/Apple como catálogo (lento: rate-limit agresivo)
-python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --apple
+# Pasada rápida: Apple es la parte lenta (rate-limit agresivo de iTunes)
+python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --sin-apple
 ```
+
+**YouTube no es fuente de este pipeline**, ni para elegir bandas ni como
+catálogo, aunque casi todas lo tengan enlazado en `enlace_streaming`: un canal
+mezcla marchas con conciertos, ensayos y vídeos de hermandad que no son música
+procesional, así que como catálogo mete más ruido del que aporta. Tampoco entran
+Tidal ni Amazon, por falta de API pública de catálogo. El descubrimiento se hace
+solo sobre discografías: Spotify, Deezer y Apple Music. (El pipeline de YouTube
+sigue existiendo aparte, en `tools/ingest/`, y sus candidatos históricos
+conviven en la misma tabla.)
 
 Qué hace, por orden:
 
-1. **Selecciona las bandas** con perfil de artista en Spotify o Deezer
-   (`enlace_streaming`, `TIPO_ENT='banda'`).
+1. **Selecciona las bandas** con perfil de artista en Spotify, Deezer o Apple
+   (`enlace_streaming`, `TIPO_ENT='banda'`). Tener solo YouTube enlazado no
+   basta para entrar.
 2. **Recorre el catálogo** de cada una: discos y, dentro de cada disco, todas
    sus pistas. Deezer y Apple no piden credenciales; Spotify usa
    `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` del `.env`. Toda respuesta se

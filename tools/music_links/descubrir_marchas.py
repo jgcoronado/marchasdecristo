@@ -14,7 +14,11 @@ YouTube), más un informe legible por banda.
 
     python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db
     python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --solo 16,10 --dry-run
-    python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --apple    # + iTunes (lento: rate-limit)
+    python3 tools/music_links/descubrir_marchas.py --db php/data/mdc.db --sin-apple  # pasada rápida
+
+Fuentes: Spotify, Deezer y Apple Music. **YouTube no se usa** ni para elegir
+bandas ni como catálogo, aunque la banda lo tenga enlazado: un canal mezcla
+marchas con conciertos, ensayos y vídeos que no son música procesional.
 
 Credenciales: Deezer y Apple no necesitan ninguna. Spotify usa
 SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET del .env (mismo que el resto de
@@ -46,7 +50,22 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 # Servicios que sirven como origen de un candidato, en orden de preferencia:
 # si una misma pista aparece en varios, el candidato se queda con el primero de
 # esta lista (es el enlace que acabará publicado en la ficha de la marcha).
+#
+# YouTube queda FUERA a propósito, aunque muchas bandas lo tengan enlazado en
+# `enlace_streaming`: un canal mezcla marchas con conciertos, ensayos, vídeos
+# de hermandad y contenido que no es música procesional, así que como catálogo
+# ensucia más de lo que aporta. El descubrimiento se hace solo sobre catálogos
+# de discos. (El pipeline de YouTube sigue existiendo aparte, en tools/ingest/,
+# si alguna vez hace falta.)
+#
+# Tidal y Amazon tampoco están: no tienen API pública de catálogo utilizable
+# (ver docs/plan-music-apps.md §3).
 PRIORIDAD_FUENTE = ['spotify', 'deezer', 'apple']
+
+# Servicios cuyo perfil de artista, si la banda lo tiene enlazado, sirve para
+# entrar en el barrido. Mismo criterio que PRIORIDAD_FUENTE: catálogos de
+# discos, nunca YouTube.
+SERVICIOS_CATALOGO = ('spotify', 'deezer', 'apple')
 
 # Títulos que no son marchas: ruido habitual de los discos de estas bandas.
 RUIDO = re.compile(
@@ -366,22 +385,28 @@ def deezer_buscar_artista(http, nombre):
 
 def bandas_objetivo(con, solo=None):
     """
-    Bandas con perfil de artista en Spotify o Deezer (criterio acordado), con
-    todos sus enlaces de banda para poder recorrer los catálogos que tengan.
+    Bandas con perfil de artista en alguno de los catálogos de discos
+    (SERVICIOS_CATALOGO), con todos sus enlaces de banda para poder recorrer
+    los que tengan. Tener solo YouTube enlazado no basta para entrar: no se usa
+    como catálogo.
     """
-    filas = con.execute("""
+    ph = ','.join('?' * len(SERVICIOS_CATALOGO))
+    filas = con.execute(f"""
         SELECT b.ID_BANDA, b.NOMBRE_BREVE, b.NOMBRE_COMPLETO, b.LOCALIDAD, b.PROVINCIA
         FROM banda b
         WHERE b.ID_BANDA <> 0
           AND EXISTS (SELECT 1 FROM enlace_streaming e
                       WHERE e.TIPO_ENT = 'banda' AND e.ID_ENT = b.ID_BANDA
-                        AND e.SERVICIO IN ('spotify','deezer'))
+                        AND e.SERVICIO IN ({ph}))
         ORDER BY b.NOMBRE_BREVE
-    """).fetchall()
+    """, SERVICIOS_CATALOGO).fetchall()
 
+    # Solo se cargan los enlaces de servicios que sí son catálogo: así el resto
+    # (YouTube, Tidal, Amazon) no puede colarse como fuente por descuido.
     enlaces = defaultdict(dict)
     for id_banda, servicio, url, id_ext in con.execute(
-            "SELECT ID_ENT, SERVICIO, URL, ID_EXT FROM enlace_streaming WHERE TIPO_ENT = 'banda'"):
+            f"SELECT ID_ENT, SERVICIO, URL, ID_EXT FROM enlace_streaming "
+            f"WHERE TIPO_ENT = 'banda' AND SERVICIO IN ({ph})", SERVICIOS_CATALOGO):
         enlaces[id_banda][servicio] = {'url': url, 'id_ext': id_ext}
 
     bandas = []
@@ -541,7 +566,7 @@ def procesar(args):
     spotify = Spotify(http, env)
     if not spotify.activo:
         print('[aviso] sin SPOTIFY_CLIENT_ID/SECRET en el .env: se usan Deezer'
-              + (' y Apple' if args.apple else '') + ' como catálogo.', file=sys.stderr)
+              + ('' if args.sin_apple else ' y Apple') + ' como catálogo.', file=sys.stderr)
 
     bandas = bandas_objetivo(con, solo)
     indice = indice_marchas(con)
@@ -551,8 +576,8 @@ def procesar(args):
     n_marchas_banda = {b: n for b, n in con.execute(
         'SELECT BANDA_ESTRENO, COUNT(*) FROM marcha WHERE BANDA_ESTRENO IS NOT NULL GROUP BY BANDA_ESTRENO')}
 
-    print(f'{len(bandas)} bandas con Spotify o Deezer · {len(indice["lista"])} marchas en la BD'
-          f' · {len(vetados)} orígenes vetados')
+    print(f'{len(bandas)} bandas con catálogo enlazado ({"/".join(SERVICIOS_CATALOGO)}; YouTube no cuenta)'
+          f' · {len(indice["lista"])} marchas en la BD · {len(vetados)} orígenes vetados')
 
     candidatos = []
     informe = []
@@ -561,7 +586,7 @@ def procesar(args):
         print(f'[{i}/{len(bandas)}] {etiqueta}')
         log = (lambda m: print(m)) if args.verbose else (lambda m: None)
 
-        catalogo, usados, notas, inferido = catalogo_de_banda(banda, http, spotify, args.apple, log)
+        catalogo, usados, notas, inferido = catalogo_de_banda(banda, http, spotify, not args.sin_apple, log)
         if not catalogo:
             print('    sin catálogo accesible')
             informe.append({'banda': banda, 'albumes': 0, 'pistas': 0, 'existentes': 0,
@@ -771,7 +796,9 @@ def main():
     p.add_argument('--env', default=os.path.join(RAIZ, '.env'), help='.env con las credenciales de Spotify')
     p.add_argument('--out', default=os.path.join(RAIZ, 'tools', 'music_links', 'out'), help='directorio de salida')
     p.add_argument('--solo', help='lista de ID_BANDA separados por comas')
-    p.add_argument('--apple', action='store_true', help='añadir iTunes/Apple como catálogo (lento por rate-limit)')
+    p.add_argument('--sin-apple', action='store_true',
+                   help='no usar iTunes/Apple como catálogo (va bien para una pasada rápida: '
+                        'Apple tiene un rate-limit agresivo y es la parte lenta)')
     p.add_argument('--sleep', type=float, default=0.25, help='pausa entre peticiones HTTP (s)')
     p.add_argument('--umbral-existe', type=float, default=0.90,
                    help='similitud a partir de la cual se da la marcha por existente')
