@@ -1,6 +1,6 @@
 # Análisis UX extendido — estado y memoria de sesión
 
-> Última actualización: 2026-07-27
+> Última actualización: 2026-07-28
 > Síntesis de una serie larga de sesiones a partir de una comparativa UX con
 > [patrimoniomusical.com](https://patrimoniomusical.com). El log detallado,
 > con la narrativa completa de cada cambio (bugs encontrados, criterios de
@@ -27,7 +27,7 @@ arquitectura (§4) para quien retome esta zona del código.
 | 1 | Ficha de marcha (compactar, pestañas) | ✅ Hecha |
 | 2 | Legibilidad global (versalitas monoespaciadas) | ✅ Hecha |
 | 3 | Listados (filtros facetados, tablas ordenables) | ✅ Hecha |
-| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | ✅ Hecha (migración ejecutada en producción, 2026-07) |
+| 4 | Datos (ubicación geográfica, TIPO editable, mapa, catálogo de municipios) | ✅ Hecha (migración + siembra ejecutadas en producción, 2026-07-28 — `sync_db_to_prod.php` verificado por checksum sin errores) |
 | 5 | Consistencia (anclas de navegación en compositor/banda/disco) | ✅ Hecha (§3.2) |
 
 ## 3. Resumen de las dos últimas prioridades
