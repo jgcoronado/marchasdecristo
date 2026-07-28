@@ -38,6 +38,9 @@ $anioInt = (int) $anio;
                 <strong><?= V::e($it['TITULAR']) ?></strong> —
 <?php endif; ?>
                 <a href="<?= V::e(S::buildDetailPath('banda', $it['ID_BANDA'], (string) $it['BANDA'])) ?>"><?= V::e($it['BANDA']) ?></a>
+<?php if (!empty($it['FUENTE'])): ?>
+                <span class="cnt">(<a href="<?= V::e($it['FUENTE']) ?>" rel="noopener nofollow">fuente</a>)</span>
+<?php endif; ?>
             </li>
 <?php endforeach; ?>
         </ul>
