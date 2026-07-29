@@ -4,6 +4,15 @@ Herramienta **offline** para descubrir marchas nuevas (2019→) a partir de los
 canales de YouTube de las bandas de la BD, proponerlas como candidatos y
 revisarlas/aceptarlas desde el panel de administración PHP.
 
+> **Este ya no es el único origen de candidatos.** Desde 2026-07-28 la tabla
+> `ingest_candidato` tiene una columna `FUENTE` y el panel admite también
+> candidatos sacados del **catálogo de streaming** de cada banda
+> (`tools/music_links/descubrir_marchas.py` → Spotify/Deezer/Apple), que es la
+> vía por la que se está trabajando ahora. Ver
+> [`docs/ingesta-streaming.md`](../../docs/ingesta-streaming.md). Todo lo que
+> describe este documento sigue vigente y funcionando; los candidatos de
+> YouTube conviven con los de streaming sin tocarse.
+
 ## Por qué offline
 
 Producción corre en hosting compartido (HelioHost: solo PHP + cron, sin SSH /

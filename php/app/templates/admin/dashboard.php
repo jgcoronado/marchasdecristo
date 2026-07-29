@@ -24,7 +24,7 @@ $isAdmin = Roles::isAdmin($rol);
             <a class="btn btn-sm" href="/dashboard/disco/add">+ Disco</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/propuestas">Propuestas<?= $pendientes > 0 ? ' <span class="chip">' . (int) $pendientes . '</span>' : '' ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/usuarios">Usuarios</a>
-            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta YouTube</a>
+            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta marchas</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/enlaces">Enlaces streaming</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/dedicatorias">Dedicatorias</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/temporada/<?= (int) date('Y') ?>">Temporada</a>

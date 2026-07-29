@@ -24,6 +24,14 @@ $autoridad = static function (array $a): string {
 $mid = (int) $m['ID_MARCHA'];
 $ytid = MD::youtubeId($m['AUDIO'] ?? null);
 $audioEsUrl = $t($m['AUDIO']) && preg_match('~^https?://~i', (string) $m['AUDIO']) === 1;
+// Previsualización: el vídeo de AUDIO si lo hay y, si no, el reproductor del
+// servicio en el que sí esté publicada (las marchas que entran por la ingesta
+// de streaming no tienen vídeo, solo su enlace de Spotify/Deezer/Apple).
+$repro = MD::reproductor($m['AUDIO'] ?? null, $enlaces ?? []);
+$reproAudio = $repro !== null && $repro['servicio'] !== 'youtube' ? $repro : null;
+// Servicio del enlace guardado en AUDIO, para nombrarlo en el botón externo
+// en vez del "Escuchar" a secas de cuando no se sabía de dónde venía.
+$audioSvc = MD::embedDeUrl($m['AUDIO'] ?? null)['servicio'] ?? null;
 $tipo = $t($m['TIPO'] ?? null) ? ucfirst(mb_strtolower((string) $m['TIPO'])) : 'Marcha';
 $estilo = match ($m['ESTILO'] ?? null) {
     'CCTT' => 'Cornetas y Tambores',
@@ -120,14 +128,20 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
                 <span class="ytfacade-play" aria-hidden="true"></span>
             </button>
         </div>
+<?php elseif ($reproAudio !== null): ?>
+        <?php $svcNombre = H::STREAMING_LABELS[$reproAudio['servicio']] ?? ucfirst($reproAudio['servicio']); ?>
+        <div class="mdembed" data-embed="<?= V::e($reproAudio['embed']) ?>"
+             data-embed-title="Reproductor de <?= V::e($svcNombre) ?>"
+             style="--md-alto: <?= (int) ($reproAudio['alto'] ?? 152) ?>px">
+            <button type="button" class="mdfacade" aria-label="Reproducir en <?= V::e($svcNombre) ?> (carga el reproductor al pulsar)">
+                <span class="mdfacade-play" aria-hidden="true"></span>
+                <span>Escuchar en <?= V::e($svcNombre) ?></span>
+            </button>
+        </div>
 <?php endif; ?>
 <?php if ($ytid !== null || $audioEsUrl): ?>
         <div class="svcs">
-<?php if ($ytid !== null): ?>
-            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ YouTube</a>
-<?php else: ?>
-            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ Escuchar</a>
-<?php endif; ?>
+            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ <?= V::e($audioSvc !== null ? (H::STREAMING_LABELS[$audioSvc] ?? ucfirst($audioSvc)) : 'Escuchar') ?></a>
         </div>
 <?php endif; ?>
         <?= H::streaming($enl) ?>
