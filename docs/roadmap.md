@@ -47,12 +47,12 @@ documentado, que es lo que hace que se planifique mal.
 
 | Ref | Tarea | Coste | Estado |
 |---|---|---|---|
-| **B-01** | Fusionar `claude/diseño-discreto-sencillo-jymud4` y después `claude/filtrado-candidatas-videos-drdd1y`; resolver el conflicto de `docs/admin-panel.md`; **relanzar el smoke en local sobre el resultado fusionado**; seguir el flujo normal (§«Cómo integrarlas» abajo): local → `pre` → smoke remoto PRE + validación en navegador → PR de `pre` a `main` → smoke remoto PRO. Borrar `…x60kfw` (redundante) | 1–2 h + tiempo de validación en cada entorno | ⏳ |
-| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php` | 30 min | ⏳ Depende de B-01 |
+| **B-01** | Fusionar `claude/diseño-discreto-sencillo-jymud4` y después `claude/filtrado-candidatas-videos-drdd1y`; resolver el conflicto de `docs/admin-panel.md`; relanzar el smoke en local sobre el resultado fusionado; push a `pre`. **Falta**: smoke remoto contra PRE + validación en navegador, PR de `pre` a `main`, smoke remoto PRO. Borrar `…x60kfw` (redundante) | 1–2 h | 🟡 En PRE, pendiente de validar y fusionar a `main` |
+| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php` | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO |
 | **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
-| **OPS-03 · T-03** | Verificar en Plesk si el **cron de backup** existe de verdad y cerrar el dato. Dueño único de esa información: [pendientes-post-cutover.md §2](pendientes-post-cutover.md) | 15 min | ⏳ |
-| **DEC-01** | Decidir sobre `/temporada`: **sembrar** una temporada real desde `/dashboard/temporada/{año}` o **despublicarla**. Lleva publicada y vacía desde el 2026-07-23 | decisión | ⏳ |
-| **DEC-02** | Decidir sobre el **VPS de rollback**: apagarlo (el plan decía 1–2 semanas tras el cutover; van ~3,5) o declararlo permanente y quitarlo de pendientes | decisión | ⏳ |
+| ~~OPS-03 · T-03~~ | ~~Verificar en Plesk si el cron de backup existe de verdad~~ | — | ✅ 2026-07-29 — confirmado en Plesk, backup manual de comprobación ejecutado (`mdc-20260729-132640.db`, 9,6 MB). Detalle en [pendientes-post-cutover.md §2](pendientes-post-cutover.md) |
+| ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. Implementado en `Pages::temporadaVisible()`, va dentro de B-01 |
+| ~~DEC-02~~ | ~~Decidir sobre el VPS de rollback~~ | — | ✅ 2026-07-29 — **apagado por completo** (contenedor, servidor y TTL de DNS revertido). El runbook de rollback de infraestructura de [cutover-fase5.md §7](cutover-fase5.md) queda obsoleto: no hay ya destino al que volver |
 | ~~R-00a~~ | ~~Cerrar el issue #23 (M9), cubierto por N-07/N-08/N-09/N-10~~ | — | ✅ 2026-07-29 |
 | ~~R-00b~~ | ~~Resolver la contradicción documental del cron de backup (tres documentos, tres versiones)~~ | — | ✅ 2026-07-29 |
 | ~~R-00c~~ | ~~Fechar los recuentos de catálogo (`context.md`, `db-analysis.md`): la BD tiene ~5.000 marchas, no 4.212~~ | — | ✅ 2026-07-29 |
@@ -207,39 +207,49 @@ Wikidata (enlazado de autoridades).
 
 ---
 
-## 4. Ramas abiertas (verificado 2026-07-29)
+## 4. Ramas abiertas (última actualización 2026-07-29)
 
-Tres ramas `claude/*` en el remoto **con CI en verde y sin PR**. Ninguna diverge
-de `main` (fast-forward posible). Son **dos líneas de trabajo, no tres**:
+**Estado: fusionadas en local, desplegadas en PRE, pendientes de PR a `main`.**
+Las tres ramas `claude/*` que estaban sueltas en el remoto ya no existen como
+tal: se integraron en una rama local (`local/b01-integracion`, partiendo de
+`pre`) y esa integración se empujó a `pre` (fast-forward `bbde671..5b3a5b1`),
+que dispara CI y el deploy automático a preproducción.
 
-| Rama | Contenido | Estado |
+| Origen | Contenido | Estado |
 |---|---|---|
-| `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Lista para PR |
-| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior (sus 4 commits están contenidos en ella) | 🗑 **Redundante** — borrar al fusionar |
-| `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas (blanco de clic de 8 px, `pointer-events: all` sobre relleno transparente, rótulos) + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), que cierra [technical-debt §5.1](technical-debt.md) | ✅ Lista para PR (85/85 smoke) |
+| `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Fusionada |
+| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto** |
+| `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), cierra [technical-debt §5.1](technical-debt.md) | ✅ Fusionada |
+| — | **`feat(temporada)`**: ocultar `/temporada` en PRO (DEC-01, ver §2) — commit añadido en la propia integración, no viene de ninguna rama anterior | ✅ Incluido |
 
-**Cómo integrarlas** (tarea B-01 de P0). Orden recomendado: `diseño…jymud4`
-primero (mueve `app.css`, plantillas y `ci_smoke.php`) y después
-`filtrado…drdd1y`. Verificado en un merge de prueba: juntas producen **un único
-conflicto, en `docs/admin-panel.md`** (ambas añaden secciones); el código funde
-solo. Aun así los solapes son semánticamente cercanos —`Media.php` recibe
-`guardarPortada()` por un lado y `embedDeUrl()`/`reproductor()` por el otro, y
-`marcha_detail.php` se reestructura en una rama mientras la otra le añade el
-reproductor de streaming— así que **hay que relanzar el smoke sobre el
-resultado fusionado**, no dar por buena la suma de dos CI verdes.
+**El único conflicto** al fusionar `diseño…jymud4` + `filtrado…drdd1y` fue en
+`docs/admin-panel.md`: las dos añadían una sección "§11" distinta (colisión de
+numeración, no de contenido) — se resolvió conservando ambas y renumerando la
+de ingesta a §12. El código fundió solo.
 
-**El flujo de integración es el de siempre ([entornos.md](entornos.md)), sin
-atajos por ser dos ramas ya verdes**: fusionar ambas en local → smoke local →
-push/merge a la rama **`pre`** (nunca directo a `main`) → CI → deploy automático
-a PRE → smoke remoto contra PRE + validación en navegador real → **PR de `pre`
-a `main`** y fusionar → deploy automático a PRO (con modo mantenimiento durante
-el swap) → smoke remoto contra PRO. La migración `008` y la campaña de curación
-de candidatos (OPS-01) van **después**, sobre la BD local, nunca sobre PRE (PRE
-comparte la BD de producción y es solo lectura por diseño).
+**Verificación completa antes del push**: lint (`php -l`) limpio en todo el
+árbol fusionado + **85/85 smoke tests** en local, reproduciendo exactamente los
+pasos de `ci.yml` (fixture determinista + servidor embebido + `ci_smoke.php`) —
+incluidas 5 pruebas nuevas para la ocultación de `/temporada` (404 en índice y
+año, fuera de nav/sitemap/`llms.txt`), que sustituyen a las 5 que verificaban su
+contenido público (ahora solo relevante en PRE, que CI no puede simular con un
+único servidor).
 
-⚠️ **Ninguna se puede validar en PRE**: PRE comparte la BD de producción y ambas
-escriben (migración `008`, portadas en el docroot, altas de disco). Validación
-en local, como manda [entornos.md](entornos.md) §«Qué vigilar».
+### Qué falta para cerrar B-01
+
+1. **CI + deploy automático a PRE** (ya en marcha tras el push).
+2. **Smoke remoto contra PRE** + validación tuya en el navegador: cinta de
+   preproducción, `/health` con `entorno: pre`, el rediseño, el alta de discos
+   con portada, **y que `/temporada` siga visible en PRE** (es la comprobación
+   nueva más importante de esta ronda: confirma que el gate distingue PRE de
+   PRO como se pretendía).
+3. **PR de `pre` a `main`** y fusionar.
+4. Deploy automático a PRO (con modo mantenimiento durante el swap) + smoke
+   remoto contra PRO — ahí `/temporada` debe dar 404.
+5. Borrar la rama `claude/bandas-rrss-discos-sync-x60kfw` del remoto
+   (redundante, nunca llegó a fusionarse).
+6. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el
+   código esté en `main`/PRO.
 
 ---
 
@@ -252,7 +262,9 @@ API + feeds + «Datos» (M1; `/feed.xml` **es** el «novedades» de P-09) ·
 GoatCounter opt-in (P-08) · Slugify unificado + CSP/HSTS (M8) · **N-07**
 `/rankings` + `/rankings/{año}` · **N-08** «Resumen del año» · **N-09**
 `/aniversarios/{año}` · **N-10** `/mapa` + `/mapa/provincia/{slug}` ·
-**N-04/05** `/temporada` (⚠️ tabla vacía, ver DEC-01) · CI con smoke tests (C5) ·
+**N-04/05** `/temporada` (⚠️ oculta en PRO desde el 2026-07-29 hasta tener datos
+de calidad — decisión DEC-01, visible en local y en PRE para rellenarla) · CI
+con smoke tests (C5) ·
 uptime externo (C6) · sync endurecido con checksum y rollback (C7) · despliegue
 automático PRE/PRO (M5) · catálogo cerrado de municipios y selector en cascada
 (análisis UX, prioridad 4).

@@ -40,38 +40,28 @@
 Estas tareas no dependen de que yo termine nada. Puedes hacerlas en cualquier
 momento, en el orden que prefieras.
 
-### 2.1 · Verificar el cron de backup en Plesk (OPS-03 · T-03)
-- **Dónde**: Plesk → Scheduled Tasks.
-- **Qué mirar**: que exista una tarea tipo *"Run a PHP script"* apuntando a
-  `/home/jaguerra27.helioho.st/app/tools/backup.php`, en **PHP 8.4 explícito**
-  (el CLI por defecto del host es PHP 5.x y falla con
-  `Unsupported declare 'strict_types'`).
-- **Qué confirmar además**: que aparece al menos un
-  `private/backups/mdc-*.db` reciente (no solo que la tarea existe — que se
-  ha ejecutado).
-- **Al terminar**: anota el resultado en `docs/pendientes-post-cutover.md §2` (es
-  el dueño único de este dato) y en `docs/roadmap.md` (tarea `T-03`/`OPS-03`).
+### ~~2.1 · Verificar el cron de backup en Plesk (OPS-03 · T-03)~~ ✅ Resuelto 2026-07-29
+- Confirmado en Plesk: la tarea existe, corre en PHP 8.4, y una ejecución manual
+  de comprobación produjo `backup OK:
+  /home/jaguerra27.helioho.st/private/backups/mdc-20260729-132640.db (9.629.696
+  bytes)`. Anotado en `docs/pendientes-post-cutover.md §2` y en `docs/roadmap.md`
+  (`OPS-03`/`T-03`).
 
-### 2.2 · Decidir sobre `/temporada` (DEC-01)
-- **Contexto**: la tabla `contrato` está migrada en producción desde el
-  2026-07-23 pero **vacía**. La pantalla pública `/temporada/{año}` está
-  publicada y no muestra nada.
-- **Decide una de dos**:
-  - **(a)** Empezar a rellenarla a mano desde `/dashboard/temporada/{año actual}`
-    (alta manual, banda + hermandad + fecha del contrato). Es trabajo de
-    curación tuyo, no de código.
-  - **(b)** Despublicarla temporalmente hasta tener datos reales que mostrar
-    (pídeme que la oculte del menú/sitemap si eliges esto).
-- **Al terminar**: anota la decisión en `docs/roadmap.md` (tarea `DEC-01`, bloque
-  P0) para que deje de aparecer como pendiente.
+### ~~2.2 · Decidir sobre `/temporada` (DEC-01)~~ ✅ Resuelto 2026-07-29
+- **Decisión**: se oculta en producción (404 + fuera de nav/sitemap/`llms.txt`)
+  hasta tener datos de calidad suficiente, pero **queda visible en PRE** para
+  rellenarla y validarla antes de publicar. Implementado en
+  `Pages::temporadaVisible()`, incluido en el push de B-01 a `pre` (§3.1). Sigue
+  pendiente: rellenarla a mano desde `/dashboard/temporada/{año actual}` cuando
+  decidas empezar la curación — eso no lo he hecho yo, es trabajo tuyo en el
+  panel, y el momento de "publicarla" en PRO es decisión tuya, no automática.
 
-### 2.3 · Decidir sobre el VPS de rollback (DEC-02)
-- **Contexto**: el plan de cutover decía mantenerlo 1–2 semanas como rollback;
-  llevan ya ~3,5 semanas desde el 2026-07-04.
-- **Decide**: apagarlo (`docker compose down` en el VPS + dar de baja el
-  servidor + subir el TTL del DNS a su valor normal — pasos en
-  `docs/pendientes-post-cutover.md §5`) o declararlo permanente.
-- **Al terminar**: anota la decisión en `docs/roadmap.md` (tarea `DEC-02`).
+### ~~2.3 · Decidir sobre el VPS de rollback (DEC-02)~~ ✅ Resuelto 2026-07-29
+- **Decisión**: apagado por completo (contenedor, servidor, TTL de DNS
+  revertido). Anotado en `docs/pendientes-post-cutover.md §5` y en
+  `docs/roadmap.md` (`DEC-02`). **Efecto colateral marcado**: el runbook de
+  rollback de infraestructura de `cutover-fase5.md §7` queda obsoleto (no hay ya
+  VPS al que volver) — avisado en `entornos.md`.
 
 ### 2.4 · Correo del dominio (pendiente histórico, sin dueño de tarea)
 - Si `marchasdecristo.com` tiene email, confirmar que sigue funcionando (el
@@ -93,19 +83,21 @@ antes de tocar un entorno compartido (repositorio remoto, CI, PRE o PRO) —
 según las reglas de esta sesión, un push o un deploy no se hace sin que lo
 pidas tú.
 
-### 3.1 · Push de la integración a la rama `pre` — **necesita tu confirmación**
-- Estado: la fusión local está lista, lint limpio, 85/85 smoke. Lo que falta:
-  1. Empujar el resultado a la rama `pre` del remoto (dispara CI + deploy
-     automático a preproducción).
-  2. Smoke remoto contra PRE + que **tú** lo mires en el navegador (cinta de
-     preproducción, `/health` con `entorno: pre`, y sobre todo probar a mano el
-     rediseño y el alta de discos con portada).
-  3. Si todo va bien: PR de `pre` a `main`, fusionar, deploy automático a PRO.
-  4. Borrar la rama `claude/bandas-rrss-discos-sync-x60kfw` (redundante, ya
-     contenida en `filtrado-candidatas-videos-drdd1y`).
-- **Dime cuándo quieres que dé el paso 1.** No lo hago solo porque hayamos
-  terminado la parte local: es la primera acción que toca un entorno
-  compartido.
+### 3.1 · Push de la integración a la rama `pre` — ✅ Hecho 2026-07-29
+- Empujado (`bbde671..5b3a5b1`, fast-forward). Incluye, además de las dos ramas
+  fusionadas, el commit de `/temporada` oculta en PRO (decisión 2.2). CI y
+  deploy a PRE en marcha.
+- **Falta, y esto sigue siendo tuyo**:
+  1. Smoke remoto contra PRE + que **lo mires en el navegador**: cinta de
+     preproducción, `/health` con `entorno: pre`, el rediseño, el alta de
+     discos con portada, y **que `/temporada` siga visible en PRE** (la
+     comprobación nueva más importante de esta ronda).
+  2. Si todo va bien: PR de `pre` a `main`, fusionar, deploy automático a PRO
+     (ahí `/temporada` debe dar 404).
+  3. Borrar la rama `claude/bandas-rrss-discos-sync-x60kfw` del remoto
+     (redundante, nunca se fusionó).
+- **Dime cuándo has validado PRE** para dar el paso del PR a `main`. Fusionar a
+  `main` toca producción real y sigue necesitando tu confirmación explícita.
 
 ### 3.2 · OPS-01 — Migración `008` + importar candidatos (tras 3.1)
 - Depende de que el código esté fusionado y desplegado. Se hace **en local**,
@@ -136,17 +128,20 @@ pidas tú.
 
 ## 4. Qué necesito confirmar de ti para poder seguir con precisión
 
-Preguntas concretas, no retóricas — respóndelas cuando puedas y las dejo
-resueltas en `roadmap.md`:
+De las cinco preguntas originales, tres quedaron resueltas en esta ronda
+(cron de backup, `/temporada`, VPS). Quedan dos abiertas:
 
-1. **¿Confirmas el push a `pre` (§3.1)?** Es la siguiente acción y toca un
-   entorno compartido.
-2. **`/temporada` (§2.2)**: ¿rellenar a mano o despublicar por ahora?
-3. **VPS de rollback (§2.3)**: ¿apagarlo ya o mantenerlo?
-4. **R-01 (ISRC, §3.4)**: ¿lo desarrollo ya o esperamos a que termine B-01/OPS?
+1. ~~¿Confirmas el push a `pre`?~~ ✅ Hecho.
+2. ~~`/temporada`: ¿rellenar a mano o despublicar?~~ ✅ Oculta en PRO, visible en PRE.
+3. ~~VPS de rollback: ¿apagarlo ya o mantenerlo?~~ ✅ Apagado.
+4. **R-01 (ISRC, §3.4)**: ¿lo desarrollo ya o esperamos a que termine B-01/OPS
+   (validación en PRE + fusión a `main` + migración `008`)?
 5. **Orden de P1–P2 en `roadmap.md`**: ¿te sirve tal como quedó, o quieres mover
    algo (por ejemplo, adelantar accesibilidad/impresión si te preocupa más la
    experiencia que el dato en este momento)?
+
+**Nueva, surgida de esta ronda**: cuando valides `/temporada` en PRE, avísame —
+es la señal para dar el paso del PR de `pre` a `main`.
 
 ---
 

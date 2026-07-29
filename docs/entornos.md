@@ -95,9 +95,11 @@ haya que subir datos nuevos. El pipeline de código **nunca** toca `private/`,
 desplegable de ref, elegir el commit/tag anterior, target `pro`.
 
 **Rollback de infraestructura/DNS** (distinto del anterior: volver todo el
-dominio al VPS antiguo, no solo un commit): procedimiento en
-[cutover-fase5.md §7](cutover-fase5.md) — vigente solo **mientras el VPS
-no se desmantele** (ver [pendientes-post-cutover.md](pendientes-post-cutover.md)).
+dominio al VPS antiguo, no solo un commit): el procedimiento de
+[cutover-fase5.md §7](cutover-fase5.md) es **obsoleto desde el 2026-07-29** — el
+VPS se desmanteló ese día (ver [pendientes-post-cutover.md §5](pendientes-post-cutover.md)).
+Ya no existe ese destino de rollback; solo queda el rollback de código en PRO
+descrito arriba.
 
 ## Puesta en marcha (una sola vez)
 
