@@ -111,7 +111,14 @@ final class IngestaRepo
      */
     public static function ultimoDescarte(): ?array
     {
-        $row = Db::one('SELECT IDS_JSON, N, USUARIO, CREATED_AT FROM ingest_descarte_ultimo WHERE ID = 1');
+        try {
+            $row = Db::one('SELECT IDS_JSON, N, USUARIO, CREATED_AT FROM ingest_descarte_ultimo WHERE ID = 1');
+        } catch (\Throwable) {
+            // Tabla de 008_ingest_streaming.sql: si el host todavía no tiene la
+            // migración aplicada, no hay nada que deshacer todavía (degradado,
+            // no 500 — mismo patrón que Pages::temporada con la tabla contrato).
+            return null;
+        }
         if ($row === null) return null;
 
         $ids = json_decode((string) $row['IDS_JSON'], true);
@@ -153,8 +160,15 @@ final class IngestaRepo
 
         $ids = array_keys($ids);
         $ph = implode(',', array_fill(0, count($ids), '?'));
+        try {
+            $rows = Db::all("SELECT FUENTE, FUENTE_ID FROM ingest_veto WHERE FUENTE_ID IN ($ph)", $ids);
+        } catch (\Throwable) {
+            // Tabla de 008_ingest_streaming.sql: sin migrar aún en este host,
+            // "ningún veto conocido" es la degradación correcta, no un 500.
+            return [];
+        }
         $out = [];
-        foreach (Db::all("SELECT FUENTE, FUENTE_ID FROM ingest_veto WHERE FUENTE_ID IN ($ph)", $ids) as $v) {
+        foreach ($rows as $v) {
             $k = $v['FUENTE'] . '|' . $v['FUENTE_ID'];
             if (isset($claves[$k])) $out[$k] = true;
         }
@@ -200,10 +214,13 @@ final class IngestaRepo
         $total = (int) ($countRow['n'] ?? 0);
         $offset = ($page - 1) * $limit;
 
+        // c.* en vez de listar columnas (incluidas FUENTE/FUENTE_ALBUM, añadidas
+        // por migrate_ingest.php tras 008_ingest_streaming.sql): así esta query
+        // no depende de si ese ALTER TABLE ya se aplicó en este host — igual que
+        // fetchCandidato() más abajo. Las plantillas ya leen esas claves con
+        // ?? 'youtube' / !empty(), así que su ausencia no rompe nada.
         $rows = Db::all(
-            "SELECT c.ID_CAND, c.ID_BANDA, c.FUENTE, c.FUENTE_ALBUM, c.VIDEO_ID, c.VIDEO_URL, c.VIDEO_TITULO,
-                    c.PUBLICADO_AT, c.DURACION_SEG, c.CLASIFICACION, c.CONFIANZA, c.FLAGS, c.P_TITULO, c.P_FECHA,
-                    c.MATCH_MARCHA_ID, c.MATCH_SCORE, c.ESTADO, b.NOMBRE_BREVE
+            "SELECT c.*, b.NOMBRE_BREVE
              FROM ingest_candidato c
              LEFT JOIN banda b ON b.ID_BANDA = c.ID_BANDA
              WHERE $where

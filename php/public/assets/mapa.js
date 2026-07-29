@@ -29,9 +29,14 @@
             var fontMatch = /--mapa-punto-font:\s*([\d.]+)/.exec(capa.getAttribute('style') || '');
             baseFontSize = fontMatch ? parseFloat(fontMatch[1]) : 0;
             Array.prototype.forEach.call(capa.querySelectorAll('a'), function (a) {
+                // El rótulo (App\Mapa::pintarPuntos) ya no va dentro del <a>
+                // -si no, quedaba pulsable pese a no ser esa la intención-,
+                // así que ahora es su hermano siguiente en vez de un
+                // descendiente.
+                var siguiente = a.nextElementSibling;
                 var c = a.querySelector('.mapa-punto'),
                     h = a.querySelector('.mapa-punto-hit'),
-                    t = a.querySelector('text');
+                    t = (siguiente && siguiente.classList.contains('mapa-punto-label')) ? siguiente : null;
                 if (!c) return;
                 puntos.push({
                     c: c, h: h, t: t,

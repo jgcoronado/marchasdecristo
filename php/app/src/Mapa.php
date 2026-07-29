@@ -243,15 +243,17 @@ final class Mapa
         return $viewBoxWidth * 0.0055;
     }
 
-    /** Radio del círculo transparente que recibe el clic. Más de tres veces el
-     *  del punto visible: con la escala típica de una provincia eso son unos
-     *  26 px de diámetro en pantalla (el punto visible ronda los 8), que ya es
-     *  un blanco cómodo de pulsar, también con el dedo. En zonas muy densas
-     *  las dianas se solapan; la salida es el zoom, que separa los puntos
-     *  manteniendo su tamaño aparente (mapa.js: rescalePuntos). */
+    /** Radio del círculo transparente que recibe el clic. Reducido el
+     *  2026-07-29 (de 0.018 a 0.012: era un blanco casi 3.3× el punto visible
+     *  y se sentía desproporcionado en pantalla, sobre todo en localidades de
+     *  nombre largo, donde además el rótulo quedaba dentro del mismo enlace
+     *  -ver más abajo, ya corregido-). Con 0.012 sigue siendo ~2.2× el punto
+     *  visible: más que los 8 px del punto, pero sin invadir a sus vecinos.
+     *  En zonas muy densas las dianas se solapan; la salida es el zoom, que
+     *  separa los puntos manteniendo su tamaño aparente (mapa.js: rescalePuntos). */
     private static function radioHit(float $viewBoxWidth): float
     {
-        return $viewBoxWidth * 0.018;
+        return $viewBoxWidth * 0.012;
     }
 
     /** Añade la capa de puntos (uno por localidad) a un <svg> ya cargado en
@@ -316,12 +318,18 @@ final class Mapa
             $label->setAttribute('text-anchor', 'middle');
             $label->appendChild($dom->createTextNode($p['localidad']));
 
+            // El rótulo va fuera del <a>: dentro quedaba pulsable pese al
+            // comentario de arriba ("no es pulsable"), así que el blanco de
+            // clic real era tan ancho como el nombre del municipio, no la
+            // diana. Fuera del enlace, el orden de pintado en el <g> no
+            // cambia (el SVG pinta por orden de documento, no por anidación),
+            // así que no hay diferencia visual.
             $a = $dom->createElement('a');
             $a->setAttribute('href', '/marcha?' . http_build_query(['localidad' => $p['localidad']]));
             $a->appendChild($hit);
             $a->appendChild($c);
-            $a->appendChild($label);
             $capa->appendChild($a);
+            $capa->appendChild($label);
         }
         $svgEl->appendChild($capa);
     }
