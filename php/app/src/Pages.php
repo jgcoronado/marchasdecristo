@@ -28,6 +28,18 @@ final class Pages
         return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
     }
 
+    // Decisión 2026-07-29: /mapa se oculta en PRO mientras se corrige el
+    // solape de dianas de clic entre municipios próximos (reportado en
+    // Castilleja de la Cuesta/Tomares). Se mantiene visible en local y en PRE
+    // para poder seguir iterando y validando el arreglo sin publicar el
+    // problema. Mismo mecanismo que temporadaVisible(): quitar el gate es
+    // "republicarlo", no hay flag de config nuevo.
+    private static function mapaVisible(): bool
+    {
+        $config = $GLOBALS['config'];
+        return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
+    }
+
     /** @return array{0:array<string,string>,1:bool,2:int,3:int} [criteria, hasQuery, page, limit] */
     private static function searchParams(): array
     {
@@ -844,6 +856,9 @@ final class Pages
     // ── Mapa (N-10) ──────────────────────────────────────────────────────────
     public static function mapa(): void
     {
+        if (!self::mapaVisible()) {
+            Http::notFound();
+        }
         $porProvincia = Repo::hubProvincias();
         $svgMapa = Mapa::render($porProvincia);
 
@@ -873,6 +888,9 @@ final class Pages
     /** Mapa ampliado de una provincia: municipios clicables (self::mapaProvinciaPath). */
     public static function mapaProvincia(array $p): void
     {
+        if (!self::mapaVisible()) {
+            Http::notFound();
+        }
         $raw = (string) $p['slug'];
         $slug = Slug::slugify($raw);
         $prov = null;
@@ -1069,9 +1087,13 @@ final class Pages
             // cualquier año lo es — así que solo se anuncia el vigente; los
             // años pasados siguen accesibles (y rastreables) vía prev/next.
             [$base . self::aniversariosAnioPath(gmdate('Y')), 'monthly', '0.6'],
-            [$base . '/mapa', 'monthly', '0.6'],
             [$base . '/datos', 'monthly', '0.5'],
         ];
+        // Oculto en PRO (ver Pages::mapaVisible): no anunciar una URL que la
+        // propia web responde con 404.
+        if (self::mapaVisible()) {
+            $urls[] = [$base . '/mapa', 'monthly', '0.6'];
+        }
 
         try {
             // Hubs de catálogo (C1): solo los que tienen sustancia (≥ HUB_MIN_MARCHAS).
@@ -1372,8 +1394,13 @@ final class Pages
             '- [Dedicatorias](' . $base . '/dedicatorias)',
             '- [Rankings](' . $base . '/rankings)',
             '- [Aniversarios](' . $base . '/aniversarios)',
-            '- [Mapa](' . $base . '/mapa)',
         ];
+        // Mapa oculto en PRO mientras se corrige el solape de dianas (ver
+        // Pages::mapaVisible) — no listar aquí una URL que la propia web
+        // responde con 404.
+        if (self::mapaVisible()) {
+            $lines[] = '- [Mapa](' . $base . '/mapa)';
+        }
         // Temporada oculta en PRO hasta que haya datos de calidad (ver
         // Pages::temporadaVisible) — no listar aquí una URL que la propia web
         // responde con 404.
