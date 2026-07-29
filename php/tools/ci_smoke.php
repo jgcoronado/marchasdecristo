@@ -446,36 +446,35 @@ $tests = [
     },
     'mapa de provincia: inexistente → 404' => static fn() => assertStatus('/mapa/provincia/marte', 404, $base),
 
-    // ── Temporada (N-04): contratos banda↔hermandad, alta manual ────────────
-    'temporada sin año → 302 al año en curso' => static function () use ($base): void {
-        $r = httpGet($base . '/temporada');
-        if ($r['status'] !== 302) {
-            throw new RuntimeException("/temporada → esperado 302, obtenido {$r['status']}");
-        }
-        $anioActual = gmdate('Y');
-        $loc = $r['headers']['location'] ?? '';
-        if (!str_ends_with($loc, "/temporada/$anioActual")) {
-            throw new RuntimeException("/temporada → Location '$loc' no apunta al año en curso ($anioActual)");
-        }
-    },
-    'temporada 2026 (con contratos) 200 + indexable, agrupado por hermandad' => static function () use ($base): void {
-        assertNotNoIndex('/temporada/2026', $base);
-        $r = assertStatus('/temporada/2026', 200, $base);
-        foreach (['Hdad de los Gitanos', 'Virgen de las Angustias', 'Las Cigarreras', 'Cristo de la Salud', 'Tres Caídas', 'fuente'] as $needle) {
-            if (!str_contains($r['body'], $needle)) {
-                throw new RuntimeException("/temporada/2026 → falta '$needle'");
-            }
+    // ── Temporada (N-04): oculta en PRO desde el 2026-07-29 ─────────────────
+    // Decisión: /temporada se esconde en producción real hasta que `contrato`
+    // tenga datos de calidad suficiente, pero sigue visible en local (donde se
+    // rellena) y en PRE (para validarla antes de publicar) — ver
+    // App\Pages::temporadaVisible(). Esta fixture simula PRO (env=production,
+    // sin preproduccion), que es justo el caso que debe dar 404; la vista
+    // completa (agrupado por hermandad, JSON-LD, estado vacío) ya se verificó
+    // a mano en local antes de esta decisión y se revalida ahí cada vez que se
+    // toque esta pantalla — CI no puede simular PRE con un único servidor.
+    'temporada oculta en PRO: índice → 404' => static fn() => assertStatus('/temporada', 404, $base),
+    'temporada oculta en PRO: año concreto → 404' => static fn() => assertStatus('/temporada/2026', 404, $base),
+    'temporada oculta en PRO: fuera del nav' => static function () use ($base): void {
+        $r = assertStatus('/', 200, $base);
+        if (str_contains($r['body'], 'href="/temporada"')) {
+            throw new RuntimeException('home → el enlace a /temporada no debería aparecer en el nav mientras está oculta en PRO');
         }
     },
-    'temporada 2026 JSON-LD breadcrumbs' => static fn() => assertJsonLd('/temporada/2026', $base, 'BreadcrumbList'),
-    'temporada sin contratos → noindex + mensaje vacío' => static function () use ($base): void {
-        assertNoIndex('/temporada/2025', $base);
-        $r = assertStatus('/temporada/2025', 200, $base);
-        if (!str_contains($r['body'], 'Todavía no hay contratos registrados')) {
-            throw new RuntimeException('/temporada/2025 → falta el mensaje de estado vacío');
+    'temporada oculta en PRO: fuera del sitemap' => static function () use ($base): void {
+        $r = assertStatus('/sitemap.xml', 200, $base);
+        if (str_contains($r['body'], '/temporada/')) {
+            throw new RuntimeException('sitemap.xml → no debería listar URLs de /temporada mientras está oculta en PRO');
         }
     },
-    'temporada año fuera de rango (1500) 404' => static fn() => assertStatus('/temporada/1500', 404, $base),
+    'temporada oculta en PRO: fuera de llms.txt' => static function () use ($base): void {
+        $r = assertStatus('/llms.txt', 200, $base);
+        if (str_contains($r['body'], '/temporada')) {
+            throw new RuntimeException('llms.txt → no debería listar /temporada mientras está oculta en PRO');
+        }
+    },
 
     // ── Hubs de catálogo indexables (C1) ────────────────────────────────────
     'hub año con sustancia 200 + indexable' => static fn() => assertNotNoIndex('/marcha/ano/1995', $base),

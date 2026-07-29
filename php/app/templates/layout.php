@@ -44,8 +44,14 @@ $nav = [
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
     '/mapa' => 'Mapa',
-    '/temporada' => 'Temporada',
 ];
+// Temporada (N-04) oculta en PRO hasta que haya datos de calidad (decisión
+// 2026-07-29): visible en local (donde se rellena) y en PRE (para validarla
+// antes de publicar). Ver App\Pages::temporadaVisible().
+$configEnv = (string) ($GLOBALS['config']['env'] ?? 'production');
+if ($configEnv !== 'production' || $esPre) {
+    $nav['/temporada'] = 'Temporada';
+}
 
 try {
     $counts = Db::counts();
