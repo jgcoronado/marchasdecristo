@@ -32,6 +32,12 @@ ninguna URL** — es solo mover el dominio de un servidor a otro.
 - [x] `secret_key` y `'debug' => false` ya definidos en `app/config.local.php` del host
       (confirmado por el usuario 2026-07-06).
 - [x] **Cron de backup** configurado en Plesk (confirmado por el usuario 2026-07-06).
+      ⚠️ *Nota añadida 2026-07-29*: esta línea es el registro de lo que se confirmó
+      ese día y se deja tal cual (este documento es un runbook ejecutado, no un
+      estado vivo). Pero **no se ha vuelto a verificar desde entonces** y es el
+      origen de una contradicción entre documentos. El dueño único de ese dato es
+      [pendientes-post-cutover.md §2](pendientes-post-cutover.md); no cites esta
+      línea como prueba de que el cron existe hoy.
 - [x] Añadir **marchasdecristo.com** (y `www`) al panel de HelioHost/Plesk como dominio o
       alias del sitio: confirmado, ambos resuelven a la IP de HelioHost y sirven el sitio.
 - [x] **SSL** (Let's Encrypt / AutoSSL) para `marchasdecristo.com` y `www`: confirmado,
