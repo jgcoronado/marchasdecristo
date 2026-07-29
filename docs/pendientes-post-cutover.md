@@ -38,12 +38,16 @@
   del panel y, si se quiere, que un intento de escritura efectivamente cae en
   modo solo-lectura.
 
-### 2. Cron de backup  ·  *(Plesk)* — ⚠️ estado contradictorio entre documentos, verificar en Plesk
+### 2. Cron de backup  ·  *(Plesk)* — ⚠️ **dueño único de este dato: esta sección**
+> Resuelto como contradicción documental el 2026-07-29: `cutover-fase5.md` y
+> `roadmap.md` T-03 ya **no** afirman nada por su cuenta, apuntan aquí. Lo que
+> sigue abierto es la verificación en sí, que no se puede hacer desde el repo.
+
 - `cutover-fase5.md` registra el cron como "configurado, confirmado por el
-  usuario" el 2026-07-06. `context.md`/`entornos.md` lo dan por hecho sin
-  matices. Pero `roadmap.md` (T-03) lo marca todavía como **"Parcial"** — es
-  decir, el corpus de documentación no está de acuerdo consigo mismo. Esto no
-  es verificable desde el repo (es estado de Plesk, no de código).
+  usuario" el 2026-07-06, y `context.md`/`entornos.md` lo daban por hecho sin
+  matices; `roadmap.md` (T-03) lo marcaba como "Parcial". Ninguna de esas
+  afirmaciones se ha reverificado, y es **estado de Plesk, no de código**: solo
+  se cierra mirando el panel.
 - [ ] Confirmar en Plesk → **Scheduled Tasks** si la tarea existe de verdad:
       tipo **"Run a PHP script"** → `/home/jaguerra27.helioho.st/app/tools/backup.php`
       → semanal. ⚠️ El PHP por defecto de las Scheduled Tasks es PHP 5.x (falla
