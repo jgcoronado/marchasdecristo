@@ -681,8 +681,19 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
    elemento está realmente pintado: un círculo con fill: transparent no lo
    está, así que Firefox no lo consideraba pulsable (Chromium sí, de ahí que
    pasara la primera verificación). Con 'all' el círculo recibe el clic
-   independientemente de su relleno, en cualquier navegador. */
-.mapa-punto-hit { fill: transparent; stroke: none; pointer-events: all; }
+   independientemente de su relleno, en cualquier navegador.
+
+   stroke-width: 0 es la otra mitad, y es la que faltaba. 'all' hace que el
+   área de clic sea fill + PERÍMETRO, y el perímetro se mide con
+   stroke-width AUNQUE stroke sea none (la spec dice que fill/stroke/
+   visibility no afectan al procesamiento de eventos). El valor inicial de
+   stroke-width es 1, expresado en unidades de USUARIO del SVG: con el
+   viewBox de una provincia eso son ~10 px de pantalla, así que cada diana
+   crecía r + 0.5 unidades por todos lados y acababa cubriendo a sus
+   vecinos. Por eso reducir el radio no arreglaba nada: el área real la
+   dominaba el stroke, no el radio (medido en navegador: Castilleja de la
+   Cuesta robaba el clic a Tomares, y Olivares a Albaida del Aljarafe). */
+.mapa-punto-hit { fill: transparent; stroke: none; stroke-width: 0; pointer-events: all; }
 .mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; pointer-events: none; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease, r 0.12s ease; }
 /* background además de fill: estas mismas clases se reutilizan en la
    leyenda (span de HTML, no SVG), que solo pinta con background. */

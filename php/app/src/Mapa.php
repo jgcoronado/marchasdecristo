@@ -294,20 +294,21 @@ final class Mapa
                 $d = sqrt($dx * $dx + $dy * $dy);
                 if ($d < $minDist) $minDist = $d;
             }
-            $tope = $minDist === INF ? $rHitDefault : ($minDist / 2) * 0.85;
             // Sin suelo en el punto visible: un suelo así reintroducía el
-            // solape precisamente en el caso que esto arregla (probado con
-            // Castilleja de la Cuesta/Tomares, ~2 unidades de separación en
-            // esta escala — "nunca menor que el punto visible" ganaba sobre
-            // "nunca solaparse", y las dos dianas volvían a sumar más que la
-            // distancia entre ellas). El único suelo que queda es para no
-            // dejar un r=0 degenerado si dos puntos coincidieran exactamente.
-            $puntos[$i]['_rHit'] = max(0.05, min($rHitDefault, $tope));
+            // solape precisamente en el caso que esto arregla (Castilleja de
+            // la Cuesta/Tomares). El único suelo que queda evita un r=0
+            // degenerado si dos puntos coincidieran exactamente.
+            $tope = $minDist === INF ? $rHitDefault : max(0.05, ($minDist / 2) * 0.85);
+            $puntos[$i]['_rHitMax'] = $tope;
+            $puntos[$i]['_rHit'] = min($rHitDefault, $tope);
         }
 
         $capa = $dom->createElement('g');
         $capa->setAttribute('class', 'mapa-puntos');
         $capa->setAttribute('style', "--mapa-punto-font: {$fontSize}px");
+        // Radio de diana "cómodo" sin restricción de vecinos, para que mapa.js
+        // pueda recuperarlo al ampliar (ver data-rmax en cada diana).
+        $capa->setAttribute('data-rhit-base', (string) round($rHitDefault, 3));
 
         // Orden de pintado FIJO, decidido aquí y no al pasar el ratón: los
         // municipios con menos marchas van primero, así los de más recuento
@@ -330,7 +331,12 @@ final class Mapa
             $hit->setAttribute('class', 'mapa-punto-hit');
             $hit->setAttribute('cx', $cx);
             $hit->setAttribute('cy', $cy);
-            $hit->setAttribute('r', (string) round($p['_rHit'], 2));
+            $hit->setAttribute('r', (string) round($p['_rHit'], 3));
+            // Tope por vecino, en unidades de usuario: es GEOMÉTRICO, no
+            // depende del zoom. mapa.js lo necesita para poder devolverle a la
+            // diana su tamaño cómodo al ampliar (donde los vecinos ya están
+            // lejos en pantalla) sin volver a solaparla nunca. Ver rescalePuntos.
+            $hit->setAttribute('data-rmax', (string) round($p['_rHitMax'], 3));
 
             $title = $dom->createElement('title');
             $title->appendChild($dom->createTextNode(
