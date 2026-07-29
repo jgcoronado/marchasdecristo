@@ -179,6 +179,15 @@ $router->post('/dashboard/banda/{id}', [Admin::class, 'bandaEditPost']);
 $router->post('/dashboard/banda/{id}/relacion', [Admin::class, 'bandaRelacionAddPost']);
 $router->post('/dashboard/banda/{id}/relacion/{rel}/borrar', [Admin::class, 'bandaRelacionDeletePost']);
 $router->post('/dashboard/banda/{id}/social', [Admin::class, 'bandaSocialPost']);
+// Discos: alta (con portada) y edición + pistas. 'add' antes que {id} para que
+// /dashboard/disco/add no se interprete como el disco de id 0.
+$router->get('/dashboard/disco/add', [Admin::class, 'discoAddForm']);
+$router->post('/dashboard/disco/add', [Admin::class, 'discoAddPost']);
+$router->get('/dashboard/disco/{id}', [Admin::class, 'discoEditForm']);
+$router->post('/dashboard/disco/{id}', [Admin::class, 'discoEditPost']);
+$router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']);
+$router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
+$router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
 $router->get('/api/banda/estilo', [Admin::class, 'bandaEstiloSugerido']);

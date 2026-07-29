@@ -10,10 +10,6 @@
  */
 ?>
 <article class="record">
-    <div class="head">
-        <span class="eb">Búsqueda</span>
-        <span class="sig">MDC · buscar</span>
-    </div>
     <h1>Buscar en el catálogo</h1>
 
     <form class="buscar-form" action="/buscar" method="get" role="search">

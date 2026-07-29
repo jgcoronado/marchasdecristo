@@ -1,19 +1,32 @@
 /* Marchas de Cristo — hoja de estilos propia.
-   Rediseño «Índigo noche» (rama design/frontend-review): gramática de catálogo
-   bibliográfico — reglas de tinta, asiento, descripción con puntos de guía.
-   El índigo se reserva para lo consultable (enlaces, acciones); la estructura
-   se dibuja con filetes. Especificación: docs/revision-diseno-frontend.html. */
+   Criterio de diseño: discreto, sencillo y cómodo de leer.
+
+   La revisión de 2026-07 retiró la «gramática de catálogo bibliográfico»
+   anterior (reglas de tinta de 2px, filetes dobles, puntos de guía, versalitas
+   monoespaciadas). El problema no era el color: era la TEXTURA. Cada elemento
+   pedía atención con algo —cambio de familia tipográfica, filete negro, caja
+   alta, contador— y, como todo destacaba un poco, nada quedaba en segundo
+   plano. Las tres reglas que mantienen la calma:
+
+     1. Una sola familia para el contenido (la de sistema). El serif se reserva
+        a los títulos y la monoespaciada NO se usa en texto de lectura.
+     2. La estructura se dibuja con espacio y fondos alternos, no con filetes.
+        Ningún borde de más de 1px, ninguno del color de la tinta.
+     3. Nada por debajo de 0.8rem en texto que el visitante deba leer.
+
+   El índigo se reserva para lo consultable (enlaces y acciones). */
 
 /* ── Tokens ─────────────────────────────────────────────────────────────── */
 :root {
     /* Paleta clara */
-    --bg: #eaecf2;          /* fondo de la app (gris con sesgo índigo) */
+    --bg: #f4f5f8;          /* fondo de la app (apenas separado de la tarjeta) */
     --card: #ffffff;        /* superficie del registro / tarjetas */
     --s2: #f2f4fa;          /* superficie secundaria */
-    --line: #dce0eb;        /* filete */
-    --ink: #181b24;         /* tinta */
-    --muted-c: #59606f;
-    --faint: #8890a1;
+    --zebra: #f7f8fb;       /* fila alterna de datos y tablas */
+    --line: #e2e5ee;        /* filete */
+    --ink: #22262f;         /* tinta (no negro puro: cansa menos) */
+    --muted-c: #5b6273;
+    --faint: #868da0;
     --acc: #3a4d9e;         /* índigo: enlaces y acciones */
     --acc-tint: #e9ecf9;
     /* Semánticos (estreno / novedad / recuperación / error) */
@@ -47,13 +60,14 @@
 }
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #0e1016;
-        --card: #161a24;
+        --bg: #12151c;
+        --card: #171b25;
         --s2: #1c2130;
-        --line: #2a3350;
+        --zebra: #1b1f2a;
+        --line: #262d3f;
         --ink: #e7eaf4;
         --muted-c: #9aa3b8;
-        --faint: #6a7488;
+        --faint: #78819a;
         --acc: #8ea0ec;
         --acc-tint: #1e2540;
         --est: #7cc39a;  --est-bg: #16281d;
@@ -88,7 +102,7 @@ body {
 /* ── Cabecera del sitio ─────────────────────────────────────────────────── */
 header {
     background: var(--card);
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 1px solid var(--line);
 }
 header nav {
     max-width: var(--wrap);
@@ -99,35 +113,35 @@ header nav {
     gap: 1.1rem;
     flex-wrap: wrap;
 }
-.brand { font-family: var(--serif); font-weight: 700; font-size: 1.12rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
-.brand .brand-sub { display: block; font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); font-weight: 400; margin-top: -0.1rem; }
-.nav-links { list-style: none; display: flex; gap: 0.1rem; margin: 0; padding: 0; font-size: 0.87rem; }
+.brand { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
+.brand .brand-sub { display: block; font-size: 0.76rem; color: var(--faint); font-weight: 400; margin-top: 0.05rem; }
+.nav-links { list-style: none; display: flex; gap: 0.1rem; margin: 0; padding: 0; font-size: 0.92rem; }
 .nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.55rem; border-bottom: 2px solid transparent; display: inline-block; }
 .nav-links a:hover { color: var(--acc); }
 .nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--acc); }
 
 .site-search-row { max-width: var(--wrap); margin: 0 auto; padding: 0 1rem 0.7rem; display: flex; justify-content: center; }
 .site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.4rem 0.7rem; width: 100%; max-width: 34rem; }
-.site-search input { border: 0; background: none; font: inherit; font-family: var(--mono); font-size: 0.8rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+.site-search input { border: 0; background: none; font: inherit; font-size: 0.92rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
 .site-search input::placeholder { color: var(--faint); }
-.site-search .kbd { font-family: var(--mono); font-size: 0.6rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
+.site-search .kbd { font-size: 0.7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
 
 /* Autocompletado global (M3): desplegable bajo la caja de búsqueda. */
 .ac-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; max-height: 22rem; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 6px 20px rgba(20, 28, 60, 0.14); padding: 0.25rem; }
-.ac-group { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); padding: 0.4rem 0.5rem 0.2rem; }
-.ac-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink); }
-.ac-item:hover, .ac-item.on { background: var(--rec-bg); }
-.ac-title { font-size: 0.85rem; font-weight: 500; }
-.ac-sub { font-family: var(--mono); font-size: 0.66rem; color: var(--muted-c); margin-left: auto; text-align: right; white-space: nowrap; }
-.ac-empty { padding: 0.5rem; font-size: 0.8rem; color: var(--faint); text-align: center; }
+.ac-group { font-size: 0.78rem; font-weight: 600; color: var(--faint); padding: 0.45rem 0.5rem 0.2rem; }
+.ac-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink); }
+.ac-item:hover, .ac-item.on { background: var(--s2); }
+.ac-title { font-size: 0.92rem; font-weight: 500; }
+.ac-sub { font-size: 0.8rem; color: var(--muted-c); margin-left: auto; text-align: right; white-space: nowrap; }
+.ac-empty { padding: 0.5rem; font-size: 0.88rem; color: var(--faint); text-align: center; }
 
 /* Página /buscar */
 .buscar-form { display: flex; gap: 0.5rem; margin: 0.6rem 0 0.4rem; }
 .buscar-form .input { flex: 1; }
 .buscar-lista { list-style: none; margin: 0; padding: 0; }
-.buscar-lista li { display: flex; align-items: baseline; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 1px solid var(--line); }
+.buscar-lista li { display: flex; align-items: baseline; gap: 0.6rem; padding: 0.4rem 0; border-bottom: 1px solid var(--line); }
 .buscar-lista li:last-child { border-bottom: 0; }
-.buscar-sub { font-family: var(--mono); font-size: 0.72rem; color: var(--muted-c); margin-left: auto; text-align: right; }
+.buscar-sub { font-size: 0.84rem; color: var(--muted-c); margin-left: auto; text-align: right; }
 
 /* Menú móvil (sin JS, con <details>) */
 .nav-mobile { position: relative; display: none; }
@@ -150,10 +164,10 @@ main a:not(.btn):hover { text-decoration: underline; }
 
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
    las páginas del host de pruebas para no confundir nunca PRE con PRO. */
-.pre-ribbon { background: var(--rec-bg); color: var(--rec); font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; text-align: center; padding: 0.35rem 1rem; border-bottom: 1px solid var(--line); }
+.pre-ribbon { background: var(--rec-bg); color: var(--rec); font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--line); }
 
 footer { border-top: 1px solid var(--line); background: var(--card); }
-footer .inner { max-width: var(--wrap); margin: 0 auto; padding: 0.9rem 1rem; text-align: center; font-size: 0.74rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
+footer .inner { max-width: var(--wrap); margin: 0 auto; padding: 0.9rem 1rem; text-align: center; font-size: 0.84rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
 footer .inner a { color: var(--muted-c); text-decoration: none; }
 footer .inner a:hover { color: var(--acc); text-decoration: underline; }
 .foot-sep { color: var(--faint); margin: 0 0.15rem; }
@@ -162,8 +176,8 @@ footer .inner a:hover { color: var(--acc); text-decoration: underline; }
 .stack { display: flex; flex-direction: column; gap: 1rem; }
 .home { gap: 1.5rem; }
 .row { display: flex; gap: 0.5rem; }
-.muted { color: var(--muted-c); font-size: 0.8rem; }
-.small { font-size: 0.85rem; }
+.muted { color: var(--muted-c); font-size: 0.88rem; }
+.small { font-size: 0.9rem; }
 .nums { font-variant-numeric: tabular-nums; }
 .hidden { display: none; }
 
@@ -177,57 +191,64 @@ h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; mar
 .headDetail {
     font-family: var(--serif); font-size: 1.55rem; font-weight: 600;
     max-width: var(--wrap); margin: 0.75rem auto; padding: 0 0 0.6rem;
-    border-bottom: 2px solid var(--ink); text-wrap: balance;
+    border-bottom: 1px solid var(--line); text-wrap: balance;
 }
 
-/* ── El registro (ficha de catálogo) ────────────────────────────────────── */
-.crumbs { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem 1.2rem; flex-wrap: wrap; font-family: var(--mono); font-size: 0.68rem; color: var(--faint); margin: 0 0 0.55rem; }
+/* ── El registro (ficha) ────────────────────────────────────────────────── */
+.crumbs { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem 1.2rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--faint); margin: 0 0 0.7rem; }
 .crumbs a { color: var(--muted-c); text-decoration: none; }
 .crumbs a:hover { color: var(--acc); text-decoration: none; }
-.crumbs .regnav a { color: var(--acc); }
 
-.record { background: var(--card); border: 1px solid var(--line); border-top: 2px solid var(--ink); border-radius: var(--radius-sm); padding: 1.4rem 1.6rem 1.5rem; box-shadow: 0 1px 2px rgba(20, 28, 60, 0.05); }
-.record .head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
-.record .eb { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--acc); font-weight: 600; }
-.record .sig { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); letter-spacing: 0.06em; }
-.record h1 { font-size: clamp(1.5rem, 4.5vw, 2.15rem); margin: 0.45rem 0 0.1rem; line-height: 1.12; }
-.asiento { font-family: var(--serif); font-style: italic; font-size: 0.98rem; color: var(--muted-c); margin: 0.15rem 0 0; line-height: 1.55; }
-.asiento a { color: var(--acc); text-decoration: none; font-style: normal; }
+.record { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem 1.8rem 1.8rem; }
+.record h1 { font-size: clamp(1.5rem, 4.5vw, 2.05rem); margin: 0 0 0.2rem; line-height: 1.15; }
+/* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
+   datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
+   rejilla de datos dice dos líneas más abajo. */
+.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; max-width: 44rem; }
+.asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
-/* Descripción etiqueta/valor con puntos de guía, como ficha de cartón */
-dl.desc { display: grid; grid-template-columns: 1fr; gap: 0 1.4rem; margin: 0.85rem 0 0; padding-top: 0.2rem; border-top: 3px double var(--line); }
-dl.desc .f { display: grid; grid-template-columns: 7.4rem 1fr; gap: 0.6rem; padding: 0.2rem 0; border-bottom: 1px dotted var(--line); align-items: baseline; }
-dl.desc dt { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--muted-c); }
-dl.desc dd { margin: 0; font-size: 0.89rem; }
-.cnt { font-family: var(--mono); font-size: 0.68rem; color: var(--faint); }
+/* Descripción etiqueta/valor: una sola columna con fondo alterno. La fila
+   alterna sustituye a los puntos de guía y a los filetes — separa igual de
+   bien y no añade líneas a la página. */
+dl.desc { margin: 1.1rem 0 0; }
+dl.desc .f { display: grid; grid-template-columns: 10.5rem 1fr; gap: 0.9rem; padding: 0.45rem 0.7rem; align-items: baseline; }
+dl.desc .f:nth-child(odd) { background: var(--zebra); }
+dl.desc dt { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--muted-c); }
+dl.desc dd { margin: 0; font-size: 0.98rem; }
+.cnt { font-size: 0.84rem; color: var(--faint); }
 
-/* Anclas de la ficha (Datos / Escuchar / Grabaciones): navegación rápida a
-   las secciones de la misma página — sin JS, son enlaces #ancla normales. */
-.rectabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.9rem 0 0; }
-.rectabs a { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.02em; text-decoration: none; color: var(--muted-c); background: var(--s2); border: 1px solid var(--line); border-radius: 999px; padding: 0.28rem 0.75rem; }
-.rectabs a:hover { color: var(--acc); border-color: var(--acc); }
+/* Anclas de la ficha (Datos / Escuchar / Grabaciones): enlaces #ancla
+   normales, sin JS. Solo se pintan cuando la página es larga de verdad (ver
+   las plantillas): en una ficha que cabe en pantalla no llevan a ninguna
+   parte y solo añaden ruido. */
+.rectabs { display: flex; flex-wrap: wrap; gap: 0 1.1rem; margin: 0.9rem 0 0; font-size: 0.9rem; }
+.rectabs a { text-decoration: none; color: var(--muted-c); }
+.rectabs a:hover { color: var(--acc); text-decoration: underline; }
 
-/* Cabecera de sección con regla de tinta */
-.shead { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; padding-bottom: 0.3rem; border-bottom: 2px solid var(--ink); }
-.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.08rem; font-weight: 600; margin: 0; }
-.shead .n { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); }
+/* Cabecera de sección */
+.shead { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; margin-top: 1.8rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
+/* Sin hueco superior cuando abre el bloque (p. ej. "Marcha del día" en la home,
+   que es lo primero dentro de su tarjeta). */
+.shead:first-child { margin-top: 0; }
+.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; margin: 0; }
+.shead .n { font-size: 0.86rem; color: var(--faint); }
 .shead .filter { margin-left: auto; }
 /* /temporada/{año}: agrupado por ciudad (heurístico, ver docs/n03-hermandad.md)
    por encima del agrupado por hermandad ya existente. Mismo idioma visual que
    .shead, pero más prominente para marcar el nivel superior. */
 .shead-ciudad { border-bottom-width: 3px; margin-top: 1.6rem; }
 .shead-ciudad:first-of-type { margin-top: 0.4rem; }
-.shead-ciudad h2 { font-size: 1.35rem; text-transform: uppercase; letter-spacing: 0.03em; }
-.filter { font-family: var(--mono); font-size: 0.76rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.32rem 0.55rem; background: var(--card); color: var(--ink); min-width: 11rem; }
+.shead-ciudad h2 { font-size: 1.35rem; }
+.filter { font-size: 0.88rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.34rem 0.6rem; background: var(--card); color: var(--ink); min-width: 11rem; }
 .filter::placeholder { color: var(--faint); }
 
-/* Escuchar — details.collapse (ver .collapse más abajo); solo el espaciado
-   de los botones de servicio es propio de este bloque. */
-.listen.collapse { margin: 1.1rem 0 0; }
-.todo { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.12rem 0.42rem; font-weight: 700; }
+/* Escuchar: bloque abierto, no plegado. Es lo que la mayoría de visitantes
+   viene a hacer; esconderlo tras un clic era el peor intercambio de la ficha. */
+.listen { margin: 0.9rem 0 0; }
+.todo { font-size: 0.76rem; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.12rem 0.45rem; font-weight: 600; }
 .svcs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.svc { font-size: 0.76rem; color: var(--acc); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.26rem 0.6rem; text-decoration: none; }
+.svc { font-size: 0.88rem; color: var(--acc); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.32rem 0.7rem; text-decoration: none; }
 a.svc:hover { border-color: var(--acc); }
 .svc.off { color: var(--faint); }
 
@@ -245,71 +266,84 @@ a.svc:hover { border-color: var(--acc); }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
-.notas { font-size: 0.92rem; line-height: 1.65; margin: 0.4rem 0 0; max-width: 44rem; }
-.bio-empty { color: var(--faint); font-style: italic; font-size: 0.88rem; margin: 0.4rem 0 0.2rem; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; max-width: 44rem; }
+.bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
-/* Tabla de grabaciones / obra — densidad compacta, ordenable */
+/* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
 .scrollx { overflow-x: auto; }
-table.reg { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
-table.reg thead th { text-align: left; font-size: 0.78rem; color: var(--muted-c); font-weight: 600; border-bottom: 1px solid var(--line); padding: 0.3rem 0.6rem; white-space: nowrap; }
+table.reg { width: 100%; border-collapse: collapse; font-size: 0.95rem; font-variant-numeric: tabular-nums; margin-top: 0.5rem; }
+table.reg thead th { text-align: left; font-size: 0.88rem; color: var(--muted-c); font-weight: 600; border-bottom: 1px solid var(--line); padding: 0.4rem 0.7rem; white-space: nowrap; }
 table.reg[data-sortable] thead th { cursor: pointer; user-select: none; }
-table.reg thead th .ar { color: var(--faint); font-size: 0.7rem; }
+table.reg thead th .ar { color: var(--faint); font-size: 0.78rem; }
 /* Cabecera ordenable en servidor (banda/disco): la <th> es un enlace que
    alterna asc/desc; ocupa toda la celda para que el área de clic sea amplia. */
 a.sortcol { display: inline-flex; align-items: baseline; gap: 0.3rem; color: inherit; text-decoration: none; white-space: nowrap; }
 a.sortcol:hover { color: var(--acc); }
 a.sortcol:hover .ar { color: var(--acc); }
-table.reg tbody td { padding: 0.28rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: baseline; }
-table.reg tbody tr:hover td { background: var(--acc-tint); }
+table.reg tbody td { padding: 0.42rem 0.7rem; vertical-align: baseline; }
+table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
+table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
-table.reg td.num { font-family: var(--mono); font-size: 0.76rem; }
-.badge-1a { font-family: var(--mono); font-size: 0.62rem; font-weight: 700; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.4rem; white-space: nowrap; margin-left: 0.45rem; vertical-align: 0.06em; }
+.badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
 
 /* Véase también */
-ul.vease { list-style: none; margin: 0.15rem 0 0; padding: 0; }
-ul.vease li { padding: 0.32rem 0; border-bottom: 1px dotted var(--line); font-size: 0.88rem; }
+ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
 
-/* Identificadores del registro */
-.ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 1.6rem; padding-top: 0.55rem; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 0.68rem; color: var(--faint); }
-.ids a { color: var(--muted-c); text-decoration: none; border-bottom: 1px dotted var(--faint); }
-.ids a:hover { color: var(--acc); border-bottom-color: var(--acc); text-decoration: none; }
+/* Permalink del registro */
+.ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
+.ids a { color: var(--muted-c); text-decoration: none; }
+.ids a:hover { color: var(--acc); text-decoration: underline; }
 
 /* ── Explorador (listado con facetas) ───────────────────────────────────── */
 .toolbar { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
-.toolbar .rescount { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+.toolbar .rescount { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
 .toolbar .rescount b { color: var(--acc); font-variant-numeric: tabular-nums; }
-.toolbar .sortby { font-family: var(--mono); font-size: 0.72rem; color: var(--muted-c); }
+.toolbar .sortby { font-size: 0.88rem; color: var(--muted-c); }
 .toolbar .sortby a { color: var(--muted-c); text-decoration: none; }
 .toolbar .sortby a:hover { color: var(--acc); }
-.toolbar .sortby a.on { color: var(--acc); font-weight: 700; }
-.toolbar .clearall { margin-left: auto; font-family: var(--mono); font-size: 0.72rem; color: var(--muted-c); text-decoration: none; }
+.toolbar .sortby a.on { color: var(--acc); font-weight: 600; }
+.toolbar .clearall { margin-left: auto; font-size: 0.88rem; color: var(--muted-c); text-decoration: none; }
 .toolbar .clearall:hover { color: var(--acc); }
-details.adv > summary { cursor: pointer; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); list-style: none; }
+/* Búsqueda avanzada: desplegable en línea, sin tarjeta. Complementa a las
+   facetas de la izquierda (que solo cubren tipo, estilo, provincia y década);
+   aquí van los criterios de texto libre que aquéllas no pueden ofrecer. */
+details.adv { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+details.adv > summary { cursor: pointer; font-size: 0.9rem; color: var(--muted-c); list-style: none; display: inline-flex; align-items: baseline; gap: 0.35rem; }
 details.adv > summary::-webkit-details-marker { display: none; }
-details.adv > summary::before { content: "▸ "; }
-details.adv[open] > summary::before { content: "▾ "; }
-details.adv[open] > summary { margin-bottom: 0.5rem; }
+details.adv > summary:hover { color: var(--acc); }
+details.adv > summary::before { content: "▸"; font-size: 0.7em; color: var(--faint); }
+details.adv[open] > summary::before { content: "▾"; }
+.adv-form { margin-top: 0.8rem; }
+.adv-grid { display: grid; grid-template-columns: 1fr; gap: 0.7rem 1.1rem; }
+@media (min-width: 640px) { .adv-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .adv-grid { grid-template-columns: 1fr 1fr 1fr; } }
+.adv-rango { display: flex; align-items: center; gap: 0.4rem; }
+.adv-rango .input { width: 100%; min-width: 0; }
+.adv-rango span { color: var(--faint); }
+.adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
+.adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
 .results-layout { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: start; }
 @media (min-width: 720px) { .results-layout { grid-template-columns: 12.5rem 1fr; } }
 .facet-rail { display: flex; flex-direction: column; gap: 1.1rem; }
-.rail-title { font-family: var(--serif); font-size: 0.95rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 2px solid var(--ink); margin-bottom: 0.15rem; }
-.fgroup .ftitle { font-size: 0.76rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.25rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
-a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.8rem; padding: 0.18rem 0; color: var(--ink); text-decoration: none; }
+.rail-title { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); margin-bottom: 0.15rem; }
+.fgroup .ftitle { font-size: 0.88rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
+a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.92rem; padding: 0.22rem 0; color: var(--ink); text-decoration: none; }
 a.fopt:hover { color: var(--acc); text-decoration: none; }
 a.fopt.on { color: var(--acc); font-weight: 600; }
-a.fopt .x { font-family: var(--mono); color: var(--faint); font-size: 0.72rem; }
-a.fopt .fcount { margin-left: auto; font-family: var(--mono); font-size: 0.7rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+a.fopt .x { color: var(--faint); font-size: 0.84rem; }
+a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); font-variant-numeric: tabular-nums; }
 
 /* ── Tablas (listados generales) ────────────────────────────────────────── */
 .tableList { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); width: 100%; max-width: var(--wrap); margin: 0 auto; }
 .table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.table th, .table td { text-align: left; padding: 0.45rem 0.7rem; vertical-align: top; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.table th, .table td { text-align: left; padding: 0.5rem 0.75rem; vertical-align: top; font-size: 0.95rem; }
 .table th { font-weight: 600; white-space: nowrap; }
-.table tbody tr:last-child th, .table tbody tr:last-child td { border-bottom: 0; }
-.table-zebra tbody tr:hover { background: var(--acc-tint); }
-.table-sm th, .table-sm td { padding: 0.35rem 0.6rem; font-size: 0.82rem; }
-.thead-neutral td { background: var(--s2); font-size: 0.82rem; color: var(--muted-c); font-weight: 600; }
-.table thead th { border-bottom: 1px solid var(--line); font-size: 0.82rem; color: var(--muted-c); font-weight: 600; }
+.table tbody tr:nth-child(even) > * { background: var(--zebra); }
+.table-zebra tbody tr:hover > * { background: var(--s2); }
+.table-sm th, .table-sm td { padding: 0.4rem 0.6rem; font-size: 0.9rem; }
+.thead-neutral td { background: var(--s2); font-size: 0.9rem; color: var(--muted-c); font-weight: 600; }
+.table thead th { border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--muted-c); font-weight: 600; background: none; }
 
 /* ── Divider con texto ──────────────────────────────────────────────────── */
 .divider { display: flex; align-items: center; text-align: center; gap: 0.75rem; color: var(--muted-c); font-size: 0.9rem; margin: 2rem auto 0.8rem; max-width: var(--wrap); font-family: var(--serif); }
@@ -343,7 +377,7 @@ a.fopt .fcount { margin-left: auto; font-family: var(--mono); font-size: 0.7rem;
 .search-info { font-size: 0.8rem; color: var(--muted-c); margin: 0 0 0.5rem; }
 
 /* ── Paginación ─────────────────────────────────────────────────────────── */
-.pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.35rem; margin-top: 1rem; font-family: var(--mono); font-size: 0.8rem; }
+.pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.35rem; margin-top: 1rem; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
 .pagination .ellipsis { padding: 0 0.25rem; color: var(--faint); }
 
 /* ── Home: marcha del día + descubrimiento en dos columnas ──────────────── */
@@ -358,29 +392,31 @@ a.fopt .fcount { margin-left: auto; font-family: var(--mono); font-size: 0.7rem;
 .explora-col ul.vease li { border-bottom: 0; padding: 0.15rem 0; }
 
 /* ── Home: últimas incorporaciones ──────────────────────────────────────── */
-.welcome-text { margin: 0; font-size: 0.92rem; }
-.welcome-counts { margin-top: 0.75rem; font-family: var(--mono); font-size: 0.72rem; color: var(--faint); font-variant-numeric: tabular-nums; }
-.section-title { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--faint); margin: 0 0 0.6rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--ink); }
-.ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: var(--card); }
-.ultima-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.55rem 0.9rem; text-decoration: none; color: inherit; border-top: 1px solid var(--line); }
-.ultima-row:first-child { border-top: 0; }
-.ultima-row:hover { background: var(--acc-tint); text-decoration: none; }
+.welcome-text { margin: 0; font-size: 1rem; line-height: 1.65; }
+.welcome-counts { margin-top: 0.75rem; font-size: 0.88rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
+.section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); margin: 0 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
+.ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.ultima-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 1rem; text-decoration: none; color: inherit; }
+/* Solo dentro de la lista: la "Marcha del día" usa .ultima-row suelta y no
+   debe salir teñida. */
+.ultimas .ultima-row:nth-child(even) { background: var(--zebra); }
+.ultima-row:hover { background: var(--s2); text-decoration: none; }
 .ultima-main { min-width: 0; }
-.ultima-title { display: block; font-weight: 600; font-size: 0.88rem; color: var(--acc); }
-.ultima-authors { display: block; font-size: 0.76rem; color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ultima-banda { display: block; font-size: 0.72rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ultima-date { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.firma { font-size: 0.72rem; color: var(--faint); text-align: right; margin: 0; }
+.ultima-title { display: block; font-weight: 600; font-size: 1rem; color: var(--acc); }
+.ultima-authors { display: block; font-size: 0.9rem; color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ultima-banda { display: block; font-size: 0.86rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
 .cdlist { list-style: none; margin: 0.5rem auto; padding: 0; max-width: var(--wrap); }
 .cdlist-row { display: flex; align-items: center; gap: 0.9rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 0.45rem; }
-.cdlist-row:hover { background: var(--acc-tint); }
+.cdlist-row:hover { background: var(--s2); }
 .cover-thumb { width: 3.2rem; height: 3.2rem; object-fit: cover; border-radius: var(--radius-sm); display: block; }
 .cdlist-main { flex: 1; min-width: 0; }
-.cdlist-title { font-size: 1rem; color: var(--acc); }
-.cdlist-sub { font-size: 0.8rem; font-weight: 600; color: var(--muted-c); margin-left: 1rem; }
-.cdlist-date { color: var(--faint); font-family: var(--mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.cdlist-title { font-size: 1.02rem; color: var(--acc); }
+.cdlist-sub { font-size: 0.9rem; font-weight: 600; color: var(--muted-c); margin-left: 1rem; }
+.cdlist-date { color: var(--faint); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
 
 /* ── Timeline (banda; pendiente de sustituir por la línea de sucesión) ──── */
 .timeline-wrap { display: grid; place-items: center; margin: 1rem 0; }
@@ -388,7 +424,7 @@ a.fopt .fcount { margin-left: auto; font-family: var(--mono); font-size: 0.7rem;
 .timeline li { display: flex; align-items: center; gap: 0.5rem; }
 .timeline li::after { content: ""; width: 2rem; height: 2px; background: var(--line); }
 .timeline li:last-child::after { display: none; }
-.tl-date { font-family: var(--mono); font-size: 0.78rem; color: var(--muted-c); }
+.tl-date { font-size: 0.86rem; color: var(--muted-c); }
 .tl-dot { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--ink); flex-shrink: 0; }
 .tl-box { background: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.2rem 0.55rem; font-size: 0.85rem; }
 
@@ -400,12 +436,12 @@ ul.lnB > li:first-child::before { top: 50%; }
 ul.lnB > li.last::before { bottom: 50%; }
 ul.lnB > li::after { content: ""; position: absolute; left: 0.4rem; top: 50%; width: 0.48rem; height: 0.48rem; transform: translate(-50%, -50%); border-radius: 50%; background: var(--card); border: 1.5px solid var(--muted-c); }
 ul.lnB > li.focus::after { background: var(--ink); border-color: var(--ink); }
-ul.lnB .nm { font-size: 0.87rem; color: var(--acc); text-decoration: none; min-width: 0; }
+ul.lnB .nm { font-size: 0.95rem; color: var(--acc); text-decoration: none; min-width: 0; }
 ul.lnB a.nm:hover { text-decoration: underline; }
 ul.lnB li.focus .nm { color: var(--ink); font-weight: 700; }
-ul.lnB .cnt2 { font-family: var(--mono); font-size: 0.66rem; color: var(--faint); }
-ul.lnB .lead { flex: 1; border-bottom: 1px dotted var(--line); min-width: 1rem; }
-ul.lnB .yr { font-family: var(--mono); font-size: 0.73rem; color: var(--muted-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
+ul.lnB .cnt2 { font-size: 0.82rem; color: var(--faint); }
+ul.lnB .lead { flex: 1; border-bottom: 1px solid var(--line); min-width: 1rem; }
+ul.lnB .yr { font-size: 0.86rem; color: var(--muted-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
 ul.lnB > li.juv { padding-left: 2.9rem; }
 ul.lnB > li.juv::before { left: 0.4rem; top: 0; bottom: 50%; width: 1.15rem; border-left: 1.5px dashed var(--muted-c); border-bottom: 1.5px dashed var(--muted-c); border-bottom-left-radius: 9px; }
 ul.lnB > li.juv::after { left: 1.8rem; border-style: dashed; }
@@ -414,7 +450,7 @@ ul.lnB > li.juv::after { left: 1.8rem; border-style: dashed; }
 .lnB-merge .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
 .lnB-merge .mnode { border: 1px solid var(--line); border-radius: 2px; background: var(--card); padding: 0.34rem 0.6rem; font-size: 0.8rem; text-align: center; }
 .lnB-merge .mnode .nm { color: var(--acc); font-weight: 600; }
-.lnB-merge .mnode .yr { font-family: var(--mono); font-size: 0.66rem; color: var(--faint); display: block; font-variant-numeric: tabular-nums; }
+.lnB-merge .mnode .yr { font-size: 0.82rem; color: var(--faint); display: block; font-variant-numeric: tabular-nums; }
 .lnB-merge .mjoin { display: grid; grid-template-columns: 1fr 1fr; height: 0.85rem; }
 .lnB-merge .jl { border-left: 1.5px solid var(--muted-c); border-bottom: 1.5px solid var(--muted-c); border-bottom-left-radius: 9px; margin-left: calc(50% - 1px); }
 .lnB-merge .jr { border-right: 1.5px solid var(--muted-c); border-bottom: 1.5px solid var(--muted-c); border-bottom-right-radius: 9px; margin-right: calc(50% - 1px); }
@@ -455,7 +491,7 @@ a.ln-name:hover { text-decoration: underline; }
 .collapse-title::-webkit-details-marker { display: none; }
 .collapse-title::after { content: "▾"; color: var(--faint); transition: transform 0.15s; }
 .collapse[open] .collapse-title::after { transform: rotate(180deg); }
-.collapse-content { padding: 0 0.75rem 0.75rem; font-size: 0.9rem; }
+.collapse-content { padding: 0 0.85rem 0.85rem; font-size: 0.95rem; }
 
 /* ── Detalle de disco ───────────────────────────────────────────────────── */
 .disco-detail { display: flex; flex-direction: column; align-items: center; }
@@ -484,7 +520,7 @@ dialog.panel:not([open]) { display: none; }
 dialog.panel[open] { display: flex; }
 dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
 
-.badge { display: inline-block; border-radius: 3px; padding: 0.1rem 0.5rem; font-family: var(--mono); font-size: 0.68rem; font-weight: 600; background: var(--s2); color: var(--muted-c); }
+.badge { display: inline-block; border-radius: 3px; padding: 0.12rem 0.5rem; font-size: 0.8rem; font-weight: 600; background: var(--s2); color: var(--muted-c); }
 .badge-estreno { background: var(--est-bg); color: var(--est); }
 .badge-novedad { background: var(--nov-bg); color: var(--nov); }
 .badge-recuperacion { background: var(--rec-bg); color: var(--rec); }
@@ -502,15 +538,15 @@ dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
 .suggest-item-add { color: var(--acc); font-weight: 600; border-top: 1px solid var(--line); }
 
 /* ── Índice de dedicatorias (N-02) ──────────────────────────────────────── */
-.aznav { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.1rem 0 0.4rem; font-family: var(--mono); }
-.aznav a { text-decoration: none; color: var(--acc); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.1rem 0.5rem; font-size: 0.78rem; }
+.aznav { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.1rem 0 0.4rem; }
+.aznav a { text-decoration: none; color: var(--acc); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.15rem 0.55rem; font-size: 0.9rem; }
 .aznav a:hover { background: var(--acc-tint); }
 ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 0.15rem 1.4rem; }
-.azitem { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 1px dotted var(--line); }
+.azitem { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line); }
 .azitem a { text-decoration: none; display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
-.azitem .aznom { font-size: 0.92rem; }
-.azitem .azloc { font-family: var(--mono); font-size: 0.68rem; color: var(--faint); }
-.azitem .azcount { font-family: var(--mono); font-size: 0.72rem; color: var(--muted-c); font-variant-numeric: tabular-nums; flex: none; }
+.azitem .aznom { font-size: 0.98rem; }
+.azitem .azloc { font-size: 0.84rem; color: var(--faint); }
+.azitem .azcount { font-size: 0.86rem; color: var(--muted-c); font-variant-numeric: tabular-nums; flex: none; }
 @media (min-width: 640px) { ul.azgrid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { ul.azgrid { grid-template-columns: 1fr 1fr 1fr; } }
 
@@ -518,7 +554,6 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 @media (min-width: 640px) {
     .form-grid { grid-template-columns: 1fr 1fr; }
     .col-span-2 { grid-column: span 2; }
-    dl.desc { grid-template-columns: 1fr 1fr; }
 }
 @media (min-width: 768px) {
     .disco-head { flex-direction: row; align-items: flex-start; }
@@ -527,8 +562,10 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
     .nav-links { display: none; }
     .nav-mobile { display: block; }
     .site-search-row { padding: 0 1rem 0.6rem; }
-    dl.desc .f { grid-template-columns: 7.2rem 1fr; }
-    .record { padding: 1.1rem 1rem 1.2rem; }
+    /* En móvil la etiqueta no cabe al lado del valor sin partir palabras:
+       pasa a ir encima, con la misma fila alterna de fondo. */
+    dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }
+    .record { padding: 1.2rem 1rem 1.4rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
@@ -536,11 +573,11 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 
 /* ── Enlaces de streaming (ficha de disco/banda) ─────────────────────────── */
 .streaming { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.7rem 0 0.2rem; }
-.streaming-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-c); margin-right: 0.15rem; }
+.streaming-lbl { font-size: 0.88rem; color: var(--muted-c); margin-right: 0.15rem; }
 .stream-btn {
     display: inline-flex; align-items: center; gap: 0.3rem;
-    font-size: 0.8rem; line-height: 1; text-decoration: none;
-    padding: 0.4rem 0.7rem; border-radius: 999px;
+    font-size: 0.88rem; line-height: 1; text-decoration: none;
+    padding: 0.42rem 0.75rem; border-radius: 999px;
     border: 1px solid var(--line); color: var(--fg); background: var(--bg);
     transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
@@ -556,6 +593,16 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 
 /* Texto de ayuda debajo de los campos del formulario admin */
 .field-help { margin-top: 0.25rem; }
+
+/* Vista previa de la pista antes de añadirla al disco */
+.panel-previa { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem 0.7rem; background: var(--zebra); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; }
+.panel-previa[hidden] { display: none; }
+.previa-et { font-size: 0.82rem; color: var(--faint); }
+.previa-num { font-size: 0.86rem; font-weight: 600; color: var(--acc); background: var(--acc-tint); border-radius: 3px; padding: 0.1rem 0.45rem; font-variant-numeric: tabular-nums; }
+.previa-titulo { font-weight: 600; }
+/* Vista previa de la ficha pública dentro del panel */
+.previa-ficha { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.6rem; background: var(--bg); }
+.cover-vacia { width: 12rem; height: 12rem; display: grid; place-items: center; background: var(--s2); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--faint); font-size: 0.85rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
 .link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
 
@@ -610,7 +657,17 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
    rampa --pt-1..4, ver :root) y el nombre va rotulado al lado. Posición
    aproximada: transformación afín calibrada contra el propio SVG, no una
    proyección cartográfica exacta. */
-.mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease; }
+/* Diana invisible que recibe el clic (App\Mapa::radioHit): el punto visible es
+   pequeño a propósito, pero pulsar un blanco de 8 px es imposible. No se pinta
+   —solo captura el puntero— así que no añade nada al mapa. */
+/* pointer-events: all es IMPRESCINDIBLE aquí, no un extra. El valor por
+   defecto en SVG es 'visiblePainted', que solo entrega el puntero donde el
+   elemento está realmente pintado: un círculo con fill: transparent no lo
+   está, así que Firefox no lo consideraba pulsable (Chromium sí, de ahí que
+   pasara la primera verificación). Con 'all' el círculo recibe el clic
+   independientemente de su relleno, en cualquier navegador. */
+.mapa-punto-hit { fill: transparent; stroke: none; pointer-events: all; }
+.mapa-punto { stroke: var(--ink); stroke-width: 0.35; stroke-opacity: 0.35; pointer-events: none; transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease, r 0.12s ease; }
 /* background además de fill: estas mismas clases se reutilizan en la
    leyenda (span de HTML, no SVG), que solo pinta con background. */
 .mapa-punto-n1 { fill: var(--pt-1); background: var(--pt-1); }
@@ -623,8 +680,20 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 /* .mapa-svg text (arriba) fija font-size/stroke para el rótulo de provincia
    del mapa nacional; sube la especificidad aquí para que no se lo lleve por
    delante también en el mapa de provincia. */
-.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.22); stroke-linejoin: round; }
-.mapa-puntos a:hover .mapa-punto, .mapa-puntos a:focus-visible .mapa-punto { stroke-opacity: 1; stroke-width: 0.9; }
+/* El nombre de cada municipio, siempre visible. pointer-events: none a
+   propósito: con un centenar de rótulos que se solapan, hacerlos pulsables
+   haría que al pulsar un nombre navegaras al municipio del nombre de al lado.
+   El blanco de clic es el círculo (.mapa-punto-hit, unos 27 px), justo debajo
+   del rótulo. Al señalar, el nombre se refuerza para saber cuál está activo. */
+.mapa-svg text.mapa-punto-label { fill: var(--ink); font-size: var(--mapa-punto-font, 6px); font-weight: 600; pointer-events: none; paint-order: stroke fill; stroke: var(--card); stroke-width: calc(var(--mapa-punto-font, 6px) * 0.3); stroke-linejoin: round; opacity: 0.85; transition: opacity 0.12s ease; }
+.mapa-puntos a:hover .mapa-punto-label, .mapa-puntos a:focus-visible .mapa-punto-label { opacity: 1; fill: var(--acc); }
+/* Realce al señalar: el mismo trazo, pero opaco. Ni se engorda (con
+   stroke-width 0.9 sobre un radio de 0.41 el trazo se comía el círculo entero
+   y el punto salía como un borrón negro) ni se tiñe de --acc (que es el color
+   de fondo de la propia provincia: el punto desaparecía). Quien de verdad
+   señala cuál es el municipio activo es el rótulo, que aparece justo encima. */
+.mapa-puntos a:hover .mapa-punto, .mapa-puntos a:focus-visible .mapa-punto { stroke-opacity: 1; }
+.mapa-puntos a { cursor: pointer; }
 .mapa-puntos a:focus-visible { outline: 1px solid var(--ink); }
 .mapa-leyenda { display: flex; flex-wrap: wrap; gap: 0.9rem; list-style: none; margin: 0.8rem 0 0; padding: 0; font-size: 0.76rem; color: var(--muted-c); }
 .mapa-leyenda li { display: flex; align-items: center; gap: 0.35rem; }

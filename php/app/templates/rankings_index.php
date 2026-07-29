@@ -17,10 +17,6 @@ krsort($decadas);
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Rankings</span>
-        <span class="sig">MDC · récords</span>
-    </div>
     <h1>Rankings de música procesional</h1>
     <p class="asiento">Los compositores con más marchas, las bandas con más estrenos y las marchas más grabadas
         de siempre — y los récords de cada año.</p>

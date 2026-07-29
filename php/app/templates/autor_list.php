@@ -3,38 +3,26 @@
 $val = static fn(string $k): string => V::e($criteria[$k] ?? '');
 ?>
 <div class="stack list-page">
-    <form class="panel" action="/autor" method="GET">
-        <div class="form-grid">
-            <div class="field col-span-2">
-                <label class="field-label" for="nombre">Nombre</label>
-                <input id="nombre" class="input" type="text" name="nombre" value="<?= $val('nombre') ?>" placeholder="Apellidos o nombre…">
-            </div>
-        </div>
-        <div class="search-actions">
-            <label class="muted" for="limit">Resultados por página</label>
-            <select id="limit" name="limit" class="select">
-<?php foreach ([10, 20, 50] as $opt): ?>
-                <option value="<?= $opt ?>"<?= $opt === $limit ? ' selected' : '' ?>><?= $opt ?></option>
-<?php endforeach; ?>
-            </select>
-            <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
-        </div>
+<?php /* Un solo campo: no necesita tarjeta ni desplegable, va en línea. El
+         tamaño de página se elige con los enlaces de la barra de resultados,
+         igual que en el resto de listados. */ ?>
+    <form class="buscar-form" action="/autor" method="GET" role="search">
+        <input id="nombre" class="input" type="search" name="nombre" value="<?= $val('nombre') ?>"
+               placeholder="Apellidos o nombre del compositor…" aria-label="Buscar compositor">
+        <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
     </form>
 
-<?php if ($result !== null): ?>
+<?php if ($result !== null): $total = (int) $result['totalRows']; ?>
     <section>
-        <p class="search-info">
-<?php
-$total = $result['totalRows'];
-if ($total === 0) {
-    echo 'No se han encontrado compositores.';
-} else {
-    echo $total . ' ' . ($total === 1 ? 'compositor encontrado' : 'compositores encontrados');
-    if ($total > $limit) echo ' — página ' . $page . ' de ' . (int) ceil($total / $limit);
-}
-?>
-        </p>
-<?php if ($result['totalRows'] > 0): ?>
+<?php if ($total === 0): ?>
+        <p class="bio-empty">No se han encontrado compositores.</p>
+<?php else: ?>
+        <div class="toolbar">
+            <span class="rescount">Compositores — <b><?= number_format($total, 0, ',', '.') ?></b> registros</span>
+            <?= H::porPagina($limit, '/autor', $criteria) ?>
+        </div>
+<?php endif; ?>
+<?php if ($total > 0): ?>
         <div class="tableList">
             <table class="table table-zebra table-sm">
                 <thead><tr><th>Nombre</th><th>Marchas</th></tr></thead>
