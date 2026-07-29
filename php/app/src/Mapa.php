@@ -269,7 +269,42 @@ final class Mapa
         }
         $fontSize = $viewBoxWidth * 0.015;
         $r = self::radio($viewBoxWidth);
-        $rHit = self::radioHit($viewBoxWidth);
+        $rHitDefault = self::radioHit($viewBoxWidth);
+
+        // Radio de diana por punto, acotado a la mitad de la distancia a su
+        // vecino más cercano (con un 15% de margen para que no lleguen a
+        // tocarse). Reducir solo la constante global (radioHit) no basta:
+        // municipios realmente próximos entre sí (Castilleja de la Cuesta y
+        // Tomares, en el Aljarafe) solapan sus dianas aunque el radio por
+        // defecto sea pequeño, y el zoom NO lo arregla — al reescalar todo
+        // (puntos, dianas y distancias entre ellos) por el mismo factor, dos
+        // dianas que se solapan a escala 1 se solapan igual a cualquier
+        // zoom. El cálculo va en unidades de usuario del SVG, antes del
+        // usort de más abajo (que reordena el array), y se guarda en cada
+        // punto para que sobreviva al reordenamiento. Con un centenar de
+        // municipios por provincia, el barrido O(n²) es trivial (una vez por
+        // render, no por petición cacheada).
+        $n = count($puntos);
+        for ($i = 0; $i < $n; $i++) {
+            $minDist = INF;
+            for ($j = 0; $j < $n; $j++) {
+                if ($i === $j) continue;
+                $dx = $puntos[$i]['x'] - $puntos[$j]['x'];
+                $dy = $puntos[$i]['y'] - $puntos[$j]['y'];
+                $d = sqrt($dx * $dx + $dy * $dy);
+                if ($d < $minDist) $minDist = $d;
+            }
+            $tope = $minDist === INF ? $rHitDefault : ($minDist / 2) * 0.85;
+            // Sin suelo en el punto visible: un suelo así reintroducía el
+            // solape precisamente en el caso que esto arregla (probado con
+            // Castilleja de la Cuesta/Tomares, ~2 unidades de separación en
+            // esta escala — "nunca menor que el punto visible" ganaba sobre
+            // "nunca solaparse", y las dos dianas volvían a sumar más que la
+            // distancia entre ellas). El único suelo que queda es para no
+            // dejar un r=0 degenerado si dos puntos coincidieran exactamente.
+            $puntos[$i]['_rHit'] = max(0.05, min($rHitDefault, $tope));
+        }
+
         $capa = $dom->createElement('g');
         $capa->setAttribute('class', 'mapa-puntos');
         $capa->setAttribute('style', "--mapa-punto-font: {$fontSize}px");
@@ -288,12 +323,14 @@ final class Mapa
             // Diana invisible: el punto visible es deliberadamente pequeño
             // (con un centenar de municipios, puntos grandes se funden unos con
             // otros), pero un blanco de 8 px es imposible de pulsar. Este
-            // círculo transparente le da un área cómoda sin ocupar tinta.
+            // círculo transparente le da un área cómoda sin ocupar tinta,
+            // acotada por vecino (ver el bucle de más arriba) para que dos
+            // municipios próximos nunca compartan diana.
             $hit = $dom->createElement('circle');
             $hit->setAttribute('class', 'mapa-punto-hit');
             $hit->setAttribute('cx', $cx);
             $hit->setAttribute('cy', $cy);
-            $hit->setAttribute('r', (string) round($rHit, 2));
+            $hit->setAttribute('r', (string) round($p['_rHit'], 2));
 
             $title = $dom->createElement('title');
             $title->appendChild($dom->createTextNode(
