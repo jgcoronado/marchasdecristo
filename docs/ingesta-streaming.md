@@ -98,8 +98,11 @@ revisado, y saltando lo vetado.
 ### 3. Revisar — `/dashboard/ingesta`
 
 El panel dejó de ser "Ingesta desde YouTube" y ahora es "Ingesta de marchas":
-cada candidato muestra su fuente y, según ella, el reproductor de YouTube, el
-widget de Deezer, el reproductor de Spotify o simplemente el enlace externo.
+cada candidato muestra su fuente y se puede escuchar ahí mismo, sea del
+servicio que sea. El reproductor lo resuelve `Media::embedDeUrl()` a partir de
+la URL del origen (vídeo de YouTube, pista de Spotify, widget de Deezer o
+reproductor de Apple Music), así que el panel no necesita saber cómo se
+incrusta cada uno; si una URL no se reconoce, queda el enlace externo.
 
 Al **aceptar**, además de crear la marcha:
 
@@ -107,6 +110,12 @@ Al **aceptar**, además de crear la marcha:
 - fuente `spotify`/`deezer`/`apple` → la URL se publica en `enlace_streaming`
   como enlace **verificado** de la marcha, que es lo que pinta la botonera de la
   ficha pública.
+
+Y la ficha pública ya no presupone YouTube: si la marcha no tiene vídeo en
+`AUDIO`, `Media::reproductor()` usa el primer enlace de streaming publicado, de
+modo que una marcha nacida de esta ingesta se escucha desde su propia ficha.
+Como con el vídeo, el reproductor no se carga hasta que se pulsa: hasta ese
+clic no se pide nada a terceros.
 
 ## Descarte definitivo (veto) y deshacer
 

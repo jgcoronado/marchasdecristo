@@ -505,9 +505,14 @@ de streaming está en [ingesta-streaming.md](ingesta-streaming.md).
 
 | | `youtube` | `spotify` / `deezer` / `apple` |
 |---|---|---|
-| Reproductor en el detalle | embed de YouTube | widget de Deezer / reproductor de Spotify / enlace externo (Apple) |
+| Reproductor en el detalle | embed de YouTube | widget de Deezer / reproductor de Spotify / reproductor de Apple Music |
 | Contexto extra | descripción del vídeo | disco de origen (`FUENTE_ALBUM`, con enlace) |
 | Al aceptar, la URL va a… | `marcha.AUDIO` | `enlace_streaming` (marcha + servicio, `VERIFICADO = 1`) |
+
+El reproductor no se elige por la fuente declarada sino por la URL del origen
+(`Media::embedDeUrl()`), que es la misma función que usan la ficha pública y el
+campo *Audio* del formulario de marcha. Si una URL no se reconoce, se ofrece el
+enlace externo y se dice por qué.
 
 El resto del formulario es idéntico: mismos campos que "Añadir marcha",
 autocompletado de autor y dedicatoria, selector de municipio y estilo sugerido

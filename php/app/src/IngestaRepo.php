@@ -103,28 +103,6 @@ final class IngestaRepo
     }
 
     /**
-     * URL de reproductor embebido del origen de un candidato, o null si esa
-     * fuente no tiene uno usable (Apple Music necesita el id del álbum además
-     * del de la pista, así que ahí el panel se queda con el enlace externo).
-     *
-     * `$fuenteId` es `ingest_candidato.VIDEO_ID`: el id de YouTube tal cual en
-     * los candidatos antiguos, o `servicio:tipo:id` en los de streaming.
-     */
-    public static function embedUrl(string $fuente, string $fuenteId): ?string
-    {
-        if ($fuenteId === '') return null;
-        $partes = explode(':', $fuenteId);
-        $id = rawurlencode((string) end($partes));
-
-        return match ($fuente) {
-            'youtube' => 'https://www.youtube.com/embed/' . rawurlencode($fuenteId),
-            'spotify' => 'https://open.spotify.com/embed/track/' . $id,
-            'deezer' => 'https://widget.deezer.com/widget/auto/track/' . $id,
-            default => null,
-        };
-    }
-
-    /**
      * Último descarte deshacible, o null si no hay ninguno (nunca se descartó,
      * o el último descarte ya se deshizo). Trae el título del candidato cuando
      * el descarte fue de uno solo, para poder nombrarlo en el botón.

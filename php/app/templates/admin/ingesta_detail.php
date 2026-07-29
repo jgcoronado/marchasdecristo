@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth; use App\Html as H; use App\IngestaRepo;
+<?php use App\View as V; use App\Auth; use App\Html as H; use App\IngestaRepo; use App\Media as MD;
 /** @var array $session @var array<string,mixed> $cand
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string,score:float}> $autoresAuto
  *  @var list<string> $autoresSugeridos @var string $back
@@ -22,7 +22,10 @@ $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
 $fuente = (string) ($cand['FUENTE'] ?? 'youtube');
 $fuenteLabel = IngestaRepo::FUENTE_LABEL[$fuente] ?? ucfirst($fuente);
 $esYoutube = $fuente === 'youtube';
-$embed = IngestaRepo::embedUrl($fuente, (string) $cand['VIDEO_ID']);
+// El reproductor sale de la URL del origen, no de la fuente declarada: así
+// vale igual para un vídeo de YouTube que para una pista de Spotify, Deezer o
+// Apple, sin que el panel tenga que saber cómo se incrusta cada servicio.
+$repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
 ?>
 <div class="stack admin-form">
     <div class="admin-bar">
@@ -51,13 +54,14 @@ $embed = IngestaRepo::embedUrl($fuente, (string) $cand['VIDEO_ID']);
     <div class="panel">
         <div class="row" style="flex-wrap:wrap;gap:1rem">
             <div style="flex:1;min-width:280px">
-<?php if ($embed !== null): ?>
-                <iframe width="100%" height="220" style="border-radius:var(--radius-sm);border:1px solid var(--border)"
-                        src="<?= V::e($embed) ?>"
+<?php if ($repro !== null): ?>
+                <iframe width="100%" height="<?= (int) ($repro['alto'] ?? 220) ?>"
+                        style="border-radius:var(--radius-sm);border:1px solid var(--border)"
+                        src="<?= V::e($repro['embed']) ?>" loading="lazy"
                         title="Reproductor de <?= V::e($fuenteLabel) ?>" frameborder="0" allowfullscreen
-                        allow="encrypted-media; clipboard-write"></iframe>
+                        allow="autoplay; encrypted-media; clipboard-write"></iframe>
 <?php else: ?>
-                <p class="small muted"><?= V::e($fuenteLabel) ?> no permite incrustar la pista aquí; ábrela con el enlace de arriba para escucharla.</p>
+                <p class="small muted">No se puede incrustar aquí la pista de <?= V::e($fuenteLabel) ?>; ábrela con el enlace de arriba para escucharla.</p>
 <?php endif; ?>
             </div>
             <div style="flex:1;min-width:280px" class="stack">
