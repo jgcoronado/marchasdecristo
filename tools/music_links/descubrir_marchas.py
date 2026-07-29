@@ -73,8 +73,8 @@ SERVICIOS_CATALOGO = ('spotify', 'deezer', 'apple')
 RUIDO = re.compile(
     r'\b(intro|introduccion|obertura|presentacion del disco|entrevista|locucion|narracion|pregon|'
     r'saeta|campanas|tambor de|toque de|llamada de|ensayo|making of|bonus track|'
-    r'himno nacional|marcha real|villancico|'
-    r'llegando a|saliendo de|entrando en|por la calle|en la plaza|revira|levanta)\b'
+    r'himno nacional|marcha real|villancic|'
+    r'llegando a|saliendo de|entrando en|por la calle|en la plaza|revira|levanta)'
 )
 
 # Discos que no son de música procesional: Navidad, cabalgata de Reyes,
@@ -82,8 +82,15 @@ RUIDO = re.compile(
 # deben proponerse. Ojo con "Reyes": muchas bandas se llaman "Virgen de los
 # Reyes", así que solo cuenta "reyes magos" / "cabalgata".
 ALBUM_NO_PROCESIONAL = re.compile(
-    r'\b(navidad|navideñ|villancico|zambomba|cabalgata|reyes magos|carnaval)\b', re.I
+    r'\b(navidad|navideñ|villancic|zambomba|cabalgata|reyes magos|carnaval)', re.I
 )
+
+# Discos o pistas grabadas en directo: conciertos y, sobre todo, la formación
+# tocando en la calle durante el recorrido de una salida procesional. El
+# título de estas grabaciones (del disco o de la pista) no es representativo
+# de una marcha nueva —viene del evento, no de la pieza—, así que se descarta
+# el origen entero en vez de limpiarlo y darlo por bueno.
+EN_DIRECTO = re.compile(r'\b(en directo|directo|en vivo|live)\b', re.I)
 
 # Pistas que encadenan varias piezas ("X, Marcha Real y Z", "Popurrí de…"):
 # no son el título de una marcha suelta, así que se marcan para revisión.
@@ -588,7 +595,8 @@ def procesar(args):
         'SELECT BANDA_ESTRENO, COUNT(*) FROM marcha WHERE BANDA_ESTRENO IS NOT NULL GROUP BY BANDA_ESTRENO')}
 
     print(f'{len(bandas)} bandas con catálogo enlazado ({"/".join(SERVICIOS_CATALOGO)}; YouTube no cuenta)'
-          f' · {len(indice["lista"])} marchas en la BD · {len(vetados)} orígenes vetados')
+          f' · {len(indice["lista"])} marchas en la BD · {len(vetados)} orígenes vetados'
+          f' · mínimo {args.min_fuentes} RRSS por candidato')
 
     candidatos = []
     informe = []
@@ -616,29 +624,51 @@ def procesar(args):
             # ahí no hay marchas procesionales que proponer.
             if ALBUM_NO_PROCESIONAL.search(album['titulo'] or ''):
                 continue
+            # Disco grabado en directo (concierto o formación en la calle):
+            # sus títulos vienen del evento, no sirven como candidato.
+            if EN_DIRECTO.search(album['titulo'] or ''):
+                continue
             for p in pistas:
+                # Pista suelta marcada como directo/en vivo aunque el disco no
+                # lo esté (compilaciones que mezclan estudio y directo).
+                if EN_DIRECTO.search(p['titulo'] or ''):
+                    continue
                 titulo = limpiar_titulo(p['titulo'])
                 clave = norm(titulo)
                 if not clave:
                     continue
                 n_pistas += 1
                 previo = agrupadas.get(clave)
-                actual = {'titulo': titulo, 'pista': p, 'album': album}
                 if previo is None:
-                    agrupadas[clave] = actual
+                    agrupadas[clave] = {'titulo': titulo, 'pista': p, 'album': album,
+                                        'servicios': {p['servicio']}}
                     continue
+                # Mismo título en más de un servicio: cuenta como corroboración,
+                # se necesita para no dar por buena la ficha de una sola RRSS.
+                previo['servicios'].add(p['servicio'])
                 # Mejor origen = servicio más prioritario; a igualdad, el disco más antiguo
                 # (suele ser el de estreno, y su año es el que más se acerca al de la marcha).
                 mejor_servicio = PRIORIDAD_FUENTE.index(p['servicio']) < PRIORIDAD_FUENTE.index(previo['pista']['servicio'])
                 mismo_servicio = p['servicio'] == previo['pista']['servicio']
                 mas_antiguo = (album.get('anio') or 9999) < (previo['album'].get('anio') or 9999)
                 if mejor_servicio or (mismo_servicio and mas_antiguo):
-                    agrupadas[clave] = actual
+                    previo['titulo'], previo['pista'], previo['album'] = titulo, p, album
 
-        existentes, nuevas = 0, []
+        existentes, insuficientes, nuevas = 0, 0, []
         for clave, item in sorted(agrupadas.items()):
             titulo, p, album = item['titulo'], item['pista'], item['album']
             if RUIDO.search(clave):
+                continue
+
+            # Corroboración entre RRSS: un título que solo aparece en un
+            # servicio puede ser ruido propio de ese catálogo (etiquetado
+            # suelto, homónimo, versión rara). Se exige que el mismo título
+            # aparezca en al menos --min-fuentes catálogos de streaming antes
+            # de proponerlo; una banda con un único servicio enlazado no
+            # puede corroborar nada y por tanto no aporta candidatos hasta
+            # que enlace otro.
+            if len(item['servicios']) < args.min_fuentes:
+                insuficientes += 1
                 continue
 
             marcha, score = mejor_marcha(indice, titulo)
@@ -738,11 +768,12 @@ def procesar(args):
 
         candidatos += nuevas
         informe.append({'banda': banda, 'albumes': len(catalogo), 'pistas': n_pistas,
-                        'unicas': len(agrupadas), 'existentes': existentes, 'nuevas': len(nuevas),
-                        'servicios': usados, 'notas': notas, 'discos_nuevos': discos_nuevos,
-                        'nuevas_detalle': nuevas})
+                        'unicas': len(agrupadas), 'existentes': existentes, 'insuficientes': insuficientes,
+                        'nuevas': len(nuevas), 'servicios': usados, 'notas': notas,
+                        'discos_nuevos': discos_nuevos, 'nuevas_detalle': nuevas})
         print(f'    {len(catalogo)} discos · {len(agrupadas)} pistas únicas · '
-              f'{existentes} ya en la BD · {len(nuevas)} nuevas')
+              f'{existentes} ya en la BD · {insuficientes} sin corroborar en {args.min_fuentes}+ RRSS · '
+              f'{len(nuevas)} nuevas')
 
     escribir_salidas(args, candidatos, informe)
     return candidatos, informe
@@ -777,12 +808,13 @@ def escribir_salidas(args, candidatos, informe):
         f.write('# Marchas encontradas en el catálogo de streaming de las bandas\n\n')
         f.write(f'Generado por `tools/music_links/descubrir_marchas.py` · '
                 f'{len(informe)} bandas · {len(candidatos)} candidatos nuevos.\n\n')
-        f.write('| Banda | Servicios | Discos | Pistas únicas | Ya en BD | Nuevas |\n')
-        f.write('|---|---|---:|---:|---:|---:|\n')
+        f.write('| Banda | Servicios | Discos | Pistas únicas | Ya en BD | Sin corroborar | Nuevas |\n')
+        f.write('|---|---|---:|---:|---:|---:|---:|\n')
         for i in sorted(informe, key=lambda x: -x['nuevas']):
             b = i['banda']
             f.write(f"| {b['breve']} (#{b['id']}, {b['localidad']}) | {', '.join(i['servicios']) or '—'} "
-                    f"| {i['albumes']} | {i.get('unicas', 0)} | {i['existentes']} | {i['nuevas']} |\n")
+                    f"| {i['albumes']} | {i.get('unicas', 0)} | {i['existentes']} | "
+                    f"{i.get('insuficientes', 0)} | {i['nuevas']} |\n")
         f.write('\n---\n\n')
         for i in sorted(informe, key=lambda x: -x['nuevas']):
             b = i['banda']
@@ -815,6 +847,10 @@ def main():
                    help='no usar iTunes/Apple como catálogo (va bien para una pasada rápida: '
                         'Apple tiene un rate-limit agresivo y es la parte lenta)')
     p.add_argument('--sleep', type=float, default=0.25, help='pausa entre peticiones HTTP (s)')
+    p.add_argument('--min-fuentes', type=int, default=2,
+                   help='nº mínimo de catálogos de streaming (spotify/deezer/apple) en los que '
+                        'debe aparecer el mismo título para proponerlo como candidato; una banda '
+                        'con un único servicio enlazado no aporta candidatos hasta que enlace otro')
     p.add_argument('--umbral-existe', type=float, default=0.90,
                    help='similitud a partir de la cual se da la marcha por existente')
     p.add_argument('--umbral-aviso', type=float, default=0.75,

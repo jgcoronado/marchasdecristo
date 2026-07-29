@@ -68,18 +68,31 @@ Qué hace, por orden:
 3. **Limpia el título** de lo que es del disco y no de la marcha: numeración,
    `(En directo)`, `- Remasterizado`, `(feat. …)`, y el evento que muchas
    bandas cuelgan detrás de una barra (`Eterna Expiración I Concierto Moriles 2026`).
-4. **Descarta ruido** por diccionario (narraciones, saetas, himnos, entrevistas,
+4. **Descarta discos y pistas en directo** (conciertos, o la formación tocando
+   en la calle durante una salida procesional: `(En Directo)`, `En Vivo`,
+   `Live`…): sus títulos vienen del evento, no de la marcha, así que se
+   descarta el origen entero en vez de limpiarlo y darlo por bueno.
+5. **Descarta discos de Navidad, cabalgata o carnaval** (villancicos,
+   zambombas, cabalgata de Reyes…): la banda los graba, pero ahí no hay
+   marchas procesionales que proponer.
+6. **Descarta ruido** por diccionario (narraciones, saetas, himnos, entrevistas,
    pregones…).
-5. **Coteja contra `marcha`** por título normalizado: exacto primero y, si no,
+7. **Exige corroboración entre RRSS**: un título solo se propone si aparece en
+   al menos `--min-fuentes` (2 por defecto) de los catálogos de streaming que
+   la banda tiene enlazados. Un título que solo aparece en un único servicio
+   puede ser ruido propio de ese catálogo (etiquetado suelto, homónimo,
+   versión rara), así que no basta por sí solo. Una banda con un único
+   servicio enlazado no aporta candidatos hasta que enlace otro.
+8. **Coteja contra `marcha`** por título normalizado: exacto primero y, si no,
    similitud sobre las marchas que comparten alguna palabra (índice invertido;
    comparar todo contra todo no es viable con 5.000 marchas). ≥0.90 = ya está
    en la BD. Además, si la pista encadena varias piezas (`A / B`, `A - B`) y
    **alguna parte** ya existe, se da por conocida: es una interpretación en
    directo de lo de siempre, no una marcha nueva.
-6. **Rellena lo inferible** de cada candidato nuevo: título, banda, año del
+9. **Rellena lo inferible** de cada candidato nuevo: título, banda, año del
    disco, estilo (CCTT/AM según las marchas que la banda ya tiene estrenadas,
    o su nombre si no tiene ninguna), disco de origen y enlace de la pista.
-7. **Salta lo vetado** (`ingest_veto`), o sea, lo que ya se descartó a mano.
+10. **Salta lo vetado** (`ingest_veto`), o sea, lo que ya se descartó a mano.
 
 Salidas en `tools/music_links/out/` (gitignored): `candidatos.ndjson` (para
 importar), `candidatos.csv` (para leer en una hoja de cálculo) e `informe.md`
@@ -141,6 +154,11 @@ masivo se deshace entero de una vez. Para recuperar algo más antiguo está la
 pestaña **Descartados**.
 
 ## Resultado de la primera pasada (2026-07-28)
+
+> Cifras previas a los filtros de directo/vivo, Navidad y corroboración entre
+> RRSS descritos arriba (añadidos el 2026-07-29): una repetición de la pasada
+> dará menos candidatos, sobre todo en las bandas que solo tienen un servicio
+> enlazado.
 
 49 bandas con catálogo enlazado (Spotify/Deezer/Apple) · 5.003 marchas en la BD
 · **616 candidatos nuevos en 38 bandas** (370 vía Deezer, 246 vía Apple).
@@ -220,9 +238,15 @@ solo. Esa banda ahora entra bien por su enlace real de Apple.
   `banda_estreno_sin_verificar`.
 - **Popurrís**: las pistas que encadenan piezas y no se pudieron resolver
   quedan marcadas `posible_popurri` (15 casos) para trocearlas o descartarlas.
-- **Ruido de los discos en directo y de Navidad**: se filtran por diccionario
-  los discos navideños/de cabalgata y los tramos de recorrido ("… llegando al
+- **Ruido de los discos en directo y de Navidad**: se descartan de raíz los
+  discos (y pistas sueltas) marcados como en directo/en vivo/live, los
+  navideños/de cabalgata/carnaval y los tramos de recorrido ("… llegando al
   Postigo 2025"), que Apple sirve mezclados con las marchas. Lo que se escape
   se descarta en el panel, y el veto se encarga de que no vuelva.
+- **Corroboración entre RRSS**: por defecto se exige que un título aparezca en
+  al menos 2 catálogos de streaming distintos. Esto deja fuera, hasta que
+  enlacen un segundo servicio, a las bandas que solo tienen Apple o solo
+  Spotify enlazado (ver más abajo) — es el coste de no fiarse del catálogo de
+  una sola plataforma. Ajustable con `--min-fuentes`.
 - **Localidad/provincia y dedicatoria** se dejan vacías: inferirlas de la banda
   daría datos plausibles pero falsos con demasiada frecuencia.
