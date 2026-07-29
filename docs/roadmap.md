@@ -47,7 +47,7 @@ documentado, que es lo que hace que se planifique mal.
 
 | Ref | Tarea | Coste | Estado |
 |---|---|---|---|
-| **B-01** | Fusionar `claude/diseño-discreto-sencillo-jymud4` y después `claude/filtrado-candidatas-videos-drdd1y`; resolver el conflicto de `docs/admin-panel.md`; **relanzar el smoke sobre el resultado fusionado**; desplegar. Borrar `…x60kfw` (redundante) | 1–2 h | ⏳ |
+| **B-01** | Fusionar `claude/diseño-discreto-sencillo-jymud4` y después `claude/filtrado-candidatas-videos-drdd1y`; resolver el conflicto de `docs/admin-panel.md`; **relanzar el smoke en local sobre el resultado fusionado**; seguir el flujo normal (§«Cómo integrarlas» abajo): local → `pre` → smoke remoto PRE + validación en navegador → PR de `pre` a `main` → smoke remoto PRO. Borrar `…x60kfw` (redundante) | 1–2 h + tiempo de validación en cada entorno | ⏳ |
 | **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php` | 30 min | ⏳ Depende de B-01 |
 | **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
 | **OPS-03 · T-03** | Verificar en Plesk si el **cron de backup** existe de verdad y cerrar el dato. Dueño único de esa información: [pendientes-post-cutover.md §2](pendientes-post-cutover.md) | 15 min | ⏳ |
@@ -227,6 +227,15 @@ solo. Aun así los solapes son semánticamente cercanos —`Media.php` recibe
 `marcha_detail.php` se reestructura en una rama mientras la otra le añade el
 reproductor de streaming— así que **hay que relanzar el smoke sobre el
 resultado fusionado**, no dar por buena la suma de dos CI verdes.
+
+**El flujo de integración es el de siempre ([entornos.md](entornos.md)), sin
+atajos por ser dos ramas ya verdes**: fusionar ambas en local → smoke local →
+push/merge a la rama **`pre`** (nunca directo a `main`) → CI → deploy automático
+a PRE → smoke remoto contra PRE + validación en navegador real → **PR de `pre`
+a `main`** y fusionar → deploy automático a PRO (con modo mantenimiento durante
+el swap) → smoke remoto contra PRO. La migración `008` y la campaña de curación
+de candidatos (OPS-01) van **después**, sobre la BD local, nunca sobre PRE (PRE
+comparte la BD de producción y es solo lectura por diseño).
 
 ⚠️ **Ninguna se puede validar en PRE**: PRE comparte la BD de producción y ambas
 escriben (migración `008`, portadas en el docroot, altas de disco). Validación
