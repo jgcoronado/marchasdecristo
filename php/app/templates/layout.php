@@ -111,6 +111,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endforeach; ?>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Saltar al contenido</a>
 <?php if ($esPre): ?>
     <div class="pre-ribbon" role="status">Entorno de preproducción — los cambios aquí no afectan a marchasdecristo.com</div>
 <?php endif; ?>
@@ -150,7 +151,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endif; ?>
     </header>
 
-    <main><?= $content ?></main>
+    <main id="main-content"><?= $content ?></main>
 
     <footer>
         <div class="inner">

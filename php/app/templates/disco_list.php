@@ -18,6 +18,7 @@ $sortHref = static function (string $col) use ($href, $orden, $dir): string {
     return $href(['orden' => $col, 'dir' => $next]);
 };
 $arrow = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? '↑' : '↓') : '↕';
+$ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
 $total = (int) $result['totalRows'];
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
@@ -73,9 +74,9 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             <div class="scrollx tableList">
             <table class="reg">
                 <thead><tr>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('anio') ?>"><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>

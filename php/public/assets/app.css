@@ -83,6 +83,23 @@ body {
 
 :focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 2px; }
 
+/* Skip link: visualmente oculto hasta que recibe el foco por teclado */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0.5rem;
+    z-index: 200;
+    background: var(--card);
+    color: var(--ink);
+    border: 2px solid var(--acc);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.skip-link:focus { top: 0.5rem; outline: none; }
+
 .mono { font-family: var(--mono); }
 
 /* ── Cabecera del sitio ─────────────────────────────────────────────────── */
@@ -109,6 +126,7 @@ header nav {
 .site-search-row { max-width: var(--wrap); margin: 0 auto; padding: 0 1rem 0.7rem; display: flex; justify-content: center; }
 .site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.4rem 0.7rem; width: 100%; max-width: 34rem; }
 .site-search input { border: 0; background: none; font: inherit; font-family: var(--mono); font-size: 0.8rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+.site-search:focus-within { outline: 2px solid var(--acc); outline-offset: 1px; border-radius: var(--radius-sm); }
 .site-search input::placeholder { color: var(--faint); }
 .site-search .kbd { font-family: var(--mono); font-size: 0.6rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
 
@@ -554,6 +572,10 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 .stream-btn::before { content: "▸"; font-size: 0.7em; color: var(--muted-c); }
 .stream-btn:hover::before { color: currentColor; }
 
+/* aria-sort: resalta la columna activa en tablas con orden de servidor */
+table.reg thead th[aria-sort="ascending"] .ar,
+table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
+
 /* Texto de ayuda debajo de los campos del formulario admin */
 .field-help { margin-top: 0.25rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
@@ -630,3 +652,36 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 .mapa-leyenda li { display: flex; align-items: center; gap: 0.35rem; }
 .prov-sw { width: 0.85rem; height: 0.85rem; border-radius: 2px; border: 1px solid var(--line); display: inline-block; }
 .link-btn:hover { color: var(--ink); }
+
+/* ── Impresión (ficha de marcha y demás fichas de catálogo) ──────────────── */
+@media print {
+    .skip-link, .pre-ribbon, .nav-links, .nav-mobile,
+    .site-search-row, footer, .crumbs, .rectabs,
+    .listen, .svcs, .ids, .filter, .pagination { display: none !important; }
+
+    body { background: #fff; color: #000; font-size: 11pt; line-height: 1.5; }
+    main { max-width: 100%; padding: 0.4rem 0 0; }
+    header { background: #fff; border-bottom: 1px solid #000; padding: 0.4rem 0; }
+    header nav { padding: 0.4rem 1rem; }
+
+    .record { background: #fff; border: none; border-top: 2px solid #000; box-shadow: none; padding: 0.5rem 0 0; }
+    .asiento { color: #444; }
+
+    dl.desc { border-top-color: #000; }
+    dl.desc .f { border-bottom-color: #ccc; }
+    dl.desc dt { color: #555; }
+
+    .shead { border-bottom-color: #000; page-break-after: avoid; }
+
+    .scrollx { overflow: visible; }
+    table.reg { font-size: 9pt; page-break-inside: auto; }
+    table.reg thead { display: table-header-group; }
+    table.reg thead th { color: #333; border-bottom-color: #000; }
+    table.reg tbody td { border-bottom-color: #ddd; }
+    table.reg tbody tr:hover td { background: none; }
+    table.reg tbody tr { page-break-inside: avoid; }
+
+    .notas { color: #000; }
+    a { color: #000; text-decoration: underline; }
+    .record h1 { font-size: 1.5rem; }
+}
