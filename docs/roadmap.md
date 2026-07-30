@@ -207,49 +207,36 @@ Wikidata (enlazado de autoridades).
 
 ---
 
-## 4. Ramas abiertas (última actualización 2026-07-29)
+## 4. Ramas abiertas (última actualización 2026-07-30)
 
-**Estado: fusionadas en local, desplegadas en PRE, pendientes de PR a `main`.**
-Las tres ramas `claude/*` que estaban sueltas en el remoto ya no existen como
-tal: se integraron en una rama local (`local/b01-integracion`, partiendo de
-`pre`) y esa integración se empujó a `pre` (fast-forward `bbde671..5b3a5b1`),
-que dispara CI y el deploy automático a preproducción.
+**Estado: toda la deuda de ramas consolidada en `claude/siguiente-que-hacer-pvvxrn`. Pendiente de llegar a `pre` y de ahí a `main`.**
+
+Las cuatro ramas `claude/*` que estaban sueltas en el remoto (más los commits de M6 y M7 que ya vivían en esta rama) se fusionaron en `claude/siguiente-que-hacer-pvvxrn` el 2026-07-30 y se empujó al remoto. Una sesión anterior las había integrado en `local/b01-integracion` → `pre`; esa integración es la misma que ahora vive en `siguiente-que-hacer`.
 
 | Origen | Contenido | Estado |
 |---|---|---|
+| `claude/project-roadmap-review-yrc7zt` | Revisión del roadmap, documentación de B-01 y decisiones de arranque (docs únicamente) | ✅ Fusionada |
 | `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Fusionada |
 | `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto** |
 | `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), cierra [technical-debt §5.1](technical-debt.md) | ✅ Fusionada |
-| — | **`feat(temporada)`**: ocultar `/temporada` en PRO (DEC-01, ver §2) — commit añadido en la propia integración, no viene de ninguna rama anterior | ✅ Incluido |
+| `claude/siguiente-que-hacer-pvvxrn` (esta) | **M6** (accesibilidad + hoja de impresión) + **M7** (notificaciones editoriales: Mailer, digest semanal, notif de propuesta) + integración de todas las ramas anteriores | ⏳ En remoto, pendiente de llegar a `pre` → `main` |
 
-**El único conflicto** al fusionar `diseño…jymud4` + `filtrado…drdd1y` fue en
-`docs/admin-panel.md`: las dos añadían una sección "§11" distinta (colisión de
-numeración, no de contenido) — se resolvió conservando ambas y renumerando la
-de ingesta a §12. El código fundió solo.
-
-**Verificación completa antes del push**: lint (`php -l`) limpio en todo el
-árbol fusionado + **85/85 smoke tests** en local, reproduciendo exactamente los
-pasos de `ci.yml` (fixture determinista + servidor embebido + `ci_smoke.php`) —
-incluidas 5 pruebas nuevas para la ocultación de `/temporada` (404 en índice y
-año, fuera de nav/sitemap/`llms.txt`), que sustituyen a las 5 que verificaban su
-contenido público (ahora solo relevante en PRE, que CI no puede simular con un
-único servidor).
+**Conflictos al fusionar** (todos resueltos):
+- `docs/admin-panel.md`: colisión de numeración en §11 (diseño añadía «Discos», filtrado añadía «Ingesta») — se conservan ambas: §11 Discos, §12 Ingesta.
+- `php/app/src/Admin.php`: el bloque M7 (`notifPropuesta`/`propuestaLabel`) + los métodos de disco coexisten en el mismo fichero — se incluyeron los dos bloques.
+- `php/public/assets/app.css`: la rama diseño cambiaba `font-size` del input de búsqueda a `0.92rem` y eliminaba `font-family: var(--mono)`; HEAD añadía `:focus-within` de M6 — resolución: `font-size: 0.92rem` del diseño + línea `:focus-within` de M6.
 
 ### Qué falta para cerrar B-01
 
-1. **CI + deploy automático a PRE** (ya en marcha tras el push).
-2. **Smoke remoto contra PRE** + validación tuya en el navegador: cinta de
-   preproducción, `/health` con `entorno: pre`, el rediseño, el alta de discos
-   con portada, **y que `/temporada` siga visible en PRE** (es la comprobación
-   nueva más importante de esta ronda: confirma que el gate distingue PRE de
-   PRO como se pretendía).
-3. **PR de `pre` a `main`** y fusionar.
-4. Deploy automático a PRO (con modo mantenimiento durante el swap) + smoke
-   remoto contra PRO — ahí `/temporada` debe dar 404.
-5. Borrar la rama `claude/bandas-rrss-discos-sync-x60kfw` del remoto
-   (redundante, nunca llegó a fusionarse).
-6. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el
-   código esté en `main`/PRO.
+1. **Smoke tests en local** (`php -l` + `ci_smoke.php`) sobre el árbol consolidado.
+2. **Fast-forward de `pre` a este estado** (o merge) + push para disparar CI y deploy a PRE.
+3. **Smoke remoto contra PRE** + validación en el navegador: cinta de preproducción, `/health` con `entorno: pre`, el rediseño, el alta de discos con portada, que `/temporada` siga visible en PRE.
+4. **PR de `pre` a `main`** y fusionar.
+5. Deploy automático a PRO + smoke remoto PRO — ahí `/temporada` debe dar 404.
+6. Borrar las ramas `claude/*` ya integradas del remoto (ver la tabla arriba).
+7. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el código esté en `main`/PRO.
+8. **OPS-02**: ejecutar `seed_dedicatorias.php` en prod (Plesk → PHP 8.4 explícito).
+9. **M7 en producción**: añadir `mail_from`, `mail_admin_to`, `notif_emails` a `config.local.php`; añadir `digest_semanal.php` a Plesk Scheduled Tasks (PHP 8.4, lunes 08:00).
 
 ---
 
