@@ -12,9 +12,6 @@ $conAudio = 0;
 foreach ($d['marchas'] as $m) { if ($t($m['AUDIO'])) $conAudio++; }
 $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
 
-$asiento = [];
-if ($loc !== '') $asiento[] = V::e($loc . ($prov !== '' && $prov !== $loc ? ' (' . $prov . ')' : ''));
-$asiento[] = $num($nM) . ' marcha' . ($nM === 1 ? '' : 's') . ' dedicada' . ($nM === 1 ? '' : 's');
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> › <a href="/dedicatorias">Dedicatorias</a><?php if ($letra !== ''): ?> › <?= V::e($letra) ?><?php endif; ?> › D-<?= $did ?></span>
@@ -22,14 +19,7 @@ $asiento[] = $num($nM) . ' marcha' . ($nM === 1 ? '' : 's') . ' dedicada' . ($nM
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Dedicatoria</span>
-        <span class="sig">MDC · D-<?= $did ?></span>
-    </div>
     <h1>Marchas dedicadas a <?= V::e($d['NOMBRE']) ?></h1>
-<?php if ($asiento !== []): ?>
-    <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
-<?php endif; ?>
 
     <dl class="desc">
         <div class="f"><dt>Advocación</dt><dd><?= V::e($d['NOMBRE']) ?></dd></div>
@@ -92,6 +82,5 @@ $asiento[] = $num($nM) . ' marcha' . ($nM === 1 ? '' : 's') . ' dedicada' . ($nM
 
     <div class="ids">
         <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
-        <span>registro D-<?= $did ?></span>
     </div>
 </article>

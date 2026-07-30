@@ -39,16 +39,17 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <div class="stack list-page">
     <div class="toolbar">
         <span class="rescount">Bandas — <b><?= $num($total) ?></b> registros</span>
+        <?= H::porPagina($limit, '/banda', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/banda">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-    <details class="panel adv"<?= ($val('titulo') !== '' || $val('localidad') !== '') ? ' open' : '' ?>>
+    <details class="adv"<?= ($val('titulo') !== '' || $val('localidad') !== '') ? ' open' : '' ?>>
         <summary>Búsqueda avanzada</summary>
-        <form action="/banda" method="GET">
-            <div class="form-grid">
-                <div class="field col-span-2">
+        <form class="adv-form" action="/banda" method="GET">
+            <div class="adv-grid">
+                <div class="field">
                     <label class="field-label" for="titulo">Nombre</label>
                     <input id="titulo" class="input" type="text" name="titulo" value="<?= $val('titulo') ?>" placeholder="Sagrada Columna y Azotes…">
                 </div>
@@ -61,14 +62,11 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                     <input id="provincia" class="input" type="text" name="provincia" value="<?= $val('provincia') ?>" placeholder="Huelva…">
                 </div>
             </div>
-            <div class="search-actions">
-                <label class="muted" for="limit">Resultados por página</label>
-                <select id="limit" name="limit" class="select">
-<?php foreach ([10, 20, 50] as $opt): ?>
-                    <option value="<?= $opt ?>"<?= $opt === $limit ? ' selected' : '' ?>><?= $opt ?></option>
-<?php endforeach; ?>
-                </select>
+            <div class="adv-actions">
                 <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+<?php if ($hayFiltro): ?>
+                <a href="/banda">limpiar</a>
+<?php endif; ?>
             </div>
         </form>
     </details>

@@ -16,16 +16,6 @@ $ext = (int) (float) ($b['FECHA_EXT'] ?? 0);
 $estrenos = $b['ESTRENOS_MAP'] ?? [];
 $nEst = (int) ($estrenos[$bid] ?? $b['marchasLength']);
 
-// Asiento: "Nombre completo. — Localidad, fundada en 1911. — En activo."
-$asiento = [];
-if ($t($b['NOMBRE_COMPLETO']) && $b['NOMBRE_COMPLETO'] !== $b['NOMBRE_BREVE']) $asiento[] = V::e($b['NOMBRE_COMPLETO']);
-$loc = trim(implode(', ', array_filter([
-    $t($b['LOCALIDAD']) ? (string) $b['LOCALIDAD'] : '',
-    $fund > 1800 ? 'fundada en ' . $fund : '',
-], static fn($v) => $v !== '')));
-if ($loc !== '') $asiento[] = V::e($loc);
-$asiento[] = $ext > 1800 ? 'Desaparecida en ' . $ext : 'En activo';
-
 // Línea de sucesión (§09-B del dossier): predecesoras (de la más antigua) →
 // foco → sucesoras; madres/juveniles cuelgan con ramal punteado. Sin linaje,
 // la propia banda es el único nodo (absorbe la antigua timeline).
@@ -64,17 +54,13 @@ $nMarchas = (int) $b['marchasLength'];
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> › <a href="/banda">Bandas</a><?php if ($t($b['LOCALIDAD'])): ?> › <a href="<?= V::e('/banda?localidad=' . rawurlencode((string) $b['LOCALIDAD'])) ?>"><?= V::e($b['LOCALIDAD']) ?></a><?php endif; ?> › B-<?= $bid ?></span>
-    <span class="regnav">registro <?= $num($b['REG_POS']) ?> de <?= $num($b['REG_TOTAL']) ?></span>
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Banda</span>
-        <span class="sig">MDC · B-<?= $bid ?></span>
-    </div>
     <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
-    <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
 
+<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
+<?php if ($nMarchas + $nDiscos >= 12): ?>
     <nav class="rectabs" aria-label="Secciones de la ficha">
         <a href="#datos">Datos</a>
         <a href="#formaciones">Formaciones</a>
@@ -83,6 +69,7 @@ $nMarchas = (int) $b['marchasLength'];
 <?php endif; ?>
         <a href="#estrenos">Estrenos (<?= $num($nMarchas) ?>)</a>
     </nav>
+<?php endif; ?>
 
     <dl class="desc" id="datos">
 <?php if ($t($b['NOMBRE_COMPLETO'])): ?>
@@ -201,6 +188,5 @@ $nMarchas = (int) $b['marchasLength'];
 <?php if (!empty($url)): ?>
         <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
-        <span>registro B-<?= $bid ?></span>
     </div>
 </article>

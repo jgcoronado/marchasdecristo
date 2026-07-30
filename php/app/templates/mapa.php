@@ -10,10 +10,6 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     </div>
 
     <article class="record">
-        <div class="head">
-            <span class="eb">Mapa</span>
-            <span class="sig">MDC · provincias</span>
-        </div>
         <h1>Mapa de provincias</h1>
         <p class="asiento">Marchas procesionales del catálogo por provincia. Pulsa una provincia
             para ver el detalle de sus municipios con marchas. También puedes ir directo al

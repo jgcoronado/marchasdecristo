@@ -39,10 +39,6 @@ $titulo = match ($entidad) {
 $anios = static fn(string $a, string $b): string => trim(($a !== '' ? $a : '') . (($a !== '' || $b !== '') ? '–' : '') . ($b !== '' ? $b : ''));
 ?>
 <article class="record" style="margin:0;">
-    <div class="head">
-        <span class="eb"><?= V::e(['marcha' => 'Marcha', 'banda' => 'Banda', 'autor' => 'Compositor'][$entidad] ?? $entidad) ?></span>
-        <span class="sig">previsualización</span>
-    </div>
     <h1><?= $titulo !== '' ? V::e($titulo) : '<span class="muted">(sin título)</span>' ?></h1>
 
     <dl class="desc">

@@ -93,12 +93,12 @@ además de deuda).
 
 ## 5. Panel de administración
 
-### 5.1 Gestión de discos ausente 🟢
-- Hay alta/edición de marcha, autor y banda (con linaje), pero no de disco —
-  las relaciones `disco_marcha` solo se pueden tocar indirectamente. Ver
-  detalle en [admin-panel.md](admin-panel.md).
-- **Fix**: `/dashboard/disco/add` y `/dashboard/disco/{id}` con gestión de la
-  lista de pistas, siguiendo el mismo patrón que `banda_form.php`.
+### 5.1 Gestión de discos ausente ✅ resuelto (2026-07)
+- Implementado: `/dashboard/disco/add` (alta con subida de portada) y
+  `/dashboard/disco/{id}` (datos, portada, pistas y vista previa). La marcha se
+  busca por identificador o por título, y el número de pista no tiene por qué
+  ser consecutivo. Detalle y decisiones en
+  [admin-panel.md §11](admin-panel.md).
 
 ---
 

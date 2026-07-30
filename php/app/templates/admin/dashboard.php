@@ -19,6 +19,9 @@ $isAdmin = Roles::isAdmin($rol);
             <a class="btn btn-sm" href="/dashboard/banda/add">+ Banda</a>
 <?php endif; ?>
 <?php if ($isAdmin): ?>
+            <?php /* Solo administrador: el disco no pasa por la cola de propuestas
+                     y su alta escribe la portada en el docroot. */ ?>
+            <a class="btn btn-sm" href="/dashboard/disco/add">+ Disco</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/propuestas">Propuestas<?= $pendientes > 0 ? ' <span class="chip">' . (int) $pendientes . '</span>' : '' ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/usuarios">Usuarios</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta marchas</a>
@@ -43,6 +46,7 @@ $isAdmin = Roles::isAdmin($rol);
 
     <form class="panel" action="/dashboard" method="GET">
         <input type="hidden" name="qb" value="<?= V::e($qb) ?>">
+        <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
         <div class="field">
             <label class="field-label" for="q">Buscar marcha o compositor</label>
             <div class="row">
@@ -54,6 +58,7 @@ $isAdmin = Roles::isAdmin($rol);
 
     <form class="panel" action="/dashboard" method="GET">
         <input type="hidden" name="q" value="<?= V::e($q) ?>">
+        <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
         <div class="field">
             <label class="field-label" for="qb">Buscar banda <span class="muted small">· para editar sus datos y su linaje</span></label>
             <div class="row">
@@ -62,6 +67,39 @@ $isAdmin = Roles::isAdmin($rol);
             </div>
         </div>
     </form>
+
+<?php if ($isAdmin): ?>
+    <form class="panel" action="/dashboard" method="GET">
+        <input type="hidden" name="q" value="<?= V::e($q) ?>">
+        <input type="hidden" name="qb" value="<?= V::e($qb) ?>">
+        <div class="field">
+            <label class="field-label" for="qd">Buscar disco <span class="muted small">· para editar sus datos, su portada y sus pistas</span></label>
+            <div class="row">
+                <input class="input" id="qd" name="qd" type="text" value="<?= V::e($qd) ?>" placeholder="Nombre del disco…">
+                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+            </div>
+        </div>
+    </form>
+<?php endif; ?>
+
+<?php if ($qd !== ''): ?>
+    <section>
+        <h2 class="section-title">Discos <span class="muted small">· datos, portada y contenido</span></h2>
+<?php if ($discos): ?>
+        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
+<?php foreach ($discos as $d): ?>
+            <tr>
+                <td><a href="/dashboard/disco/<?= (int) $d['ID_DISCO'] ?>">#<?= (int) $d['ID_DISCO'] ?> · <?= V::e($d['NOMBRE_CD']) ?></a></td>
+                <td class="small muted"><?= V::e((string) ($d['FECHA_CD'] ?? '')) ?></td>
+                <td class="small muted"><?= (int) $d['PISTAS'] ?> pistas</td>
+            </tr>
+<?php endforeach; ?>
+        </tbody></table></div>
+<?php else: ?>
+        <p class="muted">Sin resultados.</p>
+<?php endif; ?>
+    </section>
+<?php endif; ?>
 
 <?php if ($qb !== ''): ?>
     <section>

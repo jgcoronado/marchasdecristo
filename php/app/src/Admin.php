@@ -169,9 +169,11 @@ final class Admin
         $session = Auth::requireAuth();
         $q = trim((string) ($_GET['q'] ?? ''));
         $qb = trim((string) ($_GET['qb'] ?? ''));
+        $qd = trim((string) ($_GET['qd'] ?? ''));
         $marchas = [];
         $autores = [];
         $bandas = [];
+        $discos = [];
         if ($q !== '') {
             $marchas = array_slice(Repo::searchMarchas('titulo=' . rawurlencode($q))['data'], 0, 15);
             $autores = array_slice(Repo::searchAutores('nombre=' . rawurlencode($q))['data'], 0, 15);
@@ -179,9 +181,14 @@ final class Admin
         if ($qb !== '') {
             $bandas = array_slice(Repo::searchBandas('titulo=' . rawurlencode($qb))['data'], 0, 15);
         }
+        // Los discos solo los edita el administrador (ver los controladores de
+        // disco más abajo), así que ni se consultan para el rol editor.
+        if ($qd !== '' && self::isAdmin($session)) {
+            $discos = AdminRepo::discoCandidatosPorTexto($qd, 15);
+        }
         $notice = self::noticeFromQuery();
         $pendientes = self::isAdmin($session) ? PropuestaRepo::countPendientes() : 0;
-        View::render('admin/dashboard', compact('q', 'qb', 'marchas', 'autores', 'bandas', 'session', 'notice', 'pendientes'),
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -1301,5 +1308,140 @@ final class Admin
         }
 
         Mailer::send($to, $subject, $html);
+    }
+
+    // ── Discos ──────────────────────────────────────────────────────────────
+    //
+    // Solo administrador: a diferencia de marcha/banda/autor, el disco no pasa
+    // por la cola de propuestas (PropuestaRepo no conoce esta entidad) y además
+    // escribe un fichero en el docroot al subir la portada.
+
+    public static function discoAddForm(): void
+    {
+        $session = Auth::requireAdmin();
+        self::renderDiscoAdd($session, [], null);
+    }
+
+    /** @param array<string,mixed> $session @param array<string,mixed> $disco */
+    private static function renderDiscoAdd(array $session, array $disco, ?string $error): void
+    {
+        if ($error !== null) http_response_code(400);
+        View::render('admin/disco_add', [
+            'session' => $session, 'disco' => $disco, 'error' => $error,
+        ], ['title' => 'Añadir disco — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    public static function discoAddPost(): void
+    {
+        $session = Auth::requireAdmin();
+        $fields = [];
+        foreach (AdminRepo::EDITABLE_DISCO as $f) $fields[$f] = $_POST[$f] ?? '';
+
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { self::renderDiscoAdd($session, $fields, 'CSRF'); return; }
+
+        $r = AdminRepo::addDisco($fields);
+        if (($r['code'] ?? '') !== 'CREATED') { self::renderDiscoAdd($session, $fields, $r['code'] ?? 'ERROR'); return; }
+
+        $discoId = (int) $r['discoId'];
+        // La portada se guarda DESPUÉS de crear el disco porque el nombre del
+        // fichero es su ID. Si falla, el disco ya existe: se avisa en la
+        // pantalla de edición en vez de deshacer el alta.
+        $errPortada = null;
+        if (($_FILES['portada']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $errPortada = Media::guardarPortada($_FILES['portada'], $discoId);
+        }
+        Http::redirect("/dashboard/disco/$discoId?created=1" . ($errPortada !== null ? '&err=' . rawurlencode($errPortada) : ''), 302);
+    }
+
+    public static function discoEditForm(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        self::renderDiscoForm($session, (int) $p['id']);
+    }
+
+    /** @param array<string,mixed> $session */
+    private static function renderDiscoForm(array $session, int $id, ?string $error = null): void
+    {
+        $data = AdminRepo::discoConPistas($id);
+        if ($data === null) { Http::notFound(); return; }
+        $err = $error ?? (isset($_GET['err']) ? (string) $_GET['err'] : null);
+        if ($err !== null) http_response_code(400);
+        View::render('admin/disco_form', [
+            'session' => $session,
+            'disco' => $data['disco'],
+            'pistas' => $data['pistas'],
+            'portada' => Media::portadaExiste($id),
+            'error' => $err,
+            'notice' => isset($_GET['created']) ? 'Disco creado.' : (isset($_GET['ok']) ? (string) $_GET['ok'] : null),
+        ], ['title' => 'Disco #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    public static function discoEditPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+
+        $fields = [];
+        foreach (AdminRepo::EDITABLE_DISCO as $f) {
+            if (array_key_exists($f, $_POST)) $fields[$f] = $_POST[$f];
+        }
+        $r = AdminRepo::updateDisco($id, $fields);
+        if (!in_array($r['code'] ?? '', ['UPDATED', 'INVALID_FIELDS'], true)) {
+            Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        }
+
+        if (($_FILES['portada']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $errPortada = Media::guardarPortada($_FILES['portada'], $id);
+            if ($errPortada !== null) Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($errPortada), 302);
+        }
+        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Cambios guardados.'), 302);
+    }
+
+    public static function discoPistaAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+
+        $r = AdminRepo::addPista(
+            $id,
+            (int) ($_POST['idMarcha'] ?? 0),
+            (int) ($_POST['numero'] ?? 0),
+            (int) ($_POST['nDisco'] ?? 1)
+        );
+        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista añadida.'), 302);
+    }
+
+    public static function discoPistaDeletePost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+
+        $r = AdminRepo::deletePista($id, (int) $p['dm']);
+        if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista eliminada.'), 302);
+    }
+
+    /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */
+    public static function marchaFastSearch(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (Auth::currentSession() === null) {
+            http_response_code(401);
+            echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
+            return;
+        }
+        $q = trim((string) ($_GET['q'] ?? ''));
+        // Con dos caracteres ya basta si son un ID ("7"); para texto se pide más.
+        if ($q === '' || (mb_strlen($q) < 3 && !ctype_digit($q))) {
+            echo json_encode(['rowsReturned' => 0, 'data' => []]);
+            return;
+        }
+        $data = AdminRepo::marchaCandidatosPorTexto($q, 15);
+        echo json_encode(['rowsReturned' => count($data), 'data' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }

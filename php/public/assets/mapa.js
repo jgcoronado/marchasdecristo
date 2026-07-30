@@ -1,6 +1,13 @@
-/* Marchas de Cristo — mapa de provincia: zoom/pan sobre el SVG y "traer al
-   frente" el punto bajo el ratón. Progresiva: sin JS el mapa se ve igual,
-   estático (App\Mapa ya lo pinta recortado a la provincia). */
+/* Marchas de Cristo — mapa de provincia: zoom y desplazamiento sobre el SVG.
+   Progresiva: sin JS el mapa se ve igual, estático (App\Mapa ya lo pinta
+   recortado a la provincia).
+
+   NO se reordena el DOM al pasar el ratón. Antes había un "traer al frente"
+   que hacía capa.appendChild(a) en cada pointerenter para que el punto
+   señalado se pintara sobre sus vecinos. Mover un nodo lo saca y lo vuelve a
+   meter en el árbol, y con un centenar de municipios solapados eso deja el
+   cursor parpadeando entre la mano y la flecha y se come el clic. El orden de
+   pintado se decide ahora en servidor y es fijo (App\Mapa::pintarPuntos). */
 (function () {
     'use strict';
 
@@ -22,9 +29,16 @@
             var fontMatch = /--mapa-punto-font:\s*([\d.]+)/.exec(capa.getAttribute('style') || '');
             baseFontSize = fontMatch ? parseFloat(fontMatch[1]) : 0;
             Array.prototype.forEach.call(capa.querySelectorAll('a'), function (a) {
-                var c = a.querySelector('circle'), t = a.querySelector('text');
+                var c = a.querySelector('.mapa-punto'),
+                    h = a.querySelector('.mapa-punto-hit'),
+                    t = a.querySelector('text');
                 if (!c) return;
-                puntos.push({ c: c, t: t, r0: parseFloat(c.getAttribute('r')), cy: parseFloat(c.getAttribute('cy')) });
+                puntos.push({
+                    c: c, h: h, t: t,
+                    r0: parseFloat(c.getAttribute('r')),
+                    rh0: h ? parseFloat(h.getAttribute('r')) : 0,
+                    cy: parseFloat(c.getAttribute('cy'))
+                });
             });
         }
 
@@ -36,7 +50,10 @@
             puntos.forEach(function (p) {
                 var r = p.r0 * scale;
                 p.c.setAttribute('r', r);
-                if (p.t) p.t.setAttribute('y', p.cy - r - fontSize * 0.3);
+                // La diana se reescala igual que el punto: si no, al acercar
+                // el zoom se quedaría enorme y taparía a los vecinos.
+                if (p.h) p.h.setAttribute('r', p.rh0 * scale);
+                if (p.t) p.t.setAttribute('y', p.cy - r - fontSize * 0.35);
             });
         }
 
@@ -83,16 +100,12 @@
         }, { passive: false });
 
         // Arrastrar para desplazar (ratón y táctil, vía Pointer Events).
-        // El listener de pointermove se añade dentro de pointerdown y se
-        // quita en pointerup/cancel, en vez de estar siempre puesto: un
-        // 'pointermove' permanente en el <svg>, combinado con el reordenar-al-
-        // pasar-el-ratón de initTraerAlFrente, hace que Chromium deje de
-        // despachar el 'click' sobre el municipio (comprobado en el propio
-        // navegador) — un simple clic dejaría de navegar. Tampoco se llama a
-        // setPointerCapture hasta que el gesto supera el umbral de
-        // movimiento, por el mismo motivo. "moved" cancela además el click
-        // sintético que el navegador dispara igualmente al soltar sobre el
-        // mismo elemento tras un arrastre real.
+        // El listener de pointermove solo está puesto entre pointerdown y
+        // pointerup, y setPointerCapture no se llama hasta que el gesto supera
+        // el umbral de 3 px: así un clic limpio no pasa nunca por la maquinaria
+        // de arrastre y llega intacto al enlace del municipio. "moved" cancela
+        // el click sintético que el navegador dispara igualmente al soltar
+        // sobre el mismo elemento tras un arrastre real.
         var start = null;  // { id, x, y } desde pointerdown, antes de decidir si es arrastre
         var dragging = null; // { id, x, y } una vez confirmado el arrastre (con captura)
         var moved = false;
@@ -163,19 +176,5 @@
         }
     }
 
-    // Al pasar el ratón por un municipio, lo sube al final de su capa (orden
-    // de pintado en SVG = orden del DOM) para que el punto y su rótulo queden
-    // por delante de los vecinos con los que se solapen. Solo en
-    // pointerenter, no en focus: reordenar justo al enfocar rompe el click
-    // (el navegador enfoca el enlace como parte del propio gesto de clic, y
-    // reordenar el DOM en ese instante hace que Chromium no llegue a
-    // despacharlo — comprobado en el propio navegador).
-    function initTraerAlFrente(capa) {
-        Array.prototype.forEach.call(capa.querySelectorAll('a'), function (a) {
-            a.addEventListener('pointerenter', function () { capa.appendChild(a); });
-        });
-    }
-
     Array.prototype.forEach.call(document.querySelectorAll('svg[data-zoom]'), initZoom);
-    Array.prototype.forEach.call(document.querySelectorAll('.mapa-puntos'), initTraerAlFrente);
 })();

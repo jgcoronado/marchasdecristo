@@ -26,6 +26,19 @@ final class AdminRepo
         'ADAPTACIÓN MÚSICA POPULAR',
     ];
     public const EDITABLE_AUTOR = ['NOMBRE', 'APELLIDOS', 'NOMBRE_ART', 'F_NAC', 'LUGAR_NAC', 'F_DEF', 'BIO'];
+
+    /**
+     * Campos del disco que se editan desde el panel.
+     *
+     * NO incluye `disco.DISCOS` (nº de volúmenes) a propósito: la aplicación
+     * nunca lee esa columna — Repo la calcula como MAX(disco_marcha.N_DISCO)
+     * en las dos consultas que la exponen. Guardarla aquí sería dato muerto que
+     * además podría contradecir a las pistas reales. El volumen se fija pista a
+     * pista, y el recuento sale solo.
+     *
+     * Ojo con `d_DETALLES`: la columna heredada va en minúsculas.
+     */
+    public const EDITABLE_DISCO = ['NOMBRE_CD', 'FECHA_CD', 'BANDADISCO', 'd_DETALLES'];
     public const EDITABLE_BANDA = ['NOMBRE_COMPLETO', 'NOMBRE_BREVE', 'LOCALIDAD', 'PROVINCIA', 'FECHA_FUND', 'FECHA_EXT', 'DIRECTOR_ACTUAL', 'DIR_MUS_ACTUAL', 'WEB'];
 
     public static function normalize(mixed $v): mixed
@@ -920,5 +933,232 @@ final class AdminRepo
             'variantes_absorbidas' => count($otras), 'marchas' => $marchas,
         ]);
         return ['code' => 'UNIFIED', 'marchas' => $marchas, 'variantes' => count($otras)];
+    }
+
+    // ── Discos ──────────────────────────────────────────────────────────────
+
+    /** @param array<string,mixed> $disco @return array{code:string,discoId?:int} */
+    public static function addDisco(array $disco): array
+    {
+        $safe = self::saneaDisco($disco);
+        if (isset($safe['code'])) return $safe;
+        if (($safe['NOMBRE_CD'] ?? null) === null) return ['code' => 'NOMBRE_REQUERIDO'];
+
+        $cols = array_keys($safe);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        Db::run('INSERT INTO disco (' . implode(', ', $cols) . ") VALUES ($ph)", array_values($safe));
+        $discoId = Db::lastInsertId();
+        if (!$discoId) return ['code' => 'INTERNAL_ERROR'];
+        Db::logAdmin('INSERT', 'disco', $discoId, ['campos' => $cols]);
+        return ['code' => 'CREATED', 'discoId' => $discoId];
+    }
+
+    /** @param array<string,mixed> $disco @return array{code:string} */
+    public static function updateDisco(int $idDisco, array $disco): array
+    {
+        if (self::discoExiste($idDisco) === false) return ['code' => 'DISCO_NO_EXISTE'];
+        $safe = self::saneaDisco($disco);
+        if (isset($safe['code'])) return $safe;
+        if ($safe === []) return ['code' => 'INVALID_FIELDS'];
+
+        $sets = implode(', ', array_map(static fn(string $c): string => "$c = ?", array_keys($safe)));
+        Db::run("UPDATE disco SET $sets WHERE ID_DISCO = ?", [...array_values($safe), $idDisco]);
+        Db::logAdmin('UPDATE', 'disco', $idDisco, ['campos' => array_keys($safe)]);
+        return ['code' => 'UPDATED'];
+    }
+
+    /**
+     * Normaliza y valida los campos del disco. Devuelve ['code' => ...] si algo
+     * no cuadra, o el array de columnas listo para el INSERT/UPDATE.
+     *
+     * @param  array<string,mixed> $disco
+     * @return array<string,mixed>
+     */
+    private static function saneaDisco(array $disco): array
+    {
+        $safe = [];
+        foreach (self::EDITABLE_DISCO as $f) {
+            if (array_key_exists($f, $disco)) $safe[$f] = self::normalize($disco[$f]);
+        }
+        // FECHA_CD es TEXT en el esquema heredado, pero solo guarda años.
+        if (($safe['FECHA_CD'] ?? null) !== null && preg_match('/^\d{4}$/', (string) $safe['FECHA_CD']) !== 1) {
+            return ['code' => 'INVALID_FECHA'];
+        }
+        if (($safe['BANDADISCO'] ?? null) !== null) {
+            $b = (int) $safe['BANDADISCO'];
+            if ($b <= 0) { $safe['BANDADISCO'] = null; }
+            elseif (!self::bandaExiste($b)) { return ['code' => 'BANDA_NO_EXISTE']; }
+            else { $safe['BANDADISCO'] = $b; }
+        }
+        return $safe;
+    }
+
+    private static function discoExiste(int $id): bool
+    {
+        return Db::one('SELECT 1 AS x FROM disco WHERE ID_DISCO = ?', [$id]) !== null;
+    }
+
+    /**
+     * Añade una marcha al disco como una pista.
+     *
+     * El número de pista NO se autoincrementa ni tiene que ser consecutivo (un
+     * disco puede documentarse a trozos, o saltarse pistas que no son marchas),
+     * pero sí debe ser único dentro de su volumen: dos pistas 4 en el mismo
+     * volumen es siempre un error de captura.
+     *
+     * @return array{code:string,dmId?:int}
+     */
+    public static function addPista(int $idDisco, int $idMarcha, int $numero, int $nDisco = 1): array
+    {
+        if (!self::discoExiste($idDisco)) return ['code' => 'DISCO_NO_EXISTE'];
+        if (Db::one('SELECT 1 AS x FROM marcha WHERE ID_MARCHA = ?', [$idMarcha]) === null) {
+            return ['code' => 'MARCHA_NO_EXISTE'];
+        }
+        if ($numero < 1 || $numero > 999) return ['code' => 'PISTA_INVALIDA'];
+        if ($nDisco < 1 || $nDisco > 99) return ['code' => 'VOLUMEN_INVALIDO'];
+
+        if (Db::one('SELECT 1 AS x FROM disco_marcha WHERE ID_DISCO = ? AND IDMARCHA = ?', [$idDisco, $idMarcha]) !== null) {
+            return ['code' => 'MARCHA_YA_EN_DISCO'];
+        }
+        if (Db::one('SELECT 1 AS x FROM disco_marcha WHERE ID_DISCO = ? AND N_DISCO = ? AND NUMEROMARCHA = ?', [$idDisco, $nDisco, $numero]) !== null) {
+            return ['code' => 'PISTA_OCUPADA'];
+        }
+
+        Db::run(
+            'INSERT INTO disco_marcha (ID_DISCO, IDMARCHA, NUMEROMARCHA, N_DISCO) VALUES (?, ?, ?, ?)',
+            [$idDisco, $idMarcha, $numero, $nDisco]
+        );
+        $dmId = Db::lastInsertId();
+        Db::logAdmin('INSERT', 'disco_marcha', $dmId, [
+            'disco' => $idDisco, 'marcha' => $idMarcha, 'pista' => $numero, 'volumen' => $nDisco,
+        ]);
+        return ['code' => 'CREATED', 'dmId' => $dmId];
+    }
+
+    /** @return array{code:string} */
+    public static function deletePista(int $idDisco, int $idDm): array
+    {
+        $fila = Db::one('SELECT ID_DM, IDMARCHA FROM disco_marcha WHERE ID_DM = ? AND ID_DISCO = ?', [$idDm, $idDisco]);
+        if ($fila === null) return ['code' => 'PISTA_NO_EXISTE'];
+        Db::run('DELETE FROM disco_marcha WHERE ID_DM = ?', [$idDm]);
+        Db::logAdmin('DELETE', 'disco_marcha', $idDm, ['disco' => $idDisco, 'marcha' => (int) $fila['IDMARCHA']]);
+        return ['code' => 'DELETED'];
+    }
+
+    /**
+     * Disco + sus pistas, para el formulario de edición y su vista previa.
+     *
+     * @return array{disco:array<string,mixed>,pistas:list<array<string,mixed>>}|null
+     */
+    public static function discoConPistas(int $idDisco): ?array
+    {
+        // VOLUMENES se deriva de las pistas, igual que hace Repo para la ficha
+        // pública: la columna disco.DISCOS no se lee en ningún sitio.
+        $disco = Db::one(
+            'SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, d.BANDADISCO, d.d_DETALLES,
+                    b.NOMBRE_BREVE AS BANDA_BREVE,
+                    (SELECT MAX(dm.N_DISCO) FROM disco_marcha dm WHERE dm.ID_DISCO = d.ID_DISCO) AS VOLUMENES
+             FROM disco d
+             LEFT OUTER JOIN banda b ON b.ID_BANDA = d.BANDADISCO
+             WHERE d.ID_DISCO = ?',
+            [$idDisco]
+        );
+        if ($disco === null) return null;
+
+        $pistas = Db::all(
+            "SELECT dm.ID_DM, dm.IDMARCHA, dm.NUMEROMARCHA, dm.N_DISCO,
+                    m.TITULO, m.FECHA,
+                    (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
+                       FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
+                      WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
+             FROM disco_marcha dm
+             LEFT OUTER JOIN marcha m ON m.ID_MARCHA = dm.IDMARCHA
+             WHERE dm.ID_DISCO = ?
+             ORDER BY dm.N_DISCO ASC, dm.NUMEROMARCHA ASC",
+            [$idDisco]
+        );
+        return ['disco' => $disco, 'pistas' => $pistas];
+    }
+
+    /**
+     * Discos que casan con el texto, para el buscador del panel. Igual que con
+     * las marchas, un número se prueba primero como ID.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function discoCandidatosPorTexto(string $q, int $limit = 15): array
+    {
+        $q = trim($q);
+        if ($q === '') return [];
+
+        $sel = 'SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD,
+                       (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.ID_DISCO = d.ID_DISCO) AS PISTAS
+                FROM disco d';
+        $out = [];
+        if (ctype_digit($q)) {
+            $porId = Db::one("$sel WHERE d.ID_DISCO = ?", [(int) $q]);
+            if ($porId !== null) $out[] = $porId;
+        }
+        $tokens = preg_split('/\s+/u', Db::noAcc($q), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens !== []) {
+            $cond = [];
+            $vals = [];
+            foreach ($tokens as $t) {
+                $cond[] = 'NOACC(d.NOMBRE_CD) LIKE ?';
+                $vals[] = '%' . $t . '%';
+            }
+            $rows = Db::all("$sel WHERE " . implode(' AND ', $cond) . ' ORDER BY d.NOMBRE_CD ASC LIMIT ?', [...$vals, $limit]);
+            $vistos = array_column($out, 'ID_DISCO');
+            foreach ($rows as $r) {
+                if (!in_array($r['ID_DISCO'], $vistos, true)) $out[] = $r;
+            }
+        }
+        return array_slice($out, 0, $limit);
+    }
+
+    /**
+     * Candidatas para añadir como pista. Acepta el ID exacto o trozos del
+     * título: en el panel se busca de las dos formas según lo que se tenga a
+     * mano (el número que trae la carátula, o el nombre a medias).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function marchaCandidatosPorTexto(string $q, int $limit = 15): array
+    {
+        $q = trim($q);
+        if ($q === '') return [];
+
+        $sel = "SELECT m.ID_MARCHA, m.TITULO, m.FECHA,
+                       (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
+                          FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
+                         WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
+                FROM marcha m";
+
+        // Un número puede ser tanto el ID como parte del título ("Saeta 3"):
+        // se busca por ID primero y se completa con las coincidencias de texto.
+        $out = [];
+        if (ctype_digit($q)) {
+            $porId = Db::one("$sel WHERE m.ID_MARCHA = ?", [(int) $q]);
+            if ($porId !== null) $out[] = $porId;
+        }
+
+        $tokens = preg_split('/\s+/u', Db::noAcc($q), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens !== []) {
+            $cond = [];
+            $vals = [];
+            foreach ($tokens as $t) {
+                $cond[] = 'NOACC(m.TITULO) LIKE ?';
+                $vals[] = '%' . $t . '%';
+            }
+            $rows = Db::all(
+                "$sel WHERE " . implode(' AND ', $cond) . ' ORDER BY m.TITULO ASC LIMIT ?',
+                [...$vals, $limit]
+            );
+            $vistos = array_column($out, 'ID_MARCHA');
+            foreach ($rows as $r) {
+                if (!in_array($r['ID_MARCHA'], $vistos, true)) $out[] = $r;
+            }
+        }
+        return array_slice($out, 0, $limit);
     }
 }
