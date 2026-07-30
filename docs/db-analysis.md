@@ -14,9 +14,17 @@
 
 ## Inventario de tablas
 
+> ⚠️ **Los recuentos de esta tabla son del 2026-07-06** (foto del cutover), salvo
+> donde se indique otra fecha. El catálogo ha crecido desde entonces: la pasada
+> de la ingesta de streaming del **2026-07-28 contó 5.003 marchas**. Las cifras
+> derivadas más abajo («Calidad de datos», porcentajes de campos vacíos) siguen
+> calculadas sobre las 4 212 originales y por tanto **sobreestiman la cobertura
+> relativa**. Revalidar contra `/health` (sesión admin) antes de usarlas para
+> decidir nada.
+
 | Tabla | Filas | Uso en la API |
 |-------|-------|---------------|
-| `marcha` | 4 212 | ✅ lectura + escritura admin |
+| `marcha` | 4 212 → **5 003** (2026-07-28) | ✅ lectura + escritura admin |
 | `autor` | 827 | ✅ lectura + escritura admin |
 | `banda` | 268 | ✅ lectura + escritura admin |
 | `banda_relacion` | 14 | ✅ modelo de linaje (creada 2026-07-08; leída por `Repo::fetchBanda`/`bandaLinaje()` para el linaje en la ficha pública) |

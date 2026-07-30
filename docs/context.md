@@ -5,7 +5,7 @@
 > Documentos complementarios en esta misma carpeta:
 > - [architecture.md](architecture.md) — diagrama, flujos y decisiones arquitectónicas.
 > - [technical-debt.md](technical-debt.md) — deuda pendiente.
-> - [roadmap.md](roadmap.md) — plan de acción vigente (apunta a `consejo-de-sabios-2026-07.md`).
+> - [roadmap.md](roadmap.md) — ⭐ **fuente única del trabajo futuro**: backlog priorizado, contraste con el consejo de sabios, ramas abiertas e histórico congelado.
 > - [db-analysis.md](db-analysis.md) — auditoría de la base de datos.
 > - [admin-panel.md](admin-panel.md) — panel de administración.
 > - [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md) — evaluación integral (DAFOs, plan de acción, catálogo de automatizaciones).
@@ -17,13 +17,21 @@
 
 **Marchas de Cristo** ([marchasdecristo.com](https://marchasdecristo.com)) es una base de datos de **música procesional** española. Permite consultar cuatro entidades relacionadas más dedicatorias/advocaciones:
 
-| Entidad | Volumen aprox. | Descripción |
+| Entidad | Volumen | Descripción |
 |---------|-----------------|-------------|
-| Marchas | ~4 200 | Marchas procesionales (título, fecha, dedicatoria, banda de estreno, autores, estilo CCTT/AM) |
-| Autores | ~830 | Compositores |
-| Bandas | ~270 | Formaciones musicales (con linaje/relaciones entre bandas) |
-| Discos | ~430 | Grabaciones (CDs) que contienen marchas |
+| Marchas | **~5 000** (2026-07-28) | Marchas procesionales (título, fecha, dedicatoria, banda de estreno, autores, estilo CCTT/AM) |
+| Autores | ~830 (2026-07-06) | Compositores |
+| Bandas | ~270 (2026-07-06) | Formaciones musicales (con linaje/relaciones entre bandas) |
+| Discos | ~430 (2026-07-06) | Grabaciones (CDs) que contienen marchas |
 | Dedicatorias | — | Hubs de advocación con alias unificados |
+
+> **Los recuentos llevan fecha a propósito.** El de marchas se actualizó con la
+> primera pasada de la ingesta de streaming (2026-07-28, que leyó la BD local:
+> 5.003 marchas). Los otros tres son del cutover y **no se han vuelto a medir**;
+> la cifra de ~4 200 marchas que aún aparece en `consejo-de-sabios-2026-07.md`
+> es de esa misma foto y no se corrige ahí porque ese documento es una
+> evaluación puntual, no un tracker. Para el dato real de hoy: `/health` con
+> sesión admin.
 
 Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N disco↔marcha, con pista), `marcha.BANDA_ESTRENO → banda.ID_BANDA`, `disco.BANDADISCO → banda.ID_BANDA`, `banda_relacion` (linaje entre bandas), `marcha.ID_DEDICATORIA → dedicatoria`.
 
