@@ -25,18 +25,29 @@
         var capa = svg.querySelector('.mapa-puntos');
         var puntos = [];
         var baseFontSize = 0;
+        var rHitBase = 0;
         if (capa) {
             var fontMatch = /--mapa-punto-font:\s*([\d.]+)/.exec(capa.getAttribute('style') || '');
             baseFontSize = fontMatch ? parseFloat(fontMatch[1]) : 0;
+            rHitBase = parseFloat(capa.getAttribute('data-rhit-base')) || 0;
             Array.prototype.forEach.call(capa.querySelectorAll('a'), function (a) {
+                // El rótulo (App\Mapa::pintarPuntos) ya no va dentro del <a>
+                // -si no, quedaba pulsable pese a no ser esa la intención-,
+                // así que ahora es su hermano siguiente en vez de un
+                // descendiente.
+                var siguiente = a.nextElementSibling;
                 var c = a.querySelector('.mapa-punto'),
                     h = a.querySelector('.mapa-punto-hit'),
-                    t = a.querySelector('text');
+                    t = (siguiente && siguiente.classList.contains('mapa-punto-label')) ? siguiente : null;
                 if (!c) return;
                 puntos.push({
                     c: c, h: h, t: t,
                     r0: parseFloat(c.getAttribute('r')),
                     rh0: h ? parseFloat(h.getAttribute('r')) : 0,
+                    // Tope geométrico por vecino (App\Mapa): NO se escala con el
+                    // zoom, porque la distancia entre municipios en unidades de
+                    // usuario tampoco cambia.
+                    rhMax: h ? (parseFloat(h.getAttribute('data-rmax')) || 0) : 0,
                     cy: parseFloat(c.getAttribute('cy'))
                 });
             });
@@ -50,9 +61,20 @@
             puntos.forEach(function (p) {
                 var r = p.r0 * scale;
                 p.c.setAttribute('r', r);
-                // La diana se reescala igual que el punto: si no, al acercar
-                // el zoom se quedaría enorme y taparía a los vecinos.
-                if (p.h) p.h.setAttribute('r', p.rh0 * scale);
+                // La diana NO se reescala a ciegas como el punto visible. Su
+                // radio es el menor de dos cosas:
+                //   - el "cómodo" (rHitBase) reescalado, que mantiene un blanco
+                //     de tamaño constante en pantalla, y
+                //   - el tope geométrico por vecino, que es fijo en unidades de
+                //     usuario y es lo que impide robarle el clic al de al lado.
+                // A escala 1 manda el tope (municipios apretados = blanco
+                // pequeño, inevitable). Al ampliar, el término reescalado baja
+                // hasta por debajo del tope y el blanco recupera su tamaño
+                // cómodo — que es justo cuando hay sitio para ello.
+                if (p.h) {
+                    var rh = rHitBase > 0 ? Math.min(rHitBase * scale, p.rhMax || Infinity) : p.rh0 * scale;
+                    p.h.setAttribute('r', rh);
+                }
                 if (p.t) p.t.setAttribute('y', p.cy - r - fontSize * 0.35);
             });
         }

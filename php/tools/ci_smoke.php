@@ -355,70 +355,35 @@ $tests = [
         }
     },
 
-    // ── Mapa (N-10): coropleta SVG por provincia ────────────────────────────
-    'mapa 200 + JSON-LD breadcrumbs' => static fn() => assertJsonLd('/mapa', $base, 'BreadcrumbList'),
-    'mapa: provincia con datos es un enlace con recuento' => static function () use ($base): void {
-        $r = assertStatus('/mapa', 200, $base);
-        if (!str_contains($r['body'], '<a href="/mapa/provincia/sevilla"><g id="ES-SE" class="prov prov-1"><title>Sevilla: 4 marchas</title>')) {
-            throw new RuntimeException('/mapa → Sevilla (ES-SE) no aparece como región enlazada con su recuento (mapa ampliado)');
-        }
-        if (!str_contains($r['body'], '<td><a href="/marcha/provincia/sevilla">Sevilla</a></td>')) {
-            throw new RuntimeException('/mapa → falta la fila de Sevilla en la tabla accesible (catálogo directo)');
-        }
-        if (str_contains($r['body'], 'mapa-punto')) {
-            throw new RuntimeException('/mapa → el mapa nacional no debería pintar puntos de localidad');
-        }
-    },
-    'mapa: provincia sin datos no es un enlace' => static function () use ($base): void {
-        $r = assertStatus('/mapa', 200, $base);
-        if (!str_contains($r['body'], '<g id="ES-M" class="prov prov-0">')) {
-            throw new RuntimeException('/mapa → Madrid (ES-M, sin marchas) debería quedar sin enlazar (nivel 0)');
-        }
-        if (str_contains($r['body'], '<a href="/mapa/provincia/madrid">')) {
-            throw new RuntimeException('/mapa → Madrid no debería tener enlace de provincia (0 marchas en la fixture)');
+    // ── Mapa (N-10): oculto en PRO desde el 2026-07-29 ──────────────────────
+    // Decisión: se oculta en producción real mientras se corrige el solape de
+    // dianas de clic entre municipios próximos (Castilleja de la Cuesta /
+    // Tomares), pero sigue visible en local y en PRE — ver
+    // App\Pages::mapaVisible(). Esta fixture simula PRO (env=production, sin
+    // preproduccion), que es justo el caso que debe dar 404; las pruebas de
+    // contenido (puntos, rótulos, color por recuento) que vivían aquí se
+    // retoman cuando se vuelva a publicar — CI no puede simular PRE con un
+    // único servidor.
+    'mapa oculto en PRO: índice → 404' => static fn() => assertStatus('/mapa', 404, $base),
+    'mapa oculto en PRO: provincia → 404' => static fn() => assertStatus('/mapa/provincia/sevilla', 404, $base),
+    'mapa oculto en PRO: fuera del nav' => static function () use ($base): void {
+        $r = assertStatus('/', 200, $base);
+        if (str_contains($r['body'], 'href="/mapa"')) {
+            throw new RuntimeException('home → el enlace a /mapa no debería aparecer en el nav mientras está oculto en PRO');
         }
     },
-    'mapa de provincia: municipio clicable, rotulado y con color de contraste + viewBox recortado' => static function () use ($base): void {
-        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
-        // El enlace abre con la diana transparente (App\Mapa::radioHit) y el
-        // punto visible va detrás: un blanco de 8 px no se puede pulsar.
-        if (!str_contains($r['body'], '<a href="/marcha?localidad=Sevilla"><circle class="mapa-punto-hit"')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería ser un punto clicable, con su diana de clic');
-        }
-        if (!str_contains($r['body'], '<circle class="mapa-punto mapa-punto-n')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → falta el punto visible coloreado por recuento');
-        }
-        if (!str_contains($r['body'], '<text class="mapa-punto-label"') || !str_contains($r['body'], '>Sevilla</text>')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → el municipio Sevilla debería llevar su nombre rotulado');
-        }
-        if (!str_contains($r['body'], 'class="prov prov-provincia"')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → la provincia debería pintarse con el color de contraste, no la coropleta nacional');
-        }
-        if (str_contains($r['body'], 'viewBox="0 0 569 392"')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → el viewBox debería estar recortado a la provincia, no ser el del mapa nacional');
+    'mapa oculto en PRO: fuera del sitemap' => static function () use ($base): void {
+        $r = assertStatus('/sitemap.xml', 200, $base);
+        if (str_contains($r['body'], '<loc>' . rtrim($base, '/') . '/mapa</loc>')) {
+            throw new RuntimeException('sitemap.xml → no debería listar /mapa mientras está oculto en PRO');
         }
     },
-    'mapa de provincia: el punto lleva a la misma URL que el listado' => static function () use ($base): void {
-        // Pulsar el círculo del municipio y pulsar su nombre en la tabla de
-        // abajo tienen que acabar en la misma pantalla.
-        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
-        if (preg_match('~<g class="mapa-puntos".*?<a href="([^"]+)"~s', $r['body'], $mMapa) !== 1) {
-            throw new RuntimeException('/mapa/provincia/sevilla → no se encuentra el enlace del punto');
-        }
-        if (preg_match('~<table class="reg".*?<tbody>.*?<a href="([^"]+)"~s', $r['body'], $mTabla) !== 1) {
-            throw new RuntimeException('/mapa/provincia/sevilla → no se encuentra el enlace de la tabla');
-        }
-        if ($mMapa[1] !== $mTabla[1]) {
-            throw new RuntimeException("/mapa/provincia/sevilla → el punto va a {$mMapa[1]} y la tabla a {$mTabla[1]}");
+    'mapa oculto en PRO: fuera de llms.txt' => static function () use ($base): void {
+        $r = assertStatus('/llms.txt', 200, $base);
+        if (str_contains($r['body'], '](' . rtrim($base, '/') . '/mapa)')) {
+            throw new RuntimeException('llms.txt → no debería listar /mapa mientras está oculto en PRO');
         }
     },
-    'mapa de provincia: el rótulo del municipio se pinta' => static function () use ($base): void {
-        $r = assertStatus('/mapa/provincia/sevilla', 200, $base);
-        if (!str_contains($r['body'], '<text class="mapa-punto-label"') || !str_contains($r['body'], '>Sevilla</text>')) {
-            throw new RuntimeException('/mapa/provincia/sevilla → el municipio debería llevar su nombre rotulado');
-        }
-    },
-    'mapa de provincia: slug incorrecto → 308 canónico' => static fn() => assertRedirect('/mapa/provincia/SEVILLA', '/mapa/provincia/sevilla', $base),
 
     // ── Panel: discos (rutas registradas y protegidas) ──────────────────────
     // Sin sesión no se puede probar el alta entera, pero sí que las rutas
@@ -444,38 +409,36 @@ $tests = [
             throw new RuntimeException('/api/marcha/fastSearch → esperado {"code":"AUTH_REQUIRED"}');
         }
     },
-    'mapa de provincia: inexistente → 404' => static fn() => assertStatus('/mapa/provincia/marte', 404, $base),
 
-    // ── Temporada (N-04): contratos banda↔hermandad, alta manual ────────────
-    'temporada sin año → 302 al año en curso' => static function () use ($base): void {
-        $r = httpGet($base . '/temporada');
-        if ($r['status'] !== 302) {
-            throw new RuntimeException("/temporada → esperado 302, obtenido {$r['status']}");
-        }
-        $anioActual = gmdate('Y');
-        $loc = $r['headers']['location'] ?? '';
-        if (!str_ends_with($loc, "/temporada/$anioActual")) {
-            throw new RuntimeException("/temporada → Location '$loc' no apunta al año en curso ($anioActual)");
-        }
-    },
-    'temporada 2026 (con contratos) 200 + indexable, agrupado por hermandad' => static function () use ($base): void {
-        assertNotNoIndex('/temporada/2026', $base);
-        $r = assertStatus('/temporada/2026', 200, $base);
-        foreach (['Hdad de los Gitanos', 'Virgen de las Angustias', 'Las Cigarreras', 'Cristo de la Salud', 'Tres Caídas', 'fuente'] as $needle) {
-            if (!str_contains($r['body'], $needle)) {
-                throw new RuntimeException("/temporada/2026 → falta '$needle'");
-            }
+    // ── Temporada (N-04): oculta en PRO desde el 2026-07-29 ─────────────────
+    // Decisión: /temporada se esconde en producción real hasta que `contrato`
+    // tenga datos de calidad suficiente, pero sigue visible en local (donde se
+    // rellena) y en PRE (para validarla antes de publicar) — ver
+    // App\Pages::temporadaVisible(). Esta fixture simula PRO (env=production,
+    // sin preproduccion), que es justo el caso que debe dar 404; la vista
+    // completa (agrupado por hermandad, JSON-LD, estado vacío) ya se verificó
+    // a mano en local antes de esta decisión y se revalida ahí cada vez que se
+    // toque esta pantalla — CI no puede simular PRE con un único servidor.
+    'temporada oculta en PRO: índice → 404' => static fn() => assertStatus('/temporada', 404, $base),
+    'temporada oculta en PRO: año concreto → 404' => static fn() => assertStatus('/temporada/2026', 404, $base),
+    'temporada oculta en PRO: fuera del nav' => static function () use ($base): void {
+        $r = assertStatus('/', 200, $base);
+        if (str_contains($r['body'], 'href="/temporada"')) {
+            throw new RuntimeException('home → el enlace a /temporada no debería aparecer en el nav mientras está oculta en PRO');
         }
     },
-    'temporada 2026 JSON-LD breadcrumbs' => static fn() => assertJsonLd('/temporada/2026', $base, 'BreadcrumbList'),
-    'temporada sin contratos → noindex + mensaje vacío' => static function () use ($base): void {
-        assertNoIndex('/temporada/2025', $base);
-        $r = assertStatus('/temporada/2025', 200, $base);
-        if (!str_contains($r['body'], 'Todavía no hay contratos registrados')) {
-            throw new RuntimeException('/temporada/2025 → falta el mensaje de estado vacío');
+    'temporada oculta en PRO: fuera del sitemap' => static function () use ($base): void {
+        $r = assertStatus('/sitemap.xml', 200, $base);
+        if (str_contains($r['body'], '/temporada/')) {
+            throw new RuntimeException('sitemap.xml → no debería listar URLs de /temporada mientras está oculta en PRO');
         }
     },
-    'temporada año fuera de rango (1500) 404' => static fn() => assertStatus('/temporada/1500', 404, $base),
+    'temporada oculta en PRO: fuera de llms.txt' => static function () use ($base): void {
+        $r = assertStatus('/llms.txt', 200, $base);
+        if (str_contains($r['body'], '/temporada')) {
+            throw new RuntimeException('llms.txt → no debería listar /temporada mientras está oculta en PRO');
+        }
+    },
 
     // ── Hubs de catálogo indexables (C1) ────────────────────────────────────
     'hub año con sustancia 200 + indexable' => static fn() => assertNotNoIndex('/marcha/ano/1995', $base),
