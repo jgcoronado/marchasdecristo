@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H;
+<?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H; use App\Media as MD;
 /** @var string $mode @var array $session @var string $action
  *  @var array<string,mixed> $marcha @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors
  *  @var bool $proposalMode @var array|null $notice @var string|null $error */
@@ -59,7 +59,17 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
         <div class="field">
             <label class="field-label" for="AUDIO">Audio (URL)</label>
             <input class="input" id="AUDIO" name="AUDIO" type="text" value="<?= $val('AUDIO') ?>" placeholder="p. ej. https://www.youtube.com/watch?v=…">
-            <p class="field-help muted small">URL de YouTube u otro servicio de audio. Se usa para el reproductor embebido en la ficha pública.</p>
+            <p class="field-help muted small">URL de YouTube, Spotify, Deezer o Apple Music. Se usa para el reproductor embebido en la ficha pública; si se deja vacío, la ficha usa el primer enlace de streaming publicado de la marcha.</p>
+<?php /* Comprobación in situ de que la URL guardada es la que se cree: se
+         previsualiza con el reproductor del servicio que sea, no solo YouTube. */ ?>
+<?php $reproAudio = MD::embedDeUrl($marcha['AUDIO'] ?? null); if ($reproAudio !== null): ?>
+            <iframe style="width:100%;max-width:30rem;height:<?= (int) ($reproAudio['alto'] ?? 220) ?>px;margin-top:0.5rem;border-radius:var(--radius-sm);border:1px solid var(--border)"
+                    src="<?= V::e($reproAudio['embed']) ?>" loading="lazy"
+                    title="Previsualización del audio" frameborder="0" allowfullscreen
+                    allow="autoplay; encrypted-media; clipboard-write"></iframe>
+<?php elseif (trim((string) ($marcha['AUDIO'] ?? '')) !== ''): ?>
+            <p class="field-help muted small">No se reconoce el servicio de esta URL, así que no se puede previsualizar aquí ni en la ficha pública.</p>
+<?php endif; ?>
         </div>
 <?php endif; ?>
 

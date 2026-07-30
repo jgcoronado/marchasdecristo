@@ -86,9 +86,30 @@
         });
     }
 
+    // Fachada genérica para el resto de servicios (Spotify, Deezer, Apple):
+    // no tienen miniatura pública que enseñar, así que la fachada es un botón
+    // con el nombre del servicio y, al pulsarlo, se inserta su reproductor.
+    // Igual que con YouTube, hasta ese clic no se pide nada a terceros.
+    function initFacade(embed) {
+        var btn = embed.querySelector('.mdfacade');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var src = embed.getAttribute('data-embed');
+            if (!src) return;
+            var iframe = document.createElement('iframe');
+            iframe.src = src;
+            iframe.title = embed.getAttribute('data-embed-title') || 'Reproductor de audio';
+            iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+            iframe.setAttribute('loading', 'lazy');
+            embed.innerHTML = '';
+            embed.appendChild(iframe);
+        });
+    }
+
     Array.prototype.forEach.call(document.querySelectorAll('table[data-sortable]'), initSort);
     Array.prototype.forEach.call(document.querySelectorAll('input[data-filter]'), initFilter);
     Array.prototype.forEach.call(document.querySelectorAll('.ytembed[data-ytid]'), initYtFacade);
+    Array.prototype.forEach.call(document.querySelectorAll('.mdembed[data-embed]'), initFacade);
 
     // Autocompletado global (M3): desplegable en vivo contra /api/buscar.
     // Mejora progresiva — sin JS, el formulario envía a /buscar igualmente.

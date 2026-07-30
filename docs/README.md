@@ -20,10 +20,11 @@ ver [context.md](context.md) §7 y [archive/](archive/).
 9. **[cutover-fase5.md](cutover-fase5.md)** — Runbook ejecutado del cutover DNS a PHP.
 10. **[monitoring.md](monitoring.md)** — Monitorización externa de uptime (UptimeRobot sobre `/health`): configuración, qué cubre y qué no, falsas alarmas esperadas, runbook.
 11. **[entornos.md](entornos.md)** — Entornos local, PRE (subdominio con noindex, aislado vía `env.php`) y PRO: mapa, pipeline de despliegue automático (push a `pre` → PRE; fusión en `main` → PRO), puesta en marcha y limitaciones.
-12. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
-13. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
-14. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
-15. **[pendientes-manuales-2026-07-29.md](pendientes-manuales-2026-07-29.md)** — Documento de corta vida: qué puedes avanzar tú a mano ahora mismo y qué necesita tu confirmación explícita antes de seguir, al arrancar la tarea B-01 del roadmap. Se archiva en cuanto se resuelva; no es un tracker paralelo a `roadmap.md`.
+12. **[ingesta-streaming.md](ingesta-streaming.md)** — Ingesta de marchas desde el catálogo de streaming de las bandas (Spotify/Deezer/Apple): pipeline, descarte definitivo con veto, deshacer, y resultado de la primera pasada real.
+13. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
+14. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
+15. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
+16. **[pendientes-manuales-2026-07-29.md](pendientes-manuales-2026-07-29.md)** — Documento de corta vida: qué puedes avanzar tú a mano ahora mismo y qué necesita tu confirmación explícita antes de seguir, al arrancar la tarea B-01 del roadmap. Se archiva en cuanto se resuelva; no es un tracker paralelo a `roadmap.md`.
 
 Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP con más detalle operativo del día a día que `context.md`.
 

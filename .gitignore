@@ -15,8 +15,10 @@
 *.db-shm
 *.db-wal
 
-# Salidas generadas del matcher de streaming
+# Salidas generadas del matcher de streaming y del descubridor de marchas
+# (candidatos.ndjson/.csv, informe.md y la caché HTTP: se regeneran)
 /tools/music_links/*.csv
+/tools/music_links/out/
 __pycache__/
 
 # Session logs (auto-generated docs)

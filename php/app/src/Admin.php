@@ -749,7 +749,9 @@ final class Admin
             'session' => $session, 'filters' => $filters, 'page' => $page,
             'result' => $result, 'bandas' => IngestaRepo::bandasConCandidatos($filters['estado']),
             'counts' => IngestaRepo::counts(), 'backQs' => http_build_query($backParams),
-        ], ['title' => 'Ingesta desde YouTube — Marchas de Cristo', 'noindex' => true]);
+            'ultimoDescarte' => IngestaRepo::ultimoDescarte(),
+            'vetos' => IngestaRepo::vetosDe($result['data']),
+        ], ['title' => 'Ingesta de marchas — Marchas de Cristo', 'noindex' => true]);
     }
 
     /** Reconstruye de forma segura la query de filtros de /dashboard/ingesta a partir de un string arbitrario
@@ -781,9 +783,11 @@ final class Admin
             }
         }
 
-        $bandaId = (int) ($cand['BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? 0);
-        $estiloSugerido = null;
-        if ($bandaId > 0) {
+        // Estilo: manda el que propuso el descubridor (P_ESTILO) si viene; si
+        // no, se deduce del resto de marchas de la banda, como hasta ahora.
+        $bandaId = (int) ($cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? 0);
+        $estiloSugerido = in_array($cand['P_ESTILO'] ?? null, ['CCTT', 'AM'], true) ? (string) $cand['P_ESTILO'] : null;
+        if ($estiloSugerido === null && $bandaId > 0) {
             $eRow = Db::one(
                 "SELECT ESTILO FROM marcha WHERE BANDA_ESTRENO = ? AND ESTILO IN ('CCTT','AM')
                  GROUP BY ESTILO ORDER BY COUNT(*) DESC LIMIT 1",
@@ -811,11 +815,11 @@ final class Admin
         $fields = [];
         foreach (AdminRepo::INSERTABLE_MARCHA as $f) $fields[$f] = $_POST[$f] ?? '';
         $ids = self::postAutoresIds();
-        $guardarAudio = isset($_POST['guardar_audio']);
+        $guardarOrigen = isset($_POST['guardar_origen']);
 
         if ($ids === []) Http::redirect("/dashboard/ingesta/$id?err=AUTHORS_REQUIRED$backSuffix", 302);
 
-        $r = AdminRepo::aceptarCandidato($id, $fields, $ids, $guardarAudio);
+        $r = AdminRepo::aceptarCandidato($id, $fields, $ids, $guardarOrigen);
         if (($r['code'] ?? '') === 'CREATED') {
             $sep = $back !== '' ? '&' : '';
             Http::redirect("/dashboard/ingesta?$back{$sep}aceptado=" . $r['marchaId'], 302);
@@ -850,6 +854,23 @@ final class Admin
         $r = AdminRepo::descartarVarios($ids);
         if (($r['code'] ?? '') !== 'DISCARDED') Http::redirect("/dashboard/ingesta?$back{$sep}err=" . ($r['code'] ?? 'ERROR'), 302);
         Http::redirect("/dashboard/ingesta?$back{$sep}descartados=" . $r['count'], 302);
+    }
+
+    /**
+     * Deshace el último descarte (uno solo o el lote entero del descarte
+     * masivo): los candidatos vuelven a "pendiente" y se levanta su veto.
+     * Un solo paso — al deshacerlo, el botón desaparece del listado.
+     */
+    public static function ingestaDeshacerDescarte(): void
+    {
+        $session = Auth::requireAdmin();
+        $back = self::ingestaBackQuery((string) ($_POST['ref'] ?? ''));
+        $sep = $back !== '' ? '&' : '';
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/ingesta?$back{$sep}err=CSRF", 302);
+
+        $r = AdminRepo::deshacerUltimoDescarte();
+        if (($r['code'] ?? '') !== 'UNDONE') Http::redirect("/dashboard/ingesta?$back{$sep}err=" . ($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/ingesta?$back{$sep}recuperados=" . $r['count'], 302);
     }
 
     // ── Enlaces de streaming: curación (Spotify / Apple / Deezer) ────────────

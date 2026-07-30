@@ -15,6 +15,23 @@ final class IngestaRepo
     public const ESTADOS = ['pendiente', 'aceptado', 'descartado', 'duplicado'];
     public const CLASIFICACIONES = ['estreno', 'novedad', 'recuperacion'];
 
+    /**
+     * Fuentes de las que puede venir un candidato. `youtube` es la original
+     * (tools/ingest/*.mjs); el resto son catálogos de streaming de la banda
+     * (tools/music_links/descubrir_marchas.py). Las que coinciden con
+     * EnlaceRepo::SERVICIOS pueden publicarse como enlace de la marcha al
+     * aceptar el candidato.
+     */
+    public const FUENTES = ['youtube', 'spotify', 'deezer', 'apple'];
+
+    /** Etiquetas de fuente para el panel. */
+    public const FUENTE_LABEL = [
+        'youtube' => 'YouTube',
+        'spotify' => 'Spotify',
+        'deezer' => 'Deezer',
+        'apple' => 'Apple Music',
+    ];
+
     /** Mismos umbrales que tools/ingest/dedup.mjs, para que el criterio sea consistente. */
     private const UMBRAL_MEDIA = 0.75;
 
@@ -29,9 +46,14 @@ final class IngestaRepo
      *
      * Se compara tanto contra $bandaEstreno (la banda de estreno final de la
      * marcha, que el revisor puede haber corregido a mano) como contra
-     * $bandaOrigenCand (el canal de YouTube del candidato aceptado, si
-     * aplica) — un candidato duplicado suele compartir canal con el
+     * $bandaOrigenCand (el canal/artista de origen del candidato aceptado, si
+     * aplica) — un candidato duplicado suele compartir origen con el
      * aceptado aunque la banda de estreno real sea otra.
+     *
+     * Excepción: los candidatos con **veto** (descartados a mano, ver
+     * `ingest_veto`) no se reabren nunca. Un descarte manual es una decisión
+     * definitiva sobre ese origen concreto; solo el botón de deshacer del
+     * panel lo revierte.
      */
     public static function reevaluarTrasCrearMarcha(
         int $marchaId,
@@ -46,11 +68,13 @@ final class IngestaRepo
 
         $ph = implode(',', array_fill(0, count($bandas), '?'));
         $rows = Db::all(
-            "SELECT ID_CAND, P_TITULO, VIDEO_TITULO, ESTADO, MOTIVO
-             FROM ingest_candidato
-             WHERE ESTADO IN ('pendiente', 'descartado')
-               AND (COALESCE(P_BANDA_ESTRENO, ID_BANDA) IN ($ph) OR ID_BANDA IN ($ph))
-               AND ID_CAND != ?",
+            "SELECT c.ID_CAND, c.P_TITULO, c.VIDEO_TITULO, c.ESTADO, c.MOTIVO
+             FROM ingest_candidato c
+             WHERE c.ESTADO IN ('pendiente', 'descartado')
+               AND (COALESCE(c.P_BANDA_ESTRENO, c.ID_BANDA) IN ($ph) OR c.ID_BANDA IN ($ph))
+               AND c.ID_CAND != ?
+               AND NOT EXISTS (SELECT 1 FROM ingest_veto v
+                               WHERE v.FUENTE = c.FUENTE AND v.FUENTE_ID = c.VIDEO_ID)",
             [...$bandas, ...$bandas, $excluirIdCand ?? 0]
         );
 
@@ -76,6 +100,65 @@ final class IngestaRepo
                 );
             }
         }
+    }
+
+    /**
+     * Último descarte deshacible, o null si no hay ninguno (nunca se descartó,
+     * o el último descarte ya se deshizo). Trae el título del candidato cuando
+     * el descarte fue de uno solo, para poder nombrarlo en el botón.
+     *
+     * @return array{N:int, CREATED_AT:string, USUARIO:?string, TITULO:?string}|null
+     */
+    public static function ultimoDescarte(): ?array
+    {
+        $row = Db::one('SELECT IDS_JSON, N, USUARIO, CREATED_AT FROM ingest_descarte_ultimo WHERE ID = 1');
+        if ($row === null) return null;
+
+        $ids = json_decode((string) $row['IDS_JSON'], true);
+        if (!is_array($ids) || $ids === []) return null;
+
+        $titulo = null;
+        if (count($ids) === 1) {
+            $c = Db::one('SELECT P_TITULO, VIDEO_TITULO FROM ingest_candidato WHERE ID_CAND = ?', [(int) $ids[0]]);
+            if ($c !== null) $titulo = (string) ($c['P_TITULO'] ?: $c['VIDEO_TITULO']);
+        }
+
+        return [
+            'N' => (int) $row['N'],
+            'CREATED_AT' => (string) $row['CREATED_AT'],
+            'USUARIO' => $row['USUARIO'] !== null ? (string) $row['USUARIO'] : null,
+            'TITULO' => $titulo,
+        ];
+    }
+
+    /**
+     * Orígenes vetados (servicio + id de pista/vídeo) de una lista de
+     * candidatos, para que el panel pueda marcar cuáles no volverán a
+     * proponerse. Devuelve un set "fuente|id" => true.
+     *
+     * @param list<array<string,mixed>> $candidatos
+     * @return array<string,true>
+     */
+    public static function vetosDe(array $candidatos): array
+    {
+        $claves = [];
+        $ids = [];
+        foreach ($candidatos as $c) {
+            $id = (string) ($c['VIDEO_ID'] ?? '');
+            if ($id === '') continue;
+            $claves[((string) ($c['FUENTE'] ?? 'youtube')) . '|' . $id] = true;
+            $ids[$id] = true;
+        }
+        if ($claves === []) return [];
+
+        $ids = array_keys($ids);
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $out = [];
+        foreach (Db::all("SELECT FUENTE, FUENTE_ID FROM ingest_veto WHERE FUENTE_ID IN ($ph)", $ids) as $v) {
+            $k = $v['FUENTE'] . '|' . $v['FUENTE_ID'];
+            if (isset($claves[$k])) $out[$k] = true;
+        }
+        return $out;
     }
 
     /** Conteos por estado, para las pestañas/badges del panel. */
@@ -118,8 +201,8 @@ final class IngestaRepo
         $offset = ($page - 1) * $limit;
 
         $rows = Db::all(
-            "SELECT c.ID_CAND, c.ID_BANDA, c.VIDEO_ID, c.VIDEO_URL, c.VIDEO_TITULO, c.PUBLICADO_AT,
-                    c.DURACION_SEG, c.CLASIFICACION, c.CONFIANZA, c.FLAGS, c.P_TITULO, c.P_FECHA,
+            "SELECT c.ID_CAND, c.ID_BANDA, c.FUENTE, c.FUENTE_ALBUM, c.VIDEO_ID, c.VIDEO_URL, c.VIDEO_TITULO,
+                    c.PUBLICADO_AT, c.DURACION_SEG, c.CLASIFICACION, c.CONFIANZA, c.FLAGS, c.P_TITULO, c.P_FECHA,
                     c.MATCH_MARCHA_ID, c.MATCH_SCORE, c.ESTADO, b.NOMBRE_BREVE
              FROM ingest_candidato c
              LEFT JOIN banda b ON b.ID_BANDA = c.ID_BANDA

@@ -14,6 +14,10 @@ declare(strict_types=1);
  * Lee todos los .sql de app/tools/sql/ en orden alfabético y los ejecuta contra
  * la BD de `config.php` (respeta DB_PATH). Los .sql son CREATE ... IF NOT EXISTS,
  * así que re-ejecutar no rompe nada ni pierde datos.
+ *
+ * Las columnas añadidas a tablas ya existentes no caben en ese esquema (SQLite
+ * no tiene ADD COLUMN IF NOT EXISTS): van al final de este script, guardadas
+ * por un PRAGMA table_info que comprueba si ya están.
  */
 
 define('APP_DIR', dirname(__DIR__));       // .../app
@@ -50,6 +54,35 @@ try {
         // Cada fichero es un lote de sentencias; PDO::exec ejecuta múltiples con ';'.
         $pdo->exec($sql);
         echo 'aplicado: ' . basename($file) . "\n";
+    }
+
+    // Columnas nuevas sobre tablas que ya existen. SQLite no tiene
+    // "ALTER TABLE … ADD COLUMN IF NOT EXISTS" (menos aún la 3.34.1 del host),
+    // así que se comprueba con PRAGMA table_info antes de añadir: así este
+    // script sigue siendo idempotente sin necesidad de un registro de
+    // migraciones aplicadas.
+    $columnasNuevas = [
+        'ingest_candidato' => [
+            // De qué servicio viene el candidato. Las filas anteriores a la
+            // ingesta de streaming son todas de YouTube, de ahí el DEFAULT.
+            'FUENTE' => "TEXT NOT NULL DEFAULT 'youtube'",
+            // Contexto del origen cuando la fuente es un catálogo de streaming:
+            // disco al que pertenece la pista (nombre y enlace).
+            'FUENTE_ALBUM' => 'TEXT',
+            'FUENTE_ALBUM_URL' => 'TEXT',
+            // Estilo propuesto (CCTT/AM) inferido por el descubridor.
+            'P_ESTILO' => 'TEXT',
+        ],
+    ];
+    foreach ($columnasNuevas as $tabla => $columnas) {
+        $existe = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='$tabla'")->fetchColumn();
+        if ($existe === false) continue;
+        $actuales = $pdo->query("PRAGMA table_info($tabla)")->fetchAll(PDO::FETCH_COLUMN, 1);
+        foreach ($columnas as $col => $def) {
+            if (in_array($col, $actuales, true)) continue;
+            $pdo->exec("ALTER TABLE $tabla ADD COLUMN $col $def");
+            echo "añadida: $tabla.$col\n";
+        }
     }
 
     // Verificación: listar las tablas ingest_* resultantes.
