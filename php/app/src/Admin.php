@@ -1195,7 +1195,10 @@ final class Admin
         $overrideAutores = ($prop['entidad'] ?? '') === 'marcha' ? self::postAutoresIds() : null;
 
         $r = PropuestaRepo::aplicar($id, (string) ($session['user'] ?? ''), $overrideDatos, $overrideAutores);
-        if (in_array($r['code'] ?? '', ['CREATED', 'UPDATED'], true)) Http::redirect('/dashboard/propuestas?aplicada=1', 302);
+        if (in_array($r['code'] ?? '', ['CREATED', 'UPDATED'], true)) {
+            self::notifPropuesta('aceptada', $prop);
+            Http::redirect('/dashboard/propuestas?aplicada=1', 302);
+        }
         Http::redirect("/dashboard/propuesta/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
@@ -1205,8 +1208,77 @@ final class Admin
         $id = (string) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/propuesta/$id?err=CSRF", 302);
         $motivo = trim((string) ($_POST['motivo'] ?? ''));
+        $prop = PropuestaRepo::fetchPendiente($id);
         $r = PropuestaRepo::rechazar($id, (string) ($session['user'] ?? ''), $motivo !== '' ? $motivo : null);
         if (($r['code'] ?? '') !== 'REJECTED') Http::redirect("/dashboard/propuesta/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
+        if ($prop !== null) self::notifPropuesta('rechazada', $prop, $motivo !== '' ? $motivo : null);
         Http::redirect('/dashboard/propuestas?rechazada=1', 302);
+    }
+
+    /** Título legible de una propuesta para usar en el asunto/cuerpo del email. */
+    private static function propuestaLabel(array $prop): string
+    {
+        $datos = (array) ($prop['datos'] ?? []);
+        return match ($prop['entidad'] ?? '') {
+            'marcha' => (string) ($datos['TITULO'] ?? 'marcha sin título'),
+            'autor'  => trim(($datos['NOMBRE'] ?? '') . ' ' . ($datos['APELLIDOS'] ?? '')) ?: 'compositor sin nombre',
+            'banda'  => (string) ($datos['NOMBRE_COMPLETO'] ?? $datos['NOMBRE_BREVE'] ?? 'banda sin nombre'),
+            default  => 'propuesta',
+        };
+    }
+
+    /**
+     * Envía un email al editor que creó la propuesta notificando el resultado.
+     * Es una llamada de «mejor esfuerzo»: si no hay email configurado o mail()
+     * falla, se silencia el error para no interrumpir el flujo del admin.
+     *
+     * @param 'aceptada'|'rechazada' $accion
+     * @param array<string,mixed>    $prop
+     */
+    private static function notifPropuesta(string $accion, array $prop, ?string $motivo = null): void
+    {
+        $autor = (string) ($prop['autor'] ?? '');
+        $to = Mailer::editorEmail($autor);
+        if ($to === '') return;
+
+        $titulo   = self::propuestaLabel($prop);
+        $entidad  = (string) ($prop['entidad'] ?? 'entidad');
+        $siteUrl  = rtrim((string) ($GLOBALS['config']['site_url'] ?? 'https://marchasdecristo.com'), '/');
+        $eTitulo  = htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8');
+        $eEntidad = htmlspecialchars(ucfirst($entidad), ENT_QUOTES, 'UTF-8');
+        $eSiteUrl = htmlspecialchars($siteUrl, ENT_QUOTES, 'UTF-8');
+        $pie      = '<hr style="border:0;border-top:1px solid #dce0eb;margin:1.5rem 0">'
+                  . '<p style="font-size:.8rem;color:#8890a1">Marchas de Cristo · '
+                  . '<a href="' . $eSiteUrl . '" style="color:#3a4d9e">' . $eSiteUrl . '</a></p>';
+
+        if ($accion === 'aceptada') {
+            $subject = "Tu propuesta de {$entidad} ha sido aceptada — Marchas de Cristo";
+            $html = '<!doctype html><html lang="es"><body style="font-family:sans-serif;color:#181b24;'
+                . 'max-width:38rem;margin:2rem auto;padding:0 1rem;line-height:1.55">'
+                . '<p style="font-size:.8rem;color:#8890a1;font-family:monospace;margin:0 0 1rem">MARCHAS DE CRISTO</p>'
+                . '<h1 style="font-size:1.3rem;border-bottom:2px solid #181b24;padding-bottom:.4rem;margin:0 0 1rem">'
+                . 'Propuesta aceptada</h1>'
+                . '<p>Tu propuesta <strong>«' . $eTitulo . '»</strong> (' . $eEntidad . ') '
+                . 'ha sido revisada y <strong>aceptada</strong>.</p>'
+                . '<p>Los cambios ya están disponibles en el catálogo.</p>'
+                . $pie . '</body></html>';
+        } else {
+            $subject = "Tu propuesta de {$entidad} no ha podido aplicarse — Marchas de Cristo";
+            $motivoHtml = $motivo !== null
+                ? '<p><strong>Motivo:</strong> ' . htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8') . '</p>'
+                : '';
+            $html = '<!doctype html><html lang="es"><body style="font-family:sans-serif;color:#181b24;'
+                . 'max-width:38rem;margin:2rem auto;padding:0 1rem;line-height:1.55">'
+                . '<p style="font-size:.8rem;color:#8890a1;font-family:monospace;margin:0 0 1rem">MARCHAS DE CRISTO</p>'
+                . '<h1 style="font-size:1.3rem;border-bottom:2px solid #181b24;padding-bottom:.4rem;margin:0 0 1rem">'
+                . 'Propuesta no aplicada</h1>'
+                . '<p>Tu propuesta <strong>«' . $eTitulo . '»</strong> (' . $eEntidad . ') '
+                . 'ha sido revisada y no ha podido aplicarse en este momento.</p>'
+                . $motivoHtml
+                . '<p>Si tienes dudas, puedes ponerte en contacto con el administrador del catálogo.</p>'
+                . $pie . '</body></html>';
+        }
+
+        Mailer::send($to, $subject, $html);
     }
 }
