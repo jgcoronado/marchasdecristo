@@ -47,8 +47,8 @@ documentado, que es lo que hace que se planifique mal.
 
 | Ref | Tarea | Coste | Estado |
 |---|---|---|---|
-| **B-01** | Fusionar `claude/diseño-discreto-sencillo-jymud4` y después `claude/filtrado-candidatas-videos-drdd1y`; resolver el conflicto de `docs/admin-panel.md`; relanzar el smoke en local sobre el resultado fusionado; push a `pre`. **Falta**: smoke remoto contra PRE + validación en navegador, PR de `pre` a `main`, smoke remoto PRO. Borrar `…x60kfw` (redundante) | 1–2 h | 🟡 En PRE, pendiente de validar y fusionar a `main` |
-| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php` | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO |
+| **B-01** | Fusionar todas las ramas `claude/*` sueltas + M6/M7 en `claude/siguiente-que-hacer-pvvxrn`, traer los fixes de mapa que ya estaban en `pre`, relanzar smoke en local (82/82), push a `pre` → deploy automático + smoke remoto contra PRE (`/health`, robots.txt, cinta de preproducción, `/mapa` y `/temporada` visibles, ficha real del sitemap, panel protegido). PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) `pre`→`main` abierto. **Falta**: validación visual en navegador (mantenedor), fusionar el PR (dispara deploy a PRO), borrar las 4 ramas ya integradas (bloqueado: el proxy git de la sesión no permite borrar refs remotas — pendiente a mano) | 1–2 h | 🟡 PR abierto, pendiente de validación visual y de fusionar a `main` |
+| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php`. **No ejecutable desde una sesión sandbox**: requiere `.env.ftp` (credenciales FTP de producción), `php/data/mdc.db` local real y `config.local.php` — ninguno existe fuera de la máquina del mantenedor | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO, y solo lo puede correr el mantenedor |
 | **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
 | ~~OPS-03 · T-03~~ | ~~Verificar en Plesk si el cron de backup existe de verdad~~ | — | ✅ 2026-07-29 — confirmado en Plesk, backup manual de comprobación ejecutado (`mdc-20260729-132640.db`, 9,6 MB). Detalle en [pendientes-post-cutover.md §2](pendientes-post-cutover.md) |
 | ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. Implementado en `Pages::temporadaVisible()`, va dentro de B-01 |
@@ -209,32 +209,38 @@ Wikidata (enlazado de autoridades).
 
 ## 4. Ramas abiertas (última actualización 2026-07-30)
 
-**Estado: toda la deuda de ramas consolidada en `claude/siguiente-que-hacer-pvvxrn`. Pendiente de llegar a `pre` y de ahí a `main`.**
+**Estado: todo consolidado y en `pre`, con PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) abierto hacia `main` (sin fusionar a propósito — la fusión a `main` dispara el deploy a PRO y queda para cuando el mantenedor valide en navegador).**
 
-Las cuatro ramas `claude/*` que estaban sueltas en el remoto (más los commits de M6 y M7 que ya vivían en esta rama) se fusionaron en `claude/siguiente-que-hacer-pvvxrn` el 2026-07-30 y se empujó al remoto. Una sesión anterior las había integrado en `local/b01-integracion` → `pre`; esa integración es la misma que ahora vive en `siguiente-que-hacer`.
+Las cuatro ramas `claude/*` que estaban sueltas en el remoto (más los commits de M6 y M7) se fusionaron en `claude/siguiente-que-hacer-pvvxrn`, que luego se fusionó también con `origin/pre` (traía fixes de mapa de otra sesión que no estaban en `siguiente-que-hacer`) y se empujó a `pre` en fast-forward — disparando CI + deploy automático a PRE.
 
 | Origen | Contenido | Estado |
 |---|---|---|
 | `claude/project-roadmap-review-yrc7zt` | Revisión del roadmap, documentación de B-01 y decisiones de arranque (docs únicamente) | ✅ Fusionada |
 | `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Fusionada |
-| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto** |
+| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto (bloqueado, ver abajo)** |
 | `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), cierra [technical-debt §5.1](technical-debt.md) | ✅ Fusionada |
-| `claude/siguiente-que-hacer-pvvxrn` (esta) | **M6** (accesibilidad + hoja de impresión) + **M7** (notificaciones editoriales: Mailer, digest semanal, notif de propuesta) + integración de todas las ramas anteriores | ⏳ En remoto, pendiente de llegar a `pre` → `main` |
+| `claude/siguiente-que-hacer-pvvxrn` | **M6** (accesibilidad + hoja de impresión) + **M7** (notificaciones editoriales: Mailer, digest semanal, notif de propuesta) + integración de todas las ramas anteriores + fixes de mapa traídos de `pre` | ✅ En `pre`, PR abierto a `main` |
 
 **Conflictos al fusionar** (todos resueltos):
-- `docs/admin-panel.md`: colisión de numeración en §11 (diseño añadía «Discos», filtrado añadía «Ingesta») — se conservan ambas: §11 Discos, §12 Ingesta.
+- `docs/admin-panel.md` (×2, en distintas fusiones): colisiones de numeración en §11/§12 — se conservan todas las secciones, renumeradas en orden.
 - `php/app/src/Admin.php`: el bloque M7 (`notifPropuesta`/`propuestaLabel`) + los métodos de disco coexisten en el mismo fichero — se incluyeron los dos bloques.
-- `php/public/assets/app.css`: la rama diseño cambiaba `font-size` del input de búsqueda a `0.92rem` y eliminaba `font-family: var(--mono)`; HEAD añadía `:focus-within` de M6 — resolución: `font-size: 0.92rem` del diseño + línea `:focus-within` de M6.
+- `php/public/assets/app.css`: `font-size: 0.92rem` del rediseño + `:focus-within` de accesibilidad (M6) conviven; el contraste de `--acc` subido por el fix del mapa se mantuvo.
+
+**Verificación hecha:**
+- Lint (`php -l`) limpio en todo el árbol.
+- **82/82 smoke tests** en local, reproduciendo `ci.yml` (fixture determinista + servidor embebido + `ci_smoke.php`).
+- **Smoke remoto contra PRE** (`https://marchasdecristo.jaguerra27.helioho.st`): `/health` → `entorno: pre`, `db: ok`; `robots.txt` con `Disallow: /` total (correcto, PRE no se indexa); cinta de preproducción presente en el HTML; `/mapa` → 200 y `/temporada` → 302 (ambas visibles, confirma que el gate PRE/PRO distingue bien); ficha de marcha real tomada del sitemap → 200 con JSON-LD `MusicComposition`; `/dashboard/disco/add` sin sesión → 302 a `/login`; skip-link de M6 presente en el DOM de portada.
+- **Nota sobre `ci_smoke.php` contra PRE**: correrlo tal cual contra PRE da ~30 "fallos" que **no son bugs** — el script está escrito para la fixture determinista de CI, no para datos reales. En PRE fallan por diseño: noindex/robots-disallow global (comparado contra fixture sin ese gate) y slugs/contenido de la fixture que no existen en la BD real que PRE espeja. No usar `ci_smoke.php` sin más contra un entorno con datos reales.
 
 ### Qué falta para cerrar B-01
 
-1. **Smoke tests en local** (`php -l` + `ci_smoke.php`) sobre el árbol consolidado.
-2. **Fast-forward de `pre` a este estado** (o merge) + push para disparar CI y deploy a PRE.
-3. **Smoke remoto contra PRE** + validación en el navegador: cinta de preproducción, `/health` con `entorno: pre`, el rediseño, el alta de discos con portada, que `/temporada` siga visible en PRE.
-4. **PR de `pre` a `main`** y fusionar.
-5. Deploy automático a PRO + smoke remoto PRO — ahí `/temporada` debe dar 404.
-6. Borrar las ramas `claude/*` ya integradas del remoto (ver la tabla arriba).
-7. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el código esté en `main`/PRO.
+1. ~~Smoke tests en local~~ ✅
+2. ~~Push a `pre` (fast-forward) → deploy automático~~ ✅
+3. ~~Smoke remoto contra PRE~~ ✅ — **falta la validación visual en navegador** (mantenedor): cinta de preproducción, rediseño, alta de discos con portada.
+4. ~~PR de `pre` a `main`~~ ✅ abierto ([#27](https://github.com/jgcoronado/mdc-back/pull/27)) — **sin fusionar a propósito**, pendiente de la validación del punto 3.
+5. Fusionar el PR → deploy automático a PRO + smoke remoto PRO (ahí `/temporada` y `/mapa` deben dar 404).
+6. Borrar las ramas `claude/*` ya integradas del remoto — **bloqueado**: el proxy git de la sesión que hizo la consolidación no tiene permiso para borrar refs remotas (403 en `git push --delete`); hace falta borrarlas a mano o desde una sesión/token con ese permiso.
+7. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el código esté en `main`/PRO — **solo ejecutable por el mantenedor**: requiere `.env.ftp`, `php/data/mdc.db` local y `config.local.php`, que no existen en una sesión sandbox.
 8. **OPS-02**: ejecutar `seed_dedicatorias.php` en prod (Plesk → PHP 8.4 explícito).
 9. **M7 en producción**: añadir `mail_from`, `mail_admin_to`, `notif_emails` a `config.local.php`; añadir `digest_semanal.php` a Plesk Scheduled Tasks (PHP 8.4, lunes 08:00).
 
