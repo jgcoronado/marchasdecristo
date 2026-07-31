@@ -10,7 +10,7 @@
 | Operativa / observabilidad | 0 | — |
 | Deploy | 1 | 🟡 Media |
 | Calidad de código PHP | 0 | — |
-| Base de datos (SQLite) | 1 | 🟢 Baja |
+| Base de datos (SQLite) | 2 | 🟢 Baja |
 | Panel de administración | 1 | 🟢 Baja |
 
 **Contexto**: desde el consejo de sabios (2026-07-12) se han cerrado las 8
@@ -88,6 +88,40 @@ además de deuda).
 - **Fix**: revisar `db-analysis.md` tras el cutover y decidir qué se normaliza
   ahora que SQLite (y no MySQL) es el motor definitivo. Baja prioridad — no
   hay corrupción de datos, solo aspereza del esquema.
+
+### 4.2 `contrato_localidad` a medio terminar (hallado 2026-07-31) 🟢
+- El instalador local `instalar_temporada_2026.php` (ejecutado el 2026-07-27,
+  cargó los 92 acompañamientos reales de Sevilla 2026 en `contrato`) traía
+  también una migración nueva, `contrato_localidad` — tabla satélite pensada
+  para guardar la localidad **del acompañamiento** (Sevilla, Málaga…),
+  distinta de `banda.LOCALIDAD` (la sede de la banda). El propio comentario
+  de la migración explica por qué importa: agrupar `/temporada/{año}` por la
+  localidad de la banda coloca mal los contratos de bandas que tocan fuera de
+  su localidad.
+- La tabla **existe** en el `mdc.db` local (la creó el instalador) pero está
+  **vacía** — la carga real solo llegó a poblar `contrato` (92 filas), no
+  `contrato_localidad`. Y `Repo::temporada()` (`php/app/src/Repo.php:1589`)
+  sigue agrupando por `b.LOCALIDAD` (banda), no por esta tabla: el comentario
+  original de la migración decía "ya corregido para leer esta tabla en su
+  lugar", pero eso no es así en el código actual — probablemente porque el
+  trabajo de "agrupado por ciudad" que sí se commiteó esos mismos días
+  (`14e5a52 Add temporada`, `0f75c0e fix(temporada)`) tomó otro camino y dejó
+  huérfana esta pieza.
+- El fichero de migración en sí nunca se commiteó (quedó como
+  `php/app/tools/sql/006_contrato_localidad.sql` sin trackear, además con un
+  número duplicado: `006_sync_dedicatoria_alias_localidad.sql` ya ocupaba ese
+  hueco). Renumerado y commiteado como
+  [`009_contrato_localidad.sql`](../php/app/tools/sql/009_contrato_localidad.sql)
+  el 2026-07-31, con el comentario corregido para no afirmar algo falso.
+- **Impacto real hoy: ninguno** — `/temporada` está oculta en PRO (DEC-01), y
+  los 92 contratos cargados son todos de Sevilla, así que el heurístico
+  incorrecto no se nota mientras no haya bandas foráneas en los datos.
+- **Fix, si se retoma**: poblar `contrato_localidad` (los 92 registros
+  actuales son todos `LOCALIDAD = 'Sevilla'`, según `contratos_ss_sevilla_2026.csv`
+  en la raíz del repo) y cambiar `Repo::temporada()`/`Pages::temporada()` para
+  agrupar por esta tabla con fallback a `banda.LOCALIDAD` cuando falte fila.
+  No es urgente mientras `/temporada` siga oculta en producción y sin datos de
+  localidades distintas a Sevilla.
 
 ---
 

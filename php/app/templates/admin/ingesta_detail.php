@@ -95,6 +95,15 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     </div>
 
 <?php if ($cand['ESTADO'] === 'pendiente'): ?>
+
+    <?php /* ── Pestañas ─────────────────────────────────────────────── */ ?>
+    <div class="tab-bar" role="tablist" style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:0">
+        <button type="button" role="tab" aria-selected="true"  aria-controls="tab-nueva"   id="btn-nueva"   class="tab-btn tab-btn--active"  style="padding:.5rem 1.1rem;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--color-primary,#2563eb);margin-bottom:-2px;font-weight:600">Crear marcha nueva</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="tab-asociar" id="btn-asociar" class="tab-btn"                  style="padding:.5rem 1.1rem;border:none;background:none;cursor:pointer;color:var(--muted)">Asociar a marcha existente</button>
+    </div>
+
+    <?php /* ── Tab 1: crear marcha nueva (formulario original) ──────── */ ?>
+    <div id="tab-nueva" role="tabpanel" aria-labelledby="btn-nueva">
     <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/aceptar" method="POST" id="aceptarForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
@@ -175,12 +184,52 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
         </div>
     </form>
 
+    </div><?php /* /tab-nueva */ ?>
+
+    <?php /* ── Tab 2: asociar a marcha existente ──────────────────── */ ?>
+    <div id="tab-asociar" role="tabpanel" aria-labelledby="btn-asociar" hidden>
+    <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/asociar" method="POST">
+        <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+        <input type="hidden" name="ref" value="<?= V::e($back) ?>">
+        <input type="hidden" name="marcha_id" id="asociar_marcha_id" value="">
+
+        <div class="field">
+            <label class="field-label" for="asociar_search">Buscar marcha (por ID o título)</label>
+            <div class="autocomplete">
+                <input class="input" id="asociar_search" type="text"
+                       placeholder="Escribe el ID o parte del título…" autocomplete="off">
+                <div id="asociar_suggest" class="suggest" hidden></div>
+            </div>
+            <p class="muted">Mín. 2 caracteres. El predictivo muestra título, autor/es y banda de estreno.</p>
+        </div>
+
+        <div id="asociar_preview" hidden class="alert alert-info" style="margin-bottom:0">
+            Marcha seleccionada: <strong id="asociar_preview_titulo"></strong>
+            <span id="asociar_preview_meta" class="small muted"></span>
+        </div>
+
+        <div class="field">
+            <label class="row" style="align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" name="guardar_origen" value="1" checked>
+<?= $esYoutube
+    ? 'Guardar el vídeo como audio de la marcha'
+    : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha' ?>
+            </label>
+        </div>
+
+        <div class="row">
+            <button class="btn btn-neutral" type="submit" id="asociar_submit" disabled>Asociar a esta marcha</button>
+        </div>
+    </form>
+    </div><?php /* /tab-asociar */ ?>
+
     <form class="panel" style="border:2px solid var(--color-danger,#dc2626);background:color-mix(in srgb,var(--color-danger,#dc2626) 5%,transparent)"
           action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/descartar" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
         <p class="small" style="color:var(--color-danger,#dc2626);font-weight:600;margin-bottom:0.5rem">⚠ Zona de descarte</p>
         <p class="small muted" style="margin-bottom:0.5rem">Al descartarlo, este origen queda vetado y no volverá a proponerse en futuras pasadas. Si te equivocas, puedes deshacerlo desde el listado (solo el último descarte).</p>
+        <p class="small" style="margin-bottom:0.5rem">💡 Si la marcha <strong>ya existe en la base de datos</strong> con otro nombre, usa la pestaña <strong>"Asociar a marcha existente"</strong> en lugar de descartar — así el enlace queda vinculado y el título queda vetado automáticamente en futuras pasadas.</p>
         <div class="row" style="align-items:flex-end;gap:0.75rem;flex-wrap:wrap">
             <div class="field" style="flex:1;min-width:220px;margin-bottom:0">
                 <label class="field-label" for="motivo">Motivo del descarte (opcional)</label>
@@ -280,6 +329,103 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
 
     document.addEventListener('mousedown', function (e) {
         if (!suggest.contains(e.target) && e.target !== input) closeSuggest();
+    });
+})();
+
+// ── Pestañas crear/asociar ──────────────────────────────────────────────────
+(function () {
+    var btnNueva   = document.getElementById('btn-nueva');
+    var btnAsociar = document.getElementById('btn-asociar');
+    var tabNueva   = document.getElementById('tab-nueva');
+    var tabAsociar = document.getElementById('tab-asociar');
+    if (!btnNueva || !btnAsociar) return;
+
+    function activate(tab) {
+        var isNueva = (tab === 'nueva');
+        btnNueva.setAttribute('aria-selected', isNueva ? 'true' : 'false');
+        btnAsociar.setAttribute('aria-selected', isNueva ? 'false' : 'true');
+        btnNueva.style.borderBottom   = isNueva ? '2px solid var(--color-primary,#2563eb)' : 'none';
+        btnAsociar.style.borderBottom = isNueva ? 'none' : '2px solid var(--color-primary,#2563eb)';
+        btnNueva.style.fontWeight   = isNueva ? '600' : 'normal';
+        btnAsociar.style.fontWeight = isNueva ? 'normal' : '600';
+        btnNueva.style.color   = isNueva ? '' : 'var(--muted)';
+        btnAsociar.style.color = isNueva ? 'var(--muted)' : '';
+        tabNueva.hidden   = !isNueva;
+        tabAsociar.hidden = isNueva;
+    }
+
+    btnNueva.addEventListener('click',   function () { activate('nueva'); });
+    btnAsociar.addEventListener('click', function () { activate('asociar'); });
+})();
+
+// ── Predictivo "asociar a marcha existente" ──────────────────────────────────
+(function () {
+    var searchInput  = document.getElementById('asociar_search');
+    var suggest      = document.getElementById('asociar_suggest');
+    var marchaIdInput = document.getElementById('asociar_marcha_id');
+    var submitBtn    = document.getElementById('asociar_submit');
+    var preview      = document.getElementById('asociar_preview');
+    var previewTit   = document.getElementById('asociar_preview_titulo');
+    var previewMeta  = document.getElementById('asociar_preview_meta');
+    if (!searchInput || !suggest) return;
+
+    function closeSuggest() { suggest.hidden = true; suggest.innerHTML = ''; }
+
+    function selectMarcha(row) {
+        searchInput.value    = row.TITULO + (row.FECHA ? ' (' + row.FECHA + ')' : '');
+        marchaIdInput.value  = row.ID_MARCHA;
+        submitBtn.disabled   = false;
+        previewTit.textContent = row.TITULO + ' #' + row.ID_MARCHA;
+        var meta = [];
+        if (row.AUTORES)            meta.push(row.AUTORES);
+        if (row.BANDA_ESTRENO_NOMBRE) meta.push('Banda: ' + row.BANDA_ESTRENO_NOMBRE);
+        previewMeta.textContent = meta.length ? ' — ' + meta.join(' · ') : '';
+        preview.hidden = false;
+        closeSuggest();
+        searchInput.focus();
+    }
+
+    var timer, controller;
+    searchInput.addEventListener('input', function () {
+        var q = searchInput.value.trim();
+        marchaIdInput.value = '';
+        submitBtn.disabled  = true;
+        preview.hidden      = true;
+        clearTimeout(timer);
+        if (q.length < 2) { closeSuggest(); return; }
+        timer = setTimeout(async function () {
+            if (controller) controller.abort();
+            controller = new AbortController();
+            try {
+                var res = await fetch('/api/marcha/fastSearch?q=' + encodeURIComponent(q),
+                    { signal: controller.signal, credentials: 'same-origin' });
+                var data = await res.json();
+                var rows = Array.isArray(data.data) ? data.data : [];
+                if (!rows.length) { closeSuggest(); return; }
+                suggest.innerHTML = '';
+                rows.forEach(function (r) {
+                    var parts = [r.TITULO];
+                    if (r.AUTORES)             parts.push(r.AUTORES);
+                    if (r.BANDA_ESTRENO_NOMBRE) parts.push('Banda: ' + r.BANDA_ESTRENO_NOMBRE);
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'suggest-item';
+                    b.innerHTML = '<strong>' + r.TITULO + '</strong>'
+                        + (r.FECHA ? ' <span class="small muted">(' + r.FECHA + ')</span>' : '')
+                        + '<br><span class="small muted">#' + r.ID_MARCHA
+                        + (r.AUTORES ? ' · ' + r.AUTORES : '')
+                        + (r.BANDA_ESTRENO_NOMBRE ? ' · ' + r.BANDA_ESTRENO_NOMBRE : '')
+                        + '</span>';
+                    b.addEventListener('click', function () { selectMarcha(r); });
+                    suggest.appendChild(b);
+                });
+                suggest.hidden = false;
+            } catch (e) { /* abortado o red: ignorar */ }
+        }, 200);
+    });
+
+    document.addEventListener('mousedown', function (e) {
+        if (!suggest.contains(e.target) && e.target !== searchInput) closeSuggest();
     });
 })();
 

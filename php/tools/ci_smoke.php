@@ -317,6 +317,11 @@ $tests = [
     'rankings año inexistente 404' => static fn() => assertStatus('/rankings/1800', 404, $base),
     'hub año enlaza a rankings del año' => static fn() => assertContains('/marcha/ano/1995', 'href="/rankings/1995"', $base),
 
+    // ── Estado del catálogo (R-07): KPI de cobertura de audio ───────────────
+    'estado-catalogo 200' => static fn() => assertStatus('/estado-catalogo', 200, $base),
+    'estado-catalogo indexable' => static fn() => assertNotNoIndex('/estado-catalogo', $base),
+    'rankings enlaza a estado-catalogo' => static fn() => assertContains('/rankings', 'href="/estado-catalogo"', $base),
+
     // ── Aniversarios (N-09): tramos fijos (no atados a la fecha real de hoy,
     // para que la suite no dependa del año en que se ejecute CI) ────────────
     'aniversarios sin año → 302 al año en curso' => static function () use ($base): void {

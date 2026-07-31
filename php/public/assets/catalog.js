@@ -14,6 +14,14 @@
             th.setAttribute('tabindex', '0');
         });
 
+        // "3:45" o "1:03:45" (duración, R-02) -> segundos; si no tiene forma
+        // de reloj, cae en parseFloat como antes.
+        function numDeCelda(s) {
+            var m = /^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/.exec(s);
+            if (m) return (m[1] ? parseInt(m[1], 10) * 3600 : 0) + parseInt(m[2], 10) * 60 + parseInt(m[3], 10);
+            return parseFloat(s) || 0;
+        }
+
         function sortByCol(th, i) {
             var type = th.getAttribute('data-type');
             var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
@@ -22,7 +30,7 @@
                 var x = (a.children[i] ? a.children[i].textContent : '').trim();
                 var y = (b.children[i] ? b.children[i].textContent : '').trim();
                 if (type === 'num') {
-                    x = parseFloat(x) || 0; y = parseFloat(y) || 0;
+                    x = numDeCelda(x); y = numDeCelda(y);
                     return dir[i] ? x - y : y - x;
                 }
                 return dir[i] ? x.localeCompare(y, 'es') : y.localeCompare(x, 'es');

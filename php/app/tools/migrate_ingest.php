@@ -72,6 +72,23 @@ try {
             'FUENTE_ALBUM_URL' => 'TEXT',
             // Estilo propuesto (CCTT/AM) inferido por el descubridor.
             'P_ESTILO' => 'TEXT',
+            // R-01 (roadmap): ISRC de la grabación, cuando el servicio lo da
+            // gratis (Spotify, Deezer — Apple/YouTube no). Permite reconocer
+            // la misma grabación aunque el título difiera entre catálogos;
+            // ver tools/music_links/descubrir_marchas.py.
+            'ISRC' => 'TEXT',
+        ],
+        // Mismo motivo que arriba: guardar el ISRC del enlace ya aceptado,
+        // no solo del candidato pendiente, para que sobreviva a la curación.
+        'enlace_streaming' => [
+            'ISRC' => 'TEXT',
+        ],
+        // R-02 (roadmap): la duración es propiedad de la GRABACIÓN, no de la
+        // obra — varía entre versiones/discos. marcha.DURACION_SEG se
+        // mantiene tal cual, como referencia general; esta columna nueva
+        // guarda la duración específica de cada aparición en disco.
+        'disco_marcha' => [
+            'DURACION_SEG' => 'INTEGER',
         ],
     ];
     foreach ($columnasNuevas as $tabla => $columnas) {

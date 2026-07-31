@@ -468,7 +468,7 @@ final class AdminRepo
      */
     public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true): array
     {
-        $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
+        $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA, ISRC FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
         if ($cand === null) return ['code' => 'NOT_FOUND'];
         if ($cand['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
 
@@ -484,7 +484,7 @@ final class AdminRepo
             if ($fuente === 'youtube') {
                 self::editMarcha($r['marchaId'], ['AUDIO'], [$cand['VIDEO_URL']]);
             } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
-                self::setEnlaceStreaming('marcha', $r['marchaId'], $fuente, (string) $cand['VIDEO_URL']);
+                self::setEnlaceStreaming('marcha', $r['marchaId'], $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
             }
         }
 
@@ -696,11 +696,12 @@ final class AdminRepo
      *
      * @return array{code:string}
      */
-    public static function setEnlaceStreaming(string $tipoEnt, int $idEnt, string $servicio, ?string $url): array
+    public static function setEnlaceStreaming(string $tipoEnt, int $idEnt, string $servicio, ?string $url, ?string $isrc = null): array
     {
         if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return ['code' => 'BAD_REQUEST'];
         if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return ['code' => 'BAD_REQUEST'];
         $url = self::normalize($url);
+        $isrc = self::normalize($isrc);
 
         if ($url === null) {
             Db::run('DELETE FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?', [$tipoEnt, $idEnt, $servicio]);
@@ -708,12 +709,16 @@ final class AdminRepo
             return ['code' => 'DELETED'];
         }
 
+        // R-01: el ISRC solo llega desde la ingesta (Spotify/Deezer); una
+        // edición manual del enlace en el panel no lo toca — por eso solo se
+        // sobrescribe cuando se pasa uno nuevo, nunca se borra a NULL aquí.
         Db::run(
-            "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, VERIFICADO)
-             VALUES (?, ?, ?, ?, 1)
+            "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ISRC, VERIFICADO)
+             VALUES (?, ?, ?, ?, ?, 1)
              ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-             DO UPDATE SET URL = excluded.URL, VERIFICADO = 1, FECHA_ALTA = datetime('now')",
-            [$tipoEnt, $idEnt, $servicio, $url]
+             DO UPDATE SET URL = excluded.URL, VERIFICADO = 1, FECHA_ALTA = datetime('now'),
+                            ISRC = COALESCE(excluded.ISRC, enlace_streaming.ISRC)",
+            [$tipoEnt, $idEnt, $servicio, $url, $isrc]
         );
         Db::logAdmin('UPDATE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio]);
         return ['code' => 'UPDATED'];
@@ -1008,7 +1013,7 @@ final class AdminRepo
      *
      * @return array{code:string,dmId?:int}
      */
-    public static function addPista(int $idDisco, int $idMarcha, int $numero, int $nDisco = 1): array
+    public static function addPista(int $idDisco, int $idMarcha, int $numero, int $nDisco = 1, ?int $duracionSeg = null): array
     {
         if (!self::discoExiste($idDisco)) return ['code' => 'DISCO_NO_EXISTE'];
         if (Db::one('SELECT 1 AS x FROM marcha WHERE ID_MARCHA = ?', [$idMarcha]) === null) {
@@ -1016,6 +1021,9 @@ final class AdminRepo
         }
         if ($numero < 1 || $numero > 999) return ['code' => 'PISTA_INVALIDA'];
         if ($nDisco < 1 || $nDisco > 99) return ['code' => 'VOLUMEN_INVALIDO'];
+        // R-02: duración de esta grabación en concreto (no la de la obra en
+        // `marcha`), opcional — 0 o negativo se trata como "no informada".
+        if ($duracionSeg !== null && $duracionSeg <= 0) $duracionSeg = null;
 
         if (Db::one('SELECT 1 AS x FROM disco_marcha WHERE ID_DISCO = ? AND IDMARCHA = ?', [$idDisco, $idMarcha]) !== null) {
             return ['code' => 'MARCHA_YA_EN_DISCO'];
@@ -1025,8 +1033,8 @@ final class AdminRepo
         }
 
         Db::run(
-            'INSERT INTO disco_marcha (ID_DISCO, IDMARCHA, NUMEROMARCHA, N_DISCO) VALUES (?, ?, ?, ?)',
-            [$idDisco, $idMarcha, $numero, $nDisco]
+            'INSERT INTO disco_marcha (ID_DISCO, IDMARCHA, NUMEROMARCHA, N_DISCO, DURACION_SEG) VALUES (?, ?, ?, ?, ?)',
+            [$idDisco, $idMarcha, $numero, $nDisco, $duracionSeg]
         );
         $dmId = Db::lastInsertId();
         Db::logAdmin('INSERT', 'disco_marcha', $dmId, [
@@ -1066,7 +1074,7 @@ final class AdminRepo
         if ($disco === null) return null;
 
         $pistas = Db::all(
-            "SELECT dm.ID_DM, dm.IDMARCHA, dm.NUMEROMARCHA, dm.N_DISCO,
+            "SELECT dm.ID_DM, dm.IDMARCHA, dm.NUMEROMARCHA, dm.N_DISCO, dm.DURACION_SEG,
                     m.TITULO, m.FECHA,
                     (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
                        FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
@@ -1123,6 +1131,52 @@ final class AdminRepo
      *
      * @return list<array<string,mixed>>
      */
+    /**
+     * Asocia un candidato pendiente a una marcha ya existente en lugar de
+     * crear una nueva: guarda el enlace de origen (igual que aceptarCandidato)
+     * y marca el candidato como aceptado.
+     *
+     * @return array{code:string, marchaId?:int}
+     */
+    public static function asociarCandidato(int $idCand, int $marchaId, bool $guardarOrigen = true): array
+    {
+        $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA, ISRC FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
+        if ($cand === null) return ['code' => 'NOT_FOUND'];
+        if ($cand['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
+
+        $marcha = Db::one('SELECT ID_MARCHA FROM marcha WHERE ID_MARCHA = ?', [$marchaId]);
+        if ($marcha === null) return ['code' => 'MARCHA_NOT_FOUND'];
+
+        if ($guardarOrigen && !empty($cand['VIDEO_URL'])) {
+            $fuente = (string) ($cand['FUENTE'] ?? 'youtube');
+            if ($fuente === 'youtube') {
+                self::editMarcha($marchaId, ['AUDIO'], [$cand['VIDEO_URL']]);
+            } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
+                self::setEnlaceStreaming('marcha', $marchaId, $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
+            }
+        }
+
+        Db::run(
+            "UPDATE ingest_candidato SET ESTADO = 'aceptado', MARCHA_CREADA = ?, REVIEWED_AT = datetime('now') WHERE ID_CAND = ?",
+            [$marchaId, $idCand]
+        );
+        Db::logAdmin('ASSOCIATE', 'ingest_candidato', $idCand, ['marchaId' => $marchaId]);
+
+        // Reevaluar otros candidatos de la misma banda por si hay duplicados
+        $marcha2 = Db::one('SELECT TITULO, BANDA_ESTRENO FROM marcha WHERE ID_MARCHA = ?', [$marchaId]);
+        if ($marcha2 !== null) {
+            IngestaRepo::reevaluarTrasCrearMarcha(
+                $marchaId,
+                $marcha2['BANDA_ESTRENO'] !== null ? (int) $marcha2['BANDA_ESTRENO'] : null,
+                (string) $marcha2['TITULO'],
+                $idCand,
+                $cand['ID_BANDA'] !== null ? (int) $cand['ID_BANDA'] : null
+            );
+        }
+
+        return ['code' => 'ASSOCIATED', 'marchaId' => $marchaId];
+    }
+
     public static function marchaCandidatosPorTexto(string $q, int $limit = 15): array
     {
         $q = trim($q);
@@ -1131,8 +1185,10 @@ final class AdminRepo
         $sel = "SELECT m.ID_MARCHA, m.TITULO, m.FECHA,
                        (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
                           FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
-                         WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
-                FROM marcha m";
+                         WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES,
+                       b.NOMBRE_BREVE AS BANDA_ESTRENO_NOMBRE
+                FROM marcha m
+                LEFT JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO";
 
         // Un número puede ser tanto el ID como parte del título ("Saeta 3"):
         // se busca por ID primero y se completa con las coincidencias de texto.

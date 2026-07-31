@@ -834,6 +834,26 @@ final class Admin
         Http::redirect("/dashboard/ingesta/$id?err=" . ($r['code'] ?? 'ERROR') . $backSuffix, 302);
     }
 
+    public static function ingestaAsociar(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        $back = self::ingestaBackQuery((string) ($_POST['ref'] ?? ''));
+        $backSuffix = $back !== '' ? "&ref=$back" : '';
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/ingesta/$id?err=CSRF$backSuffix", 302);
+
+        $marchaId = (int) ($_POST['marcha_id'] ?? 0);
+        if ($marchaId <= 0) Http::redirect("/dashboard/ingesta/$id?err=MARCHA_REQUIRED$backSuffix", 302);
+
+        $guardarOrigen = isset($_POST['guardar_origen']);
+        $r = AdminRepo::asociarCandidato($id, $marchaId, $guardarOrigen);
+        if (($r['code'] ?? '') === 'ASSOCIATED') {
+            $sep = $back !== '' ? '&' : '';
+            Http::redirect("/dashboard/ingesta?$back{$sep}aceptado=" . $r['marchaId'], 302);
+        }
+        Http::redirect("/dashboard/ingesta/$id?err=" . ($r['code'] ?? 'ERROR') . $backSuffix, 302);
+    }
+
     public static function ingestaDescartar(array $p): void
     {
         $session = Auth::requireAdmin();
@@ -1408,10 +1428,25 @@ final class Admin
             $id,
             (int) ($_POST['idMarcha'] ?? 0),
             (int) ($_POST['numero'] ?? 0),
-            (int) ($_POST['nDisco'] ?? 1)
+            (int) ($_POST['nDisco'] ?? 1),
+            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? ''))
         );
         if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
         Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista añadida.'), 302);
+    }
+
+    /**
+     * "mm:ss" o "h:mm:ss" -> segundos (R-02: duración por grabación, no por
+     * obra). Tolerante: vacío o formato irreconocible devuelve null en vez de
+     * fallar — el campo es opcional.
+     */
+    private static function parseDuracionMmSs(string $s): ?int
+    {
+        $s = trim($s);
+        if ($s === '') return null;
+        if (!preg_match('/^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/', $s, $m)) return null;
+        $h = $m[1] !== '' ? (int) $m[1] : 0;
+        return $h * 3600 + (int) $m[2] * 60 + (int) $m[3];
     }
 
     public static function discoPistaDeletePost(array $p): void

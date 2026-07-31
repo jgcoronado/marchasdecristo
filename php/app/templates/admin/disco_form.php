@@ -119,6 +119,13 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
                 <p class="muted small field-help">1 salvo que sea un doble o una caja. El disco muestra
                     tantos volúmenes como el más alto que uses aquí.</p>
             </div>
+            <div class="field">
+                <label class="field-label" for="duracion">Duración (mm:ss)</label>
+                <input class="input" id="duracion" name="duracion" type="text" inputmode="numeric"
+                       placeholder="p. ej. 3:45" pattern="^(?:\d+:)?[0-5]?\d:[0-5]\d$">
+                <p class="muted small field-help">Opcional. Es la duración de <strong>esta</strong> grabación
+                    concreta, no la de la obra — puede variar entre discos.</p>
+            </div>
         </div>
 
         <?php /* Vista previa: qué se va a añadir exactamente, antes de enviar. */ ?>
@@ -147,6 +154,7 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
             <th>Marcha</th>
             <th>Compositor</th>
             <th class="num">Año</th>
+            <th class="num">Duración</th>
             <th></th>
         </tr></thead>
         <tbody>
@@ -166,6 +174,7 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
                 </td>
                 <td><?= $p['AUTORES'] !== null ? V::e($p['AUTORES']) : '<span class="muted">—</span>' ?></td>
                 <td class="num"><?= $p['FECHA'] !== null && $p['FECHA'] !== '' ? V::e((string) $p['FECHA']) : '—' ?></td>
+                <td class="num"><?= !empty($p['DURACION_SEG']) ? gmdate('i:s', (int) $p['DURACION_SEG']) : '—' ?></td>
                 <td>
                     <form class="inline-form" action="/dashboard/disco/<?= $id ?>/pista/<?= (int) $p['ID_DM'] ?>/borrar" method="POST"
                           onsubmit="return confirm('¿Quitar esta marcha del disco?');">

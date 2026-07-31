@@ -134,7 +134,7 @@ final class Repo
         // Grabaciones: una fila por aparición en disco, con pista y banda intérprete
         // (la del vínculo dm.DM_BANDA si existe; si no, la banda propietaria del disco).
         $discos = Db::all(
-            "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, dm.NUMEROMARCHA,
+            "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, dm.NUMEROMARCHA, dm.DURACION_SEG,
                     COALESCE(bi.ID_BANDA, b.ID_BANDA) AS ID_BANDA,
                     COALESCE(bi.NOMBRE_BREVE, b.NOMBRE_BREVE) AS BANDA_BREVE,
                     COALESCE(bi.LOCALIDAD, b.LOCALIDAD) AS BANDA_LOC,
@@ -1508,6 +1508,94 @@ final class Repo
              GROUP BY b.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD
              ORDER BY MARCHAS DESC LIMIT 20"
         );
+    }
+
+    // ── R-07: estado del catálogo — cobertura de audio ──────────────────────
+    // "Tiene escucha" = AUDIO propio en `marcha` (histórico, sobre todo
+    // YouTube) o al menos un enlace en `enlace_streaming` (Spotify/Deezer/
+    // Apple/YouTube de la ingesta o del panel). Mismo criterio que
+    // Media::reproductor() para la ficha pública, pero en SQL agregado.
+    private const SQL_TIENE_AUDIO = "(
+        (m.AUDIO IS NOT NULL AND TRIM(m.AUDIO) != '')
+        OR EXISTS (SELECT 1 FROM enlace_streaming es WHERE es.TIPO_ENT = 'marcha' AND es.ID_ENT = m.ID_MARCHA)
+    )";
+
+    /**
+     * Cobertura global de audio: total de marchas catalogadas (con autor) y
+     * cuántas tienen alguna escucha enlazada. Base del KPI de la página
+     * pública "estado del catálogo" (issue #16, R-07 del roadmap).
+     *
+     * @return array{total:int, conAudio:int, pct:float}
+     */
+    public static function coberturaGlobal(): array
+    {
+        $row = Db::one(
+            "SELECT COUNT(*) AS TOTAL,
+                    SUM(CASE WHEN " . self::SQL_TIENE_AUDIO . " THEN 1 ELSE 0 END) AS CON_AUDIO
+             FROM marcha m
+             WHERE EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)"
+        );
+        $total = (int) ($row['TOTAL'] ?? 0);
+        $conAudio = (int) ($row['CON_AUDIO'] ?? 0);
+        return ['total' => $total, 'conAudio' => $conAudio, 'pct' => $total > 0 ? round($conAudio * 100 / $total, 1) : 0.0];
+    }
+
+    /**
+     * Cobertura de audio por año de estreno, más reciente primero. Años sin
+     * ninguna marcha catalogada no aparecen (no hay nada que cubrir).
+     *
+     * @return list<array{K:int, TOTAL:int, CON_AUDIO:int, PCT:float}>
+     */
+    public static function coberturaPorAnio(): array
+    {
+        $rows = Db::all(
+            "SELECT m.FECHA AS K, COUNT(*) AS TOTAL,
+                    SUM(CASE WHEN " . self::SQL_TIENE_AUDIO . " THEN 1 ELSE 0 END) AS CON_AUDIO
+             FROM marcha m
+             WHERE m.FECHA > 1000
+               AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
+             GROUP BY m.FECHA ORDER BY m.FECHA DESC"
+        );
+        foreach ($rows as &$r) {
+            $r['K'] = (int) $r['K'];
+            $r['TOTAL'] = (int) $r['TOTAL'];
+            $r['CON_AUDIO'] = (int) $r['CON_AUDIO'];
+            $r['PCT'] = $r['TOTAL'] > 0 ? round($r['CON_AUDIO'] * 100 / $r['TOTAL'], 1) : 0.0;
+        }
+        unset($r);
+        return $rows;
+    }
+
+    /**
+     * Cobertura de audio por banda de estreno, peor cobertura primero: es el
+     * mapa de curación (qué banda conviene revisar antes en la campaña de
+     * audio, P1/M2 del roadmap). Se excluyen las bandas con menos de
+     * `$minMarchas` para no destacar ruido de una sola marcha sin escucha.
+     *
+     * @return list<array{ID_BANDA:int, BANDA:string, TOTAL:int, CON_AUDIO:int, PCT:float}>
+     */
+    public static function coberturaPorBanda(int $minMarchas = 3): array
+    {
+        $rows = Db::all(
+            "SELECT b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
+                    COUNT(*) AS TOTAL,
+                    SUM(CASE WHEN " . self::SQL_TIENE_AUDIO . " THEN 1 ELSE 0 END) AS CON_AUDIO
+             FROM marcha m INNER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
+             WHERE b.ID_BANDA != 0
+               AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
+             GROUP BY b.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD
+             HAVING COUNT(*) >= ?
+             ORDER BY (CAST(CON_AUDIO AS REAL) / TOTAL) ASC, TOTAL DESC",
+            [$minMarchas]
+        );
+        foreach ($rows as &$r) {
+            $r['ID_BANDA'] = (int) $r['ID_BANDA'];
+            $r['TOTAL'] = (int) $r['TOTAL'];
+            $r['CON_AUDIO'] = (int) $r['CON_AUDIO'];
+            $r['PCT'] = $r['TOTAL'] > 0 ? round($r['CON_AUDIO'] * 100 / $r['TOTAL'], 1) : 0.0;
+        }
+        unset($r);
+        return $rows;
     }
 
     public static function fetchMasGrabada(): array

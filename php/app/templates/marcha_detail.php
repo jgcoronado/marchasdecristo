@@ -171,6 +171,7 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
             <th data-type="num">Año <span class="ar">↕</span></th>
             <th>Grabación <span class="ar">↕</span></th>
             <th>Banda <span class="ar">↕</span></th>
+            <th data-type="num">Duración <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($m['discos'] as $d):
@@ -182,6 +183,7 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
                 <td><?= $anio > 1800 ? $anio : '—' ?></td>
                 <td><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a><?php if ($es1a): ?><span class="badge-1a">◆ 1.ª grabación</span><?php endif; ?></td>
                 <td><?php if ($t($d['ID_BANDA'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA_BREVE'])) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?> - <?= V::e($d['BANDA_LOC']) ?><?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                <td><?= !empty($d['DURACION_SEG']) ? gmdate('i:s', (int) $d['DURACION_SEG']) : '<span class="muted">—</span>' ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>

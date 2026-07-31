@@ -272,6 +272,9 @@ def deezer_catalogo(http, artista_id):
                     'id': f"deezer:track:{t.get('id')}",
                     'duracion': t.get('duration'),
                     'autores': None,   # Deezer no expone compositor, solo intérprete
+                    # Deezer devuelve el ISRC directo en el objeto de pista, sin
+                    # llamada adicional (a diferencia de Spotify).
+                    'isrc': t.get('isrc') or None,
                 })
             salida.append((album, pistas))
         url = d.get('next')
@@ -310,6 +313,9 @@ def itunes_catalogo(http, artista_id):
                 # iTunes sí trae compositor en algunas fichas: es la única
                 # fuente de las tres que puede rellenar el autor solo.
                 'autores': t.get('composerName') or None,
+                # El lookup público de iTunes no expone ISRC (a diferencia de
+                # Spotify/Deezer): no hay forma gratis de conseguirlo aquí.
+                'isrc': None,
             })
         salida.append((album, pistas))
     return salida
@@ -371,11 +377,39 @@ class Spotify:
                             'id': f"spotify:track:{t.get('id')}",
                             'duracion': int((t.get('duration_ms') or 0) / 1000) or None,
                             'autores': None,
+                            # Se rellena después con _rellenar_isrc(): el endpoint
+                            # de pistas de álbum (arriba) devuelve objetos "track
+                            # simplificado", que no incluyen external_ids.
+                            'isrc': None,
+                            '_spotify_id': t.get('id'),
                         })
                     pu = dt.get('next')
                 salida.append((album, pistas))
             url = d.get('next')
+        self._rellenar_isrc(salida, cab)
         return salida
+
+    def _rellenar_isrc(self, salida, cab):
+        """Completa 'isrc' en las pistas de `salida` (lista de (album, pistas))
+        con una llamada por lote al endpoint "several tracks", que sí incluye
+        external_ids — a diferencia del endpoint de pistas de álbum usado
+        arriba, que devuelve tracks simplificados sin ese campo. Máx. 50 ids
+        por llamada (límite de la API)."""
+        todas = [p for _album, pistas in salida for p in pistas if p.get('_spotify_id')]
+        for i in range(0, len(todas), 50):
+            lote = todas[i:i + 50]
+            ids = ','.join(p['_spotify_id'] for p in lote)
+            d = self.http.get(f'https://api.spotify.com/v1/tracks?ids={ids}&market=ES', headers=cab)
+            if not d:
+                continue
+            por_id = {t.get('id'): t for t in (d.get('tracks') or []) if t}
+            for p in lote:
+                t = por_id.get(p['_spotify_id'])
+                if t:
+                    p['isrc'] = (t.get('external_ids') or {}).get('isrc') or None
+        for _album, pistas in salida:
+            for p in pistas:
+                p.pop('_spotify_id', None)
 
 
 def deezer_buscar_artista(http, nombre):
@@ -654,6 +688,33 @@ def procesar(args):
                 if mejor_servicio or (mismo_servicio and mas_antiguo):
                     previo['titulo'], previo['pista'], previo['album'] = titulo, p, album
 
+        # Fusión por ISRC: dos títulos que normalizan distinto pero comparten
+        # ISRC son la misma grabación (mismo master, catalogado con otra
+        # ortografía/orden en cada servicio) — el caso que la corroboración
+        # por título normalizado no puede ver. Se funden los conjuntos de
+        # `servicios` de todas las claves que comparten ISRC *antes* de exigir
+        # `--min-fuentes`, así una banda con un único catálogo que además
+        # tenga ISRC ya no puede corroborar sola (haría falta un segundo
+        # servicio con la misma pista), pero dos títulos parecidos-no-iguales
+        # en dos servicios distintos con el mismo ISRC sí cuentan como
+        # corroborados. No se fusionan las claves en una sola: cada título
+        # sigue proponiéndose por separado si pasa el umbral, para que el
+        # revisor humano decida cuál de las dos variantes es la buena en vez
+        # de que el pipeline elija a ciegas.
+        por_isrc = {}
+        for clave, item in agrupadas.items():
+            isrc = item['pista'].get('isrc')
+            if isrc:
+                por_isrc.setdefault(isrc, []).append(clave)
+        for isrc, claves in por_isrc.items():
+            if len(claves) < 2:
+                continue
+            servicios_unidos = set()
+            for c in claves:
+                servicios_unidos |= agrupadas[c]['servicios']
+            for c in claves:
+                agrupadas[c]['servicios'] = servicios_unidos
+
         existentes, insuficientes, nuevas = 0, 0, []
         for clave, item in sorted(agrupadas.items()):
             titulo, p, album = item['titulo'], item['pista'], item['album']
@@ -721,6 +782,7 @@ def procesar(args):
                 'video_desc': None,
                 'publicado_at': str(album['anio']) if album.get('anio') else None,
                 'duracion_seg': p.get('duracion'),
+                'isrc': p.get('isrc'),
                 'clasificacion': 'novedad',
                 'confianza': round(confianza, 2),
                 'flags': flags,
@@ -794,13 +856,13 @@ def escribir_salidas(args, candidatos, informe):
         ruta_csv = os.path.join(args.out, 'candidatos.csv')
         with open(ruta_csv, 'w', encoding='utf-8-sig', newline='') as f:
             w = csv.writer(f, delimiter=';')
-            w.writerow(['ID_BANDA', 'BANDA', 'TITULO', 'ANIO', 'ESTILO', 'FUENTE', 'DISCO', 'URL', 'FLAGS', 'MATCH'])
+            w.writerow(['ID_BANDA', 'BANDA', 'TITULO', 'ANIO', 'ESTILO', 'FUENTE', 'DISCO', 'URL', 'ISRC', 'FLAGS', 'MATCH'])
             porbanda = {i['banda']['id']: i['banda'] for i in informe}
             for c in candidatos:
                 b = porbanda.get(c['id_banda'], {})
                 w.writerow([c['id_banda'], b.get('breve', ''), c['p_titulo'], c['p_fecha'] or '',
                             c['p_estilo'] or '', c['fuente'], c['fuente_album'], c['video_url'],
-                            ','.join(c['flags']), c['match_score'] or ''])
+                            c.get('isrc') or '', ','.join(c['flags']), c['match_score'] or ''])
         print(f'Escrito {ruta_csv}')
 
     ruta_md = os.path.join(args.out, 'informe.md')
