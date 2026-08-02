@@ -30,3 +30,6 @@ __pycache__/
 # IDE / tools
 .claude
 .vscode
+
+# Artefactos del montaje FUSE (ficheros borrados con el descriptor abierto)
+.fuse_hidden*
