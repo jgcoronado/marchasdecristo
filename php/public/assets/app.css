@@ -26,7 +26,7 @@
     --line: #e2e5ee;        /* filete */
     --ink: #22262f;         /* tinta (no negro puro: cansa menos) */
     --muted-c: #5b6273;
-    --faint: #868da0;
+    --faint: #616774;
     --acc: #2c3a77;         /* índigo: enlaces y acciones (oscurecido 2026-07-29, ~75% del valor anterior #3a4d9e, mismo tono — de 7.7:1 a 10.6:1 de contraste sobre --card) */
     --acc-tint: #e9ecf9;
     /* Semánticos (estreno / novedad / recuperación / error) */
@@ -67,7 +67,7 @@
         --line: #262d3f;
         --ink: #e7eaf4;
         --muted-c: #9aa3b8;
-        --faint: #78819a;
+        --faint: #7c8698;
         --acc: #8ea0ec;
         --acc-tint: #1e2540;
         --est: #7cc39a;  --est-bg: #16281d;
