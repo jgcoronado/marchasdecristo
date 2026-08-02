@@ -89,6 +89,27 @@ try {
         // guarda la duración específica de cada aparición en disco.
         'disco_marcha' => [
             'DURACION_SEG' => 'INTEGER',
+            // Excepción por pista al flag de percusión del disco:
+            //   NULL = hereda de disco.PERCUSION (lo normal)
+            //   0/1  = esta pista concreta se desvía de la norma del disco
+            'PERCUSION' => 'INTEGER',
+        ],
+        // Muchas grabaciones abren con un fragmento de percusión (tambores)
+        // antes de la marcha, de unos 37–42 s. Eso hace que la misma marcha
+        // parezca ~40 s más larga en unos discos que en otros y contamina la
+        // mediana de disco_marcha.DURACION_SEG.
+        //
+        // PERCUSION     = 1 si el disco abre sus pistas con esa intro.
+        // PERCUSION_SEG = duración estimada de la intro, en segundos.
+        //   Por defecto 40 (punto medio de 37–42: error medio 1,25 s, la mejor
+        //   estimación posible sin medirla). Es EDITABLE por disco: si alguna
+        //   se cronometra de verdad, se escribe aquí y deja de ser estimación.
+        //   No se sortea un valor aleatorio a propósito — un aleatorio del
+        //   mismo rango tiene MÁS error medio (1,67 s) y encima no es
+        //   reproducible ni distinguible de un dato medido.
+        'disco' => [
+            'PERCUSION'     => 'INTEGER NOT NULL DEFAULT 0',
+            'PERCUSION_SEG' => 'INTEGER NOT NULL DEFAULT 40',
         ],
     ];
     foreach ($columnasNuevas as $tabla => $columnas) {

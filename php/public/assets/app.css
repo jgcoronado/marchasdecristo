@@ -319,6 +319,9 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real,
+   el icono explica por qué esa toma es ~40 s más larga que las demás. */
+.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
 /* Véase también */
 ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
@@ -624,6 +627,11 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 .stream-amazon:hover  { color: #00a8e1; }
 .stream-btn::before { content: "▸"; font-size: 0.7em; color: var(--muted-c); }
 .stream-btn:hover::before { color: currentColor; }
+
+/* Columna "Escuchar" del listado de discos: marca de un vistazo qué discos
+   tienen algún enlace en enlace_streaming. Ancho fijo para que no baile. */
+.col-escucha { width: 1%; text-align: center; white-space: nowrap; }
+.ico-escucha { display: inline-flex; color: var(--acc); vertical-align: middle; }
 
 /* aria-sort: resalta la columna activa en tablas con orden de servidor */
 table.reg thead th[aria-sort="ascending"] .ar,

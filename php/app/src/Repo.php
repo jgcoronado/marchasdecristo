@@ -135,6 +135,7 @@ final class Repo
         // (la del vínculo dm.DM_BANDA si existe; si no, la banda propietaria del disco).
         $discos = Db::all(
             "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, dm.NUMEROMARCHA, dm.DURACION_SEG,
+                    COALESCE(dm.PERCUSION, d.PERCUSION, 0) AS PERCUSION,
                     COALESCE(bi.ID_BANDA, b.ID_BANDA) AS ID_BANDA,
                     COALESCE(bi.NOMBRE_BREVE, b.NOMBRE_BREVE) AS BANDA_BREVE,
                     COALESCE(bi.LOCALIDAD, b.LOCALIDAD) AS BANDA_LOC,
@@ -1066,7 +1067,9 @@ final class Repo
 
         $rows = Db::all(
             "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, b.ID_BANDA,
-                    (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+                    (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
+                    EXISTS (SELECT 1 FROM enlace_streaming es
+                            WHERE es.TIPO_ENT = 'disco' AND es.ID_ENT = d.ID_DISCO) AS TIENE_STREAMING
              FROM disco d LEFT JOIN banda b ON b.ID_BANDA = d.BANDADISCO
              WHERE $where ORDER BY $orderBy LIMIT ? OFFSET ?",
             [...$values, $limit, $offset]
@@ -1576,6 +1579,14 @@ final class Repo
      */
     public static function coberturaPorBanda(int $minMarchas = 3): array
     {
+        // $minMarchas se interpola directo (no vía "?"): PDO::execute() con un
+        // array liga todos los parámetros como TEXT por defecto, y SQLite
+        // compara por storage class cuando no hay afinidad de columna
+        // declarada — que es el caso de COUNT(*), un valor calculado. Con el
+        // entero ligado como '3' (texto), "COUNT(*) >= '3'" da siempre falso
+        // (INTEGER se considera menor que TEXT en esa comparación), así que
+        // esta HAVING nunca puede ir por bind normal. Seguro porque el tipo
+        // `int` en la firma ya garantiza que no es texto arbitrario.
         $rows = Db::all(
             "SELECT b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
                     COUNT(*) AS TOTAL,
@@ -1584,9 +1595,8 @@ final class Repo
              WHERE b.ID_BANDA != 0
                AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
              GROUP BY b.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD
-             HAVING COUNT(*) >= ?
-             ORDER BY (CAST(CON_AUDIO AS REAL) / TOTAL) ASC, TOTAL DESC",
-            [$minMarchas]
+             HAVING COUNT(*) >= {$minMarchas}
+             ORDER BY (CAST(CON_AUDIO AS REAL) / TOTAL) ASC, TOTAL DESC"
         );
         foreach ($rows as &$r) {
             $r['ID_BANDA'] = (int) $r['ID_BANDA'];

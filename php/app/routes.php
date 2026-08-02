@@ -190,6 +190,8 @@ $router->get('/dashboard/disco/{id}', [Admin::class, 'discoEditForm']);
 $router->post('/dashboard/disco/{id}', [Admin::class, 'discoEditPost']);
 $router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
+$router->post('/dashboard/disco/{id}/pista/{dm}/editar', [Admin::class, 'discoPistaEditPost']);
+$router->post('/dashboard/disco/{id}/social', [Admin::class, 'discoSocialPost']);
 $router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);

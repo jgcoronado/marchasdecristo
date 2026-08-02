@@ -208,6 +208,12 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
             <span id="asociar_preview_meta" class="small muted"></span>
         </div>
 
+        <div id="asociar_audio_warning" hidden class="alert alert-error" style="margin-bottom:0">
+            ⚠ Esta marcha ya tiene audio insertado —
+            <a id="asociar_audio_link" href="#" target="_blank" rel="noopener">▶ escúchalo en otra pestaña</a>
+            antes de asociar, por si prefieres no sobrescribirlo.
+        </div>
+
         <div class="field">
             <label class="row" style="align-items:center;gap:0.4rem;cursor:pointer">
                 <input type="checkbox" name="guardar_origen" value="1" checked>
@@ -367,6 +373,8 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
     var preview      = document.getElementById('asociar_preview');
     var previewTit   = document.getElementById('asociar_preview_titulo');
     var previewMeta  = document.getElementById('asociar_preview_meta');
+    var audioWarning = document.getElementById('asociar_audio_warning');
+    var audioLink    = document.getElementById('asociar_audio_link');
     if (!searchInput || !suggest) return;
 
     function closeSuggest() { suggest.hidden = true; suggest.innerHTML = ''; }
@@ -381,6 +389,12 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
         if (row.BANDA_ESTRENO_NOMBRE) meta.push('Banda: ' + row.BANDA_ESTRENO_NOMBRE);
         previewMeta.textContent = meta.length ? ' — ' + meta.join(' · ') : '';
         preview.hidden = false;
+        if (row.AUDIO) {
+            audioLink.href = row.AUDIO;
+            audioWarning.hidden = false;
+        } else {
+            audioWarning.hidden = true;
+        }
         closeSuggest();
         searchInput.focus();
     }
@@ -391,6 +405,7 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
         marchaIdInput.value = '';
         submitBtn.disabled  = true;
         preview.hidden      = true;
+        audioWarning.hidden = true;
         clearTimeout(timer);
         if (q.length < 2) { closeSuggest(); return; }
         timer = setTimeout(async function () {

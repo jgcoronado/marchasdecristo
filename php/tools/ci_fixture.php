@@ -40,13 +40,19 @@ CREATE TABLE banda (
 );
 CREATE TABLE disco (
   ID_DISCO INTEGER PRIMARY KEY, NOMBRE_CD TEXT, FECHA_CD TEXT,
-  BANDADISCO INTEGER, d_DETALLES TEXT
+  BANDADISCO INTEGER, d_DETALLES TEXT,
+  -- Intro de percusión del disco (espejo de migrate_ingest.php). Repo::marcha
+  -- las lee en la consulta de grabaciones: si faltan aquí, la ficha de marcha
+  -- revienta en CI y no en local.
+  PERCUSION INTEGER NOT NULL DEFAULT 0,
+  PERCUSION_SEG INTEGER NOT NULL DEFAULT 40
 );
 CREATE TABLE marcha_autor (ID_MA INTEGER PRIMARY KEY, ID_MARCHA INTEGER, ID_AUTOR INTEGER);
 CREATE TABLE disco_marcha (
   ID_DM INTEGER PRIMARY KEY, ID_DISCO INTEGER, IDMARCHA INTEGER,
   NUMEROMARCHA INTEGER, N_DISCO INTEGER, DM_BANDA INTEGER, DM_ENLAZADA INTEGER,
-  DURACION_SEG INTEGER  -- R-02: duración de la grabación (espejo de migrate_ingest.php)
+  DURACION_SEG INTEGER,  -- R-02: duración de la grabación (espejo de migrate_ingest.php)
+  PERCUSION INTEGER      -- excepción por pista al flag del disco (NULL = hereda)
 );
 CREATE TABLE banda_relacion (
   ID_RELACION INTEGER PRIMARY KEY, TIPO TEXT, FECHA_INICIO INTEGER, FECHA_FIN INTEGER,

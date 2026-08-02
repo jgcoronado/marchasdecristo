@@ -747,6 +747,7 @@ final class Admin
             'estado' => (string) ($_GET['estado'] ?? 'pendiente'),
             'banda' => (string) ($_GET['banda'] ?? ''),
             'clasificacion' => (string) ($_GET['clasificacion'] ?? ''),
+            'disco' => (string) ($_GET['disco'] ?? ''),
         ];
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $result = IngestaRepo::listCandidatos($filters, $page);
@@ -755,6 +756,7 @@ final class Admin
         View::render('admin/ingesta_list', [
             'session' => $session, 'filters' => $filters, 'page' => $page,
             'result' => $result, 'bandas' => IngestaRepo::bandasConCandidatos($filters['estado']),
+            'discos' => IngestaRepo::discosConCandidatos($filters['estado'], $filters['banda']),
             'counts' => IngestaRepo::counts(), 'backQs' => http_build_query($backParams),
             'ultimoDescarte' => IngestaRepo::ultimoDescarte(),
             'vetos' => IngestaRepo::vetosDe($result['data']),
@@ -766,7 +768,7 @@ final class Admin
     private static function ingestaBackQuery(string $raw): string
     {
         parse_str($raw, $parsed);
-        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'page']));
+        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'disco', 'page']));
         return http_build_query($allowed);
     }
 
@@ -1386,13 +1388,23 @@ final class Admin
         if ($data === null) { Http::notFound(); return; }
         $err = $error ?? (isset($_GET['err']) ? (string) $_GET['err'] : null);
         if ($err !== null) http_response_code(400);
+        // Pestaña activa: los POST vuelven aquí (PRG) con ?tab=… para no
+        // devolver al usuario a "Datos" tras tocar pistas o enlaces.
+        $tab = (string) ($_GET['tab'] ?? 'datos');
+        if (!in_array($tab, ['datos', 'pistas', 'streaming'], true)) $tab = 'datos';
         View::render('admin/disco_form', [
             'session' => $session,
             'disco' => $data['disco'],
             'pistas' => $data['pistas'],
             'portada' => Media::portadaExiste($id),
+            'enlaces' => EnlaceRepo::publicadosDe('disco', $id),
+            'tab' => $tab,
             'error' => $err,
-            'notice' => isset($_GET['created']) ? 'Disco creado.' : (isset($_GET['ok']) ? (string) $_GET['ok'] : null),
+            'notice' => isset($_GET['created'])
+                ? 'Disco creado.'
+                : (isset($_GET['social'])
+                    ? 'Enlaces de streaming guardados.'
+                    : (isset($_GET['ok']) ? (string) $_GET['ok'] : null)),
         ], ['title' => 'Disco #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -1422,17 +1434,18 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $id = (int) $p['id'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
         $r = AdminRepo::addPista(
             $id,
             (int) ($_POST['idMarcha'] ?? 0),
             (int) ($_POST['numero'] ?? 0),
             (int) ($_POST['nDisco'] ?? 1),
-            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? ''))
+            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
+            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
         );
-        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
-        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista añadida.'), 302);
+        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista añadida.'), 302);
     }
 
     /**
@@ -1440,6 +1453,19 @@ final class Admin
      * obra). Tolerante: vacío o formato irreconocible devuelve null en vez de
      * fallar — el campo es opcional.
      */
+    /**
+     * Excepción de percusión de una pista concreta. Tres estados:
+     *   ''  -> null : hereda el flag del disco (por defecto)
+     *   '1' -> 1    : esta pista lleva intro aunque el disco no
+     *   '0' -> 0    : esta pista NO lleva intro aunque el disco sí
+     */
+    private static function parsePercusionPista(string $s): ?int
+    {
+        $s = trim($s);
+        if ($s === '' || $s === 'heredar') return null;
+        return $s === '1' ? 1 : 0;
+    }
+
     private static function parseDuracionMmSs(string $s): ?int
     {
         $s = trim($s);
@@ -1449,15 +1475,52 @@ final class Admin
         return $h * 3600 + (int) $m[2] * 60 + (int) $m[3];
     }
 
+    public static function discoPistaEditPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
+
+        $r = AdminRepo::updatePista(
+            $id,
+            (int) $p['dm'],
+            (int) ($_POST['idMarcha'] ?? 0),
+            (int) ($_POST['numero'] ?? 0),
+            (int) ($_POST['nDisco'] ?? 1),
+            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
+            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
+        );
+        if (($r['code'] ?? '') !== 'UPDATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista actualizada.'), 302);
+    }
+
     public static function discoPistaDeletePost(array $p): void
     {
         $session = Auth::requireAdmin();
         $id = (int) $p['id'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
         $r = AdminRepo::deletePista($id, (int) $p['dm']);
-        if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
-        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista eliminada.'), 302);
+        if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista eliminada.'), 302);
+    }
+
+    /**
+     * Alta/edición/baja manual de los enlaces de streaming de un disco (álbum).
+     * Mismo patrón que bandaSocialPost: un campo por servicio, vacío = borrar.
+     */
+    public static function discoSocialPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=streaming", 302);
+
+        foreach (EnlaceRepo::SERVICIOS as $servicio) {
+            $url = $_POST[$servicio] ?? null;
+            $r = AdminRepo::setEnlaceStreaming('disco', $id, $servicio, is_string($url) ? $url : null);
+            if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/disco/$id?err=BAD_REQUEST&tab=streaming", 302);
+        }
+        Http::redirect("/dashboard/disco/$id?social=1&tab=streaming", 302);
     }
 
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */
