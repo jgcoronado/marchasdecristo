@@ -14,9 +14,17 @@
 
 ## Inventario de tablas
 
+> ⚠️ **Los recuentos de esta tabla son del 2026-07-06** (foto del cutover), salvo
+> donde se indique otra fecha. El catálogo ha crecido desde entonces: la pasada
+> de la ingesta de streaming del **2026-07-28 contó 5.003 marchas**. Las cifras
+> derivadas más abajo («Calidad de datos», porcentajes de campos vacíos) siguen
+> calculadas sobre las 4 212 originales y por tanto **sobreestiman la cobertura
+> relativa**. Revalidar contra `/health` (sesión admin) antes de usarlas para
+> decidir nada.
+
 | Tabla | Filas | Uso en la API |
 |-------|-------|---------------|
-| `marcha` | 4 212 | ✅ lectura + escritura admin |
+| `marcha` | 4 212 → **5 003** (2026-07-28) | ✅ lectura + escritura admin |
 | `autor` | 827 | ✅ lectura + escritura admin |
 | `banda` | 268 | ✅ lectura + escritura admin |
 | `banda_relacion` | 14 | ✅ modelo de linaje (creada 2026-07-08; leída por `Repo::fetchBanda`/`bandaLinaje()` para el linaje en la ficha pública) |
@@ -28,7 +36,8 @@
 | `autor_fts` | virtual | ✅ búsqueda full-text |
 | `videos` | 357 | ❌ nunca consultada |
 | `users` | 0 | ❌ vacía, nunca usada |
-| `ingest_canal` / `ingest_run` / `ingest_candidato` | — | ✅ pipeline de ingesta YouTube (`001_ingest_staging.sql`), alimenta `/dashboard/ingesta` |
+| `ingest_canal` / `ingest_run` / `ingest_candidato` | — | ✅ staging de la ingesta de marchas (`001_ingest_staging.sql`), alimenta `/dashboard/ingesta`. `ingest_candidato` ya no es solo de YouTube: su columna `FUENTE` distingue `youtube` del catálogo de streaming de la banda (ver [ingesta-streaming.md](ingesta-streaming.md)) |
+| `ingest_veto` / `ingest_descarte_ultimo` | — | ✅ descarte definitivo por origen exacto y deshacer del último descarte (`008_ingest_streaming.sql`), consumidas por `/dashboard/ingesta` e `import_candidatos.php` |
 | `dedicatoria` / `dedicatoria_alias` | — | ✅ hubs de advocación N-01/N-02 (`003_dedicatoria.sql`), curación en `/dashboard/dedicatorias` |
 | `enlace_streaming` / `enlace_candidato` | — | ✅ enlaces Spotify/Apple/Deezer (`004_enlace_streaming.sql`), curación en `/dashboard/enlaces` |
 | `contrato` | 0 (esperado) | ✅ contratos banda↔hermandad por año (`005_contrato.sql`, N-04/05), alta manual en `/dashboard/temporada/{año}` — vacía hasta que el admin empiece a rellenarla |

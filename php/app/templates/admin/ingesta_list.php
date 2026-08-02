@@ -1,7 +1,9 @@
 <?php use App\View as V; use App\Html as H; use App\IngestaRepo; use App\Auth;
 /** @var array $session @var array{estado:string,banda:string,clasificacion:string} $filters
  *  @var int $page @var array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>} $result
- *  @var list<array{ID_BANDA:int,NOMBRE_BREVE:string,LOCALIDAD:?string,N:int}> $bandas @var array<string,int> $counts @var string $backQs */
+ *  @var list<array{ID_BANDA:int,NOMBRE_BREVE:string,LOCALIDAD:?string,N:int}> $bandas @var array<string,int> $counts @var string $backQs
+ *  @var array{N:int,CREATED_AT:string,USUARIO:?string,TITULO:?string}|null $ultimoDescarte
+ *  @var array<string,true> $vetos */
 $limit = 30;
 $estadoLabels = ['pendiente' => 'Pendientes', 'aceptado' => 'Aceptados', 'descartado' => 'Descartados', 'duplicado' => 'Duplicados'];
 $claseBadge = ['estreno' => 'badge-estreno', 'novedad' => 'badge-novedad', 'recuperacion' => 'badge-recuperacion'];
@@ -10,7 +12,7 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
 ?>
 <div class="stack">
     <div class="admin-bar">
-        <h1>Ingesta desde YouTube</h1>
+        <h1>Ingesta de marchas</h1>
         <a class="btn btn-sm btn-ghost" href="/dashboard">← Panel</a>
     </div>
 
@@ -20,8 +22,35 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
 <?php if (isset($_GET['descartados'])): ?>
     <div class="alert alert-info"><?= (int) $_GET['descartados'] ?> candidato(s) descartado(s).</div>
 <?php endif; ?>
+<?php if (isset($_GET['recuperados'])): ?>
+    <div class="alert alert-success"><?= (int) $_GET['recuperados'] ?> candidato(s) recuperado(s): vuelven a estar pendientes y se ha levantado su veto.</div>
+<?php endif; ?>
 <?php if (isset($_GET['aceptado'])): ?>
     <div class="alert alert-success">Marcha añadida correctamente (<a href="/dashboard/marcha/<?= (int) $_GET['aceptado'] ?>" target="_blank">#<?= (int) $_GET['aceptado'] ?> ↗</a>).</div>
+<?php endif; ?>
+<?php if (isset($_GET['err'])): ?>
+    <div class="alert alert-error">Error: <?= V::e((string) $_GET['err']) ?><?= $_GET['err'] === 'NOTHING_TO_UNDO' ? ' — no queda ningún descarte reciente que deshacer.' : '' ?></div>
+<?php endif; ?>
+
+<?php if ($ultimoDescarte !== null): ?>
+    <?php /* Un solo paso a propósito: es el "me he equivocado al pulsar", no un
+             historial. Para revisar descartes antiguos está la pestaña Descartados. */ ?>
+    <form class="row" style="align-items:center;gap:0.6rem;flex-wrap:wrap"
+          method="POST" action="/dashboard/ingesta/deshacer-descarte">
+        <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+        <input type="hidden" name="ref" value="<?= V::e($backQs) ?>">
+        <button class="btn btn-sm btn-ghost" type="submit" title="Devuelve el candidato a pendientes y levanta su veto">
+            ↩ Deshacer último descarte<?= $ultimoDescarte['N'] > 1 ? ' (' . (int) $ultimoDescarte['N'] . ')' : '' ?>
+        </button>
+        <span class="small muted">
+<?php if ($ultimoDescarte['TITULO'] !== null): ?>
+            Último descarte: «<?= V::e($ultimoDescarte['TITULO']) ?>»
+<?php else: ?>
+            Último descarte: <?= (int) $ultimoDescarte['N'] ?> candidatos
+<?php endif; ?>
+            · <?= V::e($ultimoDescarte['CREATED_AT']) ?><?= $ultimoDescarte['USUARIO'] ? ' · ' . V::e($ultimoDescarte['USUARIO']) : '' ?>
+        </span>
+    </form>
 <?php endif; ?>
 
     <div class="row" style="flex-wrap:wrap;gap:0.5rem">
@@ -77,16 +106,24 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
             </td>
 <?php endif; ?>
             <td><span class="badge <?= $claseBadge[$c['CLASIFICACION']] ?? '' ?>"><?= V::e($c['CLASIFICACION']) ?></span></td>
+            <td class="small muted"><?= V::e(IngestaRepo::FUENTE_LABEL[$c['FUENTE'] ?? 'youtube'] ?? (string) $c['FUENTE']) ?></td>
             <td>
                 <a href="/dashboard/ingesta/<?= (int) $c['ID_CAND'] ?><?= $backQs !== '' ? '?ref=' . rawurlencode($backQs) : '' ?>"><?= V::e($c['P_TITULO'] ?: $c['VIDEO_TITULO']) ?></a>
 <?php if ($c['MATCH_MARCHA_ID']): ?>
                 <span class="badge badge-warn" title="Posible coincidencia con una marcha ya existente">⚠ posible duplicado</span>
 <?php endif; ?>
+<?php if (!empty($c['FUENTE_ALBUM'])): ?>
+                <span class="small muted">· <?= V::e($c['FUENTE_ALBUM']) ?></span>
+<?php endif; ?>
             </td>
             <td class="small"><?= V::e($c['NOMBRE_BREVE'] ?? ('Banda #' . $c['ID_BANDA'])) ?></td>
             <td class="small nums"><?= V::e($c['P_FECHA']) ?></td>
             <td class="small nums"><?= (int) round(((float) $c['CONFIANZA']) * 100) ?>%</td>
-            <td class="small"><?= V::e($c['ESTADO']) ?></td>
+            <td class="small">
+                <?= V::e($c['ESTADO']) ?><?php if (isset($vetos[($c['FUENTE'] ?? 'youtube') . '|' . $c['VIDEO_ID']])): ?>
+                <span class="badge" title="Este origen no volverá a proponerse en futuras pasadas">vetado</span>
+<?php endif; ?>
+            </td>
         </tr>
 <?php endforeach; ?>
     </tbody></table></div>

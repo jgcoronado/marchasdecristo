@@ -85,13 +85,13 @@ Si aparece deuda de seguridad nueva en el panel, va en [technical-debt.md](techn
 
 | Prioridad | Función | Notas |
 |-----------|---------|-------|
-| 🟢 B4 | Alta y edición de discos + pistas | No existe ningún `/dashboard/disco/*` — las relaciones `disco_marcha` solo se tocan indirectamente. Ver [technical-debt.md §5.1](technical-debt.md) |
 | — | Aviso en UI al crear marcha sin autores | No se encontró validación explícita que avise/bloquee una alta con `autoresIds` vacío (más allá de que la marcha exista igualmente, invisible en búsquedas públicas — ver [db-analysis.md](db-analysis.md) "Problema 3") |
 
 Todo lo demás que este documento marcaba como faltante en versiones anteriores
 (`PROVINCIA` en edición de marcha, `NOMBRE_ART` en autor, edición de autores,
 editar autores de una marcha, buscador en el dashboard, enlace tras crear,
-alta/edición de banda) **ya está implementado** — ver §2 y §3 arriba.
+alta/edición de banda, **alta y edición de discos + pistas**) **ya está
+implementado** — ver §2, §3 y §11.
 
 ---
 
@@ -365,15 +365,20 @@ DB_PATH=php/data/mdc.db php php/app/tools/export_marchas.php > tools/ingest/out/
 
 ---
 
-### `import_candidatos.php` — Importar candidatos de YouTube al panel de ingesta
+### `import_candidatos.php` — Importar candidatos al panel de ingesta
 
-Carga el fichero `candidatos.ndjson` generado por el pipeline de ingesta (Fase 2/3) en
-la tabla `ingest_candidato`. Upsert por `VIDEO_ID`: no sobreescribe candidatos ya
-revisados (aceptados/descartados/duplicados).
+Carga un `candidatos.ndjson` en la tabla `ingest_candidato`. Sirve a los dos
+descubridores: el de YouTube (`tools/ingest/*.mjs`) y el del catálogo de streaming
+de las bandas (`tools/music_links/descubrir_marchas.py`, ver
+[ingesta-streaming.md](ingesta-streaming.md)).
+
+Upsert por origen (`VIDEO_ID`): no sobreescribe candidatos ya revisados
+(aceptados/descartados/duplicados) y **salta los orígenes vetados**
+(`ingest_veto`), aunque su fila de candidato ya no exista.
 
 ```bash
 php php/app/tools/import_candidatos.php tools/ingest/out/candidatos.ndjson
-DB_PATH=php/data/mdc.db php php/app/tools/import_candidatos.php tools/ingest/out/candidatos.ndjson
+DB_PATH=php/data/mdc.db php php/app/tools/import_candidatos.php tools/music_links/out/candidatos.ndjson
 ```
 
 ---
@@ -393,7 +398,10 @@ DB_PATH=php/data/mdc.db php php/app/tools/load_canales.php tools/ingest/config/c
 ### `migrate_ingest.php` — Aplicar migraciones de staging (tablas de ingesta)
 
 Ejecuta en orden alfabético todos los `.sql` de `php/app/tools/sql/` contra la BD.
-Los `.sql` son todos `CREATE ... IF NOT EXISTS`, así que es idempotente.
+Los `.sql` son todos `CREATE ... IF NOT EXISTS`, así que es idempotente. Las
+columnas nuevas sobre tablas ya existentes (SQLite no tiene `ADD COLUMN IF NOT
+EXISTS`) se aplican al final del script comprobando antes `PRAGMA table_info`,
+que mantiene esa misma promesa.
 
 ```bash
 DB_PATH=php/data/mdc.db php php/app/tools/migrate_ingest.php
@@ -482,3 +490,130 @@ php php/app/tools/migrate_roles.php
 php php/app/tools/migrate_roles.php --admin estprocesional
 DB_PATH=/ruta/a/mdc.db php php/app/tools/migrate_roles.php
 ```
+
+---
+
+## 11. Discos: alta, portada y pistas
+
+`/dashboard/disco/add` (alta) y `/dashboard/disco/{id}` (datos + pistas + vista
+previa). **Solo administrador**: a diferencia de marcha/banda/autor, el disco no
+pasa por la cola de propuestas (`PropuestaRepo` no conoce esta entidad) y su
+alta escribe un fichero en el docroot.
+
+### Portada
+
+Se sube en el mismo formulario (`enctype="multipart/form-data"`) y la guarda
+`Media::guardarPortada()` como `public/cover/{ID_DISCO}.png`, que es donde
+`Html::coverSrc()` las busca. Tres decisiones que conviene no deshacer:
+
+- **El fichero no se mueve tal cual**: se descodifica con GD y se vuelve a
+  codificar a PNG. Eso normaliza el formato (entra JPEG/PNG/WebP/GIF, sale
+  siempre PNG) y descarta cualquier carga útil incrustada — un `.jpg` con PHP
+  dentro deja de serlo al reencodificarlo.
+- **El tipo se decide por el contenido** (`getimagesize`), nunca por la
+  extensión ni por el `Content-Type` del navegador, que el cliente controla.
+  Además hay tope de bytes *y* de píxeles: una imagen de 20 000×20 000 pesa poco
+  comprimida pero reventaría la memoria al descodificarla.
+- **Escritura atómica** (fichero temporal + `rename`): si el proceso muere a
+  medias, la portada anterior sigue intacta en vez de quedar un PNG truncado
+  servido a todo el mundo.
+
+La portada se guarda **después** de crear el disco, porque el nombre del fichero
+es su ID. Si la subida falla, el disco ya existe: se avisa en la pantalla de
+edición en vez de deshacer el alta.
+
+`public/cover/` está en `php/.gitignore`: las portadas viven solo en el
+servidor y el mirror del deploy excluye ese directorio
+(`.github/workflows/deploy.yml`), así que un despliegue nunca las pisa.
+
+### Pistas
+
+Se busca la marcha por **identificador exacto o por título**
+(`/api/marcha/fastSearch`, `AdminRepo::marchaCandidatosPorTexto()`): en la
+carátula suele venir el número, pero no siempre se tiene a mano. Al elegir una
+aparece una **vista previa** de lo que se va a añadir (pista, título, ID) antes
+de enviar.
+
+El número de pista **no se autoincrementa ni tiene que ser consecutivo** — se
+propone el siguiente libre como sugerencia, pero un disco puede documentarse a
+trozos o llevar cortes que no son marchas. Sí se valida que sea único dentro de
+su volumen (`PISTA_OCUPADA`) y que la marcha no esté ya en el disco
+(`MARCHA_YA_EN_DISCO`): las dos cosas son siempre errores de captura.
+
+> **El nº de volúmenes no es un campo editable.** La columna `disco.DISCOS`
+> existe en el esquema heredado pero **la aplicación nunca la lee**: `Repo` lo
+> calcula como `MAX(disco_marcha.N_DISCO)` en las dos consultas que lo exponen.
+> Por eso `EDITABLE_DISCO` no la incluye — guardarla sería dato muerto que
+> además podría contradecir a las pistas reales. El volumen se fija pista a
+> pista y el recuento sale solo.
+
+### Cobertura
+
+Los smoke tests de CI no pueden autenticarse, así que comprueban lo que sí se
+puede sin sesión: que las rutas existen (un 404 significaría que `routes.php` no
+las registró) y que el guard redirige al login. El flujo completo —alta con
+portada, búsqueda por nombre y por ID, pistas no consecutivas, rechazo de
+duplicados— se verificó de punta a punta con un navegador contra una BD de
+pruebas con un usuario administrador.
+
+---
+
+## 12. Ingesta de marchas — fuentes, veto de descartes y deshacer
+
+`/dashboard/ingesta` (solo rol `admin`) revisa los candidatos de
+`ingest_candidato` y los convierte en marchas. Desde 2026-07-28 deja de ser
+específico de YouTube: cada candidato lleva una columna `FUENTE`
+(`youtube` | `spotify` | `deezer` | `apple`). El pipeline completo del origen
+de streaming está en [ingesta-streaming.md](ingesta-streaming.md).
+
+### Qué cambia según la fuente
+
+| | `youtube` | `spotify` / `deezer` / `apple` |
+|---|---|---|
+| Reproductor en el detalle | embed de YouTube | widget de Deezer / reproductor de Spotify / reproductor de Apple Music |
+| Contexto extra | descripción del vídeo | disco de origen (`FUENTE_ALBUM`, con enlace) |
+| Al aceptar, la URL va a… | `marcha.AUDIO` | `enlace_streaming` (marcha + servicio, `VERIFICADO = 1`) |
+
+El reproductor no se elige por la fuente declarada sino por la URL del origen
+(`Media::embedDeUrl()`), que es la misma función que usan la ficha pública y el
+campo *Audio* del formulario de marcha. Si una URL no se reconoce, se ofrece el
+enlace externo y se dice por qué.
+
+El resto del formulario es idéntico: mismos campos que "Añadir marcha",
+autocompletado de autor y dedicatoria, selector de municipio y estilo sugerido
+(ahora respeta el `P_ESTILO` que propone el descubridor, y si no lo hay lo
+deduce de las marchas previas de la banda, como antes).
+
+### Veto: un descarte no vuelve a aparecer
+
+Descartar (individual o masivo) escribe en **`ingest_veto`** una fila con el
+origen exacto (`FUENTE` + `FUENTE_ID`), la banda, el título y el motivo. Efectos:
+
+- `import_candidatos.php` salta ese origen en cualquier importación futura,
+  incluso si la fila de `ingest_candidato` se purgó.
+- `descubrir_marchas.py` no lo propone.
+- La reevaluación automática (`IngestaRepo::reevaluarTrasCrearMarcha`,
+  `reevaluar_ingesta.php`) **no reabre** candidatos vetados, aunque después se
+  cree una marcha de título parecido.
+
+El veto es **por origen exacto**: la misma marcha vista en otro servicio puede
+volver a proponerse, y ahí el revisor vuelve a decidir.
+
+### Deshacer el último descarte
+
+`POST /dashboard/ingesta/deshacer-descarte` (botón `↩ Deshacer último descarte`
+en el listado, visible solo cuando hay algo que deshacer). Devuelve los
+candidatos a `pendiente`, borra su `MOTIVO`/`REVIEWED_AT` y levanta su veto.
+
+- **Un solo paso**: `ingest_descarte_ultimo` es una fila única (`ID = 1`) que
+  cada descarte nuevo sustituye; deshacer la consume y el botón desaparece.
+- Un descarte masivo se deshace **entero** (guarda la lista de ids).
+- Queda registrado en `admin_log` como `UNDO_DISCARD`.
+- Para recuperar algo más antiguo: pestaña **Descartados** (el candidato sigue
+  ahí con su motivo).
+
+### Rutas de escritura añadidas
+
+| Ruta | Handler | Qué hace |
+|---|---|---|
+| `POST /dashboard/ingesta/deshacer-descarte` | `Admin::ingestaDeshacerDescarte` | Deshace el último descarte (CSRF + rol admin) |

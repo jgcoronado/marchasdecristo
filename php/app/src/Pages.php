@@ -16,6 +16,30 @@ final class Pages
         return rtrim((string) ($GLOBALS['config']['site_url'] ?? 'https://marchasdecristo.com'), '/');
     }
 
+    // Decisión 2026-07-29: /temporada se oculta en PRO mientras `contrato` no
+    // tenga datos de calidad suficiente (alta manual, aún vacía en prod), pero
+    // se mantiene visible en local (donde se rellena) y en PRE (para
+    // validarla visualmente antes de decidir publicarla). "Publicarla" es
+    // quitar este gate, no un flag de config nuevo — no hay nada que
+    // configurar por host aparte de lo que ya distingue PRE de PRO.
+    private static function temporadaVisible(): bool
+    {
+        $config = $GLOBALS['config'];
+        return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
+    }
+
+    // Decisión 2026-07-29: /mapa se oculta en PRO mientras se corrige el
+    // solape de dianas de clic entre municipios próximos (reportado en
+    // Castilleja de la Cuesta/Tomares). Se mantiene visible en local y en PRE
+    // para poder seguir iterando y validando el arreglo sin publicar el
+    // problema. Mismo mecanismo que temporadaVisible(): quitar el gate es
+    // "republicarlo", no hay flag de config nuevo.
+    private static function mapaVisible(): bool
+    {
+        $config = $GLOBALS['config'];
+        return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
+    }
+
     /** @return array{0:array<string,string>,1:bool,2:int,3:int} [criteria, hasQuery, page, limit] */
     private static function searchParams(): array
     {
@@ -832,6 +856,9 @@ final class Pages
     // ── Mapa (N-10) ──────────────────────────────────────────────────────────
     public static function mapa(): void
     {
+        if (!self::mapaVisible()) {
+            Http::notFound();
+        }
         $porProvincia = Repo::hubProvincias();
         $svgMapa = Mapa::render($porProvincia);
 
@@ -861,6 +888,9 @@ final class Pages
     /** Mapa ampliado de una provincia: municipios clicables (self::mapaProvinciaPath). */
     public static function mapaProvincia(array $p): void
     {
+        if (!self::mapaVisible()) {
+            Http::notFound();
+        }
         $raw = (string) $p['slug'];
         $slug = Slug::slugify($raw);
         $prov = null;
@@ -911,11 +941,17 @@ final class Pages
     // ── Temporada (N-04): contratos banda↔hermandad, alta manual por ahora ──
     public static function temporadaIndex(): void
     {
+        if (!self::temporadaVisible()) {
+            Http::notFound();
+        }
         Http::redirect('/temporada/' . gmdate('Y'), 302);
     }
 
     public static function temporada(array $p): void
     {
+        if (!self::temporadaVisible()) {
+            Http::notFound();
+        }
         $anio = (string) $p['anio'];
         if (preg_match('/^\d{4}$/', $anio) !== 1) {
             Http::notFound();
@@ -1051,9 +1087,13 @@ final class Pages
             // cualquier año lo es — así que solo se anuncia el vigente; los
             // años pasados siguen accesibles (y rastreables) vía prev/next.
             [$base . self::aniversariosAnioPath(gmdate('Y')), 'monthly', '0.6'],
-            [$base . '/mapa', 'monthly', '0.6'],
             [$base . '/datos', 'monthly', '0.5'],
         ];
+        // Oculto en PRO (ver Pages::mapaVisible): no anunciar una URL que la
+        // propia web responde con 404.
+        if (self::mapaVisible()) {
+            $urls[] = [$base . '/mapa', 'monthly', '0.6'];
+        }
 
         try {
             // Hubs de catálogo (C1): solo los que tienen sustancia (≥ HUB_MIN_MARCHAS).
@@ -1103,14 +1143,19 @@ final class Pages
         // — si aún no se ha aplicado, esto no debe tumbar el resto del sitemap
         // (ya pasó: el primer deploy de N-04 dejó el sitemap sin fichas de marcha
         // porque la consulta vivía dentro del try principal, más arriba).
-        try {
-            foreach (Repo::aniosConTemporada() as $r) {
-                if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
-                    $urls[] = [$base . '/temporada/' . $r['K'], 'weekly', '0.5'];
+        // Oculta en PRO (ver Pages::temporadaVisible): listar aquí una URL que
+        // el propio sitio responde con 404 sería peor para el sitemap que
+        // omitirla.
+        if (self::temporadaVisible()) {
+            try {
+                foreach (Repo::aniosConTemporada() as $r) {
+                    if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
+                        $urls[] = [$base . '/temporada/' . $r['K'], 'weekly', '0.5'];
+                    }
                 }
+            } catch (Throwable $e) {
+                error_log('[sitemap:temporada] ' . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log('[sitemap:temporada] ' . $e->getMessage());
         }
 
         $lastmodTag = $lastmod !== null ? '<lastmod>' . $lastmod . '</lastmod>' : '';
@@ -1349,11 +1394,21 @@ final class Pages
             '- [Dedicatorias](' . $base . '/dedicatorias)',
             '- [Rankings](' . $base . '/rankings)',
             '- [Aniversarios](' . $base . '/aniversarios)',
-            '- [Mapa](' . $base . '/mapa)',
-            '- [Temporada](' . $base . '/temporada)',
-            '- [Mapa del sitio](' . $base . '/sitemap.xml)',
-            '',
         ];
+        // Mapa oculto en PRO mientras se corrige el solape de dianas (ver
+        // Pages::mapaVisible) — no listar aquí una URL que la propia web
+        // responde con 404.
+        if (self::mapaVisible()) {
+            $lines[] = '- [Mapa](' . $base . '/mapa)';
+        }
+        // Temporada oculta en PRO hasta que haya datos de calidad (ver
+        // Pages::temporadaVisible) — no listar aquí una URL que la propia web
+        // responde con 404.
+        if (self::temporadaVisible()) {
+            $lines[] = '- [Temporada](' . $base . '/temporada)';
+        }
+        $lines[] = '- [Mapa del sitio](' . $base . '/sitemap.xml)';
+        $lines[] = '';
         echo implode("\n", $lines);
     }
 }

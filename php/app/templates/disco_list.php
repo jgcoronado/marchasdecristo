@@ -18,6 +18,7 @@ $sortHref = static function (string $col) use ($href, $orden, $dir): string {
     return $href(['orden' => $col, 'dir' => $next]);
 };
 $arrow = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? '↑' : '↓') : '↕';
+$ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
 $total = (int) $result['totalRows'];
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
@@ -25,28 +26,26 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <div class="stack list-page">
     <div class="toolbar">
         <span class="rescount">Discos — <b><?= $num($total) ?></b> registros</span>
+        <?= H::porPagina($limit, '/disco', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-    <details class="panel adv"<?= $val('nombre') !== '' ? ' open' : '' ?>>
+    <details class="adv"<?= $val('nombre') !== '' ? ' open' : '' ?>>
         <summary>Búsqueda avanzada</summary>
-        <form action="/disco" method="GET">
-            <div class="form-grid">
-                <div class="field col-span-2">
+        <form class="adv-form" action="/disco" method="GET">
+            <div class="adv-grid">
+                <div class="field">
                     <label class="field-label" for="nombre">Nombre del disco</label>
                     <input id="nombre" class="input" type="text" name="nombre" value="<?= $val('nombre') ?>" placeholder="Fons Vitae…">
                 </div>
             </div>
-            <div class="search-actions">
-                <label class="muted" for="limit">Resultados por página</label>
-                <select id="limit" name="limit" class="select">
-<?php foreach ([10, 20, 50] as $opt): ?>
-                    <option value="<?= $opt ?>"<?= $opt === $limit ? ' selected' : '' ?>><?= $opt ?></option>
-<?php endforeach; ?>
-                </select>
+            <div class="adv-actions">
                 <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+<?php if ($hayFiltro): ?>
+                <a href="/disco">limpiar</a>
+<?php endif; ?>
             </div>
         </form>
     </details>
@@ -73,9 +72,9 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             <div class="scrollx tableList">
             <table class="reg">
                 <thead><tr>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
-                    <th><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('anio') ?>"><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>

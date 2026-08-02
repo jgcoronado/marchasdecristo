@@ -13,6 +13,11 @@ $href = static function (array $over) use ($criteria): string {
 $orden = (string) ($criteria['orden'] ?? '');
 $total = (int) $result['totalRows'];
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+
+// El panel se abre solo si hay algún criterio que las facetas de la izquierda
+// no sepan mostrar (título, dedicatoria, localidad): si el filtro activo ya se
+// ve en la barra lateral, abrirlo sería repetir la misma información.
+$advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('localidad') !== '';
 ?>
 <div class="stack list-page">
     <div class="toolbar">
@@ -22,29 +27,34 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             <a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a> ·
             <a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a>
         </span>
+        <?= H::porPagina($limit, '/marcha', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/marcha">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-    <details class="panel adv"<?= ($val('dedicatoria') !== '' || $val('localidad') !== '') ? ' open' : '' ?>>
+<?php /* Sin tarjeta ni recuadro: es un desplegable en línea, separado por un
+         filete, igual que el resto de secciones. Antes era un .panel que, aun
+         cerrado, ocupaba un bloque en blanco entre la barra y los resultados. */ ?>
+    <details class="adv"<?= $advAbierto ? ' open' : '' ?>>
         <summary>Búsqueda avanzada</summary>
-        <form action="/marcha" method="GET">
-            <div class="form-grid">
+        <form class="adv-form" action="/marcha" method="GET">
+            <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="titulo">Título</label>
                     <input id="titulo" class="input" type="text" name="titulo" value="<?= $val('titulo') ?>" placeholder="Consuelo Gitano…">
                 </div>
                 <div class="field">
-                    <label class="field-label">Fecha</label>
-                    <div class="row">
-                        <input class="input" type="text" name="fechaDesde" value="<?= $val('fechaDesde') ?>" maxlength="4" placeholder="Desde">
-                        <input class="input" type="text" name="fechaHasta" value="<?= $val('fechaHasta') ?>" maxlength="4" placeholder="Hasta">
-                    </div>
-                </div>
-                <div class="field">
                     <label class="field-label" for="dedicatoria">Dedicatoria</label>
                     <input id="dedicatoria" class="input" type="text" name="dedicatoria" value="<?= $val('dedicatoria') ?>" placeholder="Hdad Cristo de la Corona…">
+                </div>
+                <div class="field">
+                    <label class="field-label" for="fechaDesde">Años</label>
+                    <div class="adv-rango">
+                        <input id="fechaDesde" class="input" type="text" inputmode="numeric" name="fechaDesde" value="<?= $val('fechaDesde') ?>" maxlength="4" placeholder="desde" aria-label="Año desde">
+                        <span aria-hidden="true">–</span>
+                        <input class="input" type="text" inputmode="numeric" name="fechaHasta" value="<?= $val('fechaHasta') ?>" maxlength="4" placeholder="hasta" aria-label="Año hasta">
+                    </div>
                 </div>
                 <div class="field">
                     <label class="field-label" for="localidad">Localidad</label>
@@ -55,14 +65,11 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                     <input id="provincia" class="input" type="text" name="provincia" value="<?= $val('provincia') ?>" placeholder="Almería…">
                 </div>
             </div>
-            <div class="search-actions">
-                <label class="muted" for="limit">Resultados por página</label>
-                <select id="limit" name="limit" class="select">
-<?php foreach ([10, 20, 50] as $opt): ?>
-                    <option value="<?= $opt ?>"<?= $opt === $limit ? ' selected' : '' ?>><?= $opt ?></option>
-<?php endforeach; ?>
-                </select>
+            <div class="adv-actions">
                 <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+<?php if ($hayFiltro): ?>
+                <a href="/marcha">limpiar</a>
+<?php endif; ?>
             </div>
         </form>
     </details>

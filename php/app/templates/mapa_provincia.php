@@ -12,10 +12,6 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     </div>
 
     <article class="record">
-        <div class="head">
-            <span class="eb">Mapa</span>
-            <span class="sig">MDC · <?= V::e($provincia) ?></span>
-        </div>
         <h1>Mapa de <?= V::e($provincia) ?></h1>
         <p class="asiento">Pulsa un municipio para ver sus marchas, o consulta la tabla de abajo.
             El color indica cuántas marchas tiene cada uno; la posición es aproximada. Puedes

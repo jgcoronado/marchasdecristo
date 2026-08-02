@@ -38,20 +38,21 @@
   del panel y, si se quiere, que un intento de escritura efectivamente cae en
   modo solo-lectura.
 
-### 2. Cron de backup  ·  *(Plesk)* — ⚠️ estado contradictorio entre documentos, verificar en Plesk
-- `cutover-fase5.md` registra el cron como "configurado, confirmado por el
-  usuario" el 2026-07-06. `context.md`/`entornos.md` lo dan por hecho sin
-  matices. Pero `roadmap.md` (T-03) lo marca todavía como **"Parcial"** — es
-  decir, el corpus de documentación no está de acuerdo consigo mismo. Esto no
-  es verificable desde el repo (es estado de Plesk, no de código).
-- [ ] Confirmar en Plesk → **Scheduled Tasks** si la tarea existe de verdad:
-      tipo **"Run a PHP script"** → `/home/jaguerra27.helioho.st/app/tools/backup.php`
-      → semanal. ⚠️ El PHP por defecto de las Scheduled Tasks es PHP 5.x (falla
-      con `Unsupported declare 'strict_types'`) — hay que **seleccionar 8.4
-      explícitamente**.
-- [ ] Según el resultado: marcar esta casilla y actualizar `roadmap.md` T-03,
-      o crear la tarea si de verdad no existe.
-- [ ] Confirmar que aparece al menos un `private/backups/mdc-*.db` reciente.
+### ~~2. Cron de backup~~  ·  *(Plesk)* — ✅ Verificado 2026-07-29
+> Resuelto como contradicción documental el 2026-07-29: `cutover-fase5.md` y
+> `roadmap.md` T-03 ya no afirmaban nada por su cuenta, apuntaban aquí. La
+> verificación en sí (que no se podía hacer desde el repo) se completó el
+> mismo día.
+
+- `cutover-fase5.md` registraba el cron como "configurado, confirmado por el
+  usuario" el 2026-07-06, y `context.md`/`entornos.md` lo daban por hecho sin
+  matices; `roadmap.md` (T-03) lo marcaba como "Parcial". Ninguna de esas
+  afirmaciones se había reverificado desde entonces.
+- [x] Confirmado en Plesk → **Scheduled Tasks**: la tarea existe y corre en
+      PHP 8.4. Ejecución manual de comprobación el 2026-07-29:
+      `backup OK: /home/jaguerra27.helioho.st/private/backups/mdc-20260729-132640.db (9.629.696 bytes)`.
+- [x] Backup reciente confirmado (el de arriba, 9,6 MB, mismo día).
+- [x] `roadmap.md` T-03/OPS-03 actualizado a completado.
 
 ### ~~3. Search Console~~ ✅ Hecho 2026-07-06, ver `cutover-fase5.md` §6
 - Sitemap reenviado (5.744 URLs, "Correcto"), cobertura revisada, URLs clave
@@ -68,10 +69,16 @@
 - [ ] Si `marchasdecristo.com` tiene email, confirmar que sigue funcionando (el
       cutover solo debía cambiar el registro `A`, no el `MX`). Enviar/recibir una prueba.
 
-### 5. Desmantelar el VPS  ·  *(cuando esté estable, ~1-2 semanas)*
-- [ ] Mantenerlo como **rollback** mientras vigilas Search Console.
-- [ ] Cuando todo esté ok: `docker compose down` en el VPS y dar de baja el servidor.
-- [ ] Subir de nuevo el **TTL** del DNS a su valor normal.
+### ~~5. Desmantelar el VPS~~  ·  ✅ Hecho — confirmado por el usuario 2026-07-29
+- [x] Se mantuvo como **rollback** ~3,5 semanas (más de las 1-2 previstas,
+      mientras se vigilaba Search Console).
+- [x] `docker compose down` en el VPS y servidor dado de baja: **todo
+      apagado**.
+- [x] TTL del DNS subido a su valor normal.
+- ⚠️ **Consecuencia**: el [runbook de rollback de infraestructura/DNS
+      (cutover-fase5.md §7)](cutover-fase5.md) queda **obsoleto** desde hoy —
+      ya no hay VPS al que volver. Si algo grave ocurriera en HelioHost, la
+      recuperación ya no puede apoyarse en ese runbook.
 
 ### 6. Opcionales / limpieza
 - [x] ~~Eliminar el subdominio vacío `marchasdecristo.jaguerra27.helioho.st`~~ —

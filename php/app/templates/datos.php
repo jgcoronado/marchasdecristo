@@ -11,10 +11,6 @@
 $num = static fn(int $n): string => number_format($n, 0, ',', '.');
 ?>
 <article class="record">
-    <div class="head">
-        <span class="eb">Datos abiertos</span>
-        <span class="sig">MDC · datos</span>
-    </div>
     <h1>Datos y licencia</h1>
     <p class="asiento">Marchas de Cristo es una base de datos de música procesional española de acceso libre.
 <?php if ($counts !== null): ?>

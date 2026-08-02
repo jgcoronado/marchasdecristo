@@ -1,7 +1,7 @@
 # Deuda técnica — marchasdecristo.com
 
 > Última actualización: 2026-07-27 (auditoría documental: 3.1 y 3.2 resueltos desde el origen del documento, no eran deuda real)
-> La auditoría de la BD vive en [db-analysis.md](db-analysis.md). El análisis del panel en [admin-panel.md](admin-panel.md). El plan priorizado de mejoras (no solo deuda) vive en [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md) y su estado de ejecución en [roadmap.md](roadmap.md).
+> La auditoría de la BD vive en [db-analysis.md](db-analysis.md). El análisis del panel en [admin-panel.md](admin-panel.md). El **plan priorizado de trabajo futuro** (deuda incluida) vive en [roadmap.md](roadmap.md) §2, que desde el 2026-07-29 es la fuente única; `consejo-de-sabios-2026-07.md` es la evaluación histórica que lo originó, no un tracker. Los ítems abiertos de este documento están referenciados en el plan como `D-x.x`.
 
 ## Resumen ejecutivo
 
@@ -93,12 +93,12 @@ además de deuda).
 
 ## 5. Panel de administración
 
-### 5.1 Gestión de discos ausente 🟢
-- Hay alta/edición de marcha, autor y banda (con linaje), pero no de disco —
-  las relaciones `disco_marcha` solo se pueden tocar indirectamente. Ver
-  detalle en [admin-panel.md](admin-panel.md).
-- **Fix**: `/dashboard/disco/add` y `/dashboard/disco/{id}` con gestión de la
-  lista de pistas, siguiendo el mismo patrón que `banda_form.php`.
+### 5.1 Gestión de discos ausente ✅ resuelto (2026-07)
+- Implementado: `/dashboard/disco/add` (alta con subida de portada) y
+  `/dashboard/disco/{id}` (datos, portada, pistas y vista previa). La marcha se
+  busca por identificador o por título, y el número de pista no tiene por qué
+  ser consecutivo. Detalle y decisiones en
+  [admin-panel.md §11](admin-panel.md).
 
 ---
 

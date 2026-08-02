@@ -26,6 +26,19 @@ final class AdminRepo
         'ADAPTACIÓN MÚSICA POPULAR',
     ];
     public const EDITABLE_AUTOR = ['NOMBRE', 'APELLIDOS', 'NOMBRE_ART', 'F_NAC', 'LUGAR_NAC', 'F_DEF', 'BIO'];
+
+    /**
+     * Campos del disco que se editan desde el panel.
+     *
+     * NO incluye `disco.DISCOS` (nº de volúmenes) a propósito: la aplicación
+     * nunca lee esa columna — Repo la calcula como MAX(disco_marcha.N_DISCO)
+     * en las dos consultas que la exponen. Guardarla aquí sería dato muerto que
+     * además podría contradecir a las pistas reales. El volumen se fija pista a
+     * pista, y el recuento sale solo.
+     *
+     * Ojo con `d_DETALLES`: la columna heredada va en minúsculas.
+     */
+    public const EDITABLE_DISCO = ['NOMBRE_CD', 'FECHA_CD', 'BANDADISCO', 'd_DETALLES'];
     public const EDITABLE_BANDA = ['NOMBRE_COMPLETO', 'NOMBRE_BREVE', 'LOCALIDAD', 'PROVINCIA', 'FECHA_FUND', 'FECHA_EXT', 'DIRECTOR_ACTUAL', 'DIR_MUS_ACTUAL', 'WEB'];
 
     public static function normalize(mixed $v): mixed
@@ -440,18 +453,22 @@ final class AdminRepo
 
     /**
      * Acepta un candidato: crea la marcha (con el mismo camino que addMarcha)
-     * y, si $guardarAudio es true (por defecto), además fija AUDIO con la URL
-     * del vídeo de origen (addMarcha no admite AUDIO al crear porque una
-     * marcha añadida a mano normalmente no tiene vídeo todavía; aquí sí lo
-     * tenemos siempre, pero el revisor puede decidir no guardarlo).
+     * y, si $guardarOrigen es true (por defecto), además guarda el enlace del
+     * que salió, en el sitio que le corresponde según la fuente:
+     *
+     *  - `youtube` → `marcha.AUDIO` (el hueco del embed; addMarcha no admite
+     *    AUDIO al crear porque una marcha añadida a mano no suele tener vídeo).
+     *  - `spotify` / `deezer` / `apple` → `enlace_streaming` como enlace
+     *    verificado de la marcha, que es lo que pinta la botonera de la ficha
+     *    pública. Así la marcha nace ya escuchable en su servicio de origen.
      *
      * @param array<string,mixed> $fields
      * @param list<int> $autoresIds
      * @return array{code:string, marchaId?:int}
      */
-    public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarAudio = true): array
+    public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true): array
     {
-        $cand = Db::one('SELECT ESTADO, VIDEO_URL, ID_BANDA FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
+        $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
         if ($cand === null) return ['code' => 'NOT_FOUND'];
         if ($cand['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
 
@@ -462,8 +479,13 @@ final class AdminRepo
         $r = self::addMarcha($fields, $autoresIds, $idCand, $cand['ID_BANDA'] !== null ? (int) $cand['ID_BANDA'] : null);
         if (($r['code'] ?? '') !== 'CREATED') return $r;
 
-        if ($guardarAudio && !empty($cand['VIDEO_URL'])) {
-            self::editMarcha($r['marchaId'], ['AUDIO'], [$cand['VIDEO_URL']]);
+        $fuente = (string) ($cand['FUENTE'] ?? 'youtube');
+        if ($guardarOrigen && !empty($cand['VIDEO_URL'])) {
+            if ($fuente === 'youtube') {
+                self::editMarcha($r['marchaId'], ['AUDIO'], [$cand['VIDEO_URL']]);
+            } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
+                self::setEnlaceStreaming('marcha', $r['marchaId'], $fuente, (string) $cand['VIDEO_URL']);
+            }
         }
 
         Db::run(
@@ -477,14 +499,125 @@ final class AdminRepo
     /** @return array{code:string} */
     public static function descartarCandidato(int $idCand, ?string $motivo): array
     {
-        $changes = Db::run(
-            "UPDATE ingest_candidato SET ESTADO = 'descartado', MOTIVO = ?, REVIEWED_AT = datetime('now')
-             WHERE ID_CAND = ? AND ESTADO = 'pendiente'",
-            [self::normalize($motivo), $idCand]
+        $motivo = self::normalize($motivo);
+
+        return Db::transaction(static function () use ($idCand, $motivo): array {
+            $changes = Db::run(
+                "UPDATE ingest_candidato SET ESTADO = 'descartado', MOTIVO = ?, REVIEWED_AT = datetime('now')
+                 WHERE ID_CAND = ? AND ESTADO = 'pendiente'",
+                [$motivo, $idCand]
+            );
+            if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING'];
+
+            self::vetarCandidatos([$idCand], $motivo);
+            self::registrarUltimoDescarte([$idCand]);
+            Db::logAdmin('DISCARD', 'ingest_candidato', $idCand, ['motivo' => $motivo]);
+            return ['code' => 'DISCARDED'];
+        });
+    }
+
+    /**
+     * Deja constancia permanente de que estos orígenes ya se rechazaron, para
+     * que ni la reimportación del lote ni las pasadas futuras del descubridor
+     * los vuelvan a proponer (ver `ingest_veto` en 008_ingest_streaming.sql).
+     * El veto es por origen exacto: mismo servicio + mismo id de pista/vídeo.
+     *
+     * @param list<int> $ids
+     */
+    private static function vetarCandidatos(array $ids, ?string $motivo = null): void
+    {
+        if ($ids === []) return;
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $rows = Db::all(
+            "SELECT ID_CAND, FUENTE, VIDEO_ID, ID_BANDA, P_TITULO, VIDEO_TITULO, MOTIVO
+             FROM ingest_candidato WHERE ID_CAND IN ($ph)",
+            $ids
         );
-        if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING'];
-        Db::logAdmin('DISCARD', 'ingest_candidato', $idCand, ['motivo' => $motivo]);
-        return ['code' => 'DISCARDED'];
+        $usuario = Db::auditUser();
+
+        foreach ($rows as $r) {
+            if ((string) $r['VIDEO_ID'] === '') continue;
+            Db::run(
+                'INSERT INTO ingest_veto (FUENTE, FUENTE_ID, ID_BANDA, TITULO, MOTIVO, ID_CAND, USUARIO)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT (FUENTE, FUENTE_ID) DO UPDATE SET
+                    ID_BANDA = excluded.ID_BANDA, TITULO = excluded.TITULO, MOTIVO = excluded.MOTIVO,
+                    ID_CAND = excluded.ID_CAND, USUARIO = excluded.USUARIO, CREATED_AT = datetime(\'now\')',
+                [
+                    (string) ($r['FUENTE'] ?? 'youtube'),
+                    (string) $r['VIDEO_ID'],
+                    $r['ID_BANDA'] !== null ? (int) $r['ID_BANDA'] : null,
+                    (string) ($r['P_TITULO'] ?: $r['VIDEO_TITULO']),
+                    $motivo ?? self::normalize($r['MOTIVO']),
+                    (int) $r['ID_CAND'],
+                    $usuario,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Guarda el descarte recién hecho como "el último", que es lo que deshace
+     * el botón del panel. Es un solo paso a propósito: cada descarte nuevo
+     * sustituye al anterior (fila única, ID = 1).
+     *
+     * @param list<int> $ids
+     */
+    private static function registrarUltimoDescarte(array $ids): void
+    {
+        if ($ids === []) return;
+        Db::run(
+            "INSERT INTO ingest_descarte_ultimo (ID, IDS_JSON, N, USUARIO, CREATED_AT)
+             VALUES (1, ?, ?, ?, datetime('now'))
+             ON CONFLICT (ID) DO UPDATE SET
+                IDS_JSON = excluded.IDS_JSON, N = excluded.N,
+                USUARIO = excluded.USUARIO, CREATED_AT = datetime('now')",
+            [json_encode(array_values($ids)), count($ids), Db::auditUser()]
+        );
+    }
+
+    /**
+     * Deshace el último descarte (un solo paso): devuelve los candidatos a
+     * "pendiente", levanta su veto y consume el registro, de modo que el
+     * botón desaparece hasta el siguiente descarte. Pensado para el error de
+     * click, no para revisar el histórico — para eso está la pestaña
+     * "Descartados".
+     *
+     * @return array{code:string, count?:int}
+     */
+    public static function deshacerUltimoDescarte(): array
+    {
+        return Db::transaction(static function (): array {
+            $row = Db::one('SELECT IDS_JSON FROM ingest_descarte_ultimo WHERE ID = 1');
+            if ($row === null) return ['code' => 'NOTHING_TO_UNDO'];
+
+            $ids = json_decode((string) $row['IDS_JSON'], true);
+            $ids = is_array($ids)
+                ? array_values(array_filter(array_map('intval', $ids), static fn(int $n): bool => $n > 0))
+                : [];
+            Db::run('DELETE FROM ingest_descarte_ultimo WHERE ID = 1');
+            if ($ids === []) return ['code' => 'NOTHING_TO_UNDO'];
+
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            // El veto se levanta por el origen del candidato, no por su id de
+            // fila: es la clave con la que se bloquean las reimportaciones.
+            Db::run(
+                "DELETE FROM ingest_veto WHERE (FUENTE, FUENTE_ID) IN (
+                    SELECT FUENTE, VIDEO_ID FROM ingest_candidato WHERE ID_CAND IN ($ph)
+                 )",
+                $ids
+            );
+            $changes = Db::run(
+                "UPDATE ingest_candidato
+                 SET ESTADO = 'pendiente', MOTIVO = NULL, REVIEWED_AT = NULL
+                 WHERE ID_CAND IN ($ph) AND ESTADO = 'descartado'",
+                $ids
+            );
+            if ($changes === 0) return ['code' => 'NOTHING_TO_UNDO'];
+
+            Db::logAdmin('UNDO_DISCARD', 'ingest_candidato', count($ids) === 1 ? $ids[0] : null, ['ids' => $ids, 'count' => $changes]);
+            return ['code' => 'UNDONE', 'count' => $changes];
+        });
     }
 
     /**
@@ -498,15 +631,28 @@ final class AdminRepo
         $ids = array_values(array_unique(array_filter($ids, static fn(int $n): bool => $n > 0)));
         if ($ids === []) return ['code' => 'BAD_REQUEST', 'count' => 0];
 
-        $ph = implode(',', array_fill(0, count($ids), '?'));
-        $changes = Db::run(
-            "UPDATE ingest_candidato SET ESTADO = 'descartado', REVIEWED_AT = datetime('now')
-             WHERE ID_CAND IN ($ph) AND ESTADO = 'pendiente'",
-            $ids
-        );
-        if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING', 'count' => 0];
-        Db::logAdmin('DISCARD', 'ingest_candidato', null, ['ids' => $ids, 'count' => $changes]);
-        return ['code' => 'DISCARDED', 'count' => $changes];
+        return Db::transaction(static function () use ($ids): array {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            // Solo se descartan (y por tanto se vetan y se pueden deshacer) los
+            // que estaban pendientes de verdad: si en la lista venía alguno ya
+            // revisado, queda fuera de las tres operaciones.
+            $pendientes = array_map(
+                static fn(array $r): int => (int) $r['ID_CAND'],
+                Db::all("SELECT ID_CAND FROM ingest_candidato WHERE ID_CAND IN ($ph) AND ESTADO = 'pendiente'", $ids)
+            );
+            if ($pendientes === []) return ['code' => 'NOT_FOUND_OR_NOT_PENDING', 'count' => 0];
+
+            $phP = implode(',', array_fill(0, count($pendientes), '?'));
+            $changes = Db::run(
+                "UPDATE ingest_candidato SET ESTADO = 'descartado', REVIEWED_AT = datetime('now')
+                 WHERE ID_CAND IN ($phP)",
+                $pendientes
+            );
+            self::vetarCandidatos($pendientes);
+            self::registrarUltimoDescarte($pendientes);
+            Db::logAdmin('DISCARD', 'ingest_candidato', null, ['ids' => $pendientes, 'count' => $changes]);
+            return ['code' => 'DISCARDED', 'count' => $changes];
+        });
     }
 
     // ── Enlaces de streaming: curación (aprobar / rechazar) ───────────────────
@@ -787,5 +933,232 @@ final class AdminRepo
             'variantes_absorbidas' => count($otras), 'marchas' => $marchas,
         ]);
         return ['code' => 'UNIFIED', 'marchas' => $marchas, 'variantes' => count($otras)];
+    }
+
+    // ── Discos ──────────────────────────────────────────────────────────────
+
+    /** @param array<string,mixed> $disco @return array{code:string,discoId?:int} */
+    public static function addDisco(array $disco): array
+    {
+        $safe = self::saneaDisco($disco);
+        if (isset($safe['code'])) return $safe;
+        if (($safe['NOMBRE_CD'] ?? null) === null) return ['code' => 'NOMBRE_REQUERIDO'];
+
+        $cols = array_keys($safe);
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        Db::run('INSERT INTO disco (' . implode(', ', $cols) . ") VALUES ($ph)", array_values($safe));
+        $discoId = Db::lastInsertId();
+        if (!$discoId) return ['code' => 'INTERNAL_ERROR'];
+        Db::logAdmin('INSERT', 'disco', $discoId, ['campos' => $cols]);
+        return ['code' => 'CREATED', 'discoId' => $discoId];
+    }
+
+    /** @param array<string,mixed> $disco @return array{code:string} */
+    public static function updateDisco(int $idDisco, array $disco): array
+    {
+        if (self::discoExiste($idDisco) === false) return ['code' => 'DISCO_NO_EXISTE'];
+        $safe = self::saneaDisco($disco);
+        if (isset($safe['code'])) return $safe;
+        if ($safe === []) return ['code' => 'INVALID_FIELDS'];
+
+        $sets = implode(', ', array_map(static fn(string $c): string => "$c = ?", array_keys($safe)));
+        Db::run("UPDATE disco SET $sets WHERE ID_DISCO = ?", [...array_values($safe), $idDisco]);
+        Db::logAdmin('UPDATE', 'disco', $idDisco, ['campos' => array_keys($safe)]);
+        return ['code' => 'UPDATED'];
+    }
+
+    /**
+     * Normaliza y valida los campos del disco. Devuelve ['code' => ...] si algo
+     * no cuadra, o el array de columnas listo para el INSERT/UPDATE.
+     *
+     * @param  array<string,mixed> $disco
+     * @return array<string,mixed>
+     */
+    private static function saneaDisco(array $disco): array
+    {
+        $safe = [];
+        foreach (self::EDITABLE_DISCO as $f) {
+            if (array_key_exists($f, $disco)) $safe[$f] = self::normalize($disco[$f]);
+        }
+        // FECHA_CD es TEXT en el esquema heredado, pero solo guarda años.
+        if (($safe['FECHA_CD'] ?? null) !== null && preg_match('/^\d{4}$/', (string) $safe['FECHA_CD']) !== 1) {
+            return ['code' => 'INVALID_FECHA'];
+        }
+        if (($safe['BANDADISCO'] ?? null) !== null) {
+            $b = (int) $safe['BANDADISCO'];
+            if ($b <= 0) { $safe['BANDADISCO'] = null; }
+            elseif (!self::bandaExiste($b)) { return ['code' => 'BANDA_NO_EXISTE']; }
+            else { $safe['BANDADISCO'] = $b; }
+        }
+        return $safe;
+    }
+
+    private static function discoExiste(int $id): bool
+    {
+        return Db::one('SELECT 1 AS x FROM disco WHERE ID_DISCO = ?', [$id]) !== null;
+    }
+
+    /**
+     * Añade una marcha al disco como una pista.
+     *
+     * El número de pista NO se autoincrementa ni tiene que ser consecutivo (un
+     * disco puede documentarse a trozos, o saltarse pistas que no son marchas),
+     * pero sí debe ser único dentro de su volumen: dos pistas 4 en el mismo
+     * volumen es siempre un error de captura.
+     *
+     * @return array{code:string,dmId?:int}
+     */
+    public static function addPista(int $idDisco, int $idMarcha, int $numero, int $nDisco = 1): array
+    {
+        if (!self::discoExiste($idDisco)) return ['code' => 'DISCO_NO_EXISTE'];
+        if (Db::one('SELECT 1 AS x FROM marcha WHERE ID_MARCHA = ?', [$idMarcha]) === null) {
+            return ['code' => 'MARCHA_NO_EXISTE'];
+        }
+        if ($numero < 1 || $numero > 999) return ['code' => 'PISTA_INVALIDA'];
+        if ($nDisco < 1 || $nDisco > 99) return ['code' => 'VOLUMEN_INVALIDO'];
+
+        if (Db::one('SELECT 1 AS x FROM disco_marcha WHERE ID_DISCO = ? AND IDMARCHA = ?', [$idDisco, $idMarcha]) !== null) {
+            return ['code' => 'MARCHA_YA_EN_DISCO'];
+        }
+        if (Db::one('SELECT 1 AS x FROM disco_marcha WHERE ID_DISCO = ? AND N_DISCO = ? AND NUMEROMARCHA = ?', [$idDisco, $nDisco, $numero]) !== null) {
+            return ['code' => 'PISTA_OCUPADA'];
+        }
+
+        Db::run(
+            'INSERT INTO disco_marcha (ID_DISCO, IDMARCHA, NUMEROMARCHA, N_DISCO) VALUES (?, ?, ?, ?)',
+            [$idDisco, $idMarcha, $numero, $nDisco]
+        );
+        $dmId = Db::lastInsertId();
+        Db::logAdmin('INSERT', 'disco_marcha', $dmId, [
+            'disco' => $idDisco, 'marcha' => $idMarcha, 'pista' => $numero, 'volumen' => $nDisco,
+        ]);
+        return ['code' => 'CREATED', 'dmId' => $dmId];
+    }
+
+    /** @return array{code:string} */
+    public static function deletePista(int $idDisco, int $idDm): array
+    {
+        $fila = Db::one('SELECT ID_DM, IDMARCHA FROM disco_marcha WHERE ID_DM = ? AND ID_DISCO = ?', [$idDm, $idDisco]);
+        if ($fila === null) return ['code' => 'PISTA_NO_EXISTE'];
+        Db::run('DELETE FROM disco_marcha WHERE ID_DM = ?', [$idDm]);
+        Db::logAdmin('DELETE', 'disco_marcha', $idDm, ['disco' => $idDisco, 'marcha' => (int) $fila['IDMARCHA']]);
+        return ['code' => 'DELETED'];
+    }
+
+    /**
+     * Disco + sus pistas, para el formulario de edición y su vista previa.
+     *
+     * @return array{disco:array<string,mixed>,pistas:list<array<string,mixed>>}|null
+     */
+    public static function discoConPistas(int $idDisco): ?array
+    {
+        // VOLUMENES se deriva de las pistas, igual que hace Repo para la ficha
+        // pública: la columna disco.DISCOS no se lee en ningún sitio.
+        $disco = Db::one(
+            'SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, d.BANDADISCO, d.d_DETALLES,
+                    b.NOMBRE_BREVE AS BANDA_BREVE,
+                    (SELECT MAX(dm.N_DISCO) FROM disco_marcha dm WHERE dm.ID_DISCO = d.ID_DISCO) AS VOLUMENES
+             FROM disco d
+             LEFT OUTER JOIN banda b ON b.ID_BANDA = d.BANDADISCO
+             WHERE d.ID_DISCO = ?',
+            [$idDisco]
+        );
+        if ($disco === null) return null;
+
+        $pistas = Db::all(
+            "SELECT dm.ID_DM, dm.IDMARCHA, dm.NUMEROMARCHA, dm.N_DISCO,
+                    m.TITULO, m.FECHA,
+                    (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
+                       FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
+                      WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
+             FROM disco_marcha dm
+             LEFT OUTER JOIN marcha m ON m.ID_MARCHA = dm.IDMARCHA
+             WHERE dm.ID_DISCO = ?
+             ORDER BY dm.N_DISCO ASC, dm.NUMEROMARCHA ASC",
+            [$idDisco]
+        );
+        return ['disco' => $disco, 'pistas' => $pistas];
+    }
+
+    /**
+     * Discos que casan con el texto, para el buscador del panel. Igual que con
+     * las marchas, un número se prueba primero como ID.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function discoCandidatosPorTexto(string $q, int $limit = 15): array
+    {
+        $q = trim($q);
+        if ($q === '') return [];
+
+        $sel = 'SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD,
+                       (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.ID_DISCO = d.ID_DISCO) AS PISTAS
+                FROM disco d';
+        $out = [];
+        if (ctype_digit($q)) {
+            $porId = Db::one("$sel WHERE d.ID_DISCO = ?", [(int) $q]);
+            if ($porId !== null) $out[] = $porId;
+        }
+        $tokens = preg_split('/\s+/u', Db::noAcc($q), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens !== []) {
+            $cond = [];
+            $vals = [];
+            foreach ($tokens as $t) {
+                $cond[] = 'NOACC(d.NOMBRE_CD) LIKE ?';
+                $vals[] = '%' . $t . '%';
+            }
+            $rows = Db::all("$sel WHERE " . implode(' AND ', $cond) . ' ORDER BY d.NOMBRE_CD ASC LIMIT ?', [...$vals, $limit]);
+            $vistos = array_column($out, 'ID_DISCO');
+            foreach ($rows as $r) {
+                if (!in_array($r['ID_DISCO'], $vistos, true)) $out[] = $r;
+            }
+        }
+        return array_slice($out, 0, $limit);
+    }
+
+    /**
+     * Candidatas para añadir como pista. Acepta el ID exacto o trozos del
+     * título: en el panel se busca de las dos formas según lo que se tenga a
+     * mano (el número que trae la carátula, o el nombre a medias).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function marchaCandidatosPorTexto(string $q, int $limit = 15): array
+    {
+        $q = trim($q);
+        if ($q === '') return [];
+
+        $sel = "SELECT m.ID_MARCHA, m.TITULO, m.FECHA,
+                       (SELECT GROUP_CONCAT(a.NOMBRE || ' ' || a.APELLIDOS, ', ')
+                          FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
+                         WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
+                FROM marcha m";
+
+        // Un número puede ser tanto el ID como parte del título ("Saeta 3"):
+        // se busca por ID primero y se completa con las coincidencias de texto.
+        $out = [];
+        if (ctype_digit($q)) {
+            $porId = Db::one("$sel WHERE m.ID_MARCHA = ?", [(int) $q]);
+            if ($porId !== null) $out[] = $porId;
+        }
+
+        $tokens = preg_split('/\s+/u', Db::noAcc($q), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($tokens !== []) {
+            $cond = [];
+            $vals = [];
+            foreach ($tokens as $t) {
+                $cond[] = 'NOACC(m.TITULO) LIKE ?';
+                $vals[] = '%' . $t . '%';
+            }
+            $rows = Db::all(
+                "$sel WHERE " . implode(' AND ', $cond) . ' ORDER BY m.TITULO ASC LIMIT ?',
+                [...$vals, $limit]
+            );
+            $vistos = array_column($out, 'ID_MARCHA');
+            foreach ($rows as $r) {
+                if (!in_array($r['ID_MARCHA'], $vistos, true)) $out[] = $r;
+            }
+        }
+        return array_slice($out, 0, $limit);
     }
 }

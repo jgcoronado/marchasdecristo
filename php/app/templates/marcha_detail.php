@@ -24,6 +24,14 @@ $autoridad = static function (array $a): string {
 $mid = (int) $m['ID_MARCHA'];
 $ytid = MD::youtubeId($m['AUDIO'] ?? null);
 $audioEsUrl = $t($m['AUDIO']) && preg_match('~^https?://~i', (string) $m['AUDIO']) === 1;
+// Previsualización: el vídeo de AUDIO si lo hay y, si no, el reproductor del
+// servicio en el que sí esté publicada (las marchas que entran por la ingesta
+// de streaming no tienen vídeo, solo su enlace de Spotify/Deezer/Apple).
+$repro = MD::reproductor($m['AUDIO'] ?? null, $enlaces ?? []);
+$reproAudio = $repro !== null && $repro['servicio'] !== 'youtube' ? $repro : null;
+// Servicio del enlace guardado en AUDIO, para nombrarlo en el botón externo
+// en vez del "Escuchar" a secas de cuando no se sabía de dónde venía.
+$audioSvc = MD::embedDeUrl($m['AUDIO'] ?? null)['servicio'] ?? null;
 $tipo = $t($m['TIPO'] ?? null) ? ucfirst(mb_strtolower((string) $m['TIPO'])) : 'Marcha';
 $estilo = match ($m['ESTILO'] ?? null) {
     'CCTT' => 'Cornetas y Tambores',
@@ -32,16 +40,6 @@ $estilo = match ($m['ESTILO'] ?? null) {
 };
 $duracion = $dur($m['DURACION_SEG'] ?? 0);
 $autores = $m['AUTORES_FICHA'] ?? [];
-
-// Asiento bibliográfico bajo el título: solo autor(es) y año de composición
-// (sin las fechas de nacimiento/defunción del autor).
-$asientoAutores = [];
-foreach ($autores as $a) {
-    $path = S::buildDetailPath('autor', $a['ID_AUTOR'], trim(($a['NOMBRE'] ?? '') . ' ' . ($a['APELLIDOS'] ?? '')));
-    $asientoAutores[] = '<a href="' . V::e($path) . '">' . V::e($autoridad($a)) . '</a>';
-}
-$asiento = [implode('; ', $asientoAutores)];
-if ($t($m['FECHA'])) $asiento[] = V::e((string) $m['FECHA']);
 
 // Localidad (Provincia) para la descripción — la provincia se omite si
 // coincide con la localidad (p.ej. "Sevilla (Sevilla)" en las capitales).
@@ -69,15 +67,12 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb"><?= V::e($tipo) ?></span>
-    </div>
     <h1><?= V::e($m['TITULO']) ?></h1>
-<?php if ($asiento[0] !== '' || count($asiento) > 1): ?>
-    <p class="asiento"><?= implode('. — ', array_filter($asiento, static fn($s) => $s !== '')) ?>.</p>
-<?php endif; ?>
 
 <?php $hayEscuchar = $t($m['AUDIO']) || ($enlaces ?? []) !== []; ?>
+<?php /* Las anclas solo se pintan si la ficha no cabe en pantalla. Con pocas
+         grabaciones llevaban a secciones visibles sin desplazarse: ruido. */ ?>
+<?php if ($nGrab >= 12): ?>
     <nav class="rectabs" aria-label="Secciones de la ficha">
         <a href="#datos">Datos</a>
 <?php if ($hayEscuchar): ?>
@@ -85,6 +80,7 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 <?php endif; ?>
         <a href="#grabaciones">Grabaciones (<?= $num($nGrab) ?>)</a>
     </nav>
+<?php endif; ?>
 
     <dl class="desc" id="datos">
 <?php /* Fila 1: Compositor(es) / Estrenada por — Fila 2: Año / Grabaciones —
@@ -119,10 +115,12 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 <?php endif; ?>
     </dl>
 
+<?php /* Escuchar va abierto: es lo que la mayoría de visitantes viene a hacer.
+         Plegado tras un <details> se llevaba un clic el contenido principal de
+         la ficha. La fachada del vídeo sigue sin cargar YouTube hasta pulsar. */ ?>
 <?php $enl = $enlaces ?? []; if ($hayEscuchar): ?>
-    <details class="collapse listen" id="escuchar">
-        <summary class="collapse-title">Escuchar</summary>
-        <div class="collapse-content">
+    <div class="shead" id="escuchar"><h2>Escuchar</h2></div>
+    <div class="listen">
 <?php if ($ytid !== null): ?>
         <div class="ytembed" data-ytid="<?= V::e($ytid) ?>">
             <button type="button" class="ytfacade" aria-label="Reproducir el vídeo (carga YouTube al pulsar)">
@@ -130,19 +128,24 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
                 <span class="ytfacade-play" aria-hidden="true"></span>
             </button>
         </div>
+<?php elseif ($reproAudio !== null): ?>
+        <?php $svcNombre = H::STREAMING_LABELS[$reproAudio['servicio']] ?? ucfirst($reproAudio['servicio']); ?>
+        <div class="mdembed" data-embed="<?= V::e($reproAudio['embed']) ?>"
+             data-embed-title="Reproductor de <?= V::e($svcNombre) ?>"
+             style="--md-alto: <?= (int) ($reproAudio['alto'] ?? 152) ?>px">
+            <button type="button" class="mdfacade" aria-label="Reproducir en <?= V::e($svcNombre) ?> (carga el reproductor al pulsar)">
+                <span class="mdfacade-play" aria-hidden="true"></span>
+                <span>Escuchar en <?= V::e($svcNombre) ?></span>
+            </button>
+        </div>
 <?php endif; ?>
 <?php if ($ytid !== null || $audioEsUrl): ?>
         <div class="svcs">
-<?php if ($ytid !== null): ?>
-            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ YouTube</a>
-<?php else: ?>
-            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ Escuchar</a>
-<?php endif; ?>
+            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ <?= V::e($audioSvc !== null ? (H::STREAMING_LABELS[$audioSvc] ?? ucfirst($audioSvc)) : 'Escuchar') ?></a>
         </div>
 <?php endif; ?>
         <?= H::streaming($enl) ?>
-        </div>
-    </details>
+    </div>
 <?php endif; ?>
 
 <?php if ($notas !== ''): ?>

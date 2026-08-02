@@ -32,6 +32,12 @@ final class Db
         self::$auditUser = $user !== '' ? $user : 'system';
     }
 
+    /** Usuario de la petición actual, para guardarlo en tablas propias (no solo en admin_log). */
+    public static function auditUser(): string
+    {
+        return self::$auditUser;
+    }
+
     public static function pdo(): PDO
     {
         if (self::$pdo instanceof PDO) {

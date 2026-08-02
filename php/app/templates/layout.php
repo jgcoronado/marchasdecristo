@@ -43,9 +43,20 @@ $nav = [
     '/dedicatorias' => 'Dedicatorias',
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
-    '/mapa' => 'Mapa',
-    '/temporada' => 'Temporada',
 ];
+$configEnv = (string) ($GLOBALS['config']['env'] ?? 'production');
+$fueraDeProdReal = $configEnv !== 'production' || $esPre;
+// Mapa (N-10) oculto en PRO mientras se corrige el solape de dianas de clic
+// entre municipios próximos (decisión 2026-07-29). Ver App\Pages::mapaVisible().
+if ($fueraDeProdReal) {
+    $nav['/mapa'] = 'Mapa';
+}
+// Temporada (N-04) oculta en PRO hasta que haya datos de calidad (decisión
+// 2026-07-29): visible en local (donde se rellena) y en PRE (para validarla
+// antes de publicar). Ver App\Pages::temporadaVisible().
+if ($fueraDeProdReal) {
+    $nav['/temporada'] = 'Temporada';
+}
 
 try {
     $counts = Db::counts();
@@ -111,6 +122,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endforeach; ?>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Saltar al contenido</a>
 <?php if ($esPre): ?>
     <div class="pre-ribbon" role="status">Entorno de preproducción — los cambios aquí no afectan a marchasdecristo.com</div>
 <?php endif; ?>
@@ -150,7 +162,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endif; ?>
     </header>
 
-    <main><?= $content ?></main>
+    <main id="main-content"><?= $content ?></main>
 
     <footer>
         <div class="inner">

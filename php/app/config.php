@@ -43,6 +43,12 @@ $defaults = [
     // que es donde viven los ficheros). PRE tiene docroot propio y sin portadas,
     // así que apunta al de producción para verlas. Ver docs/entornos.md.
     'cover_base_url'     => '',
+    // M7: notificaciones editoriales por email. Configurar en config.local.php.
+    // Si mail_from está vacío, Mailer::send() devuelve false sin intentar nada.
+    'mail_from'      => null,               // 'noreply@marchasdecristo.com'
+    'mail_from_name' => 'Marchas de Cristo',
+    'mail_admin_to'  => null,               // destino del digest semanal
+    'notif_emails'   => [],                 // ['nombreusuario' => 'email@ejemplo.com']
 ];
 
 $localFile = APP_DIR . '/config.local.php';

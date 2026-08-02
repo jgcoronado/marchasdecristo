@@ -1,173 +1,370 @@
 # Hoja de ruta — marchasdecristo.com
 
-> Generado: 2026-06-01 · Reescrito: 2026-07-16 (C8)
+> Generado: 2026-06-01 · Reescrito: 2026-07-16 (C8) · **Reorganizado como fuente
+> única: 2026-07-29**
 >
-> Las fases 0–6 originales (limpieza de seguridad, migración MySQL→Docker,
-> migración Next.js/Express→Route Handlers, integridad de BD, tests/CI/CD sobre
-> Next.js, mejoras opcionales) están **completadas y superadas**: el cutover del
-> 2026-07-04 sustituyó ese stack entero por PHP 8.4 + SQLite (ver
-> [context.md](context.md) y [architecture.md](architecture.md)). El detalle de
-> esas fases se conserva solo como referencia histórica en el historial de git
-> de este fichero (`git log -p -- docs/roadmap.md`); no se reproduce aquí para
-> no confundirlo con el plan vigente.
-
-## Marco vigente (consolidado 2026-07-23)
-
-El proyecto tenía **dos planes solapados** redactados casi a la vez:
-
-- **Plan de palancas 2026-27** (2026-07-09): P-01…P-09 + transversales T-01…T-03
-  + 11 pantallas nuevas **N-01…N-11**, con calendario estacional hacia Semana
-  Santa 2027. Dossier: artefacto `1a31cc69`.
-- **Consejo de sabios** (2026-07-12): DAFO integral + plan C1–C8 / M1–M9 / L1–L6.
-  Dossier: [consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md).
-
-Solapan ~70%. **Decisión (2026-07-23): el marco forward es el plan de palancas
-(pantallas N-*)**, porque es más granular y tiene el ritmo estacional correcto;
-la lista M-x del consejo está mayormente **absorbida o completada**. Los dos
-únicos ítems del consejo que las palancas no cubrían —M6 (accesibilidad +
-impresión) y M7 (notificaciones editoriales)— se **pliegan** aquí como tareas
-de calidad. Este documento es el **tracker único**: enlaza ambos dossieres y
-mantiene el estado real verificado, no reescribe los informes.
-
-El detalle histórico del avance C1–C8 / M1–M9 (todos cerrados o absorbidos) se
-conserva en las tablas de más abajo y en `git log -p -- docs/roadmap.md`.
-
-### Corto plazo (0–1 mes) — issues `consejo-sabios` + `corto-plazo`
-
-| # | Tarea | Estado | Issue |
-|---|-------|--------|-------|
-| C1 | Hubs indexables por año / estilo / provincia | ✅ Completado | [#7](https://github.com/jgcoronado/mdc-back/issues/7) |
-| C2 | `lastmod` en sitemap + ping IndexNow/Google tras el sync | ✅ Completado | [#8](https://github.com/jgcoronado/mdc-back/issues/8) |
-| C3 | «Marcha del día» + bloque de descubrimiento en la home | ✅ Completado | [#9](https://github.com/jgcoronado/mdc-back/issues/9) |
-| C4 | `og:image` de marca + Twitter Card | ✅ Completado | [#10](https://github.com/jgcoronado/mdc-back/issues/10) |
-| C5 | CI con smoke tests (GitHub Actions) | ✅ Completado | [#11](https://github.com/jgcoronado/mdc-back/issues/11) |
-| C6 | Monitorización externa de uptime con alerta | ✅ Completado — monitor UptimeRobot activo sobre `/health`, ver [monitoring.md](monitoring.md) | [#12](https://github.com/jgcoronado/mdc-back/issues/12) |
-| C7 | Endurecer `sync_db_to_prod.php`: checksum, chequeo de propuestas, modo mantenimiento | ✅ Completado | [#13](https://github.com/jgcoronado/mdc-back/issues/13) |
-| C8 | Actualizar documentación (`context.md`/`architecture.md`/`roadmap.md`/`technical-debt.md`) al stack PHP real | ✅ Completado (este documento es parte del entregable) | [#14](https://github.com/jgcoronado/mdc-back/issues/14) |
-
-**8 de 8 tareas de corto plazo completadas.** El plan de acción de corto
-plazo del consejo de sabios está cerrado.
-
-### Medio plazo del consejo (M1–M9) — fotografía histórica cerrada
-
-> Tabla congelada: 5 de 9 completadas. Los 4 pendientes se reencauzan en el
-> **Plan forward activo** más abajo — M2 al carril manual de audio, M6/M7 como
-> tareas de calidad, M9 dentro de las pantallas N-07/N-08/N-09. No se marca ni
-> se añade nada más en esta tabla.
-
-| # | Tarea | Coste | Repercusión | Foco | Estado | Issue |
-|---|-------|-------|-------------|------|--------|-------|
-| M1 | API JSON de solo lectura + `llms.txt` + feed de novedades + página «Datos» | 10 h | Alta | 🔍 | ✅ Completado — licencia CC BY 4.0; de paso corrigió otro caso de URL de banda no canónica (308) en la ficha de disco | [#15](https://github.com/jgcoronado/mdc-back/issues/15) |
-| M2 | Campaña de cobertura de audio (ingesta + curación) | 15 h+ | Alta | 🎺 | ⏳ Pendiente — trabajo mayoritariamente manual del admin, no solo código | [#16](https://github.com/jgcoronado/mdc-back/issues/16) |
-| M3 | Búsqueda global unificada + autocompletado público | 10 h | Media-alta | 🎺 | ✅ Completado — una caja global (cabecera) + `/buscar` + endpoint `/api/buscar` con desplegable accesible; FTS5 prefijo (marcha/autor) + LIKE (banda/disco) | [#17](https://github.com/jgcoronado/mdc-back/issues/17) |
-| M4 | `og:image` dinámica por entidad | 8 h | Media | 🔍 | ✅ Completado — `/og/{tipo}/{id}.png` con GD/FreeType (IBM Plex, OFL), cacheada a disco, fallback a la imagen de marca si no hay FreeType | [#18](https://github.com/jgcoronado/mdc-back/issues/18) |
-| M5 | Deploy FTP automatizado desde CI en `main` verde | 5 h | Media-alta | ⚙️ | ✅ Completado: push a `pre` → CI (`verify`) → deploy automático a PRE; fusión de `pre` en `main` → deploy automático a PRO con modo mantenimiento. Ambos con smoke remoto. El entorno de preproducción se retiró el 2026-07-23 (Plesk no deja mover el document root del subdominio) y se **reintrodujo el 2026-07-28** aislándolo desde el código (`env.php` desvía `APP_DIR`), sin tocar Plesk | [#19](https://github.com/jgcoronado/mdc-back/issues/19) |
-| M6 | Accesibilidad + hoja de impresión de fichas | 6 h | Media | 🎺 | ⏳ Pendiente | [#20](https://github.com/jgcoronado/mdc-back/issues/20) |
-| M7 | Notificaciones editoriales (email + digest semanal) | 6 h | Media | ⚙️ | ⏳ Pendiente | [#21](https://github.com/jgcoronado/mdc-back/issues/21) |
-| M8 | Unificar slugify + test canónica↔JSON-LD + CSP/HSTS | 4 h | Media | 🔍⚙️ | ✅ Completado — de paso corrigió un bug real (URL de banda en JSON-LD nunca coincidía con la canónica) | [#22](https://github.com/jgcoronado/mdc-back/issues/22) |
-| M9 | Estadísticas ampliadas como contenido indexable | 6 h | Media | 🔍 | ⏳ Pendiente | [#23](https://github.com/jgcoronado/mdc-back/issues/23) |
-
-Detalle completo de cada tarea en `consejo-de-sabios-2026-07.md` §7 y en el
-cuerpo de cada issue. Regla de secuencia del consejo: "nada del largo plazo
-empieza sin el tablero de KPIs activo" — L1-L6 siguen sin issues por eso.
-
-**Nota**: la numeración M-x queda **cerrada** como fotografía histórica. El
-tracker activo desde el 2026-07-23 es la sección siguiente (pantallas N-* del
-plan de palancas + M6/M7 plegados).
-
-## Plan forward activo — pantallas N-* + calidad (tracker vivo)
-
-> Estado verificado contra `php/app/routes.php` el 2026-07-23. Detalle de cada
-> N-* en el dossier de palancas (artefacto `1a31cc69`, §08). Todos los cambios
-> de BD son **aditivos**, migrables in situ (patrón de `001`/`002`).
-
-### Ya en producción (base sobre la que se construye)
-- Hubs año/estilo/provincia (C1/P-05) · Dedicatorias **N-01/N-02** (índice +
-  hub + panel de curación) · Búsqueda global **N-11** (`/buscar` + `/api/buscar`)
-  · API+feeds+«Datos» (M1; el feed `/feed.xml` **es** el «novedades» de P-09) ·
-  og:image dinámica (M4) · Vídeo YouTube en ficha (P-02, `App\Media`) ·
-  GoatCounter opt-in (P-08) · Slugify unificado + CSP/HSTS (M8) · **N-07
-  `/rankings`** (rankings de siempre + drill-down `/rankings/{año}`; ver detalle
-  abajo).
-
-### Cola de código (agosto–septiembre) — solo queries sobre datos existentes — ✅ CERRADA 2026-07-23
-| # | Pantalla / tarea | Depende de | Estado |
-|---|------------------|-----------|--------|
-| N-07 | `/rankings` — parametrizar por año las queries `fetchMas*` existentes | — | ✅ Completado 2026-07-23 — `/estadisticas` renombrado con 301 permanente; `/rankings/{año}` con umbral `HUB_MIN_MARCHAS` (thin → noindex, como los demás hubs), índice por décadas, cross-link con `/marcha/ano/{año}` |
-| N-09 | `/aniversarios/{año}` — 25/50/75/100 años, centenarios | — | ✅ Completado 2026-07-23 — tramos de 25 en 25 hasta 200 (centenarios destacados 🎉); `/aniversarios` redirige 302 al año en curso; `/aniversarios/{año}` fuera de [1900, actual+1] → 404 (evita espacio infinito de URLs); cross-link recíproco desde `/marcha/ano/{año}` cuando ese año cumple aniversario redondo hoy |
-| N-08 | Anuario `/marchas/{año}` (ampliar el hub `/marcha/ano/{año}` actual) | — | ✅ Completado 2026-07-23 — sin ruta nueva: panel «Resumen del año» en el hub existente (compositor con más marchas, banda con más estrenos, marcha más grabada), reutilizando las queries de N-07; se omite en años thin (< `HUB_MIN_MARCHAS`) |
-| N-10 | `/mapa` — coropleta SVG por provincia | ~~P-07 en prod~~ | ✅ Completado 2026-07-23 — mapa base SVG (52 provincias, ISO 3166-2:ES) adaptado de [jboekesteijn/provinces-of-spain](https://github.com/jboekesteijn/provinces-of-spain) (CC BY-SA 4.0, atribución en `assets/mapa-provincias.README.md`); `App\Mapa` colorea 5 niveles de intensidad (cortes no lineales: 1-9/10-49/50-149/150-399/400+, ajustados a lo concentrado del catálogo en Andalucía) y enlaza cada provincia con marchas a su hub; tabla accesible bajo el mapa con los mismos datos, sin depender del SVG. Verificado en navegador real, claro y oscuro |
-| — | Ejecutar P-07 (`completar_provincia.php`) en **prod** | deploy hecho | ✅ Completado 2026-07-23 vía Plesk Scheduled Tasks ("Run a PHP script", requiere seleccionar PHP 8.4 explícitamente — el CLI por defecto del host es PHP 5.x y falla con `Unsupported declare 'strict_types'`). Resultado: 0 filas por actualizar (ya llegadas a prod en un sync anterior), 2 localidades sucias pendientes de curación manual («Hdad Cristo De Gracia», «El Sol») — no bloquean nada |
-| — | Ejecutar `seed_dedicatorias.php` en **prod** | deploy hecho | ⏳ Pendiente in situ (mismo mecanismo que P-07, recordar seleccionar PHP 8.4) |
-
-Cubren también **M9** (estadísticas ampliadas como contenido indexable).
-
-**Las 4 pantallas de esta cola están completadas.** Siguiente bloque del plan de
-palancas: entidades nuevas — ver el dossier del artefacto `1a31cc69` (§08).
-
-### Análisis UX comparativo (patrimoniomusical.com) — ✅ CERRADO 2026-07-27
-
-Plan aparte, no derivado del consejo ni de las palancas: comparativa de UX con
-patrimoniomusical.com que arrancó con un diagnóstico de infraestructura del
-servidor local. **Las 6 prioridades (0-5) están completadas** — ficha de
-marcha compactada con anclas, legibilidad global, filtros facetados y tablas
-ordenables en listados, catálogo cerrado de municipios (con selector en
-cascada localidad→provincia) y mapa por localidad, y las mismas anclas de
-navegación llevadas a compositor/banda/disco. Detalle completo, decisiones de
-arquitectura (mapa, catálogo de municipios) y estado de cada prioridad en
-[ux-analysis-estado.md](ux-analysis-estado.md); log narrativo en
-`../ANALISIS_UX.md`.
-
-**Corrección sobre el orden**: el dossier real secuencia **N-06 → N-03 → N-04/05**
-(no N-03 primero, como se dijo en un resumen anterior de esta tabla), y **N-03
-(hermandad) está condicionado explícitamente a que N-01 (dedicatorias) demuestre
-tráfico real** — algo que no se puede verificar sin acceso a GoatCounter/Search
-Console y muy probablemente prematuro a solo 2 semanas de publicarse N-01. El
-propio dossier ofrece la vía intermedia adoptada: `/temporada/{año}` con alta
-manual ya, hermandad como texto normalizado (sin entidad `hermandad` todavía, sin
-N-06 automático todavía).
-
-| # | Pantalla / tarea | Estado |
-|---|------------------|--------|
-| N-04/05 | Contratos banda↔hermandad↔año — tabla `contrato`, `/temporada/{año}`, alta manual desde `/dashboard/temporada/{año}` | ✅ Completado y migrado en prod 2026-07-23 — `HERMANDAD` es texto libre + `HERMANDAD_SLUG` normalizado (mismo espíritu que `dedicatoria_alias`, sin FK a una entidad `hermandad` que no existe aún); agrupado por hermandad en la página pública; noindex si hay menos de `HUB_MIN_MARCHAS` contratos ese año; rango válido [2020, actual+2]. **Incidente en el primer deploy**: la query nueva del sitemap rompió las ~5.700 URLs reales al no estar la tabla migrada — arreglado (try/catch aislado + degradado con gracia) y **migración 005 aplicada en prod** el mismo día. Tabla ya existe pero **vacía**: falta que el admin empiece a rellenar `/dashboard/temporada/{año actual}` a mano para que la pantalla pública muestre algo |
-| N-06 | Ingesta semi-automática de anuncios de contrato (extender `tools/ingest`) | ⏳ Diferido — tarea grande y abierta (clasificador de texto sobre YouTube), no encaja en el patrón de "solo queries" del resto de pantallas de hoy |
-| N-03 | Ficha de hermandad (entidad `hermandad` + `marcha_hermandad`) | ⏳ Bloqueada por el dossier — condicionada a tráfico real de N-01, no verificable ahora mismo |
-
-### Calidad (plegado del consejo)
-| # | Tarea | Depende de | Estado |
-|---|-------|-----------|--------|
-| M6 | Accesibilidad (foco, skip-link, `aria-sort`, contraste) + hoja de impresión | rediseño frontend | ⏳ |
-| M7 | Notificaciones editoriales (email al aceptar/rechazar + digest semanal) | validar email/cron en HelioHost | ⏳ |
-| T-03 | Vigilancia: cron backup (⚠️ estado contradictorio entre docs, ver [pendientes-post-cutover.md §2](pendientes-post-cutover.md)), uptime (✅), link-checker mensual | — | Parcial |
-
-### Carril manual en paralelo (lo conduce el admin, no es código)
-- **P-01 / M2** — curación de candidatos de ingesta (meta <300 antes de octubre)
-  y campaña de cobertura de audio; requiere la **lista de canales** de YouTube
-  y curar los **264 candidatos de streaming** pendientes. ⚠️ Las ramas
-  `feat/ingest-youtube`/`feature/music-apps` citadas en versiones anteriores de
-  este documento **no existen en el remoto** (`git ls-remote --heads origin`
-  solo muestra `main` y ramas de sesiones `claude/*`) — puede que ya se
-  fusionaran y borraran, o que el trabajo viva solo en local; verificar antes
-  de dar por hecho que sigue ahí.
-- **T-02** — pipeline de ingesta mensual semi-automático (piezas existen, falta
-  orquestación).
-
-### Largo plazo (4–12 meses) — no iniciado
-L1–L6 del consejo: dumps abiertos versionados (L1), hubs enriquecidos por
-advocación/hermandad con playlist (L2), biografías de compositores vía editores
-(L3), formulario público «propón una grabación» (L4), PWA básica offline (L5),
-revisión del hosting si el tráfico lo justifica (L6). Regla del consejo: nada
-del largo plazo empieza sin el tablero de KPIs activo.
+> **Este documento es el único sitio donde se decide y se consulta qué se hace a
+> continuación.** Los dossieres de origen (consejo de sabios, plan de palancas)
+> son evaluaciones puntuales con fecha: se citan, no se reescriben ni se
+> consultan para planificar. Si algo no está en §2 de este documento, no está
+> en el plan.
 
 ---
 
-## Cómo mantener este roadmap
+## 1. Cómo leer este documento
 
-- El tracker vivo es la sección **«Plan forward activo»** (pantallas N-* + M6/M7).
-  Al cerrar una N-*/tarea: marcarla ✅ aquí y actualizar el dossier de palancas
-  (artefacto `1a31cc69`, misma URL) — **no** reescribir los informes de origen
-  (consejo/palancas son evaluaciones puntuales, no trackers).
-- Las tablas C1–C8 / M1–M9 quedan como **fotografía histórica cerrada**; no se
-  añaden filas nuevas ahí.
-- Si surge una decisión arquitectónica nueva → `architecture.md` (ADRs), no aquí.
-- Si se descubre deuda técnica nueva → `technical-debt.md`, no aquí.
+| Sección | Qué contiene | ¿Se edita? |
+|---|---|---|
+| **§2 Plan priorizado** | El backlog único, ordenado por prioridad de ejecución | ✅ Sí — es el tracker vivo |
+| **§3 Contraste con el consejo de sabios** | Trazabilidad de C1–C8 / M1–M9 / L1–L6 y en qué discrepa esta revisión | ✅ Al cerrar un ítem del consejo |
+| **§4 Ramas abiertas** | Trabajo terminado que aún no está en `main` | ✅ El mismo día que se empuja una rama |
+| **§5 Ya en producción** | La base sobre la que se construye | ✅ Al desplegar algo nuevo |
+| **§6 Histórico congelado** | Fotografías cerradas (C/M, cola N-*, análisis UX) | ❌ No se tocan |
+
+**Nomenclatura**: cada tarea conserva la referencia de su origen —`C`/`M`/`L`
+(consejo de sabios), `N`/`P`/`T` (plan de palancas), `R` (revisión 2026-07-29),
+`D` (deuda técnica), `OPS` (operativa)— para poder rastrearla hasta el documento
+que la propuso. **No se crean referencias nuevas**: una tarea sin origen es una
+tarea que nadie ha justificado.
+
+**Objetivo declarado para Semana Santa 2027** (fija el orden de §2):
+**cobertura y calidad del dato** + **experiencia de uso**. El SEO/IA sigue
+siendo un beneficio buscado, pero ya no es el criterio de desempate: la base
+técnica que exigía el consejo está construida.
+
+---
+
+## 2. Plan priorizado — el backlog único
+
+Coste en horas de trabajo del mantenedor (equipo = 1 persona + asistentes IA).
+Foco: 🎺 dato/experiencia marcha-céntrica · 🔍 SEO/robots IA · ⚙️ operativa.
+
+### P0 · Desbloquear lo que ya está hecho — días, no semanas
+
+Nada de esto es trabajo nuevo: es cerrar cosas terminadas o decididas a medias.
+Mientras P0 siga abierto, el estado real del proyecto no coincide con el
+documentado, que es lo que hace que se planifique mal.
+
+| Ref | Tarea | Coste | Estado |
+|---|---|---|---|
+| **B-01** | Fusionar todas las ramas `claude/*` sueltas + M6/M7 en `claude/siguiente-que-hacer-pvvxrn`, traer los fixes de mapa que ya estaban en `pre`, relanzar smoke en local (82/82), push a `pre` → deploy automático + smoke remoto contra PRE (`/health`, robots.txt, cinta de preproducción, `/mapa` y `/temporada` visibles, ficha real del sitemap, panel protegido). PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) `pre`→`main` abierto. **Falta**: validación visual en navegador (mantenedor), fusionar el PR (dispara deploy a PRO), borrar las 4 ramas ya integradas (bloqueado: el proxy git de la sesión no permite borrar refs remotas — pendiente a mano) | 1–2 h | 🟡 PR abierto, pendiente de validación visual y de fusionar a `main` |
+| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php`. **No ejecutable desde una sesión sandbox**: requiere `.env.ftp` (credenciales FTP de producción), `php/data/mdc.db` local real y `config.local.php` — ninguno existe fuera de la máquina del mantenedor | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO, y solo lo puede correr el mantenedor |
+| **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
+| ~~OPS-03 · T-03~~ | ~~Verificar en Plesk si el cron de backup existe de verdad~~ | — | ✅ 2026-07-29 — confirmado en Plesk, backup manual de comprobación ejecutado (`mdc-20260729-132640.db`, 9,6 MB). Detalle en [pendientes-post-cutover.md §2](pendientes-post-cutover.md) |
+| ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. Implementado en `Pages::temporadaVisible()`, va dentro de B-01 |
+| ~~DEC-02~~ | ~~Decidir sobre el VPS de rollback~~ | — | ✅ 2026-07-29 — **apagado por completo** (contenedor, servidor y TTL de DNS revertido). El runbook de rollback de infraestructura de [cutover-fase5.md §7](cutover-fase5.md) queda obsoleto: no hay ya destino al que volver |
+| ~~R-00a~~ | ~~Cerrar el issue #23 (M9), cubierto por N-07/N-08/N-09/N-10~~ | — | ✅ 2026-07-29 |
+| ~~R-00b~~ | ~~Resolver la contradicción documental del cron de backup (tres documentos, tres versiones)~~ | — | ✅ 2026-07-29 |
+| ~~R-00c~~ | ~~Fechar los recuentos de catálogo (`context.md`, `db-analysis.md`): la BD tiene ~5.000 marchas, no 4.212~~ | — | ✅ 2026-07-29 |
+
+### P1 · Antes de octubre 2026 — preparar la temporada (foco: dato)
+
+La campaña de cobertura de audio es el trabajo más largo del año y el único que
+no se puede acelerar con código. Todo lo de este bloque existe **para que esa
+campaña se haga una vez y bien**, no dos veces.
+
+| Ref | Tarea | Por qué va aquí | Coste | Foco |
+|---|---|---|---|---|
+| **R-01** | **Capturar el ISRC** en la ingesta de streaming (columna nueva en `enlace_streaming` / `ingest_candidato`) | Spotify (`external_ids.isrc`) y Deezer (campo `isrc`) lo devuelven gratis y hoy se tira. Es la clave exacta que falta: la corroboración entre catálogos se hace por título normalizado y por eso exige ≥2 servicios, dejando fuera a las bandas con uno solo. Con ISRC la misma grabación se reconoce aunque el título difiera, y desaparece el ruido de recopilatorios. **Vale mucho más antes de curar 616 candidatos que después** | 3–4 h | 🎺 |
+| **R-07** | **Página pública «estado del catálogo»** con el KPI de cobertura (% de marchas con escucha, por año y por banda) | El issue [#16](https://github.com/jgcoronado/mdc-back/issues/16) pide medir antes/después y **hoy no hay forma de medirlo**. Además es el mapa de curación del admin y contenido indexable honesto sobre lo que falta | 4 h | 🎺🔍 |
+| **M2 · P-01** | **Campaña de cobertura de audio**: curar los 616 candidatos + la cola de YouTube | Carril manual, arranca en cuanto R-01 y R-07 estén. Cuello de botella real: **el autor**, que ninguna de las tres APIs devuelve | 15 h+ | 🎺 |
+| **R-02** | **Mover la duración de la obra a la grabación** (`disco_marcha.DURACION_SEG`, manteniendo la de `marcha` como referencia) | Hoy `DURACION_SEG` cuelga de `marcha`, que es la **obra**; la duración es propiedad de cada **grabación** y varía entre versiones. La ingesta ya la trae de las tres APIs y se descarta | 3 h | 🎺 |
+| **D-2.1** | `PRAGMA integrity_check` sobre el backup recién creado + copia externa fuera de HelioHost | Único ítem 🟡 abierto de [technical-debt.md](technical-debt.md). Un backup que nadie verifica no es un backup | 3 h | ⚙️ |
+| **T-02** | Orquestador único de la ingesta mensual (extract → classify → dedup → import + resumen) | Las piezas existen; sin orquestación la campaña depende de recordar seis comandos | 4 h | ⚙️ |
+
+### P2 · Cuaresma 2027 (nov 2026 – feb 2027) — foco: experiencia
+
+El año se juega en ~8 semanas. Lo de este bloque tiene que estar **desplegado y
+asentado antes de Cuaresma**, no durante.
+
+| Ref | Tarea | Por qué va aquí | Coste | Foco |
+|---|---|---|---|---|
+| **M6 · R-05** | **Accesibilidad** (foco visible, skip-link, `aria-sort`, contraste) **+ hoja de impresión** de fichas | Issue [#20](https://github.com/jgcoronado/mdc-back/issues/20). La hoja de impresión da el 80 % del caso «llevar la ficha a la calle» que L5 (PWA, 15 h) resolvería al 100 %. Con la gramática bibliográfica de la ficha, imprimir es casi gratis | 6 h | 🎺 |
+| **R-06 · L4** | **Estado vacío de «Escuchar» con CTA** + **formulario público «propón una grabación»** | Convierte el hueco de cobertura en entrada de datos: hoy el visitante que conoce la grabación es tráfico que se pierde. Reutiliza la cola de propuestas existente, sin superficie de escritura nueva. Adelantado desde el largo plazo del consejo | 8–12 h | 🎺 |
+| **R-08** | **Búsqueda**: filtro «solo con audio» + tolerancia a acentos/erratas en banda y disco (hoy van por `LIKE`, no por FTS5) | Es el filtro que más usa quien busca algo que escuchar, y llega justo cuando la campaña de audio lo hace útil | 4 h | 🎺 |
+| **M7** | **Notificaciones editoriales**: email al aceptar/rechazar propuesta + digest semanal de colas | Issue [#21](https://github.com/jgcoronado/mdc-back/issues/21). Con R-06 abriendo la puerta a propuestas del público, el flujo editorial deja de ser opcional. **Depende de validar email/cron en HelioHost** | 6 h | ⚙️ |
+| **R-04** | **Partituras**: enlace/edición por marcha (editorial, año, dominio público, PDF externo) + hub «marchas con partitura disponible» | Hueco funcional más claro frente a [marchasdeprocesion.com](https://www.marchasdeprocesion.com/), y el dato que le falta a quien **toca** la marcha. No requiere alojar nada: basta enlazar y declarar | 6 h | 🎺🔍 |
+
+### P3 · Después de Semana Santa 2027, o condicionado
+
+**Regla del consejo, aún vigente y aún incumplida**: *nada de este bloque empieza
+sin el tablero de KPIs activo*. R-07 cubre la mitad (cobertura); falta la otra
+mitad — GoatCounter y Search Console revisados con **cadencia fija**. Sin eso,
+P3 no se planifica.
+
+| Ref | Tarea | Condición / motivo de aplazamiento |
+|---|---|---|
+| **R-03** | Identificadores externos (Wikidata / MusicBrainz / VIAF) + `sameAs` en JSON-LD | Alto valor SEO/IA, pero el objetivo declarado de 2027 es dato + experiencia. Rinde más con el catálogo ya curado |
+| **N-03** | Ficha de hermandad (entidad `hermandad` + `marcha_hermandad`) | Bloqueada por el dossier de palancas: condicionada a que N-01 (dedicatorias) demuestre tráfico real — no verificable sin el tablero |
+| **N-06** | Ingesta semi-automática de anuncios de contrato | Diferida: clasificador de texto sobre YouTube, tarea grande y abierta. **No confundir con la ingesta de streaming ya construida**: aquella descubre marchas, esta descubriría contratos |
+| **L1** | Dumps abiertos versionados (CSV/SQLite) con CC BY | El prerrequisito (licencia + página «Datos») ya está hecho en M1 |
+| **L2** | Hubs enriquecidos por advocación/hermandad con playlist | Depende de cobertura de audio (P1) |
+| **L3** | Biografías de compositores vía editores | Continuo, depende de tener editores activos |
+| **L5** | PWA básica offline | M6 (impresión) cubre el caso de uso barato primero |
+| **L6** | Revisión del hosting | Decisión con datos del tablero, no antes |
+| **D-4.1** | Limpiar esquema heredado: sentinelas `BANDA_ESTRENO = 0`, tablas muertas `videos` (357 filas, nunca consultada) y `users` (0 filas) | 🟢 Baja: no bloquea nada. Aprovechar la siguiente migración |
+
+### Descartado explícitamente
+
+Para que no vuelva a proponerse en una sesión futura:
+
+- **Incipit musical codificado** al estilo RISM ([Plaine & Easie](https://rism.digital/plaine-and-easie/v2/)).
+  Es el estándar correcto para catalogar fuentes musicales y encaja con la
+  vocación bibliográfica de la ficha, pero exige transcribir a mano ~5.000
+  incipits y un renderizador de notación. Con un mantenedor único, el coste no
+  guarda ninguna proporción con el beneficio.
+- **Tidal y Amazon Music** como fuentes de ingesta: sin API pública de catálogo
+  (ya decidido en [plan-music-apps.md](plan-music-apps.md) §3).
+- **YouTube como fuente de descubrimiento** de marchas: un canal mezcla marchas
+  con conciertos, ensayos y vídeos de hermandad, y mete más ruido del que
+  aporta. Sigue siendo válido como **origen de audio** de una marcha concreta.
+
+---
+
+## 3. Contraste con el plan del consejo de sabios
+
+El [consejo de sabios](consejo-de-sabios-2026-07.md) (2026-07-12) es el plan más
+completo que ha tenido el proyecto y su diagnóstico se ha sostenido: las cinco
+perspectivas acertaron. Esta sección cierra la trazabilidad —qué fue de cada
+ítem— y deja por escrito **en qué discrepa esta revisión**, para que la
+discrepancia sea una decisión y no un olvido.
+
+### 3.1 Trazabilidad completa
+
+| Consejo | Estado hoy | Dónde vive ahora |
+|---|---|---|
+| C1 Hubs indexables | ✅ En producción | §5 |
+| C2 `lastmod` + IndexNow | ✅ En producción | §5 |
+| C3 Marcha del día + home | ✅ En producción | §5 |
+| C4 `og:image` de marca | ✅ Superado por M4 | §5 |
+| C5 CI con smoke tests | ✅ En producción | §5 |
+| C6 Uptime externo | ✅ En producción ([monitoring.md](monitoring.md)) | §5 |
+| C7 Sync endurecido | ✅ En producción | §5 |
+| C8 Docs al stack real | ✅ Hecho — pero ver §3.2, punto 4 | §5 |
+| M1 API + `llms.txt` + feeds + «Datos» | ✅ En producción | §5 |
+| M2 Cobertura de audio | ⏳ **Activo** — cambió de naturaleza, ver §3.2 punto 1 | **P1** |
+| M3 Búsqueda global | ✅ En producción (N-11) | §5 · ampliación en **R-08** (P2) |
+| M4 `og:image` dinámica | ✅ En producción | §5 |
+| M5 Deploy automatizado | ✅ En producción (PRE + PRO, [entornos.md](entornos.md)) | §5 |
+| M6 Accesibilidad + impresión | ⏳ **Promovida** — ver §3.2 punto 2 | **P2** |
+| M7 Notificaciones editoriales | ⏳ Pendiente, ahora con dependencia clara | **P2** |
+| M8 Slugify unificado + CSP/HSTS | ✅ En producción | §5 |
+| M9 Estadísticas indexables | ✅ Cubierta por N-07/N-08/N-09/N-10 — issue #23 cerrado el 2026-07-29 | §6 |
+| L1 Dumps versionados | ⏳ No iniciada | **P3** |
+| L2 Hubs enriquecidos + playlist | ⏳ No iniciada | **P3** |
+| L3 Biografías vía editores | ⏳ No iniciada | **P3** |
+| L4 «Propón una grabación» | ⏳ **Adelantada** — ver §3.2 punto 3 | **P2** (como R-06) |
+| L5 PWA offline | ⏳ No iniciada, parcialmente sustituida | **P3** |
+| L6 Revisión de hosting | ⏳ Condicionada al tablero | **P3** |
+
+**Balance: 13 de 23 ítems del consejo están en producción en 17 días** (del
+2026-07-12 al 2026-07-29), incluidas las 8 tareas de corto plazo completas. El
+plan del consejo no falló en ningún punto: se ejecutó.
+
+### 3.2 En qué discrepa esta revisión (y por qué)
+
+1. **M2 ya no es el problema que el consejo describió.** El consejo la planteó
+   como «ejecutar la ingesta de YouTube y curar», 15 h. La ingesta desde el
+   catálogo de streaming (2026-07-28) cambió el cuello de botella: descubrir
+   marchas dejó de ser difícil —616 candidatos en una pasada— y ahora lo caro es
+   **atribuir el autor**, que ninguna API devuelve. Consecuencia práctica: R-01
+   (ISRC) y R-07 (KPI) se ejecutan **antes** de la campaña, no después. El
+   consejo no podía preverlo porque ese pipeline no existía.
+2. **M6 sube de prioridad.** El consejo la puso en medio plazo con repercusión
+   «media». Esta revisión la lleva a P2 porque, con el objetivo declarado de
+   experiencia de uso, la hoja de impresión es la ruta barata (6 h) al caso de
+   uso de calle que L5 (PWA, 15 h) resolvería caro — y la accesibilidad es
+   transversal a todo lo que se ha construido desde entonces.
+3. **L4 se adelanta del largo plazo a P2.** El consejo la ordenó por coste
+   (12 h). Esta revisión la sube porque sirve a los **dos** objetivos declarados
+   a la vez —dato y experiencia— y porque la infraestructura que necesitaba (la
+   cola de propuestas) ya está en producción, cosa que no era cierta cuando se
+   escribió el plan.
+4. **C8 se dio por hecha y el problema era otro.** El consejo pedía «docs
+   actualizadas al stack real», y eso se hizo. Pero la revisión del 2026-07-29
+   encontró dos líneas de trabajo terminadas, con CI verde, **invisibles para el
+   tracker**: el fallo no era el contenido de la documentación sino su
+   **frescura**. De ahí la regla nueva de §7.
+5. **Dos huecos que el consejo no vio**, detectados al comparar con bases de
+   datos externas del nicho y de fuera de él: **identificadores externos**
+   (R-03) y **partituras** (R-04). Ninguna de las cinco perspectivas del consejo
+   miró hacia fuera del proyecto; el DAFO se hizo sobre el código propio.
+6. **La regla de secuencia del consejo sigue sin cumplirse.** «Nada del largo
+   plazo empieza sin el tablero de KPIs activo»: no hay tablero. Se respeta —P3
+   está formalmente bloqueado— pero conviene decirlo en voz alta: es la única
+   condición del consejo que lleva 17 días incumplida, y R-07 solo cubre la
+   mitad.
+
+**Referencias externas consultadas en la comparativa** (2026-07-29):
+[patrimoniomusical.com](https://www.patrimoniomusical.com/bd-marchas) (el
+comparable directo: revista + BD + fonoteca + agenda + foro),
+[marchasdeprocesion.com](https://www.marchasdeprocesion.com/) (mismo nicho, con
+alcance internacional y foco en compositores y partituras), la app *Música
+Cofrade* (streaming del nicho), [MusicBrainz](https://musicbrainz.org/doc/How_to_Use_Works)
+(separación obra/grabación, ISWC/[ISRC](https://musicbrainz.org/doc/ISRC)),
+[RISM](https://rism.info/) (catalogación de fuentes con incipit codificado) y
+Wikidata (enlazado de autoridades).
+
+---
+
+## 4. Ramas abiertas (última actualización 2026-07-30)
+
+**Estado: todo consolidado y en `pre`, con PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) abierto hacia `main` (sin fusionar a propósito — la fusión a `main` dispara el deploy a PRO y queda para cuando el mantenedor valide en navegador).**
+
+Las cuatro ramas `claude/*` que estaban sueltas en el remoto (más los commits de M6 y M7) se fusionaron en `claude/siguiente-que-hacer-pvvxrn`, que luego se fusionó también con `origin/pre` (traía fixes de mapa de otra sesión que no estaban en `siguiente-que-hacer`) y se empujó a `pre` en fast-forward — disparando CI + deploy automático a PRE.
+
+| Origen | Contenido | Estado |
+|---|---|---|
+| `claude/project-roadmap-review-yrc7zt` | Revisión del roadmap, documentación de B-01 y decisiones de arranque (docs únicamente) | ✅ Fusionada |
+| `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Fusionada |
+| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto (bloqueado, ver abajo)** |
+| `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), cierra [technical-debt §5.1](technical-debt.md) | ✅ Fusionada |
+| `claude/siguiente-que-hacer-pvvxrn` | **M6** (accesibilidad + hoja de impresión) + **M7** (notificaciones editoriales: Mailer, digest semanal, notif de propuesta) + integración de todas las ramas anteriores + fixes de mapa traídos de `pre` | ✅ En `pre`, PR abierto a `main` |
+
+**Conflictos al fusionar** (todos resueltos):
+- `docs/admin-panel.md` (×2, en distintas fusiones): colisiones de numeración en §11/§12 — se conservan todas las secciones, renumeradas en orden.
+- `php/app/src/Admin.php`: el bloque M7 (`notifPropuesta`/`propuestaLabel`) + los métodos de disco coexisten en el mismo fichero — se incluyeron los dos bloques.
+- `php/public/assets/app.css`: `font-size: 0.92rem` del rediseño + `:focus-within` de accesibilidad (M6) conviven; el contraste de `--acc` subido por el fix del mapa se mantuvo.
+
+**Verificación hecha:**
+- Lint (`php -l`) limpio en todo el árbol.
+- **82/82 smoke tests** en local, reproduciendo `ci.yml` (fixture determinista + servidor embebido + `ci_smoke.php`).
+- **Smoke remoto contra PRE** (`https://marchasdecristo.jaguerra27.helioho.st`): `/health` → `entorno: pre`, `db: ok`; `robots.txt` con `Disallow: /` total (correcto, PRE no se indexa); cinta de preproducción presente en el HTML; `/mapa` → 200 y `/temporada` → 302 (ambas visibles, confirma que el gate PRE/PRO distingue bien); ficha de marcha real tomada del sitemap → 200 con JSON-LD `MusicComposition`; `/dashboard/disco/add` sin sesión → 302 a `/login`; skip-link de M6 presente en el DOM de portada.
+- **Nota sobre `ci_smoke.php` contra PRE**: correrlo tal cual contra PRE da ~30 "fallos" que **no son bugs** — el script está escrito para la fixture determinista de CI, no para datos reales. En PRE fallan por diseño: noindex/robots-disallow global (comparado contra fixture sin ese gate) y slugs/contenido de la fixture que no existen en la BD real que PRE espeja. No usar `ci_smoke.php` sin más contra un entorno con datos reales.
+
+### Qué falta para cerrar B-01
+
+1. ~~Smoke tests en local~~ ✅
+2. ~~Push a `pre` (fast-forward) → deploy automático~~ ✅
+3. ~~Smoke remoto contra PRE~~ ✅ — **falta la validación visual en navegador** (mantenedor): cinta de preproducción, rediseño, alta de discos con portada.
+4. ~~PR de `pre` a `main`~~ ✅ abierto ([#27](https://github.com/jgcoronado/mdc-back/pull/27)) — **sin fusionar a propósito**, pendiente de la validación del punto 3.
+5. Fusionar el PR → deploy automático a PRO + smoke remoto PRO (ahí `/temporada` y `/mapa` deben dar 404).
+6. Borrar las ramas `claude/*` ya integradas del remoto — **bloqueado**: el proxy git de la sesión que hizo la consolidación no tiene permiso para borrar refs remotas (403 en `git push --delete`); hace falta borrarlas a mano o desde una sesión/token con ese permiso.
+7. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el código esté en `main`/PRO — **solo ejecutable por el mantenedor**: requiere `.env.ftp`, `php/data/mdc.db` local y `config.local.php`, que no existen en una sesión sandbox.
+8. **OPS-02**: ejecutar `seed_dedicatorias.php` en prod (Plesk → PHP 8.4 explícito).
+9. **M7 en producción**: añadir `mail_from`, `mail_admin_to`, `notif_emails` a `config.local.php`; añadir `digest_semanal.php` a Plesk Scheduled Tasks (PHP 8.4, lunes 08:00).
+
+---
+
+## 5. Ya en producción (la base sobre la que se construye)
+
+Hubs año/estilo/provincia (C1/P-05) · Dedicatorias **N-01/N-02** (índice + hub +
+panel de curación) · Búsqueda global **N-11** (`/buscar` + `/api/buscar`) ·
+API + feeds + «Datos» (M1; `/feed.xml` **es** el «novedades» de P-09) ·
+`og:image` dinámica (M4) · Vídeo YouTube en ficha (P-02, `App\Media`) ·
+GoatCounter opt-in (P-08) · Slugify unificado + CSP/HSTS (M8) · **N-07**
+`/rankings` + `/rankings/{año}` · **N-08** «Resumen del año» · **N-09**
+`/aniversarios/{año}` · **N-10** `/mapa` + `/mapa/provincia/{slug}` ·
+**N-04/05** `/temporada` (⚠️ oculta en PRO desde el 2026-07-29 hasta tener datos
+de calidad — decisión DEC-01, visible en local y en PRE para rellenarla) · CI
+con smoke tests (C5) ·
+uptime externo (C6) · sync endurecido con checksum y rollback (C7) · despliegue
+automático PRE/PRO (M5) · catálogo cerrado de municipios y selector en cascada
+(análisis UX, prioridad 4).
+
+---
+
+## 6. Histórico congelado
+
+> Fotografías cerradas. **No se marca ni se añade nada en estas tablas**: si un
+> ítem revive, entra en §2 con su referencia de origen.
+
+### 6.1 Corto plazo del consejo (C1–C8) — cerrado 2026-07-16
+
+8 de 8 completadas: hubs indexables (C1, [#7](https://github.com/jgcoronado/mdc-back/issues/7)),
+`lastmod` + IndexNow (C2, [#8](https://github.com/jgcoronado/mdc-back/issues/8)),
+marcha del día (C3, [#9](https://github.com/jgcoronado/mdc-back/issues/9)),
+`og:image` de marca (C4, [#10](https://github.com/jgcoronado/mdc-back/issues/10)),
+CI con smoke tests (C5, [#11](https://github.com/jgcoronado/mdc-back/issues/11)),
+uptime externo (C6, [#12](https://github.com/jgcoronado/mdc-back/issues/12)),
+sync endurecido (C7, [#13](https://github.com/jgcoronado/mdc-back/issues/13)) y
+documentación al stack real (C8, [#14](https://github.com/jgcoronado/mdc-back/issues/14)).
+
+### 6.2 Medio plazo del consejo (M1–M9) — congelado 2026-07-23
+
+5 de 9 completadas en su momento (M1, M3, M4, M5, M8). Las 4 restantes se
+reencauzaron: **M2** al carril de audio (P1), **M6** y **M7** a P2, **M9**
+absorbida por las pantallas N-07/N-08/N-09/N-10 (issue #23 cerrado el
+2026-07-29). Detalle de cada una en
+[consejo-de-sabios-2026-07.md §7](consejo-de-sabios-2026-07.md) y en el cuerpo
+de sus issues.
+
+Nota sobre M5: el entorno de preproducción se retiró el 2026-07-23 (Plesk no
+deja mover el document root del subdominio) y se **reintrodujo el 2026-07-28**
+aislándolo desde el código (`env.php` desvía `APP_DIR`), sin tocar Plesk.
+
+### 6.3 Cola de código N-* (agosto–septiembre) — cerrada 2026-07-23
+
+Las 4 pantallas completadas, todas con «solo queries sobre datos existentes»:
+
+- **N-07** `/rankings` — `/estadisticas` renombrado con 301 permanente;
+  `/rankings/{año}` con umbral `HUB_MIN_MARCHAS` (thin → noindex), índice por
+  décadas, cross-link con `/marcha/ano/{año}`.
+- **N-09** `/aniversarios/{año}` — tramos de 25 en 25 hasta 200 (centenarios
+  destacados 🎉); `/aniversarios` redirige 302 al año en curso; fuera de
+  [1900, actual+1] → 404 (evita un espacio infinito de URLs).
+- **N-08** Anuario — sin ruta nueva: panel «Resumen del año» dentro del hub
+  `/marcha/ano/{año}`, reutilizando las queries de N-07; se omite en años thin.
+- **N-10** `/mapa` — coropleta SVG de 52 provincias (ISO 3166-2:ES) adaptada de
+  [jboekesteijn/provinces-of-spain](https://github.com/jboekesteijn/provinces-of-spain)
+  (CC BY-SA 4.0, atribución en `assets/mapa-provincias.README.md`), 5 niveles de
+  intensidad con cortes no lineales, y tabla accesible con los mismos datos sin
+  depender del SVG.
+- **P-07** (`completar_provincia.php`) ejecutado en prod el 2026-07-23 vía Plesk
+  Scheduled Tasks: 0 filas por actualizar, 2 localidades sucias pendientes de
+  curación manual («Hdad Cristo De Gracia», «El Sol») — no bloquean nada.
+
+**N-04/05** (contratos banda↔hermandad) se completó y migró en prod el
+2026-07-23: `HERMANDAD` es texto libre + `HERMANDAD_SLUG` normalizado (mismo
+espíritu que `dedicatoria_alias`, sin FK a una entidad `hermandad` que no existe
+aún). **Incidente del primer deploy**: la query nueva del sitemap rompió las
+~5.700 URLs reales al no estar la tabla migrada — arreglado (try/catch aislado +
+degradado con gracia) y migración `005` aplicada el mismo día.
+
+### 6.4 Análisis UX comparativo (patrimoniomusical.com) — cerrado 2026-07-27
+
+Plan aparte, no derivado del consejo ni de las palancas. **Las 6 prioridades
+(0–5) completadas**: ficha de marcha compactada con anclas, legibilidad global,
+filtros facetados y tablas ordenables, catálogo cerrado de municipios con
+selector en cascada y mapa por localidad, y las mismas anclas de navegación
+llevadas a compositor/banda/disco. Detalle y decisiones de arquitectura en
+[ux-analysis-estado.md](ux-analysis-estado.md); log narrativo en
+`../ANALISIS_UX.md`.
+
+### 6.5 Los dos planes solapados — resuelto 2026-07-23
+
+El proyecto tuvo **dos planes redactados casi a la vez** que solapaban ~70 %: el
+**plan de palancas 2026-27** (2026-07-09; P-01…P-09, T-01…T-03, pantallas
+N-01…N-11; dossier en el artefacto `1a31cc69`) y el **consejo de sabios**
+(2026-07-12). Se decidió que el marco forward eran las pantallas N-*, y desde el
+2026-07-29 **ninguno de los dos es el plan**: los dos son fuentes históricas y
+el plan es §2 de este documento.
+
+### 6.6 Fases 0–6 originales — superadas por el cutover
+
+Limpieza de seguridad, migración MySQL→Docker, Next.js/Express→Route Handlers,
+integridad de BD, tests/CI sobre Next.js y mejoras opcionales. El cutover del
+2026-07-04 sustituyó ese stack entero por PHP 8.4 + SQLite. Detalle en
+`git log -p -- docs/roadmap.md`.
+
+---
+
+## 7. Cómo mantener este roadmap
+
+- **El plan es §2.** Al cerrar una tarea: marcarla ✅ ahí con fecha. Al terminar
+  un bloque de prioridad, mover lo que quede al siguiente en vez de dejarlo
+  colgando.
+- **Una rama empujada al remoto con trabajo terminado se registra en §4 el mismo
+  día**, aunque no tenga PR. La revisión del 2026-07-29 encontró dos líneas
+  completas invisibles para el tracker; el daño no es el olvido, es que
+  cualquier sesión nueva planifica sobre un estado falso.
+- **Las referencias no se inventan.** Una tarea nueva hereda la referencia del
+  documento que la propuso, o entra como `R-xx` de una revisión fechada. Sin
+  origen, no entra.
+- **No se reescriben los dossieres de origen** (consejo, palancas): son
+  evaluaciones puntuales. Lo que cambia es §2 y §3.1.
+- **§6 no se toca.** Si un ítem congelado revive, entra en §2, no se descongela
+  la tabla.
+- Decisión arquitectónica nueva → [architecture.md](architecture.md) (ADRs).
+  Deuda técnica nueva → [technical-debt.md](technical-debt.md). Cambio de
+  esquema → [db-analysis.md](db-analysis.md). Aquí solo va el **plan**.

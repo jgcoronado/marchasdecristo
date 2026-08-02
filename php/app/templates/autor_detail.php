@@ -11,38 +11,19 @@ $nac = (int) ($a['F_NAC'] ?? 0);
 $def = (int) ($a['F_DEF'] ?? 0);
 $letra = $ap !== '' ? mb_strtoupper(mb_substr($ap, 0, 1)) : '';
 
-// Asiento: "Linares, 1896 — 1970. — Actividad documentada: 1923–1956."
-$asiento = [];
-$vidaParts = array_filter([
-    $t($a['LUGAR_NAC']) ? (string) $a['LUGAR_NAC'] : '',
-    $nac > 1000 ? (string) $nac : '',
-], static fn($v) => $v !== '');
-$vida = implode(', ', $vidaParts);
-if ($def > 1000) $vida .= ($vida !== '' ? ' — ' : '† ') . $def;
-if ($vida !== '') $asiento[] = V::e($vida);
-if ((int) $a['ACT_DESDE'] > 0) {
-    $act = $a['ACT_DESDE'] === $a['ACT_HASTA'] ? (string) $a['ACT_DESDE'] : $a['ACT_DESDE'] . '–' . $a['ACT_HASTA'];
-    $asiento[] = 'Actividad documentada: ' . $act;
-}
 $nM = (int) $a['marchasLength'];
 $nG = (int) $a['N_GRAB_TOTAL'];
 $ppal = $a['BANDA_PPAL'] ?? null;
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> › <a href="/autor">Compositores</a><?php if ($letra !== ''): ?> › <?= V::e($letra) ?><?php endif; ?> › A-<?= $aid ?></span>
-    <span class="regnav">registro <?= $num($a['REG_POS']) ?> de <?= $num($a['REG_TOTAL']) ?></span>
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Compositor</span>
-        <span class="sig">MDC · A-<?= $aid ?></span>
-    </div>
     <h1><?= V::e($autoridad) ?></h1>
-<?php if ($asiento !== []): ?>
-    <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
-<?php endif; ?>
 
+<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
+<?php if ($nM >= 12): ?>
     <nav class="rectabs" aria-label="Secciones de la ficha">
         <a href="#datos">Datos</a>
 <?php if ($t($a['BIO'])): ?>
@@ -50,6 +31,7 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 <?php endif; ?>
         <a href="#obra">Obra (<?= $num($nM) ?>)</a>
     </nav>
+<?php endif; ?>
 
     <dl class="desc" id="datos">
 <?php if ($t($a['NOMBRE_ART'])): ?>
@@ -119,6 +101,5 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 <?php if (!empty($url)): ?>
         <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
-        <span>registro A-<?= $aid ?></span>
     </div>
 </article>

@@ -131,6 +131,27 @@ final class Html
         return $out . '</nav>';
     }
 
+    /**
+     * Selector de resultados por página, como enlaces en la barra de la lista.
+     * Antes era un <select> dentro del formulario de búsqueda avanzada: cambiar
+     * cuántos resultados ver obligaba a desplegar el panel y enviar el
+     * formulario, cuando no es un criterio de búsqueda sino una preferencia de
+     * visualización. Va al lado de "orden", que es de la misma naturaleza.
+     *
+     * @param array<string,string> $criteria criterios activos ('limit' y 'page' NO viajan aquí)
+     */
+    public static function porPagina(int $limit, string $basePath, array $criteria, array $opciones = [10, 20, 50]): string
+    {
+        $out = '<span class="sortby">por página:';
+        foreach ($opciones as $i => $opt) {
+            $params = array_merge(array_filter($criteria, static fn($v) => (string) $v !== ''), ['limit' => (string) $opt]);
+            $href = $basePath . '?' . http_build_query($params);
+            $cls = $opt === $limit ? ' class="on"' : '';
+            $out .= ($i > 0 ? ' ·' : '') . ' <a href="' . self::e($href) . '"' . $cls . '>' . (int) $opt . '</a>';
+        }
+        return $out . '</span>';
+    }
+
     /** @return list<int|string> */
     private static function pageList(int $current, int $total): array
     {

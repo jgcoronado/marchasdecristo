@@ -12,17 +12,20 @@ ver [context.md](context.md) §7 y [archive/](archive/).
 1. **[context.md](context.md)** — Punto de entrada. Visión general, stack real (PHP/SQLite/HelioHost), estructura de carpetas, configuración, flujo de propuestas y sync, convenciones.
 2. **[architecture.md](architecture.md)** — Diagrama de componentes, flujos de petición, ADRs (decisiones arquitectónicas registradas), patrones vigentes.
 3. **[technical-debt.md](technical-debt.md)** — Deuda técnica real y priorizada del stack actual.
-4. **[roadmap.md](roadmap.md)** — Estado de ejecución del plan de acción vigente (apunta a `consejo-de-sabios-2026-07.md`).
-5. **[consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md)** — Evaluación integral del proyecto (DAFO de UX/UI/QA/desarrollo/producto, veredicto de síntesis, plan de acción corto/medio/largo plazo con coste/repercusión, catálogo de automatizaciones). Documento de referencia para el roadmap.
+4. **[roadmap.md](roadmap.md)** — ⭐ **Fuente única del trabajo futuro** (desde el 2026-07-29). El backlog priorizado (P0…P3), el contraste con el plan del consejo de sabios, las ramas abiertas sin fusionar y el histórico congelado. Si una tarea no está ahí, no está en el plan.
+5. **[consejo-de-sabios-2026-07.md](consejo-de-sabios-2026-07.md)** — Evaluación integral del proyecto (DAFO de UX/UI/QA/desarrollo/producto, veredicto de síntesis, plan de acción corto/medio/largo plazo con coste/repercusión, catálogo de automatizaciones). **Fuente histórica, no tracker**: su estado de ejecución y las discrepancias con él viven en `roadmap.md` §3.
 6. **[db-analysis.md](db-analysis.md)** — Auditoría del esquema SQLite (actualizado 2026-06-05; el análisis MySQL original es histórico).
 7. **[admin-panel.md](admin-panel.md)** — Panel de administración en PHP: acceso, roles/capacidades, funcionalidades, más las secciones específicas de linaje de bandas, curación de estilo, selector de municipio y scripts de herramientas.
 8. **[pendientes-post-cutover.md](pendientes-post-cutover.md)** — Lo que queda del cierre operativo del cutover: cron de backup por confirmar, correo del dominio, desmantelar el VPS, limpieza. (La verificación del panel y Search Console ya están resueltas.)
 9. **[cutover-fase5.md](cutover-fase5.md)** — Runbook ejecutado del cutover DNS a PHP.
 10. **[monitoring.md](monitoring.md)** — Monitorización externa de uptime (UptimeRobot sobre `/health`): configuración, qué cubre y qué no, falsas alarmas esperadas, runbook.
 11. **[entornos.md](entornos.md)** — Entornos local, PRE (subdominio con noindex, aislado vía `env.php`) y PRO: mapa, pipeline de despliegue automático (push a `pre` → PRE; fusión en `main` → PRO), puesta en marcha y limitaciones.
-12. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
-13. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
-14. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
+12. **[ingesta-streaming.md](ingesta-streaming.md)** — Ingesta de marchas desde el catálogo de streaming de las bandas (Spotify/Deezer/Apple): pipeline, descarte definitivo con veto, deshacer, y resultado de la primera pasada real.
+13. **[plan-music-apps.md](plan-music-apps.md)** / **[youtube-canales-bandas.md](youtube-canales-bandas.md)** — Notas de trabajo sobre ingesta de audio (YouTube) y enlaces de streaming.
+14. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
+15. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
+16. **[pendientes-manuales-2026-07-29.md](pendientes-manuales-2026-07-29.md)** — Documento de corta vida: qué puedes avanzar tú a mano ahora mismo y qué necesita tu confirmación explícita antes de seguir, al arrancar la tarea B-01 del roadmap. Se archiva en cuanto se resuelva; no es un tracker paralelo a `roadmap.md`.
+17. **[pendientes-manuales-2026-07-30.md](pendientes-manuales-2026-07-30.md)** — Documento de corta vida, hecho para retomar en una sesión local con credenciales: validación visual de PRE, fusión del PR [#27](https://github.com/jgcoronado/mdc-back/pull/27), borrado de ramas ya fusionadas, y los pasos exactos de OPS-01/OPS-02/M7 que una sesión en la nube no puede ejecutar. Se archiva en cuanto se resuelva.
 
 Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP con más detalle operativo del día a día que `context.md`.
 
@@ -30,7 +33,8 @@ Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP co
 
 - Si cambias arquitectura → actualiza `architecture.md` (sección de ADRs si es una decisión nueva).
 - Si encuentras un bug, riesgo u obsolescencia → añádelo a `technical-debt.md`.
-- Si avanzas una tarea del plan del consejo (C/M/L) → actualiza su estado en `roadmap.md`. No reescribas `consejo-de-sabios-2026-07.md`: es una fotografía puntual, no un tracker.
+- Si avanzas cualquier tarea (venga de donde venga: C/M/L del consejo, N/P/T de las palancas, R de una revisión) → actualiza su estado en `roadmap.md` §2, que es la fuente única. No reescribas `consejo-de-sabios-2026-07.md`: es una fotografía puntual, no un tracker.
+- Si empujas una rama con trabajo terminado → regístrala en `roadmap.md` §4 **el mismo día**, aunque no abras PR.
 - Si añades o cambias funcionalidad del panel admin → actualiza `admin-panel.md`.
 - Si cambias el schema de BD → actualiza `db-analysis.md`.
 - El resto (`context.md`, `archive/`) cambia menos.

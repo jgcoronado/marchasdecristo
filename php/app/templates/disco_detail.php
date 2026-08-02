@@ -10,30 +10,20 @@ $nP = (int) $d['marchasLength'];
 $coverSrc = H::coverSrc($did);
 $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
 
-$asiento = [];
-if ($t($d['BANDA_BREVE'])) {
-    $asiento[] = V::e($d['BANDA_BREVE'] . ($t($d['BANDA_LOC']) ? ' (' . $d['BANDA_LOC'] . ')' : ''));
-}
-if ($anio > 1800) $asiento[] = (string) $anio;
-$asiento[] = $num($nP) . ' pistas' . ($multi ? ' en ' . (int) $d['DISCOS'] . ' volúmenes' : '');
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> › <a href="/disco">Discos</a><?php if ($anio > 1800): ?> › <?= $anio ?><?php endif; ?> › D-<?= $did ?></span>
-    <span class="regnav">registro <?= $num($d['REG_POS']) ?> de <?= $num($d['REG_TOTAL']) ?></span>
 </div>
 
 <article class="record">
-    <div class="head">
-        <span class="eb">Disco</span>
-        <span class="sig">MDC · D-<?= $did ?></span>
-    </div>
     <div class="disco-head">
         <figure class="disco-cover">
             <?= H::cover($coverSrc, "Portada del disco '" . $d['NOMBRE_CD'] . "'", 'cover-large') ?>
         </figure>
         <div class="disco-meta">
             <h1><?= V::e($d['NOMBRE_CD']) ?></h1>
-            <p class="asiento"><?= implode('. — ', $asiento) ?>.</p>
+<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
+<?php if ($nP >= 12): ?>
             <nav class="rectabs" aria-label="Secciones de la ficha">
                 <a href="#datos">Datos</a>
 <?php if ($t($detalles)): ?>
@@ -41,6 +31,7 @@ $asiento[] = $num($nP) . ' pistas' . ($multi ? ' en ' . (int) $d['DISCOS'] . ' v
 <?php endif; ?>
                 <a href="#contenido">Contenido (<?= $num($nP) ?>)</a>
             </nav>
+<?php endif; ?>
             <dl class="desc" id="datos">
 <?php if ($t($d['ID_BANDA'])): ?>
                 <div class="f"><dt>Banda</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?>, <?= V::e($d['BANDA_LOC']) ?><?php endif; ?></dd></div>
@@ -111,6 +102,5 @@ $asiento[] = $num($nP) . ' pistas' . ($multi ? ' en ' . (int) $d['DISCOS'] . ' v
 <?php if (!empty($url)): ?>
         <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
-        <span>registro D-<?= $did ?></span>
     </div>
 </article>

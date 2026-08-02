@@ -243,6 +243,19 @@ final class Mapa
         return $viewBoxWidth * 0.0055;
     }
 
+    /** Radio del círculo transparente que recibe el clic. Reducido el
+     *  2026-07-29 (de 0.018 a 0.012: era un blanco casi 3.3× el punto visible
+     *  y se sentía desproporcionado en pantalla, sobre todo en localidades de
+     *  nombre largo, donde además el rótulo quedaba dentro del mismo enlace
+     *  -ver más abajo, ya corregido-). Con 0.012 sigue siendo ~2.2× el punto
+     *  visible: más que los 8 px del punto, pero sin invadir a sus vecinos.
+     *  En zonas muy densas las dianas se solapan; la salida es el zoom, que
+     *  separa los puntos manteniendo su tamaño aparente (mapa.js: rescalePuntos). */
+    private static function radioHit(float $viewBoxWidth): float
+    {
+        return $viewBoxWidth * 0.012;
+    }
+
     /** Añade la capa de puntos (uno por localidad) a un <svg> ya cargado en
      *  $dom, coloreados por recuento (self::nivelLocalidad) y con el nombre
      *  del municipio rotulado encima — solo para el mapa ampliado de una
@@ -256,34 +269,110 @@ final class Mapa
         }
         $fontSize = $viewBoxWidth * 0.015;
         $r = self::radio($viewBoxWidth);
+        $rHitDefault = self::radioHit($viewBoxWidth);
+
+        // Radio de diana por punto, acotado a la mitad de la distancia a su
+        // vecino más cercano (con un 15% de margen para que no lleguen a
+        // tocarse). Reducir solo la constante global (radioHit) no basta:
+        // municipios realmente próximos entre sí (Castilleja de la Cuesta y
+        // Tomares, en el Aljarafe) solapan sus dianas aunque el radio por
+        // defecto sea pequeño, y el zoom NO lo arregla — al reescalar todo
+        // (puntos, dianas y distancias entre ellos) por el mismo factor, dos
+        // dianas que se solapan a escala 1 se solapan igual a cualquier
+        // zoom. El cálculo va en unidades de usuario del SVG, antes del
+        // usort de más abajo (que reordena el array), y se guarda en cada
+        // punto para que sobreviva al reordenamiento. Con un centenar de
+        // municipios por provincia, el barrido O(n²) es trivial (una vez por
+        // render, no por petición cacheada).
+        $n = count($puntos);
+        for ($i = 0; $i < $n; $i++) {
+            $minDist = INF;
+            for ($j = 0; $j < $n; $j++) {
+                if ($i === $j) continue;
+                $dx = $puntos[$i]['x'] - $puntos[$j]['x'];
+                $dy = $puntos[$i]['y'] - $puntos[$j]['y'];
+                $d = sqrt($dx * $dx + $dy * $dy);
+                if ($d < $minDist) $minDist = $d;
+            }
+            // Sin suelo en el punto visible: un suelo así reintroducía el
+            // solape precisamente en el caso que esto arregla (Castilleja de
+            // la Cuesta/Tomares). El único suelo que queda evita un r=0
+            // degenerado si dos puntos coincidieran exactamente.
+            $tope = $minDist === INF ? $rHitDefault : max(0.05, ($minDist / 2) * 0.85);
+            $puntos[$i]['_rHitMax'] = $tope;
+            $puntos[$i]['_rHit'] = min($rHitDefault, $tope);
+        }
+
         $capa = $dom->createElement('g');
         $capa->setAttribute('class', 'mapa-puntos');
         $capa->setAttribute('style', "--mapa-punto-font: {$fontSize}px");
-        foreach ($puntos as $p) {
-            $c = $dom->createElement('circle');
-            $c->setAttribute('class', 'mapa-punto mapa-punto-n' . self::nivelLocalidad($p['n']));
-            $c->setAttribute('cx', (string) round($p['x'], 2));
-            $c->setAttribute('cy', (string) round($p['y'], 2));
-            $c->setAttribute('r', (string) round($r, 2));
+        // Radio de diana "cómodo" sin restricción de vecinos, para que mapa.js
+        // pueda recuperarlo al ampliar (ver data-rmax en cada diana).
+        $capa->setAttribute('data-rhit-base', (string) round($rHitDefault, 3));
 
-            $label = $dom->createElement('text');
-            $label->setAttribute('class', 'mapa-punto-label');
-            $label->setAttribute('x', (string) round($p['x'], 2));
-            $label->setAttribute('y', (string) round($p['y'] - $r - $fontSize * 0.3, 2));
-            $label->setAttribute('text-anchor', 'middle');
-            $label->appendChild($dom->createTextNode($p['localidad']));
+        // Orden de pintado FIJO, decidido aquí y no al pasar el ratón: los
+        // municipios con menos marchas van primero, así los de más recuento
+        // (los que más se buscan) quedan por delante donde se solapen. Antes
+        // esto se hacía moviendo el <a> en el DOM en cada pointerenter, lo que
+        // deja el cursor parpadeando y se come el clic — ver mapa.js.
+        usort($puntos, static fn(array $a, array $b): int => $a['n'] <=> $b['n']);
+
+        foreach ($puntos as $p) {
+            $cx = (string) round($p['x'], 2);
+            $cy = (string) round($p['y'], 2);
+
+            // Diana invisible: el punto visible es deliberadamente pequeño
+            // (con un centenar de municipios, puntos grandes se funden unos con
+            // otros), pero un blanco de 8 px es imposible de pulsar. Este
+            // círculo transparente le da un área cómoda sin ocupar tinta,
+            // acotada por vecino (ver el bucle de más arriba) para que dos
+            // municipios próximos nunca compartan diana.
+            $hit = $dom->createElement('circle');
+            $hit->setAttribute('class', 'mapa-punto-hit');
+            $hit->setAttribute('cx', $cx);
+            $hit->setAttribute('cy', $cy);
+            $hit->setAttribute('r', (string) round($p['_rHit'], 3));
+            // Tope por vecino, en unidades de usuario: es GEOMÉTRICO, no
+            // depende del zoom. mapa.js lo necesita para poder devolverle a la
+            // diana su tamaño cómodo al ampliar (donde los vecinos ya están
+            // lejos en pantalla) sin volver a solaparla nunca. Ver rescalePuntos.
+            $hit->setAttribute('data-rmax', (string) round($p['_rHitMax'], 3));
 
             $title = $dom->createElement('title');
             $title->appendChild($dom->createTextNode(
                 $p['localidad'] . ' (' . $p['provincia'] . '): ' . number_format($p['n'], 0, ',', '.') . ' marcha' . ($p['n'] === 1 ? '' : 's')
             ));
-            $c->appendChild($title);
+            $hit->appendChild($title);
 
+            $c = $dom->createElement('circle');
+            $c->setAttribute('class', 'mapa-punto mapa-punto-n' . self::nivelLocalidad($p['n']));
+            $c->setAttribute('cx', $cx);
+            $c->setAttribute('cy', $cy);
+            $c->setAttribute('r', (string) round($r, 2));
+
+            // Nombre del municipio, siempre visible (ver app.css). No es
+            // pulsable: con un centenar de rótulos solapados, pulsar un nombre
+            // acabaría llevando al municipio de al lado. El blanco de clic es
+            // la diana de arriba.
+            $label = $dom->createElement('text');
+            $label->setAttribute('class', 'mapa-punto-label');
+            $label->setAttribute('x', $cx);
+            $label->setAttribute('y', (string) round($p['y'] - $r - $fontSize * 0.35, 2));
+            $label->setAttribute('text-anchor', 'middle');
+            $label->appendChild($dom->createTextNode($p['localidad']));
+
+            // El rótulo va fuera del <a>: dentro quedaba pulsable pese al
+            // comentario de arriba ("no es pulsable"), así que el blanco de
+            // clic real era tan ancho como el nombre del municipio, no la
+            // diana. Fuera del enlace, el orden de pintado en el <g> no
+            // cambia (el SVG pinta por orden de documento, no por anidación),
+            // así que no hay diferencia visual.
             $a = $dom->createElement('a');
             $a->setAttribute('href', '/marcha?' . http_build_query(['localidad' => $p['localidad']]));
+            $a->appendChild($hit);
             $a->appendChild($c);
-            $a->appendChild($label);
             $capa->appendChild($a);
+            $capa->appendChild($label);
         }
         $svgEl->appendChild($capa);
     }

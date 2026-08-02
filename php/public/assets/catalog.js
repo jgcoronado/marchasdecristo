@@ -8,20 +8,41 @@
         var tbody = table.querySelector('tbody');
         if (!tbody) return;
         var dir = {};
-        Array.prototype.forEach.call(table.querySelectorAll('thead th'), function (th, i) {
-            th.addEventListener('click', function () {
-                var type = th.getAttribute('data-type');
-                var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
-                dir[i] = !dir[i];
-                rows.sort(function (a, b) {
-                    var x = (a.children[i] ? a.children[i].textContent : '').trim();
-                    var y = (b.children[i] ? b.children[i].textContent : '').trim();
-                    if (type === 'num') {
-                        x = parseFloat(x) || 0; y = parseFloat(y) || 0;
-                        return dir[i] ? x - y : y - x;
-                    }
-                    return dir[i] ? x.localeCompare(y, 'es') : y.localeCompare(x, 'es');
-                }).forEach(function (r) { tbody.appendChild(r); });
+        var ths = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+        ths.forEach(function (th) {
+            th.setAttribute('aria-sort', 'none');
+            th.setAttribute('tabindex', '0');
+        });
+
+        function sortByCol(th, i) {
+            var type = th.getAttribute('data-type');
+            var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+            dir[i] = !dir[i];
+            rows.sort(function (a, b) {
+                var x = (a.children[i] ? a.children[i].textContent : '').trim();
+                var y = (b.children[i] ? b.children[i].textContent : '').trim();
+                if (type === 'num') {
+                    x = parseFloat(x) || 0; y = parseFloat(y) || 0;
+                    return dir[i] ? x - y : y - x;
+                }
+                return dir[i] ? x.localeCompare(y, 'es') : y.localeCompare(x, 'es');
+            }).forEach(function (r) { tbody.appendChild(r); });
+            ths.forEach(function (h, j) {
+                var ar = h.querySelector('.ar');
+                if (j === i) {
+                    h.setAttribute('aria-sort', dir[i] ? 'ascending' : 'descending');
+                    if (ar) ar.textContent = dir[i] ? '↑' : '↓';
+                } else {
+                    h.setAttribute('aria-sort', 'none');
+                    if (ar) ar.textContent = '↕';
+                }
+            });
+        }
+
+        ths.forEach(function (th, i) {
+            th.addEventListener('click', function () { sortByCol(th, i); });
+            th.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortByCol(th, i); }
             });
         });
     }
@@ -65,9 +86,30 @@
         });
     }
 
+    // Fachada genérica para el resto de servicios (Spotify, Deezer, Apple):
+    // no tienen miniatura pública que enseñar, así que la fachada es un botón
+    // con el nombre del servicio y, al pulsarlo, se inserta su reproductor.
+    // Igual que con YouTube, hasta ese clic no se pide nada a terceros.
+    function initFacade(embed) {
+        var btn = embed.querySelector('.mdfacade');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var src = embed.getAttribute('data-embed');
+            if (!src) return;
+            var iframe = document.createElement('iframe');
+            iframe.src = src;
+            iframe.title = embed.getAttribute('data-embed-title') || 'Reproductor de audio';
+            iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+            iframe.setAttribute('loading', 'lazy');
+            embed.innerHTML = '';
+            embed.appendChild(iframe);
+        });
+    }
+
     Array.prototype.forEach.call(document.querySelectorAll('table[data-sortable]'), initSort);
     Array.prototype.forEach.call(document.querySelectorAll('input[data-filter]'), initFilter);
     Array.prototype.forEach.call(document.querySelectorAll('.ytembed[data-ytid]'), initYtFacade);
+    Array.prototype.forEach.call(document.querySelectorAll('.mdembed[data-embed]'), initFacade);
 
     // Autocompletado global (M3): desplegable en vivo contra /api/buscar.
     // Mejora progresiva — sin JS, el formulario envía a /buscar igualmente.

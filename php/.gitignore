@@ -6,3 +6,9 @@
 
 # Caché de og:image dinámicas (M4): se genera en dirname(db_path)/og-cache
 og-cache/
+
+# Portadas de disco: viven SOLO en el servidor (el mirror del deploy excluye
+# cover/, ver .github/workflows/deploy.yml). En local solo aparecen las que se
+# suban al probar el panel; versionarlas subiría basura y, peor, arriesgaría
+# pisar las de producción.
+/public/cover/
