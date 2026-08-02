@@ -19,7 +19,8 @@ krsort($decadas);
 <article class="record">
     <h1>Rankings de música procesional</h1>
     <p class="asiento">Los compositores con más marchas, las bandas con más estrenos y las marchas más grabadas
-        de siempre — y los récords de cada año.</p>
+        de siempre — y los récords de cada año. Para saber qué falta por documentar, en vez de qué ya destaca,
+        está el <a href="/estado-catalogo">estado del catálogo</a>.</p>
 
     <div class="stack">
         <details class="collapse">

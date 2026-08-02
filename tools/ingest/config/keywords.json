@@ -44,7 +44,10 @@
     "felices fiestas",
     "villancico",
     "resumen",
-    "highlights"
+    "highlights",
+    "comentario",
+    "orquestacion",
+    "piano"
   ],
   "excluir_titulo": {
     "_doc": "Igual que excluir, pero solo mira el TÍTULO del vídeo, no la descripción — para keywords que aparecen como boilerplate de canal en pie de página (p.ej. el nombre de un podcast propio del canal, mencionado en TODAS las descripciones) y darían muchísimos falsos positivos si se buscaran en el texto completo.",

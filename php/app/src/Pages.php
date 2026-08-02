@@ -714,6 +714,35 @@ final class Pages
         ]);
     }
 
+    /**
+     * R-07 del roadmap (issue #16): página pública con el KPI de cobertura de
+     * audio — % de marchas con alguna escucha enlazada, global/por año/por
+     * banda. Es el tablero honesto de "lo que falta" que la campaña de audio
+     * (P1 · M2) necesita para medirse antes/después, y de paso el mapa de
+     * curación (peor cobertura primero) para decidir por dónde seguir.
+     */
+    public static function estadoCatalogo(): void
+    {
+        $base = self::base();
+        Http::cachePublic(1800);
+        View::render('estado_catalogo', [
+            'global' => Repo::coberturaGlobal(),
+            'porAnio' => Repo::coberturaPorAnio(),
+            'porBanda' => Repo::coberturaPorBanda(),
+        ], [
+            'title' => 'Estado del catálogo — cobertura de audio — Marchas de Cristo',
+            'description' => 'Cuántas marchas del catálogo tienen ya una grabación enlazada para escuchar, '
+                . 'y cuántas faltan todavía: el KPI de cobertura, global, por año y por banda.',
+            'canonical' => $base . '/estado-catalogo',
+            'jsonld' => [
+                Seo::breadcrumbs([
+                    ['name' => 'Inicio', 'url' => $base],
+                    ['name' => 'Estado del catálogo', 'url' => $base . '/estado-catalogo'],
+                ]),
+            ],
+        ]);
+    }
+
     public static function rankingsAnioHub(array $p): void
     {
         $anio = (string) $p['anio'];
@@ -1082,6 +1111,7 @@ final class Pages
             [$base . '/disco', 'weekly', '0.8'],
             [$base . '/dedicatorias', 'weekly', '0.8'],
             [$base . '/rankings', 'weekly', '0.7'],
+            [$base . '/estado-catalogo', 'weekly', '0.6'],
             // Solo el año en curso (N-09): a diferencia de los hubs de año, no
             // hay un universo cerrado de "años válidos" para aniversarios —
             // cualquier año lo es — así que solo se anuncia el vigente; los
@@ -1394,6 +1424,7 @@ final class Pages
             '- [Dedicatorias](' . $base . '/dedicatorias)',
             '- [Rankings](' . $base . '/rankings)',
             '- [Aniversarios](' . $base . '/aniversarios)',
+            '- [Estado del catálogo](' . $base . '/estado-catalogo)',
         ];
         // Mapa oculto en PRO mientras se corrige el solape de dianas (ver
         // Pages::mapaVisible) — no listar aquí una URL que la propia web

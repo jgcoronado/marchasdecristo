@@ -75,6 +75,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                     <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
                     <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
                     <th aria-sort="<?= $ariaSort('anio') ?>"><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
+                    <th class="col-escucha" title="¿Hay dónde escucharlo?">Escuchar</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>
@@ -88,6 +89,18 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <?php endif; ?>
                         </td>
                         <td><?= !empty($d['FECHA_CD']) ? V::e($d['FECHA_CD']) : '—' ?></td>
+                        <td class="col-escucha">
+<?php if (!empty($d['TIENE_STREAMING'])): ?>
+                            <span class="ico-escucha" role="img" aria-label="Disponible en streaming" title="Disponible en streaming">
+                                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                                    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                                    <path d="M6.4 5.2 11 8l-4.6 2.8Z" fill="currentColor"/>
+                                </svg>
+                            </span>
+<?php else: ?>
+                            <span class="muted" aria-label="Sin enlaces de streaming" title="Sin enlaces de streaming">—</span>
+<?php endif; ?>
+                        </td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>

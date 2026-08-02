@@ -124,4 +124,43 @@
             refrescarNumero();
         },
     });
+
+    // ── Editar pista existente ──────────────────────────────────────────────
+    // Cada fila de "Contenido del disco" trae su propia fila oculta con un
+    // formulario de edición (marcha, número, volumen, duración). Un botón
+    // "Editar" la muestra; hay un picker de marcha por fila, así que se
+    // cablean todos con querySelectorAll en vez de uno solo como el de arriba.
+    document.querySelectorAll('[data-marcha-picker-edit]').forEach(function (raiz) {
+        autocompletar({
+            input: raiz.querySelector('[data-marcha-input]'),
+            hidden: raiz.querySelector('[data-marcha-id]'),
+            panel: raiz.querySelector('[data-marcha-suggest]'),
+            url: '/api/marcha/fastSearch?q=',
+            min: 1,
+            pintar: function (r) {
+                return '<strong>' + esc(r.TITULO) + '</strong> <span class="muted small">#' + esc(r.ID_MARCHA)
+                    + (r.FECHA ? ' · ' + esc(r.FECHA) : '')
+                    + (r.AUTORES ? ' · ' + esc(r.AUTORES) : '') + '</span>';
+            },
+            id: function (r) { return r.ID_MARCHA; },
+            etiqueta: function (r) { return r.TITULO + ' (#' + r.ID_MARCHA + ')'; },
+        });
+    });
+
+    function filaEdicion(btn, attr) {
+        var pid = btn.getAttribute(attr);
+        return document.querySelector('[data-pista-edit-row="' + pid + '"]');
+    }
+    document.querySelectorAll('[data-pista-editar]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var fila = filaEdicion(btn, 'data-pista-editar');
+            if (fila) fila.hidden = !fila.hidden;
+        });
+    });
+    document.querySelectorAll('[data-pista-editar-cancelar]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var fila = filaEdicion(btn, 'data-pista-editar-cancelar');
+            if (fila) fila.hidden = true;
+        });
+    });
 })();

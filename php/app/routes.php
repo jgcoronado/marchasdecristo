@@ -62,6 +62,9 @@ $router->get('/rankings/{anio}', [Pages::class, 'rankingsAnioHub']);
 $router->get('/aniversarios', [Pages::class, 'aniversariosIndex']);
 $router->get('/aniversarios/{anio}', [Pages::class, 'aniversariosAnioHub']);
 
+// ── Estado del catálogo (R-07): KPI de cobertura de audio ────────────────────
+$router->get('/estado-catalogo', [Pages::class, 'estadoCatalogo']);
+
 // ── Mapa (N-10): coropleta SVG por provincia ──────────────────────────────────
 $router->get('/mapa', [Pages::class, 'mapa']);
 $router->get('/mapa/provincia/{slug}', [Pages::class, 'mapaProvincia']);
@@ -187,6 +190,8 @@ $router->get('/dashboard/disco/{id}', [Admin::class, 'discoEditForm']);
 $router->post('/dashboard/disco/{id}', [Admin::class, 'discoEditPost']);
 $router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
+$router->post('/dashboard/disco/{id}/pista/{dm}/editar', [Admin::class, 'discoPistaEditPost']);
+$router->post('/dashboard/disco/{id}/social', [Admin::class, 'discoSocialPost']);
 $router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
@@ -221,6 +226,7 @@ $router->post('/dashboard/ingesta/descartar-multiple', [Admin::class, 'ingestaDe
 $router->post('/dashboard/ingesta/deshacer-descarte', [Admin::class, 'ingestaDeshacerDescarte']);
 $router->get('/dashboard/ingesta/{id}', [Admin::class, 'ingestaDetail']);
 $router->post('/dashboard/ingesta/{id}/aceptar', [Admin::class, 'ingestaAceptar']);
+$router->post('/dashboard/ingesta/{id}/asociar', [Admin::class, 'ingestaAsociar']);
 $router->post('/dashboard/ingesta/{id}/descartar', [Admin::class, 'ingestaDescartar']);
 
 // ── Temporada / contratos (N-04/N-05): alta manual desde el panel ───────────
