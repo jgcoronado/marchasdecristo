@@ -222,7 +222,7 @@ h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; mar
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; max-width: 44rem; }
+.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; }
 .asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
@@ -296,7 +296,7 @@ a.svc:hover { border-color: var(--acc); }
 .mdembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
-.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; max-width: 44rem; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
@@ -538,7 +538,7 @@ a.ln-name:hover { text-decoration: underline; }
 .disco-meta { display: flex; flex-direction: column; align-items: center; }
 
 /* ── Admin ──────────────────────────────────────────────────────────────── */
-.admin-narrow { max-width: 22rem; margin: 0 auto; }
+.admin-narrow { margin: 0 auto; }
 .admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .admin-bar h1 { margin: 0; }
 .inline-form { display: inline; }
@@ -552,7 +552,7 @@ a.ln-name:hover { text-decoration: underline; }
 .btn-danger { background: var(--err-bg); color: var(--err); border-color: var(--err-line); }
 .btn-danger:hover { background: var(--err-bg); border-color: var(--err); color: var(--err); }
 
-dialog.panel { max-width: 32rem; width: calc(100% - 2rem); }
+dialog.panel { width: calc(100% - 2rem); }
 dialog.panel:not([open]) { display: none; }
 dialog.panel[open] { display: flex; }
 dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
