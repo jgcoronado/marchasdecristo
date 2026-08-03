@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Auth;
 use App\Db;
+use App\Entorno;
+use App\Roles;
+use App\Secciones;
 use App\Seo;
 use App\View;
 
@@ -35,6 +39,10 @@ $siteName = 'Marchas de Cristo';
 // caché por su cuenta. filemtime cambia solo cuando el fichero cambia de
 // verdad, así que no invalida la caché en cada deploy si el asset no se tocó.
 $assetVer = static fn(string $rel): string => $rel . '?v=' . (@filemtime(PUBLIC_DIR . $rel) ?: '1');
+// Orden definitivo del nav, publicadas o no: una sección que aún no se enseña
+// en este entorno se cae del menú abajo, sin perder su sitio para cuando se
+// publique (ver App\Secciones — misma decisión que apaga su ruta, el sitemap y
+// llms.txt).
 $nav = [
     '/marcha' => 'Marchas',
     '/autor' => 'Compositores',
@@ -43,20 +51,14 @@ $nav = [
     '/dedicatorias' => 'Dedicatorias',
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
+    '/mapa' => 'Mapa',
+    '/temporada' => 'Temporada',
 ];
-$configEnv = (string) ($GLOBALS['config']['env'] ?? 'production');
-$fueraDeProdReal = $configEnv !== 'production' || $esPre;
-// Mapa (N-10) oculto en PRO mientras se corrige el solape de dianas de clic
-// entre municipios próximos (decisión 2026-07-29). Ver App\Pages::mapaVisible().
-if ($fueraDeProdReal) {
-    $nav['/mapa'] = 'Mapa';
-}
-// Temporada (N-04) oculta en PRO hasta que haya datos de calidad (decisión
-// 2026-07-29): visible en local (donde se rellena) y en PRE (para validarla
-// antes de publicar). Ver App\Pages::temporadaVisible().
-if ($fueraDeProdReal) {
-    $nav['/temporada'] = 'Temporada';
-}
+$nav = array_filter(
+    $nav,
+    static fn(string $href): bool => Secciones::visible(ltrim($href, '/')),
+    ARRAY_FILTER_USE_KEY
+);
 
 try {
     $counts = Db::counts();
@@ -75,6 +77,19 @@ $current = '/' . (explode('/', trim($reqPath, '/'))[0] ?? '');
 // "Búsqueda avanzada" con facetas para filtrar dentro de un tipo. No se muestra
 // dentro del panel de administración.
 $showSearch = !str_starts_with($reqPath, '/dashboard') && !str_starts_with($reqPath, '/login');
+
+// Aviso de desincronización en el panel de PRE y PRO. La BD maestra es la
+// local: lo que se toque aquí o se pierde en el próximo sync_db_to_prod.php o
+// pisa datos buenos. El editor no lo necesita (sus envíos SIEMPRE son
+// propuestas, aquí y en local); el admin sí, porque en local está acostumbrado
+// a escribir directo y estas pantallas son las mismas. Ver docs/entornos.md.
+$avisoDesync = false;
+if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta()) {
+    $sesionPanel = Auth::currentSession();
+    $avisoDesync = $sesionPanel !== null
+        && Roles::isAdmin(Auth::roleOf((string) ($sesionPanel['user'] ?? '')));
+}
+
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 ?><!doctype html>
 <html lang="es">
@@ -125,6 +140,9 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
     <a class="skip-link" href="#main-content">Saltar al contenido</a>
 <?php if ($esPre): ?>
     <div class="pre-ribbon" role="status">Entorno de preproducción — los cambios aquí no afectan a marchasdecristo.com</div>
+<?php endif; ?>
+<?php if ($avisoDesync): ?>
+    <div class="danger-ribbon" role="alert">PELIGRO: riesgo de desincronización. No actuar en este entorno salvo urgencia.</div>
 <?php endif; ?>
     <header>
         <nav>

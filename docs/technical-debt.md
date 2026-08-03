@@ -113,7 +113,8 @@ además de deuda).
   hueco). Renumerado y commiteado como
   [`009_contrato_localidad.sql`](../php/app/tools/sql/009_contrato_localidad.sql)
   el 2026-07-31, con el comentario corregido para no afirmar algo falso.
-- **Impacto real hoy: ninguno** — `/temporada` está oculta en PRO (DEC-01), y
+- **Impacto real hoy: ninguno** — `/temporada` solo se publica en local
+  (`App\Secciones`, ver [entornos.md](entornos.md)), y
   los 92 contratos cargados son todos de Sevilla, así que el heurístico
   incorrecto no se nota mientras no haya bandas foráneas en los datos.
 - **Fix, si se retoma**: poblar `contrato_localidad` (los 92 registros

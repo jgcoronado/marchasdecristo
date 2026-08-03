@@ -33,4 +33,10 @@ return [
     //                          // subdominio. Ver docs/entornos.md.
     // 'cover_base_url' => 'https://marchasdecristo.com', // SOLO en PRE: las portadas
     //                          // solo existen en el docroot de producción.
+
+    // 'secciones_publicadas' => ['mapa'], // secciones de App\Secciones::EN_MADURACION
+    //                          // que este host enseña pese a no estar publicadas
+    //                          // todavía. Sirve para sacarlas primero en PRE y
+    //                          // validarlas antes de tocarlas en PRO. En local
+    //                          // no hace falta: local las ve todas.
 ];

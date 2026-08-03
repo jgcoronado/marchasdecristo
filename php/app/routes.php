@@ -117,8 +117,10 @@ $router->get('/health', static function (): void {
     echo "status: ok\n";
     echo 'php: ' . PHP_VERSION . "\n";
     // Identificador de entorno: confirma de un vistazo (o desde el smoke
-    // remoto del pipeline) contra qué host se ha resuelto la petición.
-    echo 'entorno: ' . (!empty($GLOBALS['config']['preproduccion']) ? 'pre' : 'prod') . "\n";
+    // remoto del pipeline) contra qué host se ha resuelto la petición. Es la
+    // misma deducción que decide qué secciones se publican y si el panel puede
+    // escribir, así que sale de App\Entorno y no de una copia local.
+    echo 'entorno: ' . App\Entorno::nombre() . "\n";
 
     // Chequeo de BD visible para cualquiera (incluido un monitor externo):
     // solo ok/error, sin ruta ni mensaje de excepción — el detalle completo

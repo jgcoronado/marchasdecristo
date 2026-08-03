@@ -51,7 +51,7 @@ documentado, que es lo que hace que se planifique mal.
 | **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php`. **No ejecutable desde una sesión sandbox**: requiere `.env.ftp` (credenciales FTP de producción), `php/data/mdc.db` local real y `config.local.php` — ninguno existe fuera de la máquina del mantenedor | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO, y solo lo puede correr el mantenedor |
 | **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
 | ~~OPS-03 · T-03~~ | ~~Verificar en Plesk si el cron de backup existe de verdad~~ | — | ✅ 2026-07-29 — confirmado en Plesk, backup manual de comprobación ejecutado (`mdc-20260729-132640.db`, 9,6 MB). Detalle en [pendientes-post-cutover.md §2](pendientes-post-cutover.md) |
-| ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. Implementado en `Pages::temporadaVisible()`, va dentro de B-01 |
+| ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. **Revisado el 2026-08-03**: también se oculta en PRE, junto con dedicatorias, estado del catálogo y mapa; las cuatro se publican solo en local hasta que maduren (`App\Secciones`, ver [entornos.md](entornos.md)) |
 | ~~DEC-02~~ | ~~Decidir sobre el VPS de rollback~~ | — | ✅ 2026-07-29 — **apagado por completo** (contenedor, servidor y TTL de DNS revertido). El runbook de rollback de infraestructura de [cutover-fase5.md §7](cutover-fase5.md) queda obsoleto: no hay ya destino al que volver |
 | ~~R-00a~~ | ~~Cerrar el issue #23 (M9), cubierto por N-07/N-08/N-09/N-10~~ | — | ✅ 2026-07-29 |
 | ~~R-00b~~ | ~~Resolver la contradicción documental del cron de backup (tres documentos, tres versiones)~~ | — | ✅ 2026-07-29 |
@@ -255,8 +255,7 @@ API + feeds + «Datos» (M1; `/feed.xml` **es** el «novedades» de P-09) ·
 GoatCounter opt-in (P-08) · Slugify unificado + CSP/HSTS (M8) · **N-07**
 `/rankings` + `/rankings/{año}` · **N-08** «Resumen del año» · **N-09**
 `/aniversarios/{año}` · **N-10** `/mapa` + `/mapa/provincia/{slug}` ·
-**N-04/05** `/temporada` (⚠️ oculta en PRO desde el 2026-07-29 hasta tener datos
-de calidad — decisión DEC-01, visible en local y en PRE para rellenarla) · CI
+**N-04/05** `/temporada` · CI
 con smoke tests (C5) ·
 uptime externo (C6) · sync endurecido con checksum y rollback (C7) · despliegue
 automático PRE/PRO (M5) · catálogo cerrado de municipios y selector en cascada

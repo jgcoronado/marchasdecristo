@@ -195,6 +195,28 @@ $tests['feeds bien formados'] = static function () use ($base): void {
     }
 };
 
+// Secciones que aún no se publican fuera de local (App\Secciones). Aquí no se
+// puede leer la config del host, así que en vez de una lista fija —que habría
+// que acordarse de tocar al publicar una sección— se comprueba la COHERENCIA:
+// lo que el sitio anuncia tiene que responder 200, y lo que no anuncia tiene
+// que responder 404. Eso caza los dos fallos reales: publicar a medias (nav o
+// sitemap sin ruta) y ocultar a medias (ruta viva sin anunciar, o al revés).
+$tests['secciones: lo anunciado responde 200 y lo oculto 404'] = static function () use ($base): void {
+    $sitemap = get200('/sitemap.xml', $base)['body'];
+    $home = get200('/', $base)['body'];
+    foreach (['/dedicatorias', '/estado-catalogo', '/mapa', '/temporada'] as $indice) {
+        $anunciada = str_contains($sitemap, '<loc>' . $base . $indice . '</loc>')
+            || str_contains($home, 'href="' . $indice . '"');
+        $status = httpGet($base . $indice)['status'];
+        if ($anunciada && $status !== 200 && $status !== 302) {
+            throw new RuntimeException("$indice → el sitio lo anuncia (nav o sitemap) pero responde $status");
+        }
+        if (!$anunciada && $status !== 404) {
+            throw new RuntimeException("$indice → no está anunciado pero responde $status (se esperaba 404: sección oculta)");
+        }
+    }
+};
+
 $tests['404 correcto'] = static function () use ($base): void {
     $s = httpGet($base . '/marcha/no-existe-999999999')['status'];
     if ($s !== 404) {
