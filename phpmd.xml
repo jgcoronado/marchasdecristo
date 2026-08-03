@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<ruleset name="marchasdecristo"
+         xmlns="http://pmd.sf.net/ruleset/1.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+         xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+    <description>
+        Métricas de tamaño y complejidad (PHPMD). Es el sustituto de las reglas
+        de "mantenibilidad" de SonarQube: mide lo que hace que un fichero sea
+        difícil de revisar, no busca bugs (de eso se encarga PHPStan).
+
+        Umbrales calibrados sobre el estado medido el 2026-08-03 para que el
+        informe señale lo peor y no 500 avisos: ver docs/code-quality.md §4.
+
+        Deliberadamente FUERA de este ruleset:
+          · naming        → exige $i/$j de ≥3 caracteres y prohíbe nombres
+                            cortos legítimos; el proyecto ya es consistente.
+          · controversial → CamelCase de propiedades choca con las columnas en
+                            MAYÚSCULAS heredadas de la era MySQL (NOMBRE_BREVE).
+          · cleancode     → prohíbe static y else; la app es static-first por
+                            diseño (ADR-001), no es deuda.
+          · ExitExpression → Http::notFound()/redirect() terminan la petición a
+                            propósito, y los scripts de tools/ y scripts/ son
+                            CLI: exit() es su forma normal de devolver código
+                            de salida. La regla no admite excepciones por ruta.
+    </description>
+
+    <rule ref="rulesets/codesize.xml/CyclomaticComplexity">
+        <properties>
+            <!-- Por defecto 10. A 15 el informe señala los 19 métodos que de
+                 verdad cuesta seguir, no los 48 que pasan de 10. -->
+            <property name="reportLevel" value="15"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/NPathComplexity"/>
+    <rule ref="rulesets/codesize.xml/ExcessiveMethodLength">
+        <properties>
+            <property name="minimum" value="80"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveClassLength">
+        <properties>
+            <!-- Por defecto 1000. A 1200 marca Repo/Admin/Pages (las tres
+                 god classes reales) sin marcar AdminRepo, que va detrás. -->
+            <property name="minimum" value="1200"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyPublicMethods">
+        <properties>
+            <property name="maxmethods" value="40"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveParameterList"/>
+    <rule ref="rulesets/design.xml/DepthOfInheritance"/>
+    <rule ref="rulesets/design.xml/EvalExpression"/>
+    <rule ref="rulesets/design.xml/GotoStatement"/>
+    <rule ref="rulesets/unusedcode.xml"/>
+</ruleset>

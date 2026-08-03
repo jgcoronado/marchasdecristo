@@ -1,0 +1,99 @@
+name: Quality
+
+# Auditoría de calidad y duplicidad de código. Ver docs/code-quality.md.
+#
+# DELIBERADAMENTE SEPARADO de ci.yml: ci.yml es el gate del despliegue
+# (deploy.yml lo invoca como workflow reutilizable), y un aviso de tipos no
+# debe impedir subir un fix a producción. Aquí los gates son:
+#
+#   · PHPStan sobre el baseline  → BLOQUEA. El código nuevo sale limpio o no
+#                                  entra; lo viejo está congelado en
+#                                  phpstan-baseline.neon.
+#   · Duplicidad (jscpd)         → BLOQUEA si pasa del umbral de .jscpd.json.
+#   · PHPMD + métricas           → INFORMATIVOS. Van al resumen del run para
+#                                  decidir el siguiente refactor, no para
+#                                  frenar el trabajo del día.
+#
+# Corre en push de cualquier rama (no en pull_request: el push de la rama ya
+# lo cubre y evita ejecutar dos veces lo mismo en cada PR).
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3, curl, mbstring, dom, intl, json, gd
+          coverage: none
+
+      # Los PHARs pesan ~30 MB y no cambian salvo que se suba la versión
+      # pinchada en scripts/quality.sh.
+      - name: Cache de los PHARs de análisis
+        uses: actions/cache@v4
+        with:
+          path: .tools
+          key: quality-tools-${{ hashFiles('scripts/quality.sh') }}
+
+      - name: PHPStan (gate)
+        id: phpstan
+        run: scripts/quality.sh phpstan
+
+      - name: Duplicidad — jscpd (gate)
+        id: dup
+        if: always()
+        run: scripts/quality.sh dup
+
+      - name: PHPMD — tamaño y complejidad (informativo)
+        if: always()
+        run: scripts/quality.sh phpmd
+
+      - name: Métricas del repositorio (informativo)
+        if: always()
+        run: scripts/quality.sh metrics
+
+      # Resumen legible en la pestaña del run, para no tener que abrir los logs.
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "## Calidad de código"
+            echo
+            echo "| Gate | Resultado |"
+            echo "|------|-----------|"
+            echo "| PHPStan (nivel 5, sobre baseline) | ${{ steps.phpstan.outcome == 'success' && '✅ limpio' || '❌ errores nuevos' }} |"
+            echo "| Duplicidad (jscpd) | ${{ steps.dup.outcome == 'success' && '✅ bajo umbral' || '❌ sobre umbral' }} |"
+            echo
+            echo '### Métricas'
+            echo '```'
+            php scripts/quality_metrics.php --top=10 || true
+            echo '```'
+            echo
+            echo '<details><summary>PHPMD — tamaño y complejidad</summary>'
+            echo
+            echo '```'
+            php .tools/phpmd-*.phar php/app,php/tools,scripts,php/app/tools text phpmd.xml || true
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar informes (jscpd HTML, PHPMD HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informes-calidad
+          path: build/
+          if-no-files-found: ignore
+          retention-days: 14

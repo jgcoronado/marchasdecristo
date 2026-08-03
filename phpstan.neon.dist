@@ -1,0 +1,68 @@
+#  Análisis estático de PHP (PHPStan). Ver docs/code-quality.md.
+#
+#  Se ejecuta con el PHAR, sin composer ni vendor/ (igual que el resto del
+#  proyecto): `scripts/quality.sh` lo descarga a .tools/ la primera vez.
+#
+#      scripts/quality.sh phpstan          # análisis completo
+#      scripts/quality.sh baseline         # congela el estado actual
+#
+#  Este fichero es el `.dist`: si necesitas ajustes locales temporales, copia a
+#  phpstan.neon (gitignorado) y edita ahí; PHPStan prefiere el sin-dist.
+
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    # Nivel vigente. La escalera y el criterio para subir están en
+    # docs/code-quality.md §5 — no lo subas sin regenerar el baseline.
+    level: 5
+
+    paths:
+        - php/app
+        - php/public
+        - php/tools
+        - scripts
+
+    excludePaths:
+        analyse:
+            # 8.100 líneas de datos generados (padrón de municipios del INE),
+            # no código que se revise a mano.
+            - php/app/geo/municipios_es.php
+
+    # El autoload del proyecto es el spl_autoload_register de bootstrap.php
+    # (ADR-001), no un vendor/autoload.php: hay que decirle a PHPStan dónde
+    # viven las clases de App\.
+    scanDirectories:
+        - php/app/src
+
+    # `APP_DIR` y compañía se definen en tiempo de petición (index.php), no en
+    # un fichero que PHPStan pueda cargar.
+    dynamicConstantNames:
+        - APP_DIR
+        - DATA_DIR
+
+    ignoreErrors:
+        # Las plantillas reciben sus variables por `extract()` en
+        # View::capture(), así que PHPStan nunca las ve declaradas. Ignorar el
+        # identificador (y no la ruta entera) mantiene activos todos los demás
+        # chequeos dentro de templates/.
+        -
+            identifier: variable.undefined
+            path: php/app/templates
+
+        # `Http::notFound()`/`redirect()` terminan el proceso, así que el
+        # `return;` que va detrás es formalmente inalcanzable. Se conserva a
+        # propósito: hace explícito el flujo al leer el controlador.
+        -
+            identifier: deadCode.unreachable
+            path: php/app/src/*.php
+
+        # Variables capturadas por referencia en un closure (`use (&$x)`):
+        # PHPStan las evalúa con el valor del momento de la definición y no ve
+        # las escrituras posteriores. Falso positivo conocido.
+        -
+            identifier: booleanNot.alwaysTrue
+            path: scripts/sync_db_to_prod.php
+        -
+            identifier: deadCode.unreachable
+            path: scripts/sync_db_to_prod.php

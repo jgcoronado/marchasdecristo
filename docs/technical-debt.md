@@ -1,6 +1,6 @@
 # Deuda técnica — marchasdecristo.com
 
-> Última actualización: 2026-07-27 (auditoría documental: 3.1 y 3.2 resueltos desde el origen del documento, no eran deuda real)
+> Última actualización: 2026-08-03 (primera auditoría automática de calidad: nuevos ítems 3.3, 3.4 y 3.5 — ver [code-quality.md](code-quality.md))
 > La auditoría de la BD vive en [db-analysis.md](db-analysis.md). El análisis del panel en [admin-panel.md](admin-panel.md). El **plan priorizado de trabajo futuro** (deuda incluida) vive en [roadmap.md](roadmap.md) §2, que desde el 2026-07-29 es la fuente única; `consejo-de-sabios-2026-07.md` es la evaluación histórica que lo originó, no un tracker. Los ítems abiertos de este documento están referenciados en el plan como `D-x.x`.
 
 ## Resumen ejecutivo
@@ -9,7 +9,7 @@
 |-----------|-----------------|-------------------|
 | Operativa / observabilidad | 0 | — |
 | Deploy | 1 | 🟡 Media |
-| Calidad de código PHP | 0 | — |
+| Calidad de código PHP | 3 | 🟠 Alta |
 | Base de datos (SQLite) | 1 | 🟢 Baja |
 | Panel de administración | 1 | 🟢 Baja |
 
@@ -62,6 +62,41 @@ además de deuda).
 ---
 
 ## 3. Calidad del código PHP
+
+> Los tres ítems siguientes salen de la primera auditoría automática
+> (2026-08-03). El análisis de herramientas, los números medidos y el plan de
+> resolución completo viven en [code-quality.md](code-quality.md); aquí solo
+> queda el registro de que son deuda abierta. Se miden con
+> `scripts/quality.sh`.
+
+### 3.3 Comparaciones que nunca se cumplen — 8 avisos, posibles bugs 🟠
+- PHPStan detecta 8 condiciones que se evalúan siempre igual. La más grave:
+  `Pages.php:661`/`:670`, donde `(int) ($d['PERSONAL'] ?? 0) === 1` sería
+  siempre `false` y por tanto **el `noindex` de las dedicatorias personales no
+  se estaría aplicando nunca** (impacto en SEO y en privacidad de personas).
+  Las demás están en `load_canales.php:60`, `reevaluar_ingesta.php:73`,
+  `migrate_marcha_estilo.php:66`, `Admin.php:1366` y `Og.php:239`.
+- **Fix**: verificar caso a caso si el error está en la condición o en el tipo
+  declarado. Detalle en [code-quality.md §6.1](code-quality.md).
+
+### 3.4 Cuatro god classes concentran el 39% del código 🟡
+- `Repo.php` (1.607 líneas, 51 métodos públicos), `Admin.php` (1.447, 62
+  públicos), `Pages.php` (1.414) y `AdminRepo.php` (1.164). Los métodos por
+  separado están bien (solo 4 pasan de 80 líneas); el problema es que en esos
+  cuatro ficheros no cabe el contexto de un vistazo, que es lo que hace caro
+  revisar y modificar el proyecto.
+- **Fix**: partir por corte natural y de uno en uno, siguiendo el patrón que ya
+  usan `MunicipioRepo`/`EnlaceRepo`/`IngestaRepo`, con el smoke verde entre
+  medias y `parity_compare.php` como red para lo que salga de `Repo.php`. Plan
+  en [code-quality.md §6.3](code-quality.md).
+
+### 3.5 Duplicación concentrada en tres patrones 🟢
+- 3,91% de líneas duplicadas — bajo en términos absolutos, pero concentrado y
+  reparable: el bootstrap CLI de 14 líneas copiado en 10 scripts de
+  `app/tools/`, 86 líneas de helpers FTP compartidas entre los dos scripts de
+  sync, y ~130 líneas de paginación/tabla entre las plantillas de listado.
+- **Fix**: `app/tools/_cli.php`, `scripts/ftp_lib.php` y parciales de plantilla.
+  Detalle y orden en [code-quality.md §6.2](code-quality.md).
 
 ### ~~3.1 Autoload manual sin PSR-4 ni gestor de paquetes~~ ✅ No era deuda real (verificado 2026-07-27)
 - Descripción errónea desde el origen del documento: `bootstrap.php` ya
