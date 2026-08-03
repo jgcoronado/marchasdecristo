@@ -1363,7 +1363,7 @@ final class Admin
     private static function renderDiscoForm(array $session, int $id, ?string $error = null): void
     {
         $data = AdminRepo::discoConPistas($id);
-        if ($data === null) { Http::notFound(); return; }
+        if ($data === null) Http::notFound();
         $err = $error ?? (isset($_GET['err']) ? (string) $_GET['err'] : null);
         if ($err !== null) http_response_code(400);
         View::render('admin/disco_form', [

@@ -26,18 +26,8 @@ declare(strict_types=1);
  * algo que corregir.
  */
 
-define('APP_DIR', dirname(__DIR__));       // .../app
-define('BASE_DIR', dirname(APP_DIR));      // .../ (home en el host)
-define('DATA_DIR', BASE_DIR . '/data');
-
-/** @var array<string,mixed> $config */
-$config = require APP_DIR . '/config.php';
-$db = (string) $config['db_path'];
-
-if (!is_file($db)) {
-    fwrite(STDERR, "Corrección abortada: no existe la BD en $db\n");
-    exit(1);
-}
+require __DIR__ . '/_cli.php';
+[, $db] = cliBootstrap('Corrección abortada');
 
 /** [tabla, columna, valor incorrecto exacto, valor correcto]. */
 $CORRECCIONES = [

@@ -1,6 +1,6 @@
 # Calidad y duplicidad de código — análisis de alternativas y toolchain vigente
 
-> Última actualización: 2026-08-03 (primera auditoría medida e implantación del gate)
+> Última actualización: 2026-08-03 (implantación del gate + §6.1 y §6.2.1 resueltos)
 
 El repositorio ha llegado a **19.300 líneas de PHP en 101 ficheros**, más JS de
 assets, `.mjs` de ingesta y Python de `music_links`. A ese tamaño ya no se
@@ -162,15 +162,18 @@ bloquee el deploy, basta mover el paso de PHPStan a `ci.yml`.
 
 ## 4. La auditoría: estado medido el 2026-08-03
 
-### 4.1 Duplicidad — 3,91% de líneas (🟢 saludable)
+### 4.1 Duplicidad — 3,20% de líneas (🟢 saludable)
 
 | Lenguaje | Ficheros | Líneas | Clones | Líneas duplicadas |
 |---|---|---|---|---|
-| PHP | 93 | 13.384 | 47 | 634 (4,74%) |
+| PHP | 94 | 13.360 | 37 | 503 (3,76%) |
 | JavaScript | 9 | 2.298 | 3 | 49 (2,13%) |
 | Python | 5 | 1.267 | 3 | 28 (2,21%) |
 | CSS / SQL | 9 | 1.149 | 0 | 0 |
-| **Total** | **117** | **18.182** | **53** | **711 (3,91%)** |
+| **Total** | **118** | **18.147** | **43** | **580 (3,20%)** |
+
+Medición inicial, antes de resolver §6.2.1: **53 clones, 711 líneas (3,91%)**;
+en PHP, 47 clones y 634 líneas (4,74%).
 
 **Conclusión importante: la duplicidad no es el problema de este repositorio.**
 Está en el mismo orden que el umbral por defecto de SonarQube (3%) y muy lejos
@@ -210,32 +213,43 @@ Los puntos calientes dentro de ellas:
 
 (Ranking completo: `scripts/quality.sh metrics`.)
 
-### 4.3 Análisis estático — 97 errores, y entre ellos hay bugs reales
+### 4.3 Análisis estático — 97 errores iniciales, 74 tras resolver §6.1
 
-PHPStan **nivel 5** limpio en nivel 0. Los 97 se reparten así:
+PHPStan **nivel 5**, limpio en nivel 0. Reparto de la medición inicial:
 
-| Categoría | Nº | Naturaleza |
-|---|---|---|
-| `nullCoalesce.offset` / `.variable` | 74 | `?? ` redundante sobre claves que siempre existen. Ruido, pero ruido que oculta lo demás. |
-| `identical.alwaysFalse` / `notIdentical.alwaysTrue` / `booleanOr.rightAlwaysFalse` | 8 | **Comparaciones que nunca se cumplen: candidatos a bug real.** |
-| `arrayValues.list` | 6 | `array_values()` sin efecto. |
-| `offsetAccess.notFound`, `isset.offset`, `nullsafe.neverNull`, `classConstant.unused` | 5 | Restos y código muerto. |
-| `variable.undefined` | 2 | Fuera de plantillas: revisar. |
+| Categoría | Nº | Naturaleza | Estado |
+|---|---|---|---|
+| `nullCoalesce.offset` / `.variable` | 74 | `?? ` redundante sobre claves que siempre existen. Ruido, pero ruido que oculta lo demás. | Abierto (§6.4) |
+| `identical.alwaysFalse` / `notIdentical.alwaysTrue` / `booleanOr.rightAlwaysFalse` / `booleanAnd.rightAlwaysTrue` | 10 | Comparaciones que nunca se cumplen. | ✅ §6.1 |
+| `arrayValues.list` | 6 | `array_values()` sin efecto. | ✅ decisión de estilo (§6.1) |
+| `offsetAccess.notFound`, `isset.offset`, `nullsafe.neverNull`, `classConstant.unused` | 5 | Restos, anotaciones obsoletas y código muerto. | ✅ §6.1 |
+| `variable.undefined` | 2 | Fuera de plantillas. | ✅ §6.1 (era un bug latente) |
 
 El nivel 5 es el vigente. La escalera medida, para saber lo que cuesta subir:
 nivel 6 → 463 errores, nivel 8 → 638, nivel 9 → 1.414 (casi todos por tipos de
 valor en `array` sin declarar). **Criterio para subir**: solo cuando el baseline
 del nivel actual esté vacío o casi.
 
-Falsos positivos ya neutralizados en `phpstan.neon.dist`, con su motivo escrito
-(no en el baseline, que es lista de trabajo):
+Falsos positivos y decisiones de estilo neutralizados en `phpstan.neon.dist`,
+cada uno con su motivo escrito (no en el baseline, que es lista de trabajo):
 
 - Las plantillas reciben sus variables por `extract()` en `View::capture()`: 184
   avisos de "variable no definida" que no lo son.
-- `Http::notFound()`/`redirect()` terminan la petición: el `return;` posterior es
-  formalmente inalcanzable y se conserva porque hace explícito el flujo.
 - Closures con `use (&$x)` en `scripts/sync_db_to_prod.php`: PHPStan evalúa la
-  variable con el valor del momento de la definición.
+  variable con el valor del momento de la definición y no ve las escrituras
+  posteriores.
+- `banda_form.php` / `banda_add.php`: artefacto de inferencia de PHPStan 2.2 —
+  en un `foreach` con desestructuración de tuplas constantes, comparar `$type`
+  estrecha la tupla entera y al fusionar las ramas `$key` colapsa a `*NEVER*`.
+  Verificado con `\PHPStan\dumpType`: al entrar en el bucle `$key` sí es la
+  unión correcta. Revisar al subir de versión.
+- `Mapa.php`: `isset` sobre `PROVINCIA_BBOX` que hoy siempre acierta. El guard
+  se conserva para que añadir una provincia sin bbox devuelva null en vez de
+  reventar.
+- `array_values()` en `Repo`/`AdminRepo`/`Admin`/`PropuestaRepo`: deliberado
+  aunque hoy sobre. En `json_encode()` garantiza array JSON y no objeto, y en
+  los placeholders de `IN (...)` claves posicionales; las dos cosas se romperían
+  en silencio si aguas arriba apareciera un hueco.
 
 ---
 
@@ -244,8 +258,10 @@ Falsos positivos ya neutralizados en `phpstan.neon.dist`, con su motivo escrito
 1. **El baseline solo baja.** Al resolver errores, `scripts/quality.sh baseline`
    y el contador cae. Añadir entradas nuevas solo es aceptable al **subir de
    nivel**; para código nuevo, se arregla.
-2. **Los umbrales solo se aprietan.** `.jscpd.json` está en 5% con el estado real
-   en 3,91%: al resolver §6.2 baja a 4 y luego a 3. `phpmd.xml` tiene
+   Histórico: **97** (implantación) → **74** (§6.1 resuelto, 2026-08-03).
+2. **Los umbrales solo se aprietan.** `.jscpd.json` empezó en 5% con el estado
+   real en 3,91%; tras §6.2.1 (3,20%) está en **4%**, y baja a 3 cuando caigan
+   §6.2.2 y §6.2.3. `phpmd.xml` tiene
    `ExcessiveClassLength` en 1.200 para señalar las tres god classes; cuando
    caigan, baja a 1.000 (el defecto) y luego a 600.
 3. **La serie histórica**: `php scripts/quality_metrics.php --csv > build/m-AAAA-MM-DD.csv`
@@ -260,45 +276,100 @@ Ordenado por relación entre lo que arregla y lo que cuesta. Nada de esto está
 hecho todavía; al ejecutar un punto, táchalo con la fecha (convención de
 `technical-debt.md`).
 
-### 6.1 🟠 Verificar los 8 avisos de "comparación que nunca se cumple"
+### 6.1 ~~🟠 Verificar los avisos de "comparación que nunca se cumple"~~ ✅ Resuelto (2026-08-03)
 
-Los únicos hallazgos que pueden ser **bugs en producción**, no deuda estética:
+**97 → 74 errores de PHPStan.** Verificado uno a uno; el reparto real fue
+distinto del que se supuso al abrir el burn-down, y eso es el resultado más útil
+de la tanda: **el aviso más alarmante no era un bug, y el bug real estaba en un
+aviso aparentemente anodino.**
 
-- `php/app/src/Pages.php:661` y `:670` — en `dedicatoriaDetail()`, la condición
-  `(int) ($d['PERSONAL'] ?? 0) === 1` se evalúa siempre a `false` según los tipos
-  inferidos. Si es correcto, **el `noindex` de las dedicatorias personales nunca
-  se aplica**, con lo que eso implica para SEO y para la privacidad de personas
-  vivas. Hay que decidir si el bug está en la condición o en el tipo declarado.
-- `php/app/tools/load_canales.php:60` y `php/app/tools/reevaluar_ingesta.php:73` —
-  comparaciones estrictas contra un tipo imposible: la rama nunca entra.
-- `php/app/tools/migrate_marcha_estilo.php:66` — lado derecho de `&&` siempre
-  cierto.
-- `php/app/src/Admin.php:1366` — sentencia inalcanzable fuera del patrón conocido
-  de `Http::`.
-- `php/app/src/Og.php:239` — parámetro `$img` que no se usa: o falta usarlo, o
-  sobra en la firma.
+**Un bug latente de verdad:**
 
-**Coste**: una sesión de lectura. **Valor**: es literalmente para lo que sirve
-haber montado esto.
+- `php/app/tools/import_candidatos.php` — `$pdo` se usaba en el `catch` pero se
+  asigna como primera sentencia del `try`. Si lo que falla es el propio
+  `new PDO` (ruta mala, `.db` bloqueado), el `catch` fatalaba con "variable no
+  definida" y **se comía el mensaje de error controlado**. Resuelto con
+  `isset($pdo) &&`.
+
+**Falsas alarmas: anotaciones obsoletas, no bugs.** Los tres avisos más
+aparatosos eran docblocks desactualizados respecto al SQL, y el código llevaba
+funcionando desde siempre:
+
+- `Pages.php:661`/`:670` — el `@return` de `Repo::fetchDedicatoria` omitía
+  `SLUG_KEY` y `PERSONAL`, que el `SELECT` sí trae. PHPStan deducía que
+  `$d['PERSONAL']` no existía → `?? 0` → `0 === 1` siempre falso → "el `noindex`
+  de dedicatorias personales nunca se aplica". **Falso**: `Db::one()` usa
+  `FETCH_ASSOC` y la clave está ahí. Corregido el docblock; verificado en
+  ejecución que la ficha responde 200 y la casilla PERSONAL se pinta.
+- `templates/marcha_list.php:88` — el `@var $facets` de la plantilla no listaba
+  `estilo`, aunque `Repo` lo devuelve. Comprobado en ejecución: la faceta se
+  renderiza (`/marcha?estilo=CCTT` y `?estilo=AM` presentes en el HTML).
+- `templates/admin/dedicatoria_form.php:36` — mismo caso con `PERSONAL`.
+
+**Redundancias y código muerto, ya limpiados:**
+
+- `load_canales.php` — `|| $row === []` imposible: `fgetcsv` devuelve `[null]` en
+  línea vacía, nunca `[]`.
+- `reevaluar_ingesta.php` — `$mejor === null` probadamente falso (el bucle
+  siempre lo fija porque `$marchas` no está vacío); sustituido por un comentario
+  que explica la garantía.
+- `migrate_marcha_estilo.php` — `$esCCTT && $esAM` donde el lado derecho ya está
+  implicado por las dos líneas anteriores.
+- `scripts/sync_db_to_prod.php` — `&& $args['force']` redundante tras el bloque
+  de abortado.
+- `templates/banda_list.php` — `$loc !== '0'` redundante: `'0'` ya es *falsy* en
+  PHP, así que la comprobación de verdad lo descarta sola.
+- `Admin.php:1366` — `return;` tras `Http::notFound()`, que es `: never`. Era el
+  **único** caso del repositorio, así que se quitó el `ignoreErrors` amplio de
+  `deadCode.unreachable` que se había puesto para él: ahora PHPStan sí caza
+  código inalcanzable de verdad en `src/`.
+- `Og.php` — `$img` era un parámetro muerto en `wrap()` y `ellipsize()`: las dos
+  solo miden con `imagettfbbox`, no dibujan. Retirado de las dos firmas y de sus
+  tres llamadas.
+- `PropuestaRepo::ESTADOS` — constante privada sin usar; los tres directorios ya
+  están documentados en el docblock de la clase.
+- `ci_smoke.php:253` — `?->` innecesario a la izquierda de `??`.
+
+**Verificación**: 82/82 del smoke (`ci_smoke.php`), que cubre las og dinámicas
+(las firmas de `Og.php`) y las cuatro fichas; y las páginas de listado
+comprobadas a mano contra el servidor con la fixture.
 
 ### 6.2 🟡 Los tres patrones de duplicación reales
 
-1. **El bootstrap de los scripts CLI — 14 líneas × 9 ficheros.** El bloque
-   `define('APP_DIR'…)` + `require config.php` + comprobación de que existe el
-   `.db` está copiado idéntico en `php/app/tools/backup.php`,
+1. ~~**El bootstrap de los scripts CLI — 14 líneas × 10 ficheros.**~~
+   ✅ **Resuelto (2026-08-03).** Extraído a
+   [`php/app/tools/_cli.php`](../php/app/tools/_cli.php), que expone
+   `cliBootstrap($label)`. Los diez scripts (`backup.php`,
    `completar_provincia.php`, `corregir_acentos_localidad.php`,
-   `migrate_banda_relacion.php`, `migrate_ingest.php`, `migrate_marcha_estilo.php`,
-   `normalizar_localidades.php`, `normalizar_preposiciones_localidad.php`,
-   `reconciliar_alias_localidad.php` y `seed_municipios.php`.
-   **Fix**: un `php/app/tools/_cli.php` que se haga `require` desde cada script.
-   El de mejor relación valor/riesgo de toda la lista: mecánico, verificable con
-   el smoke, y cada script futuro nace sin el copia-pega.
-2. **Los dos scripts de sync — 86 líneas.** `scripts/sync_db_to_prod.php` y
+   `migrate_banda_relacion.php`, `migrate_ingest.php`,
+   `migrate_marcha_estilo.php`, `normalizar_localidades.php`,
+   `normalizar_preposiciones_localidad.php`, `reconciliar_alias_localidad.php`
+   y `seed_municipios.php`) pasan de 14 líneas a 2.
+
+   **Decisión de diseño**: la primera versión dejaba `$config` y `$db` en el
+   scope por efecto lateral del `require` — el idioma habitual de PHP y el que
+   ya usan `config.php` y las plantillas. Funcionaba, pero PHPStan no sigue los
+   `require` y añadía 19 avisos de "variable no definida". La versión final
+   **devuelve los valores** (`[, $db] = cliBootstrap('Seed abortado')`): el
+   contrato queda explícito y analizable, y de paso se ve en cada script si usa
+   la config o solo la ruta del `.db` (solo `backup.php` usa las dos).
+
+   Los prefijos de los mensajes de error se conservan por script ("Backup
+   abortado", "Seed abortado", "Reconciliación abortada"…): pasan como argumento,
+   así que no hay ningún cambio observable. Verificado ejecutando los diez
+   contra una copia desechable de la fixture, y los abortos con una ruta que no
+   existe. `migrate_ingest.php` falla sobre la fixture por una diferencia de
+   esquema **anterior a este cambio** (comprobado con `git stash`), no por la
+   extracción.
+
+   Resultado en duplicidad: **53 → 43 clones, 3,91% → 3,20%** de líneas. Umbral
+   de `.jscpd.json` apretado de 5% a 4%.
+2. 🟡 **Los dos scripts de sync — 86 líneas.** `scripts/sync_db_to_prod.php` y
    `sync_propuestas_from_prod.php` comparten los helpers FTP (`ftpQuote`,
    `ftpListOptional`, lectura de `.env.ftp`). **Fix**: `scripts/ftp_lib.php`.
    Cuidado: `sync_db_to_prod.php` es código sensible con checksum y rollback —
    este refactor va solo, y se prueba con `--dry-run`.
-3. **Las plantillas de listado — ~130 líneas alrededor de `marcha_list.php`.**
+3. 🟡 **Las plantillas de listado — ~130 líneas alrededor de `marcha_list.php`.**
    `marcha_list.php` ↔ `banda_list.php` ↔ `disco_list.php` ↔ `dedicatoria_list.php`
    ↔ `marcha_hub.php` repiten la paginación y la cabecera de resultados;
    `rankings_anio.php` ↔ `rankings_index.php` repiten 59 líneas de tabla.

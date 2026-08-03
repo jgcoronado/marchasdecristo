@@ -9,9 +9,11 @@ $showDate = static function ($fund, $ext): string {
     $extRes = ($ext === null || (int) $ext === 0) ? '' : ' – ' . $ext;
     return $funRes . $extRes;
 };
+// Los sentinelas heredados de la era MySQL llegan como 0 o "0"; los dos son
+// falsy en PHP, así que basta la comprobación de verdad para descartarlos.
 $showLocalidad = static function ($loc, $prov): string {
-    $isLoc = $loc && $loc !== '0';
-    $isProv = $prov && $prov !== '0';
+    $isLoc = (bool) $loc;
+    $isProv = (bool) $prov;
     if ($isLoc && $isProv) return "$loc ($prov)";
     if ($isLoc) return (string) $loc;
     return '';

@@ -57,7 +57,7 @@ try {
     $ok = 0; $skip = 0; $line = 1;
     while (($row = fgetcsv($fh)) !== false) {
         $line++;
-        if ($row === [null] || $row === []) continue;                 // línea vacía
+        if ($row === [null]) continue;                                // línea vacía (fgetcsv devuelve [null], nunca [])
         $idBanda = (int) trim((string) ($row[0] ?? ''));
         $url = trim((string) ($row[1] ?? ''));
 

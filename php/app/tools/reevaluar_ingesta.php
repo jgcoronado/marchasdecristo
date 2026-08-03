@@ -70,7 +70,8 @@ foreach ($candidatos as $c) {
             $mejor = ['id' => (int) $m['ID_MARCHA'], 'titulo' => (string) $m['TITULO'], 'score' => $score];
         }
     }
-    if ($mejor === null || $mejor['score'] < UMBRAL_MEDIA) continue;
+    // $marchas no está vacío (comprobado arriba), así que el bucle siempre fija $mejor.
+    if ($mejor['score'] < UMBRAL_MEDIA) continue;
 
     $yaAnotado = ((int) ($c['MATCH_MARCHA_ID'] ?? 0)) === $mejor['id']
         && abs(((float) ($c['MATCH_SCORE'] ?? -1)) - $mejor['score']) < 0.005;

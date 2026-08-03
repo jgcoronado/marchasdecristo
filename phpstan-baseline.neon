@@ -6,10 +6,13 @@
 # del burn-down priorizado de docs/code-quality.md §6. Al resolver un error,
 # regenera el fichero con `scripts/quality.sh baseline` y el contador baja.
 #
+#   97 → 74 (2026-08-03, §6.1 resuelto). Lo que queda es el ruido de `??`
+#   redundante de §6.4: 66 nullCoalesce.offset + 8 nullCoalesce.variable.
+#
 # Los falsos positivos estructurales (extract() en plantillas, closures con
-# use (&$x)…) NO viven aquí, sino en `ignoreErrors` de phpstan.neon.dist, con
-# su motivo escrito. Si algo de este fichero resulta ser un falso positivo,
-# muévelo allí en vez de dejarlo aquí.
+# use (&$x), el artefacto de tuplas de banda_form…) NO viven aquí, sino en
+# `ignoreErrors` de phpstan.neon.dist, con su motivo escrito. Si algo de este
+# fichero resulta ser un falso positivo, muévelo allí en vez de dejarlo aquí.
 
 parameters:
 	ignoreErrors:
@@ -104,21 +107,9 @@ parameters:
 			path: php/app/src/Admin.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: php/app/src/Admin.php
-
-		-
 			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
-			path: php/app/src/AdminRepo.php
-
-		-
-			message: '#^Parameter \#1 \$array \(non\-empty\-list\<int\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 2
 			path: php/app/src/AdminRepo.php
 
 		-
@@ -128,40 +119,16 @@ parameters:
 			path: php/app/src/Auth.php
 
 		-
-			message: '#^Offset ''ES\-A''\|''ES\-AB''\|''ES\-AL''\|''ES\-AV''\|''ES\-B''\|''ES\-BA''\|''ES\-BI''\|''ES\-BU''\|''ES\-C''\|''ES\-CA''\|''ES\-CC''\|''ES\-CE''\|''ES\-CO''\|''ES\-CR''\|''ES\-CS''\|''ES\-CU''\|''ES\-GC''\|''ES\-GI''\|''ES\-GR''\|''ES\-GU''\|''ES\-H''\|''ES\-HU''\|''ES\-J''\|''ES\-L''\|''ES\-LE''\|''ES\-LO''\|''ES\-LU''\|''ES\-M''\|''ES\-MA''\|''ES\-ML''\|''ES\-MU''\|''ES\-NA''\|''ES\-O''\|''ES\-OR''\|''ES\-P''\|''ES\-PM''\|''ES\-PO''\|''ES\-S''\|''ES\-SA''\|''ES\-SE''\|''ES\-SG''\|''ES\-SO''\|''ES\-SS''\|''ES\-T''\|''ES\-TE''\|''ES\-TF''\|''ES\-TO''\|''ES\-V''\|''ES\-VA''\|''ES\-VI''\|''ES\-Z''\|''ES\-ZA'' on array\{ES\-A\: array\{392\.86, 208\.48, 41\.76, 42\.96\}, ES\-AB\: array\{335\.98, 188\.08, 62\.16, 56\.88\}, ES\-AL\: array\{327\.82, 249\.04, 48\.72, 50\.16\}, ES\-AV\: array\{247\.66, 117\.51, 48\.96, 43\.44\}, ES\-B\: array\{464\.38, 67\.11, 42\.96, 45\.84\}, ES\-BA\: array\{194\.62, 184\.96, 85\.92, 61\.68\}, ES\-BI\: array\{318\.94, 25\.34, 30\.47, 19\.44\}, ES\-BU\: array\{292\.31, 35\.91, 54\.47, 70\.56\}, \.\.\.\} in isset\(\) always exists and is not nullable\.$#'
-			identifier: isset.offset
-			count: 1
-			path: php/app/src/Mapa.php
-
-		-
 			message: '#^Offset ''BANDA_LOCALIDAD'' on array\{ID_CONTRATO\: int, HERMANDAD\: string, HERMANDAD_SLUG\: string, TITULAR\: string\|null, FUENTE\: string\|null, ID_BANDA\: int, BANDA\: string, BANDA_LOCALIDAD\: string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: php/app/src/Pages.php
 
 		-
-			message: '#^Offset ''PERSONAL'' on array\{ID_DEDIC\: int, NOMBRE\: string, LOCALIDAD\: string, PROVINCIA\: string\|null, marchas\: list\<array\<string, mixed\>\>, N\: int\} on left side of \?\? does not exist\.$#'
+			message: '#^Offset ''PERSONAL'' on array\{ID_DEDIC\: int, NOMBRE\: string, LOCALIDAD\: string, PROVINCIA\: string\|null, SLUG_KEY\: string, PERSONAL\: int, marchas\: list\<array\<string, mixed\>\>, N\: int\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: php/app/src/Pages.php
-
-		-
-			message: '#^Right side of \|\| is always false\.$#'
-			identifier: booleanOr.rightAlwaysFalse
-			count: 1
-			path: php/app/src/Pages.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between 0 and 1 will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: php/app/src/Pages.php
-
-		-
-			message: '#^Constant App\\PropuestaRepo\:\:ESTADOS is unused\.$#'
-			identifier: classConstant.unused
-			count: 1
-			path: php/app/src/PropuestaRepo.php
 
 		-
 			message: '#^Offset ''code'' on array\{code\: string, changes\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
@@ -182,21 +149,9 @@ parameters:
 			path: php/app/src/PropuestaRepo.php
 
 		-
-			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: php/app/src/PropuestaRepo.php
-
-		-
 			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
-			path: php/app/src/Repo.php
-
-		-
-			message: '#^Parameter \#1 \$array \(non\-empty\-list\<int\>\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 2
 			path: php/app/src/Repo.php
 
 		-
@@ -204,12 +159,6 @@ parameters:
 			identifier: nullCoalesce.offset
 			count: 1
 			path: php/app/src/Seo.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between \*NEVER\* and ''NOMBRE_COMPLETO'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: php/app/templates/admin/banda_add.php
 
 		-
 			message: '#^Variable \$banda on left side of \?\? is never defined\.$#'
@@ -230,12 +179,6 @@ parameters:
 			path: php/app/templates/admin/banda_form.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between \*NEVER\* and ''NOMBRE_COMPLETO'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: php/app/templates/admin/banda_form.php
-
-		-
 			message: '#^Variable \$enlaces on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.variable
 			count: 1
@@ -246,12 +189,6 @@ parameters:
 			identifier: nullCoalesce.variable
 			count: 1
 			path: php/app/templates/admin/banda_form.php
-
-		-
-			message: '#^Offset ''PERSONAL'' does not exist on array\{ID_DEDIC\: int, NOMBRE\: string, LOCALIDAD\: string, PROVINCIA\: string\|null, variantes\: list\<array\<string, mixed\>\>\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: php/app/templates/admin/dedicatoria_form.php
 
 		-
 			message: '#^Variable \$disco on left side of \?\? is never defined\.$#'
@@ -290,22 +227,10 @@ parameters:
 			path: php/app/templates/admin/marcha_form.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between mixed~\(0\|0\.0\|''''\|''0''\|array\{\}\|false\|null\) and ''0'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 2
-			path: php/app/templates/banda_list.php
-
-		-
 			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: php/app/templates/layout.php
-
-		-
-			message: '#^Offset ''estilo'' does not exist on array\{tipo\: list\<array\>, provincia\: list\<array\>, decada\: list\<array\>\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: php/app/templates/marcha_list.php
 
 		-
 			message: '#^Offset ''album_year'' on array\{id\: mixed, name\: mixed, url\: mixed, album_id\: mixed, album\: mixed, album_year\: string\} on left side of \?\? always exists and is not nullable\.$#'
@@ -313,38 +238,3 @@ parameters:
 			count: 1
 			path: php/app/tools/fill_enlaces_streaming.php
 
-		-
-			message: '#^Variable \$pdo might not be defined\.$#'
-			identifier: variable.undefined
-			count: 2
-			path: php/app/tools/import_candidatos.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between non\-empty\-list\<string\|null\> and array\{\} will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: php/app/tools/load_canales.php
-
-		-
-			message: '#^Right side of && is always true\.$#'
-			identifier: booleanAnd.rightAlwaysTrue
-			count: 1
-			path: php/app/tools/migrate_marcha_estilo.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between array\{id\: int, titulo\: string, score\: float\} and null will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: php/app/tools/reevaluar_ingesta.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>textContent" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: php/tools/ci_smoke.php
-
-		-
-			message: '#^Right side of && is always true\.$#'
-			identifier: booleanAnd.rightAlwaysTrue
-			count: 1
-			path: scripts/sync_db_to_prod.php

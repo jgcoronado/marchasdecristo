@@ -50,12 +50,38 @@ parameters:
             identifier: variable.undefined
             path: php/app/templates
 
-        # `Http::notFound()`/`redirect()` terminan el proceso, así que el
-        # `return;` que va detrás es formalmente inalcanzable. Se conserva a
-        # propósito: hace explícito el flujo al leer el controlador.
+        # Artefacto de inferencia de PHPStan 2.2, verificado el 2026-08-03: en
+        # `foreach ($fields as [$key, $label, $type])` sobre un array de tuplas
+        # constantes, comparar `$type` estrecha la tupla entera y al fusionar las
+        # dos ramas `$key` colapsa a *NEVER*. Al entrar en el bucle `$key` sí es
+        # la unión correcta (comprobado con \PHPStan\dumpType), y quitar el
+        # ternario de `$type` hace desaparecer el aviso: el código es correcto y
+        # los campos de municipio se pintan. Revisar al subir de versión.
         -
-            identifier: deadCode.unreachable
-            path: php/app/src/*.php
+            identifier: identical.alwaysFalse
+            paths:
+                - php/app/templates/admin/banda_form.php
+                - php/app/templates/admin/banda_add.php
+
+        # Guard defensivo intencionado: hoy toda provincia de `PROVINCIAS` tiene
+        # su entrada en `PROVINCIA_BBOX` y PHPStan lo demuestra, pero el `isset`
+        # existe para que añadir una provincia sin bbox devuelva null en vez de
+        # reventar.
+        -
+            identifier: isset.offset
+            path: php/app/src/Mapa.php
+
+        # `array_values()` deliberado aunque PHPStan pruebe que hoy sobra: en
+        # `json_encode()` garantiza array JSON y no objeto, y en los placeholders
+        # de `IN (...)` garantiza claves posicionales. Son las dos cosas que se
+        # romperían en silencio si aguas arriba apareciera un hueco.
+        -
+            identifier: arrayValues.list
+            paths:
+                - php/app/src/Repo.php
+                - php/app/src/AdminRepo.php
+                - php/app/src/Admin.php
+                - php/app/src/PropuestaRepo.php
 
         # Variables capturadas por referencia en un closure (`use (&$x)`):
         # PHPStan las evalúa con el valor del momento de la definición y no ve

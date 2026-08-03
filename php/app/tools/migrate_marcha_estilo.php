@@ -27,18 +27,8 @@ declare(strict_types=1);
  * Hace una copia de seguridad (VACUUM INTO) antes de tocar nada.
  */
 
-define('APP_DIR', dirname(__DIR__));       // .../app
-define('BASE_DIR', dirname(APP_DIR));      // .../ (home en el host)
-define('DATA_DIR', BASE_DIR . '/data');
-
-/** @var array<string,mixed> $config */
-$config = require APP_DIR . '/config.php';
-$db = (string) $config['db_path'];
-
-if (!is_file($db)) {
-    fwrite(STDERR, "Migración abortada: no existe la BD en $db\n");
-    exit(1);
-}
+require __DIR__ . '/_cli.php';
+[, $db] = cliBootstrap('Migración abortada');
 
 /** Quita acentos y pasa a minúsculas para comparar nombres de banda de forma robusta. */
 function normalizaNombre(string $s): string
@@ -63,7 +53,10 @@ function estiloPorNombre(?string $nombreCompleto, ?string $nombreBreve): ?string
     $esAM = (bool) preg_match('/\bagr[a-z]{0,3}paci[o0]n musical\b/', $full) || (bool) preg_match('/^am\b/', $full);
     if ($esCCTT && !$esAM) return 'CCTT';
     if ($esAM && !$esCCTT) return 'AM';
-    if ($esCCTT && $esAM) return null; // nombre contradictorio, revisar a mano
+    // Llegar aquí con $esCCTT implica que $esAM también es cierto: las dos líneas
+    // de arriba ya han descartado los casos excluyentes. Nombre contradictorio,
+    // se revisa a mano.
+    if ($esCCTT) return null;
 
     if (preg_match('/^am\b/', $breve)) return 'AM';
     if (preg_match('/^bct\b/', $breve)) return 'CCTT';

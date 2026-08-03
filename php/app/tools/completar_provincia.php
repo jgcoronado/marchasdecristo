@@ -21,18 +21,8 @@ declare(strict_types=1);
  * algo que actualizar.
  */
 
-define('APP_DIR', dirname(__DIR__));       // .../app
-define('BASE_DIR', dirname(APP_DIR));      // .../ (home en el host)
-define('DATA_DIR', BASE_DIR . '/data');
-
-/** @var array<string,mixed> $config */
-$config = require APP_DIR . '/config.php';
-$db = (string) $config['db_path'];
-
-if (!is_file($db)) {
-    fwrite(STDERR, "Backfill abortado: no existe la BD en $db\n");
-    exit(1);
-}
+require __DIR__ . '/_cli.php';
+[, $db] = cliBootstrap('Backfill abortado');
 
 /** Quita acentos, colapsa espacios y pasa a minúsculas para comparar localidades de forma robusta. */
 function normalizaLocalidad(string $s): string

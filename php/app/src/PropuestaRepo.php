@@ -22,8 +22,6 @@ final class PropuestaRepo
     public const ENTIDADES = ['marcha', 'banda', 'autor'];
     public const ACCIONES = ['add', 'edit'];
 
-    private const ESTADOS = ['pendientes', 'aplicadas', 'rechazadas'];
-
     public static function baseDir(): string
     {
         $dbPath = (string) ($GLOBALS['config']['db_path'] ?? '');
