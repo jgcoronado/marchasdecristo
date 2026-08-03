@@ -121,13 +121,22 @@ final class Auth
      */
     public static function roleOf(string $user): string
     {
+        // Memoizado por petición: el guard lo pide una vez (requireAuth) y el
+        // layout otra (aviso de desincronización del panel), y el rol no puede
+        // cambiar a mitad de una petición.
+        static $cache = [];
+        if (isset($cache[$user])) {
+            return $cache[$user];
+        }
         try {
             $row = Db::one('SELECT ROL FROM usuarios WHERE usuario = ? LIMIT 1', [$user]);
         } catch (\PDOException) {
-            return Roles::ADMIN; // BD pre-migración: sin columna ROL
+            return Roles::ADMIN; // BD pre-migración: sin columna ROL (no se cachea)
         }
-        if ($row === null) return Roles::EDITOR;
-        return Roles::normalize(is_string($row['ROL'] ?? null) ? (string) $row['ROL'] : null);
+        $rol = $row === null
+            ? Roles::EDITOR
+            : Roles::normalize(is_string($row['ROL'] ?? null) ? (string) $row['ROL'] : null);
+        return $cache[$user] = $rol;
     }
 
     /**

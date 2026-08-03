@@ -87,6 +87,8 @@ Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N
 - **Temporada** (N-04/N-05): `/temporada` + `/temporada/{anio}` — contratos banda↔hermandad de una Semana Santa, con alta manual desde el panel (`/dashboard/temporada/{anio}`).
 - **Dedicatorias** (N-01/N-02): `/dedicatorias` (índice A-Z) + `/dedicatoria/{slugAndId}` (hub de advocación con alias unificados).
 
+> ⚠️ **Cuatro de esas secciones solo se publican en local** mientras maduran: dedicatorias, estado del catálogo, mapa y temporada. En PRE y PRO responden 404 y no aparecen en el nav, el sitemap ni `llms.txt`. La lista, el motivo de cada una y cómo republicarlas están en `App\Secciones` y en [entornos.md](entornos.md).
+
 ### Infraestructura
 
 - **HelioHost** (hosting compartido) con panel **Plesk**, dominio `marchasdecristo.com`.
@@ -208,7 +210,7 @@ Plantilla en `app/config.local.example.php`. Claves relevantes (con sus defaults
 
 Producción es **de solo lectura** para la base de datos (`Db::assertWritable()`). El ciclo editorial real es:
 
-1. **Editores** trabajan contra producción, pero sus altas/ediciones no tocan el `.db`: `AdminRepo`/`Roles` las desvía a **`PropuestaRepo`**, que las serializa como JSON en `private/propuestas/pendientes/<id>.json` (fichero, no fila de BD).
+1. **Editores** trabajan contra producción, pero sus altas/ediciones no tocan el `.db`: `AdminRepo`/`Roles` las desvía a **`PropuestaRepo`**, que las serializa como JSON en `private/propuestas/pendientes/<id>.json` (fichero, no fila de BD). **Fuera de local esto vale para todos**: desde el 2026-08-03 el administrador tampoco escribe directo en PRE ni en PRO (`Admin::proposalMode()`), porque sus cambios ahí se perderían en el siguiente sync. Ver [entornos.md](entornos.md).
 2. El **admin** baja esas propuestas a local con `scripts/sync_propuestas_from_prod.php` (FTP), las revisa en `/dashboard/propuestas` y, al aceptarlas, se aplican sobre el `.db` **local** reutilizando `AdminRepo` (donde `env=local` sí permite escribir).
 3. Cuando hay cambios acumulados en local (propuestas aplicadas, altas manuales, backfills de `app/tools/`), el admin sincroniza con **`scripts/sync_db_to_prod.php`**, que:
    - Verifica que no queden propuestas pendientes sin bajar de producción (guardarraíl no bloqueante: avisa si el listado FTP falla, p.ej. la primera vez que el directorio no existe).

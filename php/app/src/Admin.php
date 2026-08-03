@@ -44,7 +44,14 @@ final class Admin
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
         if (isset($_GET['unified'])) return ['type' => 'ok', 'msg' => 'Variantes unificadas · ' . (int) $_GET['unified'] . ' marchas reescritas.'];
-        if (isset($_GET['propuesta'])) return ['type' => 'ok', 'msg' => 'Propuesta enviada. El administrador la revisará antes de aplicarla.'];
+        if (isset($_GET['propuesta'])) {
+            // Fuera de local hasta el admin propone (ver Admin::proposalMode), y
+            // conviene decirle dónde acaba eso: la propuesta se revisa y se
+            // aplica en local, que es la BD maestra.
+            return ['type' => 'ok', 'msg' => Entorno::permiteEscrituraDirecta()
+                ? 'Propuesta enviada. El administrador la revisará antes de aplicarla.'
+                : 'Propuesta enviada. Se revisa y se aplica en el entorno local, que es el que manda sobre la base de datos.'];
+        }
         if (isset($_GET['aplicada'])) return ['type' => 'ok', 'msg' => 'Propuesta aceptada y aplicada a la base de datos.'];
         if (isset($_GET['rechazada'])) return ['type' => 'info', 'msg' => 'Propuesta rechazada.'];
         if (isset($_GET['nochanges'])) return ['type' => 'info', 'msg' => 'No había cambios que guardar.'];
@@ -56,6 +63,30 @@ final class Admin
     private static function isAdmin(array $session): bool
     {
         return Roles::isAdmin($session['rol'] ?? null);
+    }
+
+    /**
+     * ¿Este envío se guarda como PROPUESTA en vez de escribir en la BD?
+     *
+     * Dos motivos independientes, y basta uno:
+     *
+     *   - el usuario es editor (siempre propone, en cualquier entorno);
+     *   - el entorno no es local (PRE y PRO), y ahí no escribe NADIE en directo,
+     *     tampoco el administrador: la BD maestra es la local y el .db remoto lo
+     *     reemplaza entero scripts/sync_db_to_prod.php, así que una escritura
+     *     hecha en PRE o PRO se perdería en el siguiente sync — o pisaría datos
+     *     buenos. Encolarla como propuesta la conserva: el admin la baja con
+     *     scripts/sync_propuestas_from_prod.php y la aplica en local, que es de
+     *     donde sale el .db bueno. Ver docs/entornos.md.
+     *
+     * Solo cubre las entidades con propuesta (marcha, banda, autor). El resto de
+     * pantallas del panel escriben directo y en PRE/PRO chocan con el fail-safe
+     * de Db::assertWritable() (503 solo-lectura); por eso el layout avisa al
+     * admin con la cinta de desincronización en todo el panel.
+     */
+    private static function proposalMode(array $session): bool
+    {
+        return !self::isAdmin($session) || !Entorno::permiteEscrituraDirecta();
     }
 
     /** Recoge del POST los campos de $editable presentes (para una propuesta). */
@@ -207,7 +238,7 @@ final class Admin
         View::render('admin/marcha_form', [
             'mode' => 'edit', 'session' => $session, 'action' => "/dashboard/marcha/$id",
             'marcha' => $marcha, 'authors' => Repo::currentAutoresForMarcha($id),
-            'proposalMode' => !self::isAdmin($session),
+            'proposalMode' => self::proposalMode($session),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar marcha #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -221,8 +252,9 @@ final class Admin
         $current = Repo::fetchMarchaRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: no escribe en la BD, envía una propuesta con los campos del form.
-        if (!self::isAdmin($session)) {
+        // Propuesta (editor siempre; cualquiera fuera de local): no escribe en la
+        // BD, encola los campos del form. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             $ids = self::postAutoresIds();
             if ($ids === []) Http::redirect("/dashboard/marcha/$id?err=AUTHORS_REQUIRED", 302);
             self::editorSubmit($session, 'marcha', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_MARCHA), $ids, "/dashboard/marcha/$id");
@@ -265,7 +297,7 @@ final class Admin
         $session = Auth::requireCap('marcha.add');
         View::render('admin/marcha_form', [
             'mode' => 'add', 'session' => $session, 'action' => '/dashboard/marcha/add',
-            'marcha' => [], 'authors' => [], 'proposalMode' => !self::isAdmin($session),
+            'marcha' => [], 'authors' => [], 'proposalMode' => self::proposalMode($session),
             'notice' => null, 'error' => null,
         ], ['title' => 'Añadir marcha — Marchas de Cristo', 'noindex' => true]);
     }
@@ -282,14 +314,15 @@ final class Admin
             View::render('admin/marcha_form', [
                 'mode' => 'add', 'session' => $session, 'action' => '/dashboard/marcha/add',
                 'marcha' => $fields, 'authors' => Repo::autoresByIds($ids),
-                'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir marcha — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             if ($ids === []) { $reRender('AUTHORS_REQUIRED'); return; }
             self::editorSubmit($session, 'marcha', 'add', null, $fields, $ids, '/dashboard/marcha/add');
         }
@@ -349,7 +382,7 @@ final class Admin
         if ($autor === null) Http::notFound();
         View::render('admin/autor_form', [
             'mode' => 'edit', 'session' => $session, 'action' => "/dashboard/autor/$id",
-            'autor' => $autor, 'proposalMode' => !self::isAdmin($session),
+            'autor' => $autor, 'proposalMode' => self::proposalMode($session),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar compositor #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -363,8 +396,9 @@ final class Admin
         $current = Repo::fetchAutorRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'autor', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_AUTOR), [], "/dashboard/autor/$id");
         }
 
@@ -400,7 +434,7 @@ final class Admin
         }
         View::render('admin/autor_form', [
             'mode' => 'add', 'session' => $session, 'action' => '/dashboard/autor/add',
-            'autor' => $autor, 'proposalMode' => !self::isAdmin($session),
+            'autor' => $autor, 'proposalMode' => self::proposalMode($session),
             'notice' => null, 'error' => null,
         ], ['title' => 'Añadir compositor — Marchas de Cristo', 'noindex' => true]);
     }
@@ -415,14 +449,15 @@ final class Admin
             http_response_code(400);
             View::render('admin/autor_form', [
                 'mode' => 'add', 'session' => $session, 'action' => '/dashboard/autor/add',
-                'autor' => $fields, 'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'autor' => $fields, 'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir compositor — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'autor', 'add', null, $fields, [], '/dashboard/autor/add');
         }
 
@@ -443,7 +478,7 @@ final class Admin
             'session' => $session, 'banda' => $banda, 'action' => "/dashboard/banda/$id",
             'relaciones' => $showLinaje ? Repo::bandaRelaciones($id) : [],
             'tipos' => AdminRepo::RELACION_TIPOS,
-            'showLinaje' => $showLinaje, 'proposalMode' => !self::isAdmin($session),
+            'showLinaje' => $showLinaje, 'proposalMode' => self::proposalMode($session),
             'enlaces' => $showLinaje ? EnlaceRepo::publicadosDe('banda', (int) $id) : [],
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar banda #$id — Marchas de Cristo", 'noindex' => true]);
@@ -458,8 +493,9 @@ final class Admin
         $current = Repo::fetchBandaRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: propuesta en lugar de escritura directa (solo campos básicos).
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa (solo campos básicos): editor
+        // siempre, y cualquier usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'banda', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_BANDA), [], "/dashboard/banda/$id");
         }
 
@@ -485,7 +521,7 @@ final class Admin
         $session = Auth::requireCap('banda.add');
         View::render('admin/banda_add', [
             'session' => $session, 'banda' => [], 'action' => '/dashboard/banda/add',
-            'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => null,
+            'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => null,
         ], ['title' => 'Añadir banda — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -499,14 +535,15 @@ final class Admin
             http_response_code(400);
             View::render('admin/banda_add', [
                 'session' => $session, 'banda' => $fields, 'action' => '/dashboard/banda/add',
-                'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir banda — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             if (trim((string) ($fields['NOMBRE_BREVE'] ?? '')) === '') { $reRender('NOMBRE_REQUERIDO'); return; }
             self::editorSubmit($session, 'banda', 'add', null, $fields, [], '/dashboard/banda/add');
         }

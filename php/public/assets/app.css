@@ -183,6 +183,10 @@ main a:not(.btn):hover { text-decoration: underline; }
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
    las páginas del host de pruebas para no confundir nunca PRE con PRO. */
 .pre-ribbon { background: var(--rec-bg); color: var(--rec); font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--line); }
+/* Panel de admin en PRE/PRO: la BD maestra es la local y lo que se escriba
+   aquí se pierde en el siguiente sync (ver layout.php). Deliberadamente más
+   fuerte que .pre-ribbon: es una advertencia, no un rótulo de entorno. */
+.danger-ribbon { background: var(--err-bg); color: var(--err); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.01em; text-align: center; padding: 0.55rem 1rem; border-bottom: 2px solid var(--err); }
 
 footer { border-top: 1px solid var(--line); background: var(--card); }
 footer .inner { max-width: var(--wrap); margin: 0 auto; padding: 0.9rem 1rem; text-align: center; font-size: 0.84rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
@@ -759,7 +763,7 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 
 /* ── Impresión (ficha de marcha y demás fichas de catálogo) ──────────────── */
 @media print {
-    .skip-link, .pre-ribbon, .nav-links, .nav-mobile,
+    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile,
     .site-search-row, footer, .crumbs, .rectabs,
     .listen, .svcs, .ids, .filter, .pagination { display: none !important; }
 

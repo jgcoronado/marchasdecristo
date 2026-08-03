@@ -23,7 +23,18 @@
 | **CSRF** | Token derivado de la sesión (`Auth::csrfToken`/`checkCsrf`), validado en todos los POST del panel |
 | **Roles** (`App\Roles`) | `admin` (acceso total, comodín `*`) y `editor` (capacidades `marcha.add/edit`, `banda.add/edit`, `autor.add/edit` vía `Roles::EDITOR_CAPS`; sin acceso a ingesta, enlaces, dedicatorias, estilos, linaje de bandas ni gestión de usuarios) |
 
-El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`. `Admin::isAdmin($session)` (envuelve `Roles::isAdmin($rol)`) es lo que decide, por ruta, si el POST escribe directo o desvía a propuesta (`proposalMode` en cada controlador).
+El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`.
+
+Quién escribe directo y quién propone lo decide `Admin::proposalMode($session)`, con **dos** condiciones y basta una:
+
+| | local | PRE | PRO |
+|---|---|---|---|
+| **admin** | escribe directo | propone | propone |
+| **editor** | propone | propone | propone |
+
+El rol es la primera condición (el editor siempre propone). La segunda es el **entorno**: fuera de local no escribe nadie, tampoco el admin, porque la BD maestra es la local y `scripts/sync_db_to_prod.php` reemplaza el `.db` remoto entero — una escritura hecha en PRE o PRO se perdería en el siguiente sync, o pisaría datos buenos. Encolarla como propuesta la conserva (el admin la baja con `sync_propuestas_from_prod.php` y la aplica en local). Ver [entornos.md](entornos.md).
+
+Solo hay propuesta para **marcha, banda y autor**. El resto de pantallas del panel (discos, dedicatorias, estilos, ingesta, enlaces, usuarios, temporada) escriben directo, así que en PRE y PRO chocan con `Db::assertWritable()` y devuelven el 503 de solo lectura. Siguen visibles para el admin —a veces hace falta *mirarlas* con datos reales— pero el panel avisa de dos formas: la cinta roja «PELIGRO: riesgo de desincronización» en todas sus pantallas (`layout.php`) y un aviso en `/dashboard` que detalla qué funciona y qué no.
 
 ---
 
