@@ -1,8 +1,10 @@
 <?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H; use App\Media as MD;
 /** @var string $mode @var array $session @var string $action
  *  @var array<string,mixed> $marcha @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors
- *  @var bool $proposalMode @var array|null $notice @var string|null $error */
+ *  @var bool $proposalMode @var array|null $notice @var string|null $error
+ *  @var string|null $volver  ruta del panel a la que volver tras crear (importador de pistas) */
 $csrf = Auth::csrfToken($session);
+$volver = $volver ?? null;
 $isEdit = $mode === 'edit';
 $proposalMode = $proposalMode ?? false;
 $val = static fn(string $k): string => V::e($marcha[$k] ?? '');
@@ -34,6 +36,12 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
     <form class="panel" action="<?= V::e($action) ?>" method="POST" id="marchaForm" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="excludeId" value="<?= $excludeId ?>">
+<?php if ($volver !== null): ?>
+        <?php /* Se viene de otra pantalla a medias (importador de pistas): al
+                 crear la marcha se vuelve allí, no a la ficha nueva. */ ?>
+        <input type="hidden" name="volver" value="<?= V::e($volver) ?>">
+        <p class="alert alert-info">Al crear la marcha volverás a la importación de pistas del disco.</p>
+<?php endif; ?>
 
         <div class="field">
             <label class="field-label" for="TITULO">Título <span class="muted small">· obligatorio</span></label>

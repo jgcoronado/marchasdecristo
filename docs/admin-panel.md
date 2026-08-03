@@ -558,14 +558,63 @@ su volumen (`PISTA_OCUPADA`) y que la marcha no esté ya en el disco
 > además podría contradecir a las pistas reales. El volumen se fija pista a
 > pista y el recuento sale solo.
 
+### Importar las pistas desde el enlace del álbum
+
+`/dashboard/disco/{id}/importar`. Es **lo primero que se ofrece tras crear un
+disco** (`discoAddPost` redirige aquí, no a la ficha): a partir del enlace que la
+banda publica en sus redes salen de una vez las pistas, su orden y su duración.
+El alta manual de arriba no cambia y sigue a un clic desde esta pantalla.
+
+Tres pasos, sin estado en servidor — el plan viaja en el propio formulario, que
+es lo que permite que funcione en un hosting compartido sin sesiones de trabajo
+ni tablas temporales:
+
+| Paso | Ruta | Qué hace |
+|------|------|----------|
+| 1 | GET `…/importar` | Pide el enlace (precargado con el de `enlace_streaming` si ya lo hay) |
+| 2 | POST `…/importar` | Lee el tracklist (`App\Tracklist`) y propone el plan (`App\ImportadorPistas::analizar`) |
+| 3 | POST `…/importar/confirmar` | Escribe lo aprobado (`ImportadorPistas::aplicar` → `AdminRepo::addPista`) |
+
+- **Servicios**: Spotify, Apple Music y Deezer, que son los que devuelven
+  tracklist con duración. Apple y Deezer no necesitan credenciales; Spotify sí
+  (`spotify_client_id`/`spotify_client_secret` en `config.local.php`) y sin ellas
+  la pantalla lo dice en vez de fallar. **Instagram/Facebook/X quedan fuera a
+  propósito**: un post no publica el listado en ningún formato estable (suele ser
+  una foto de la contraportada) y su HTML público está tras un muro de sesión.
+- **Nada de red nueva**: las llamadas y el parseo por servicio son los de
+  `app/tools/lib/music_match.php`, el mismo código que usan `fill_duraciones.php`
+  y `fill_enlaces_odesli.php`. Un solo criterio de similitud para todo el
+  catálogo, que es justo para lo que se extrajo esa librería.
+- **Umbral 80 %** (`ImportadorPistas::UMBRAL`): por encima la pista llega
+  emparejada y marcada; por debajo se avisa (con la marcha más parecida y su
+  porcentaje) y se ofrece **crear la marcha que falta**, precargando título, año
+  y banda del disco — el autor lo pone el usuario, porque ninguna API de
+  streaming lo devuelve. Al guardarla se vuelve a esta pantalla (`volver`, que
+  solo admite rutas `/dashboard/…`).
+- **Asignación 1:1 y greedy** por puntuación: ni dos cortes se llevan la misma
+  marcha (los discos repiten tomas: «… (En Directo)») ni una marcha va a dos
+  cortes. El segundo corte se marca como *repetido*, no como *no reconocido*.
+- **Nada se escribe sin revisar**: la propuesta se enseña en una tabla editable
+  (marcha, número, volumen, duración y la excepción de 🥁 por pista) y la
+  escritura pasa por `AdminRepo::addPista`, con sus mismas validaciones —
+  `MARCHA_YA_EN_DISCO` y `PISTA_OCUPADA` se informan pista a pista y el resto se
+  añade igual.
+
 ### Cobertura
 
 Los smoke tests de CI no pueden autenticarse, así que comprueban lo que sí se
 puede sin sesión: que las rutas existen (un 404 significaría que `routes.php` no
-las registró) y que el guard redirige al login. El flujo completo —alta con
-portada, búsqueda por nombre y por ID, pistas no consecutivas, rechazo de
-duplicados— se verificó de punta a punta con un navegador contra una BD de
-pruebas con un usuario administrador.
+las registró) y que el guard redirige al login — incluidos los dos POST del
+importador. El flujo completo —alta con portada, búsqueda por nombre y por ID,
+pistas no consecutivas, rechazo de duplicados— se verificó de punta a punta con
+un navegador contra una BD de pruebas con un usuario administrador.
+
+La lógica del importador sí está cubierta por pruebas automáticas:
+`php/tools/ci_importar.php` (paso propio del workflow de CI) ejercita
+reconocimiento de enlaces, lectura de tracklists desde
+`php/tools/fixtures/tracklist_importador.json` (inyectadas por
+`Tracklist::$fetcher`, **sin red ni credenciales**), umbral y 1:1, escritura en
+`disco_marcha` con duración y percusión, y el HTML de la pantalla de revisión.
 
 ---
 

@@ -34,6 +34,12 @@ jobs:
       - name: Build fixture database
         run: php php/tools/ci_fixture.php /tmp/ci-mdc.db
 
+      # Importador de pistas (disco → «Importar pistas»): lógica de emparejado
+      # y escritura, sin red ni servidor. Va antes de levantar el servidor
+      # porque escribe en su propia copia de la fixture.
+      - name: Unit tests (importador de pistas)
+        run: php php/tools/ci_importar.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db

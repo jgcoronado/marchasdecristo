@@ -63,9 +63,15 @@ CREATE TABLE dedicatoria (
   PROVINCIA TEXT, SLUG_KEY TEXT, PERSONAL INTEGER DEFAULT 0
 );
 CREATE TABLE dedicatoria_alias (ID_ALIAS INTEGER PRIMARY KEY, ID_DEDIC INTEGER, VARIANTE TEXT, LOCALIDAD TEXT DEFAULT '');
+-- Espejo reducido de 001_ingest_staging.sql: solo las columnas que consulta la
+-- app, pero con SUS nombres. La clave se llama ID_CAND, no ID: crear una marcha
+-- reevalúa los candidatos pendientes (IngestaRepo::reevaluarTrasCrearMarcha) y
+-- con la clave mal nombrada esa consulta reventaba solo contra la fixture.
 CREATE TABLE ingest_candidato (
-  ID INTEGER PRIMARY KEY, MARCHA_CREADA INTEGER, VIDEO_ID TEXT,
+  ID_CAND INTEGER PRIMARY KEY, MARCHA_CREADA INTEGER, VIDEO_ID TEXT, VIDEO_URL TEXT,
+  VIDEO_TITULO TEXT, P_TITULO TEXT, P_BANDA_ESTRENO INTEGER, ID_BANDA INTEGER,
   FUENTE TEXT NOT NULL DEFAULT 'youtube',
+  ESTADO TEXT NOT NULL DEFAULT 'pendiente', MOTIVO TEXT,
   PUBLICADO_AT TEXT, REVIEWED_AT TEXT,
   ISRC TEXT  -- R-01: espejo de migrate_ingest.php
 );
@@ -78,7 +84,15 @@ CREATE TABLE ingest_descarte_ultimo (
   ID INTEGER PRIMARY KEY, IDS_JSON TEXT NOT NULL, N INTEGER NOT NULL,
   USUARIO TEXT, CREATED_AT TEXT DEFAULT (datetime('now'))
 );
-CREATE TABLE enlace_streaming (ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ISRC TEXT);
+-- Espejo de 004_enlace_streaming.sql en lo que la app usa: el UNIQUE es lo que
+-- hace funcionar el UPSERT de AdminRepo::setEnlaceStreaming (ON CONFLICT), así
+-- que sin él el guardado de enlaces solo fallaría en CI.
+CREATE TABLE enlace_streaming (
+  ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ISRC TEXT,
+  VERIFICADO INTEGER NOT NULL DEFAULT 1,
+  FECHA_ALTA TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO)
+);
 CREATE TABLE enlace_candidato (ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ESTADO TEXT, CONFIANZA TEXT);
 CREATE TABLE admin_log (ID INTEGER PRIMARY KEY, accion TEXT, tabla TEXT, id_registro INTEGER, usuario TEXT, ts INTEGER, payload TEXT);
 CREATE TABLE contrato (

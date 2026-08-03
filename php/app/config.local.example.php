@@ -34,6 +34,14 @@ return [
     // 'cover_base_url' => 'https://marchasdecristo.com', // SOLO en PRE: las portadas
     //                          // solo existen en el docroot de producción.
 
+    // 'spotify_client_id'     => '…', // Importador de pistas del panel (disco →
+    // 'spotify_client_secret' => '…', // «Importar pistas»). Solo hacen falta para
+    //                          // los enlaces de Spotify: Apple Music y Deezer se
+    //                          // leen sin credenciales. Se crean gratis en
+    //                          // developer.spotify.com (app → client id/secret);
+    //                          // son las mismas que usan los scripts de tools/
+    //                          // desde el .env del repo.
+
     // 'secciones_publicadas' => ['mapa'], // secciones de App\Secciones::EN_MADURACION
     //                          // que este host enseña pese a no estar publicadas
     //                          // todavía. Sirve para sacarlas primero en PRE y

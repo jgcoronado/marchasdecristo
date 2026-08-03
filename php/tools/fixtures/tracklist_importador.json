@@ -1,0 +1,20 @@
+{
+  "_nota": "Tracklists ya normalizados (misma forma que devuelven tracklistSpotify/Apple/Deezer en app/tools/lib/music_match.php) para probar el importador de pistas sin tocar la red. Los títulos están pensados contra el catálogo de php/tools/ci_fixture.php.",
+  "tracklists": {
+    "deezer:1000": [
+      {"titulo": "Consuelo Gitano", "seg": 208, "n": 1, "disco": 1, "id": "dz01", "url": "https://www.deezer.com/track/dz01", "isrc": "ESABC0000001"},
+      {"titulo": "La Madruga", "seg": 195, "n": 2, "disco": 1, "id": "dz02", "url": "https://www.deezer.com/track/dz02", "isrc": "ESABC0000002"},
+      {"titulo": "Cristo de la Sangre - En Directo", "seg": 214, "n": 3, "disco": 1, "id": "dz03", "url": "https://www.deezer.com/track/dz03", "isrc": "ESABC0000003"},
+      {"titulo": "Costalero Bueno", "seg": 181, "n": 4, "disco": 1, "id": "dz04", "url": "https://www.deezer.com/track/dz04", "isrc": "ESABC0000004"},
+      {"titulo": "Preludio de Tambores", "seg": 47, "n": 5, "disco": 1, "id": "dz05", "url": "https://www.deezer.com/track/dz05", "isrc": "ESABC0000005"},
+      {"titulo": "Consuelo Gitano (En Directo)", "seg": 221, "n": 6, "disco": 1, "id": "dz06", "url": "https://www.deezer.com/track/dz06", "isrc": "ESABC0000006"}
+    ],
+    "spotify:4tXdesordenado": [
+      {"titulo": "Costalero Bueno", "seg": 181, "n": 2, "disco": 2, "id": "sp04", "url": "https://open.spotify.com/track/sp04", "isrc": null},
+      {"titulo": "Consuelo Gitano", "seg": 208, "n": 2, "disco": 1, "id": "sp02", "url": "https://open.spotify.com/track/sp02", "isrc": null},
+      {"titulo": "Reina de San Roman", "seg": 173, "n": 1, "disco": 2, "id": "sp03", "url": "https://open.spotify.com/track/sp03", "isrc": null},
+      {"titulo": "La Madrugá", "seg": 195, "n": 1, "disco": 1, "id": "sp01", "url": "https://open.spotify.com/track/sp01", "isrc": null}
+    ],
+    "apple:9999": []
+  }
+}

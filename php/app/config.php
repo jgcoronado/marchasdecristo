@@ -49,6 +49,14 @@ $defaults = [
     // que es donde viven los ficheros). PRE tiene docroot propio y sin portadas,
     // así que apunta al de producción para verlas. Ver docs/entornos.md.
     'cover_base_url'     => '',
+    // Credenciales de la API de Spotify (client-credentials, app gratuita en
+    // developer.spotify.com). Solo las necesita el importador de pistas del
+    // panel (App\Tracklist) cuando el enlace pegado es de Spotify: Apple Music
+    // y Deezer se leen sin credenciales. Vacío = Spotify desactivado, con aviso
+    // en pantalla en vez de un fallo opaco. Se admite también por entorno, que
+    // es como las leen los scripts de tools/ desde el .env del repo.
+    'spotify_client_id'     => getenv('SPOTIFY_CLIENT_ID') ?: '',
+    'spotify_client_secret' => getenv('SPOTIFY_CLIENT_SECRET') ?: '',
     // M7: notificaciones editoriales por email. Configurar en config.local.php.
     // Si mail_from está vacío, Mailer::send() devuelve false sin intentar nada.
     'mail_from'      => null,               // 'noreply@marchasdecristo.com'
