@@ -25,38 +25,8 @@ use App\ImportadorPistas;
 use App\Tracklist;
 
 // ── Arranque de la app sin front controller ──────────────────────────────────
-// bootstrap.php despacha el router al final, así que aquí se replica solo lo
-// que hace falta: autoload, constantes de rutas y config con la BD de pruebas.
-define('BASE_DIR', dirname(__DIR__));
-define('APP_DIR', BASE_DIR . '/app');
-define('DATA_DIR', BASE_DIR . '/data');
-
-$dbPath = $argv[1] ?? (sys_get_temp_dir() . '/ci-importar-' . getmypid() . '.db');
-
-/** Construye la BD de pruebas reutilizando la fixture de CI (mismo esquema y datos). */
-$construirFixture = static function (string $ruta): void {
-    $argv = ['ci_fixture.php', $ruta];   // ci_fixture.php lee $argv[1]
-    ob_start();
-    require __DIR__ . '/ci_fixture.php';
-    ob_end_clean();
-};
-$construirFixture($dbPath);
-
-spl_autoload_register(static function (string $class): void {
-    if (!str_starts_with($class, 'App\\')) return;
-    $file = APP_DIR . '/src/' . str_replace('\\', '/', substr($class, 4)) . '.php';
-    if (is_file($file)) require $file;
-});
-
-$GLOBALS['config'] = [
-    'db_path' => $dbPath,
-    'env' => 'local',            // habilita las escrituras (Db::assertWritable)
-    'debug' => true,
-    'secret_key' => str_repeat('x', 48),
-    // Sin credenciales: es justo lo que exige una de las pruebas de abajo.
-    'spotify_client_id' => '',
-    'spotify_client_secret' => '',
-];
+require __DIR__ . '/ci_boot.php';
+$dbPath = ciBoot($argv[1] ?? null);
 
 $fixture = json_decode((string) file_get_contents(__DIR__ . '/fixtures/tracklist_importador.json'), true);
 if (!is_array($fixture)) {
@@ -65,20 +35,6 @@ if (!is_array($fixture)) {
 }
 /** @var array<string,list<array<string,mixed>>> $TRACKLISTS */
 $TRACKLISTS = $fixture['tracklists'];
-
-// ── Aserciones ───────────────────────────────────────────────────────────────
-function assertIgual(mixed $esperado, mixed $obtenido, string $que): void
-{
-    if ($esperado !== $obtenido) {
-        throw new RuntimeException("$que → esperado " . var_export($esperado, true)
-            . ', obtenido ' . var_export($obtenido, true));
-    }
-}
-
-function assertCierto(bool $cond, string $que): void
-{
-    if (!$cond) throw new RuntimeException($que);
-}
 
 /** @param list<array<string,mixed>> $filas */
 function fila(array $filas, int $idx): array
@@ -401,26 +357,6 @@ $tests['pantalla del enlace: explica el error y deja seguir a mano'] = static fu
 };
 
 // ── Runner ───────────────────────────────────────────────────────────────────
-$failed = [];
-foreach ($tests as $name => $test) {
-    try {
-        $test();
-        echo "  OK   $name\n";
-    } catch (Throwable $e) {
-        $failed[] = "$name: {$e->getMessage()}";
-        echo "  FAIL $name — {$e->getMessage()}\n";
-    }
-}
-
-echo "\n" . (count($tests) - count($failed)) . '/' . count($tests) . " pruebas superadas.\n";
-
-if ($argc < 2) {
-    @unlink($dbPath);
-    @unlink($dbPath . '-shm');
-    @unlink($dbPath . '-wal');
-}
-
-if ($failed !== []) {
-    fwrite(STDERR, "\nFallos:\n" . implode("\n", $failed) . "\n");
-    exit(1);
-}
+$salida = ciEjecuta($tests);
+if ($argc < 2) ciLimpia($dbPath);
+exit($salida);

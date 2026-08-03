@@ -226,6 +226,86 @@ function tracklistDeezer(string $albumId): array {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Odesli (song.link): identidad de una publicación entre servicios
+//
+//  Movido aquí desde fill_enlaces_odesli.php (2026-08-03): el panel dispara
+//  la misma cascada al guardar el enlace de un disco (App\EnlacesAuto), y dos
+//  copias del parser acabarían interpretando distinto la misma respuesta.
+//  Son funciones puras: la llamada HTTP y su caché siguen en cada consumidor,
+//  porque el batch necesita rate-limit y contadores que el panel no.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Plataforma de Odesli → SERVICIO de `enlace_streaming`.
+ *
+ * El orden dentro de cada lista es de preferencia: 'appleMusic' (streaming) antes
+ * que 'itunes' (tienda), 'youtubeMusic' antes que 'youtube' (un vídeo suelto de
+ * YouTube no es la publicación oficial).
+ */
+const PLATAFORMAS = [
+    // 'spotify' está aquí desde que el panel admite cualquier servicio como
+    // semilla (2026-08-03): si el enlace curado es de Deezer o Apple, el de
+    // Spotify también hay que derivarlo. Para el batch es inerte — allí Spotify
+    // es siempre el punto de partida y nunca entra en la lista de servicios a
+    // rellenar.
+    'spotify' => ['spotify'],
+    'apple'  => ['appleMusic', 'itunes'],
+    'deezer' => ['deezer'],
+    'amazon' => ['amazonMusic', 'amazonStore'],
+    'tidal'  => ['tidal'],
+    'youtube'=> ['youtubeMusic', 'youtube'],
+];
+
+/** Saca el id de álbum/pista de una URL de Spotify. */
+function spotifyIdDesdeUrl(string $url, string $tipo = 'album'): string {
+    if (preg_match('#' . preg_quote($tipo, '#') . '/([A-Za-z0-9]+)#', $url, $m)) return $m[1];
+    return '';
+}
+
+/**
+ * Traduce la respuesta de Odesli a [servicio => ['url'=>..,'id'=>..]].
+ *
+ * Función pura: se puede testear con una respuesta guardada sin tocar la red.
+ *
+ * @param array $json      respuesta de /v1-alpha.1/links
+ * @param array $servicios servicios que interesan
+ * @return array{enlaces: array<string,array{url:string,id:string}>, titulo:string, artista:string, id_spotify:string}
+ */
+function odesliParse(array $json, array $servicios): array {
+    $links    = $json['linksByPlatform'] ?? [];
+    $entidades= $json['entitiesByUniqueId'] ?? [];
+    $enlaces  = [];
+
+    foreach ($servicios as $srv) {
+        foreach (PLATAFORMAS[$srv] ?? [] as $plat) {
+            $url = $links[$plat]['url'] ?? '';
+            if ($url === '') continue;
+            $uid = (string) ($links[$plat]['entityUniqueId'] ?? '');
+            // El id nativo va tras "::" en el entityUniqueId (ITUNES_ALBUM::1721437650).
+            $id  = (string) ($entidades[$uid]['id'] ?? (str_contains($uid, '::') ? explode('::', $uid, 2)[1] : ''));
+            $enlaces[$srv] = ['url' => (string) $url, 'id' => $id];
+            break;                                   // primera plataforma disponible por preferencia
+        }
+    }
+
+    // Datos de la entidad principal, para el informe y el control de sanidad.
+    $uidPrincipal = (string) ($json['entityUniqueId'] ?? '');
+    $principal    = $entidades[$uidPrincipal] ?? [];
+    $idSpotify    = '';
+    foreach ($entidades as $uid => $e) {
+        if (str_starts_with((string) $uid, 'SPOTIFY_')) { $idSpotify = (string) ($e['id'] ?? ''); break; }
+    }
+
+    return [
+        'enlaces'    => $enlaces,
+        'titulo'     => (string) ($principal['title'] ?? ''),
+        'artista'    => (string) ($principal['artistName'] ?? ''),
+        'id_spotify' => $idSpotify,
+    ];
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Identidad por código de barras (UPC/EAN)
 //
 //  Añadido 2026-08-01. Odesli resuelve la publicación en otros servicios, pero
@@ -241,10 +321,15 @@ function tracklistDeezer(string $albumId): array {
 /**
  * Ficha del álbum en Spotify: UPC, título, artista y año.
  *
- * @return array{upc:string, titulo:string, artista:string, anio:string}
+ * `artista_url`/`artista_id` (añadidos 2026-08-03) son el ARTISTA DE ESE ÁLBUM,
+ * no el resultado de buscar el nombre de la banda: es identidad, igual que el
+ * UPC. De ahí salen los enlaces de artista que rellena App\EnlacesAuto sin
+ * exponerse a los falsos positivos de la búsqueda por nombre.
+ *
+ * @return array{upc:string, titulo:string, artista:string, anio:string, artista_url:string, artista_id:string}
  */
 function spotifyAlbumInfo(string $albumId, ?string $token): array {
-    $vacio = ['upc' => '', 'titulo' => '', 'artista' => '', 'anio' => ''];
+    $vacio = ['upc' => '', 'titulo' => '', 'artista' => '', 'anio' => '', 'artista_url' => '', 'artista_id' => ''];
     if (!$token || $albumId === '') return $vacio;
     $body = httpGet("https://api.spotify.com/v1/albums/$albumId?market=ES", ["Authorization: Bearer $token"]);
     if ($body === null) return $vacio;
@@ -255,6 +340,61 @@ function spotifyAlbumInfo(string $albumId, ?string $token): array {
         'titulo'  => (string) ($j['name'] ?? ''),
         'artista' => (string) ($j['artists'][0]['name'] ?? ''),
         'anio'    => substr((string) ($j['release_date'] ?? ''), 0, 4),
+        'artista_url' => (string) ($j['artists'][0]['external_urls']['spotify'] ?? ''),
+        'artista_id'  => (string) ($j['artists'][0]['id'] ?? ''),
+    ];
+}
+
+/**
+ * Ficha del álbum en Apple Music (iTunes lookup). Apple no publica el UPC, así
+ * que este endpoint sirve sobre todo para el artista y para confirmar el título.
+ *
+ * @return array{upc:string, titulo:string, artista:string, anio:string, artista_url:string, artista_id:string}
+ */
+function appleAlbumInfo(string $collectionId): array {
+    $vacio = ['upc' => '', 'titulo' => '', 'artista' => '', 'anio' => '', 'artista_url' => '', 'artista_id' => ''];
+    if ($collectionId === '') return $vacio;
+    $body = httpGet('https://itunes.apple.com/lookup?id=' . rawurlencode($collectionId) . '&country=ES&entity=album');
+    usleep(400000);                                   // rate-limit de iTunes
+    if ($body === null) return $vacio;
+    $j = json_decode($body, true);
+    foreach ($j['results'] ?? [] as $r) {
+        if (($r['wrapperType'] ?? '') !== 'collection') continue;
+        return [
+            'upc'     => '',
+            'titulo'  => (string) ($r['collectionName'] ?? ''),
+            'artista' => (string) ($r['artistName'] ?? ''),
+            'anio'    => substr((string) ($r['releaseDate'] ?? ''), 0, 4),
+            'artista_url' => (string) ($r['artistViewUrl'] ?? ''),
+            'artista_id'  => (string) ($r['artistId'] ?? ''),
+        ];
+    }
+    return $vacio;
+}
+
+/**
+ * Ficha del álbum en Deezer. Es la única de las tres que da UPC sin credenciales,
+ * así que es la que permite el repesque por código de barras cuando el enlace
+ * curado no es de Spotify.
+ *
+ * @return array{upc:string, titulo:string, artista:string, anio:string, artista_url:string, artista_id:string}
+ */
+function deezerAlbumInfo(string $albumId): array {
+    $vacio = ['upc' => '', 'titulo' => '', 'artista' => '', 'anio' => '', 'artista_url' => '', 'artista_id' => ''];
+    if ($albumId === '') return $vacio;
+    $body = httpGet('https://api.deezer.com/album/' . rawurlencode($albumId));
+    usleep(250000);
+    if ($body === null) return $vacio;
+    $j = json_decode($body, true);
+    if (!is_array($j) || isset($j['error'])) return $vacio;
+    $artistaId = (string) ($j['artist']['id'] ?? '');
+    return [
+        'upc'     => (string) ($j['upc'] ?? ''),
+        'titulo'  => (string) ($j['title'] ?? ''),
+        'artista' => (string) ($j['artist']['name'] ?? ''),
+        'anio'    => substr((string) ($j['release_date'] ?? ''), 0, 4),
+        'artista_url' => (string) ($j['artist']['link'] ?? ($artistaId !== '' ? 'https://www.deezer.com/artist/' . $artistaId : '')),
+        'artista_id'  => $artistaId,
     ];
 }
 

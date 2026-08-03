@@ -1,0 +1,77 @@
+{
+  "_nota": "Respuestas guardadas de Odesli / Spotify / Apple / Deezer para probar App\\EnlacesAuto sin tocar la red (se inyectan con EnlacesAuto::$red). Los títulos están pensados contra el catálogo de php/tools/ci_fixture.php.",
+
+  "odesli": {
+    "https://open.spotify.com/album/SP1": {
+      "entityUniqueId": "SPOTIFY_ALBUM::SP1",
+      "linksByPlatform": {
+        "spotify":      {"url": "https://open.spotify.com/album/SP1", "entityUniqueId": "SPOTIFY_ALBUM::SP1"},
+        "appleMusic":   {"url": "https://music.apple.com/es/album/sevilla-cofrade-vol-1/AP1", "entityUniqueId": "ITUNES_ALBUM::AP1"},
+        "deezer":       {"url": "https://www.deezer.com/album/DZ1", "entityUniqueId": "DEEZER_ALBUM::DZ1"},
+        "tidal":        {"url": "https://tidal.com/browse/album/TD1", "entityUniqueId": "TIDAL_ALBUM::TD1"},
+        "amazonMusic":  {"url": "https://music.amazon.com/albums/AM1", "entityUniqueId": "AMAZON_ALBUM::AM1"},
+        "youtubeMusic": {"url": "https://music.youtube.com/playlist?list=YT1", "entityUniqueId": "YOUTUBE_VIDEO::YT1"}
+      },
+      "entitiesByUniqueId": {
+        "SPOTIFY_ALBUM::SP1": {"id": "SP1", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"},
+        "ITUNES_ALBUM::AP1":  {"id": "AP1", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"},
+        "DEEZER_ALBUM::DZ1":  {"id": "DZ1", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"}
+      }
+    },
+
+    "https://www.deezer.com/album/DZ1": {
+      "entityUniqueId": "DEEZER_ALBUM::DZ1",
+      "linksByPlatform": {
+        "spotify":    {"url": "https://open.spotify.com/album/SP1", "entityUniqueId": "SPOTIFY_ALBUM::SP1"},
+        "deezer":     {"url": "https://www.deezer.com/album/DZ1", "entityUniqueId": "DEEZER_ALBUM::DZ1"},
+        "appleMusic": {"url": "https://music.apple.com/es/album/sevilla-cofrade-vol-1/AP1", "entityUniqueId": "ITUNES_ALBUM::AP1"}
+      },
+      "entitiesByUniqueId": {
+        "DEEZER_ALBUM::DZ1":  {"id": "DZ1", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"},
+        "SPOTIFY_ALBUM::SP1": {"id": "SP1", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"}
+      }
+    },
+
+    "https://open.spotify.com/album/SPOTRO": {
+      "entityUniqueId": "SPOTIFY_ALBUM::OTRO",
+      "linksByPlatform": {
+        "spotify":    {"url": "https://open.spotify.com/album/OTRO", "entityUniqueId": "SPOTIFY_ALBUM::OTRO"},
+        "appleMusic": {"url": "https://music.apple.com/es/album/otra-cosa/AP9", "entityUniqueId": "ITUNES_ALBUM::AP9"},
+        "deezer":     {"url": "https://www.deezer.com/album/DZ9", "entityUniqueId": "DEEZER_ALBUM::DZ9"}
+      },
+      "entitiesByUniqueId": {
+        "SPOTIFY_ALBUM::OTRO": {"id": "OTRO", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"},
+        "ITUNES_ALBUM::AP9":   {"id": "AP9", "title": "Sevilla Cofrade Vol. 1", "artistName": "Las Cigarreras"}
+      }
+    }
+  },
+
+  "tracklists": {
+    "spotify:SP1": [
+      {"titulo": "Consuelo Gitano", "seg": 208, "n": 1, "disco": 1, "id": "sptr1", "url": "https://open.spotify.com/track/sptr1", "isrc": null},
+      {"titulo": "La Madrugá", "seg": 195, "n": 2, "disco": 1, "id": "sptr2", "url": "https://open.spotify.com/track/sptr2", "isrc": null},
+      {"titulo": "Cristo de la Sangre y Agua", "seg": 240, "n": 3, "disco": 1, "id": "sptr3", "url": "https://open.spotify.com/track/sptr3", "isrc": null}
+    ],
+    "apple:AP1": [
+      {"titulo": "Consuelo Gitano", "seg": 208, "n": 1, "disco": 1, "id": "aptr1", "url": "https://music.apple.com/es/album/sevilla-cofrade-vol-1/AP1?i=aptr1", "isrc": null},
+      {"titulo": "La Madrugá", "seg": 195, "n": 2, "disco": 1, "id": "aptr2", "url": "https://music.apple.com/es/album/sevilla-cofrade-vol-1/AP1?i=aptr2", "isrc": null}
+    ],
+    "deezer:DZ1": [
+      {"titulo": "Consuelo Gitano", "seg": 208, "n": 1, "disco": 1, "id": "dztr1", "url": "https://www.deezer.com/track/dztr1", "isrc": "ESAAA0000001"}
+    ]
+  },
+
+  "isrcs": {"sptr1": "ESAAA0000001", "sptr2": "ESAAA0000002"},
+
+  "album": {
+    "spotify:SP1": {"upc": "0123456789012", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Las Cigarreras", "anio": "1996", "artista_url": "https://open.spotify.com/artist/SPART1", "artista_id": "SPART1"},
+    "apple:AP1":   {"upc": "", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Various Artists", "anio": "1996", "artista_url": "https://music.apple.com/es/artist/various-artists/APART9", "artista_id": "APART9"},
+    "deezer:DZ1":  {"upc": "0123456789012", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Banda de CCTT Las Cigarreras", "anio": "1996", "artista_url": "https://www.deezer.com/artist/DZART1", "artista_id": "DZART1"},
+    "spotify:SPSOLO": {"upc": "0123456789012", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Las Cigarreras", "anio": "1996", "artista_url": "", "artista_id": ""}
+  },
+
+  "album_upc": {
+    "apple:0123456789012":  {"url": "https://music.apple.com/es/album/sevilla-cofrade-vol-1/AP2", "id": "AP2", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Las Cigarreras"},
+    "deezer:0123456789012": {"url": "https://www.deezer.com/album/DZ2", "id": "DZ2", "titulo": "Sevilla Cofrade Vol. 1", "artista": "Las Cigarreras"}
+  }
+}

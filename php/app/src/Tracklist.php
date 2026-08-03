@@ -147,7 +147,8 @@ final class Tracklist
         return ($id !== '' && $secret !== '') ? [$id, $secret] : null;
     }
 
-    private static function tokenSpotify(): ?string
+    /** Token de client-credentials, o null si este host no tiene credenciales. */
+    public static function tokenSpotify(): ?string
     {
         $cred = self::credencialesSpotify();
         if ($cred === null) return null;

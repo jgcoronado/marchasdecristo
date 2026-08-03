@@ -353,6 +353,14 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
     </div>
     <p class="muted small">Vincula este álbum en cada servicio. Vacío = sin enlace (se borra el que hubiera).
         Se escribe directo en <code class="mono">enlace_streaming</code>, al margen de la cola de candidatos.</p>
+    <?php /* La cascada se dispara al guardar, siempre: así «Guardar enlaces» es
+             también el botón de reintento. Solo rellena huecos. */ ?>
+    <p class="muted small">Al guardar, el panel <strong>busca solo lo que falte</strong> a partir de estos
+        enlaces: el resto de servicios de este álbum, el enlace de cada una de sus marchas y el perfil de
+        artista de la banda. Nunca pisa un enlace ya puesto, y lo que no da la talla se queda pendiente en
+        <a href="/dashboard/enlaces">la cola de enlaces</a>. Amazon, Tidal y YouTube <em>a nivel de marcha</em>
+        los completa después <code class="mono">fill_enlaces_odesli.php</code>: ahí cada pista cuesta una
+        llamada a Odesli y no cabe en una petición web.</p>
 
     <form class="panel" action="/dashboard/disco/<?= $id ?>/social" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">

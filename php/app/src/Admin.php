@@ -1491,10 +1491,12 @@ final class Admin
             'enlaces' => EnlaceRepo::publicadosDe('disco', $id),
             'tab' => $tab,
             'error' => $err,
+            // 'social' y 'ok' pueden venir juntos: al guardar los enlaces se
+            // dispara la cascada automática y su resumen viaja en 'ok'.
             'notice' => isset($_GET['created'])
                 ? 'Disco creado.'
                 : (isset($_GET['social'])
-                    ? 'Enlaces de streaming guardados.'
+                    ? trim('Enlaces de streaming guardados. ' . (string) ($_GET['ok'] ?? ''))
                     : (isset($_GET['ok']) ? (string) $_GET['ok'] : null)),
         ], ['title' => 'Disco #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }
@@ -1611,7 +1613,15 @@ final class Admin
             $r = AdminRepo::setEnlaceStreaming('disco', $id, $servicio, is_string($url) ? $url : null);
             if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/disco/$id?err=BAD_REQUEST&tab=streaming", 302);
         }
-        Http::redirect("/dashboard/disco/$id?social=1&tab=streaming", 302);
+
+        // Guardar dispara la cascada: el resto de servicios del disco, los de sus
+        // marchas y los de la banda. Se lanza SIEMPRE, no solo cuando cambia algo,
+        // para que «Guardar enlaces» signifique siempre lo mismo — «busca lo que
+        // falte» — y volver a pulsarlo sirva de reintento. Es idempotente (solo
+        // escribe huecos) y Odesli va cacheado en disco. Ver EnlacesAuto.
+        $resumen = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
+        Http::redirect("/dashboard/disco/$id?social=1&tab=streaming"
+            . ($resumen !== null ? '&ok=' . rawurlencode($resumen) : ''), 302);
     }
 
     // ── Disco: alta asistida de pistas desde el enlace del álbum ────────────
@@ -1707,10 +1717,15 @@ final class Admin
         // El enlace del álbum se guarda como enlace de streaming del disco: es
         // el mismo dato que pide la pestaña «Streaming» y de él viven después
         // fill_duraciones.php y la ficha pública. Solo si el usuario lo pidió.
+        // Guardarlo dispara la misma cascada que la pestaña «Streaming», y aquí
+        // rinde más que en ningún sitio: las pistas se acaban de crear, así que
+        // sus marchas se llevan también su enlace en cada servicio.
+        $resumenAuto = null;
         if (!empty($_POST['guardarEnlace'])) {
             $ref = Tracklist::parseUrl((string) ($_POST['url'] ?? ''));
             if ($ref !== null) {
                 AdminRepo::setEnlaceStreaming('disco', $id, $ref['servicio'], (string) $_POST['url']);
+                $resumenAuto = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
             }
         }
 
@@ -1721,6 +1736,7 @@ final class Admin
             if (count($detalle) > 5) $msg .= ' y ' . (count($detalle) - 5) . ' más';
             $msg .= '.';
         }
+        if ($resumenAuto !== null) $msg .= ' ' . $resumenAuto;
         Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode($msg), 302);
     }
 

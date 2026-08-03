@@ -160,68 +160,9 @@ if ($fixturePath !== null) {
 //  Odesli
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Plataforma de Odesli → SERVICIO de `enlace_streaming`.
- *
- * El orden dentro de cada lista es de preferencia: 'appleMusic' (streaming) antes
- * que 'itunes' (tienda), 'youtubeMusic' antes que 'youtube' (un vídeo suelto de
- * YouTube no es la publicación oficial).
- */
-const PLATAFORMAS = [
-    'apple'  => ['appleMusic', 'itunes'],
-    'deezer' => ['deezer'],
-    'amazon' => ['amazonMusic', 'amazonStore'],
-    'tidal'  => ['tidal'],
-    'youtube'=> ['youtubeMusic', 'youtube'],
-];
-
-/** Saca el id de álbum/pista de una URL de Spotify. */
-function spotifyIdDesdeUrl(string $url, string $tipo = 'album'): string {
-    if (preg_match('#' . preg_quote($tipo, '#') . '/([A-Za-z0-9]+)#', $url, $m)) return $m[1];
-    return '';
-}
-
-/**
- * Traduce la respuesta de Odesli a [servicio => ['url'=>..,'id'=>..]].
- *
- * Función pura: se puede testear con una respuesta guardada sin tocar la red.
- *
- * @param array $json      respuesta de /v1-alpha.1/links
- * @param array $servicios servicios que interesan
- * @return array{enlaces: array<string,array{url:string,id:string}>, titulo:string, artista:string, id_spotify:string}
- */
-function odesliParse(array $json, array $servicios): array {
-    $links    = $json['linksByPlatform'] ?? [];
-    $entidades= $json['entitiesByUniqueId'] ?? [];
-    $enlaces  = [];
-
-    foreach ($servicios as $srv) {
-        foreach (PLATAFORMAS[$srv] ?? [] as $plat) {
-            $url = $links[$plat]['url'] ?? '';
-            if ($url === '') continue;
-            $uid = (string) ($links[$plat]['entityUniqueId'] ?? '');
-            // El id nativo va tras "::" en el entityUniqueId (ITUNES_ALBUM::1721437650).
-            $id  = (string) ($entidades[$uid]['id'] ?? (str_contains($uid, '::') ? explode('::', $uid, 2)[1] : ''));
-            $enlaces[$srv] = ['url' => (string) $url, 'id' => $id];
-            break;                                   // primera plataforma disponible por preferencia
-        }
-    }
-
-    // Datos de la entidad principal, para el informe y el control de sanidad.
-    $uidPrincipal = (string) ($json['entityUniqueId'] ?? '');
-    $principal    = $entidades[$uidPrincipal] ?? [];
-    $idSpotify    = '';
-    foreach ($entidades as $uid => $e) {
-        if (str_starts_with((string) $uid, 'SPOTIFY_')) { $idSpotify = (string) ($e['id'] ?? ''); break; }
-    }
-
-    return [
-        'enlaces'    => $enlaces,
-        'titulo'     => (string) ($principal['title'] ?? ''),
-        'artista'    => (string) ($principal['artistName'] ?? ''),
-        'id_spotify' => $idSpotify,
-    ];
-}
+// PLATAFORMAS, spotifyIdDesdeUrl() y odesliParse() se movieron a
+// lib/music_match.php (2026-08-03) para que el panel las use tal cual:
+// el alta de un enlace de disco dispara la misma cascada que este script.
 
 /**
  * Llama a Odesli con caché en disco. Devuelve el JSON decodificado o null.

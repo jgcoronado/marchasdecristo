@@ -88,12 +88,23 @@ CREATE TABLE ingest_descarte_ultimo (
 -- hace funcionar el UPSERT de AdminRepo::setEnlaceStreaming (ON CONFLICT), así
 -- que sin él el guardado de enlaces solo fallaría en CI.
 CREATE TABLE enlace_streaming (
-  ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ISRC TEXT,
+  ID_ENLACE INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT,
+  ID_EXT TEXT,        -- id nativo del servicio: de aquí sale el tracklist del álbum
+  ISRC TEXT,
   VERIFICADO INTEGER NOT NULL DEFAULT 1,
   FECHA_ALTA TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (TIPO_ENT, ID_ENT, SERVICIO)
 );
-CREATE TABLE enlace_candidato (ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ESTADO TEXT, CONFIANZA TEXT);
+-- Espejo reducido de 004_enlace_streaming.sql (§2). Igual que arriba: la clave
+-- es ID_CAND y el UNIQUE es el que hace idempotente el INSERT OR IGNORE de la
+-- cascada automática (App\EnlacesAuto).
+CREATE TABLE enlace_candidato (
+  ID_CAND INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ID_EXT TEXT,
+  TITULO_ENC TEXT, ARTISTA_ENC TEXT, ANIO_ENC TEXT, SCORE REAL NOT NULL DEFAULT 0,
+  CONFIANZA TEXT, ESTADO TEXT NOT NULL DEFAULT 'pendiente', RUN_ID TEXT,
+  FECHA TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO, URL)
+);
 CREATE TABLE admin_log (ID INTEGER PRIMARY KEY, accion TEXT, tabla TEXT, id_registro INTEGER, usuario TEXT, ts INTEGER, payload TEXT);
 CREATE TABLE contrato (
   ID_CONTRATO INTEGER PRIMARY KEY, ID_BANDA INTEGER, HERMANDAD TEXT, HERMANDAD_SLUG TEXT,

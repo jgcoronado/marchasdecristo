@@ -600,6 +600,51 @@ ni tablas temporales:
   `MARCHA_YA_EN_DISCO` y `PISTA_OCUPADA` se informan pista a pista y el resto se
   añade igual.
 
+### Cascada automática de enlaces (`App\EnlacesAuto`)
+
+Guardar el enlace de un álbum —en la pestaña «Streaming» o al importar pistas—
+dispara la búsqueda del resto. **Solo rellena huecos**, en tres niveles:
+
+| Nivel | De dónde sale | Servicios |
+|-------|---------------|-----------|
+| Disco | 1 llamada a Odesli sobre el enlace guardado + repesque por UPC | los 6 |
+| Marchas del disco | tracklist del álbum, emparejado con `disco_marcha` (≥ 85 %) | spotify, apple, deezer |
+| Banda propietaria | el artista **de ese álbum** en cada servicio | spotify, apple, deezer |
+
+Tres reglas que explican todo lo demás:
+
+- **Identidad, no búsqueda.** Odesli resuelve la misma publicación, el UPC es el
+  código de barras de la edición y el artista se lee del propio álbum. Nunca se
+  busca «una banda que se llame así», que es de donde salían los falsos
+  positivos del pipeline offline («Los Angeles» ≠ BCT Ángeles).
+- **Nunca se pisa nada** (`AdminRepo::addEnlaceStreamingSiFalta`, INSERT OR
+  IGNORE contra la UNIQUE): un enlace curado a mano sobrevive y repetir la
+  cascada es idempotente. Por eso «Guardar enlaces» la lanza siempre y sirve
+  también de reintento.
+- **Lo dudoso no se publica**: por debajo del umbral va a `enlace_candidato`
+  (pendiente, con su score) y se cura en `/dashboard/enlaces`. Umbrales:
+  disco 0,55 · pista 0,85 (candidato desde 0,60) · banda 0,55. Un recopilatorio
+  acreditado a «Various Artists» o un álbum que Odesli agrupa mal acaban ahí, no
+  en la ficha pública.
+
+De paso rellena `disco_marcha.DURACION_SEG` cuando está vacía (R-02): el
+tracklist ya está delante y es el mismo dato que escribe `fill_duraciones.php`.
+Una duración medida a mano no se toca.
+
+Lo que **no** hace, a propósito: Amazon, Tidal y YouTube *a nivel de pista*. No
+tienen tracklist pública, así que cada pista costaría una llamada a Odesli (~7 s
+por su rate-limit) y un disco de 12 cortes dejaría la petición web colgada más de
+un minuto. Eso sigue siendo trabajo de `fill_enlaces_odesli.php`, que va en
+batch, con caché y sin usuario esperando. La cascada del panel tiene además un
+presupuesto de 25 s (`EnlacesAuto::PRESUPUESTO_SEG`): al agotarse deja el resto
+para el batch en vez de arriesgar un timeout a mitad de escritura.
+
+El parser de Odesli (`PLATAFORMAS`, `odesliParse`) y las fichas de álbum por
+servicio viven en `app/tools/lib/music_match.php`, compartidos con el batch: dos
+copias acabarían interpretando distinto la misma respuesta. La caché de Odesli en
+`php/data/odesli_cache/` también es común, y eso importa porque la API sin clave
+admite del orden de 10 peticiones por minuto y por IP.
+
 ### Cobertura
 
 Los smoke tests de CI no pueden autenticarse, así que comprueban lo que sí se
@@ -609,12 +654,21 @@ importador. El flujo completo —alta con portada, búsqueda por nombre y por ID
 pistas no consecutivas, rechazo de duplicados— se verificó de punta a punta con
 un navegador contra una BD de pruebas con un usuario administrador.
 
-La lógica del importador sí está cubierta por pruebas automáticas:
-`php/tools/ci_importar.php` (paso propio del workflow de CI) ejercita
-reconocimiento de enlaces, lectura de tracklists desde
-`php/tools/fixtures/tracklist_importador.json` (inyectadas por
-`Tracklist::$fetcher`, **sin red ni credenciales**), umbral y 1:1, escritura en
-`disco_marcha` con duración y percusión, y el HTML de la pantalla de revisión.
+La lógica sí está cubierta por pruebas automáticas, en dos runners que son pasos
+propios del workflow de CI y que **no tocan la red ni piden credenciales** (toda
+respuesta de servicio se inyecta desde `php/tools/fixtures/`):
+
+- `php/tools/ci_importar.php` — reconocimiento de enlaces, lectura de tracklists
+  (`Tracklist::$fetcher`), umbral y asignación 1:1, escritura en `disco_marcha`
+  con duración y percusión, y el HTML de la pantalla de revisión.
+- `php/tools/ci_enlaces_auto.php` — la cascada (`EnlacesAuto::$red`): que no pisa
+  enlaces existentes y es idempotente, que un álbum mal agrupado o un título que
+  no casa acaban en la cola y no en la ficha, el repesque por UPC cuando Odesli
+  calla, los enlaces e ISRC por marcha, el relleno de duraciones y el artista de
+  la banda (con «Various Artists» a curación).
+
+Ambos arrancan la app sin servidor con `php/tools/ci_boot.php`, sobre una copia
+desechable de la fixture de CI en modo local.
 
 ---
 

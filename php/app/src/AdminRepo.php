@@ -800,6 +800,94 @@ final class AdminRepo
         return ['code' => 'UPDATED'];
     }
 
+    /**
+     * Publica un enlace SOLO si esa entidad no tenía ya uno de ese servicio.
+     *
+     * Es la escritura de la cascada automática (App\EnlacesAuto): el guardarraíl
+     * es la UNIQUE(TIPO_ENT, ID_ENT, SERVICIO), así que un enlace curado a mano
+     * nunca se pisa y repetir la cascada es idempotente. Mismo criterio (y misma
+     * sentencia) que el INSERT OR IGNORE de tools/fill_enlaces_odesli.php.
+     *
+     * @return bool  true si se ha escrito una fila nueva
+     */
+    public static function addEnlaceStreamingSiFalta(
+        string $tipoEnt,
+        int $idEnt,
+        string $servicio,
+        string $url,
+        ?string $idExt = null,
+        ?string $isrc = null
+    ): bool {
+        if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return false;
+        if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return false;
+        $url = (string) self::normalize($url);
+        if ($url === '') return false;
+
+        $filas = Db::run(
+            'INSERT OR IGNORE INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO, ISRC)
+             VALUES (?, ?, ?, ?, ?, 1, ?)',
+            [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($isrc)]
+        );
+        if ($filas > 0) {
+            Db::logAdmin('INSERT', 'enlace_streaming', $idEnt,
+                ['tipo' => $tipoEnt, 'servicio' => $servicio, 'origen' => 'cascada']);
+        }
+        return $filas > 0;
+    }
+
+    /**
+     * Encola un enlace dudoso para curarlo en /dashboard/enlaces en vez de
+     * publicarlo. Lo usa la cascada automática cuando la coincidencia no llega
+     * al umbral de identidad (recopilatorios, álbumes mal agrupados en Odesli,
+     * artistas con nombre genérico).
+     *
+     * @return bool true si se ha encolado uno nuevo
+     */
+    public static function addEnlaceCandidato(
+        string $tipoEnt,
+        int $idEnt,
+        string $servicio,
+        string $url,
+        ?string $idExt,
+        ?string $tituloEnc,
+        ?string $artistaEnc,
+        ?string $anioEnc,
+        float $score,
+        string $runId
+    ): bool {
+        if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return false;
+        if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return false;
+        $url = (string) self::normalize($url);
+        if ($url === '') return false;
+
+        // Mismos tramos que el batch: por encima de 0.40 merece una mirada,
+        // por debajo se guarda igual pero marcado como BAJA.
+        $confianza = $score >= 0.40 ? 'MEDIA' : 'BAJA';
+        $filas = Db::run(
+            "INSERT OR IGNORE INTO enlace_candidato
+                (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, TITULO_ENC, ARTISTA_ENC, ANIO_ENC, SCORE, CONFIANZA, ESTADO, RUN_ID)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?)",
+            [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($tituloEnc),
+             self::normalize($artistaEnc), self::normalize($anioEnc), $score, $confianza, $runId]
+        );
+        return $filas > 0;
+    }
+
+    /**
+     * Enlaces publicados de una entidad, con su id nativo — la cascada necesita
+     * el ID_EXT para pedir el tracklist del álbum sin volver a resolver la URL.
+     *
+     * @return array<string,array{url:string,id_ext:string}>
+     */
+    public static function enlacesConIdExt(string $tipoEnt, int $idEnt): array
+    {
+        $out = [];
+        foreach (Db::all('SELECT SERVICIO, URL, ID_EXT FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ?', [$tipoEnt, $idEnt]) as $r) {
+            $out[(string) $r['SERVICIO']] = ['url' => (string) $r['URL'], 'id_ext' => (string) ($r['ID_EXT'] ?? '')];
+        }
+        return $out;
+    }
+
     /** @return array{code:string} */
     public static function rechazarEnlace(int $idCand): array
     {
