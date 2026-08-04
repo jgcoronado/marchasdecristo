@@ -18,6 +18,53 @@ final class EnlaceRepo
     public const SERVICIOS = ['spotify', 'apple', 'deezer', 'youtube', 'tidal', 'amazon'];
     public const CONFIANZAS = ['ALTA', 'MEDIA', 'BAJA', 'SIN_MATCH'];
 
+    // ── Versiones (original / actual) ────────────────────────────────────────
+    /**
+     * Una marcha con muchos años suena hoy muy distinta a como se estrenó:
+     * cambian los tempos, las plantillas y los arreglos. A partir de cierta
+     * antigüedad la ficha deja de presentar "las escuchas" como un bloque único
+     * y las separa en dos versiones.
+     */
+    public const VERSIONES = ['original', 'actual'];
+
+    /** Antigüedad (años) a partir de la cual la ficha separa las dos versiones. */
+    public const ANTIGUEDAD_VERSIONES = 25;
+
+    /**
+     * Ventana (años tras el estreno) dentro de la cual una grabación cuenta
+     * como "de la época". 15 años cubre las grabaciones que todavía beben de la
+     * tradición interpretativa del estreno sin exigir que sean literalmente la
+     * primera, que casi nunca está en streaming.
+     */
+    public const VENTANA_ORIGINAL = 15;
+
+    /**
+     * Versión que le corresponde a una grabación. Sin año de grabación conocido
+     * se devuelve 'actual': el catálogo de streaming es abrumadoramente moderno,
+     * así que es la respuesta correcta muchas más veces que la contraria.
+     */
+    public static function versionDeAnio(?int $anioGrabacion, ?int $anioMarcha): string
+    {
+        if ($anioGrabacion === null || $anioGrabacion <= 1800) return 'actual';
+        if ($anioMarcha === null || $anioMarcha <= 1800) return 'actual';
+        return $anioGrabacion <= $anioMarcha + self::VENTANA_ORIGINAL ? 'original' : 'actual';
+    }
+
+    /** ¿La marcha es lo bastante antigua como para que su ficha separe versiones? */
+    public static function admiteVersiones(?int $anioMarcha): bool
+    {
+        if ($anioMarcha === null || $anioMarcha <= 1800) return false;
+        return (int) date('Y') - $anioMarcha >= self::ANTIGUEDAD_VERSIONES;
+    }
+
+    /** Año de composición de una marcha, o null si no consta. */
+    public static function anioDeMarcha(int $idMarcha): ?int
+    {
+        $m = Db::one('SELECT FECHA FROM marcha WHERE ID_MARCHA = ?', [$idMarcha]);
+        if ($m === null) return null;
+        return preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1 ? (int) $m['FECHA'] : null;
+    }
+
     /** Conteos por estado, para las pestañas/badges del panel. */
     public static function counts(): array
     {
@@ -100,15 +147,75 @@ final class EnlaceRepo
      */
     public static function publicadosDe(string $tipo, int $id): array
     {
-        $rows = Db::all(
-            'SELECT SERVICIO, URL FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ?',
-            [$tipo, $id]
-        );
-        $map = [];
-        foreach ($rows as $r) $map[(string) $r['SERVICIO']] = (string) $r['URL'];
+        $porVersion = self::publicadosPorVersionDe($tipo, $id);
+        // Aplana las dos versiones en una sola lista quedándose con la actual,
+        // que es la que un visitante espera si no le damos a elegir. Las fichas
+        // de banda y disco (donde el concepto de versión no aplica) siguen
+        // usando esta función tal cual; la de marcha usa la de abajo.
+        $map = $porVersion['actual'] + $porVersion['original'];
+
         $out = [];
         foreach (self::SERVICIOS as $s) {
             if (isset($map[$s])) $out[$s] = $map[$s];
+        }
+        return $out;
+    }
+
+    /**
+     * Igual que publicadosDe pero separando las dos versiones. Ambas claves
+     * existen siempre (posiblemente vacías), para que quien lo consuma no tenga
+     * que comprobarlas.
+     *
+     * @return array{original: array<string,string>, actual: array<string,string>}
+     */
+    public static function publicadosPorVersionDe(string $tipo, int $id): array
+    {
+        $rows = Db::all(
+            'SELECT SERVICIO, URL, VERSION FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ?',
+            [$tipo, $id]
+        );
+
+        $map = ['original' => [], 'actual' => []];
+        foreach ($rows as $r) {
+            $v = (string) ($r['VERSION'] ?? 'actual');
+            if (!isset($map[$v])) $v = 'actual';
+            $map[$v][(string) $r['SERVICIO']] = (string) $r['URL'];
+        }
+
+        // Reordenar cada versión al orden canónico de SERVICIOS, para que la
+        // botonera salga siempre igual venga como venga de la BD.
+        $out = ['original' => [], 'actual' => []];
+        foreach ($map as $version => $porServicio) {
+            foreach (self::SERVICIOS as $s) {
+                if (isset($porServicio[$s])) $out[$version][$s] = $porServicio[$s];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Como publicadosPorVersionDe, pero con el año de cada grabación y si su
+     * versión se fijó a mano. Es lo que necesita el formulario del panel; la
+     * ficha pública solo quiere la URL, así que usa la otra.
+     *
+     * @return array{original: array<string,array{url:string,anio:?int,manual:bool}>,
+     *               actual:   array<string,array{url:string,anio:?int,manual:bool}>}
+     */
+    public static function detalleDe(string $tipo, int $id): array
+    {
+        $rows = Db::all(
+            'SELECT SERVICIO, URL, VERSION, ANIO, VERSION_AUTO FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ?',
+            [$tipo, $id]
+        );
+        $out = ['original' => [], 'actual' => []];
+        foreach ($rows as $r) {
+            $v = (string) ($r['VERSION'] ?? 'actual');
+            if (!isset($out[$v])) $v = 'actual';
+            $out[$v][(string) $r['SERVICIO']] = [
+                'url' => (string) $r['URL'],
+                'anio' => $r['ANIO'] !== null ? (int) $r['ANIO'] : null,
+                'manual' => (int) ($r['VERSION_AUTO'] ?? 1) === 0,
+            ];
         }
         return $out;
     }

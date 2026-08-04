@@ -396,6 +396,37 @@ $tests = [
     'marcha inexistente 404' => static fn() => assertStatus('/marcha/nada-999999', 404, $base),
     'marcha coherencia canónica ↔ JSON-LD (M8)' => static fn() => assertJsonLdUrlsCanonical('/marcha/costalero-bueno-3', $base),
 
+    // ── Escuchar: botonera única y pestañas por versión ─────────────────────
+    // La marcha 1 es de 1995 (más de 25 años) y tiene enlaces de las dos
+    // versiones en la fixture, así que su ficha debe partirlas en pestañas.
+    'marcha antigua separa versión original y actual' => static function () use ($base): void {
+        assertContains('/marcha/consuelo-gitano-1', 'Versión original', $base);
+        assertContains('/marcha/consuelo-gitano-1', 'Versión actual', $base);
+    },
+    // El enlace de AUDIO es un botón más, no una miniatura de YouTube: la ficha
+    // de marcha ya no incrusta reproductores de terceros.
+    'marcha no incrusta reproductores' => static function () use ($base): void {
+        $r = assertStatus('/marcha/consuelo-gitano-1', 200, $base);
+        foreach (['ytembed', 'mdembed'] as $muerto) {
+            if (str_contains($r['body'], $muerto)) {
+                throw new RuntimeException("/marcha/consuelo-gitano-1 → sigue incrustando '$muerto'");
+            }
+        }
+        if (!str_contains($r['body'], 'stream-youtube')) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → el enlace de AUDIO no sale como botón');
+        }
+    },
+    // Sin año de composición no hay "época" que distinguir: botonera única.
+    'marcha sin año no separa versiones' => static function () use ($base): void {
+        $r = assertStatus('/marcha/reina-de-san-roman-5', 200, $base);
+        if (str_contains($r['body'], 'Versión original')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → sin año de composición no debería haber pestañas de versión');
+        }
+        if (!str_contains($r['body'], 'stream-spotify')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → falta el botón de Spotify');
+        }
+    },
+
     // ── Autor / Banda / Disco / Dedicatoria ─────────────────────────────────
     'autor listado 200' => static fn() => assertStatus('/autor', 200, $base),
     'autor ficha 200 + JSON-LD Person' => static fn() => assertJsonLd('/autor/jose-garcia-perez-1', $base, 'Person'),

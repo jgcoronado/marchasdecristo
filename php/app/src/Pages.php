@@ -482,7 +482,9 @@ final class Pages
         $base = self::base();
         $url = $base . $canonical;
         $autores = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR']));
-        $enlaces = EnlaceRepo::publicadosDe('marcha', (int) $m['ID_MARCHA']);
+        // La ficha de marcha separa versión original y actual (ver Html::escuchar),
+        // así que necesita los enlaces agrupados, no aplanados.
+        $enlaces = EnlaceRepo::publicadosPorVersionDe('marcha', (int) $m['ID_MARCHA']);
 
         Http::cachePublic(3600);
         View::render('marcha_detail', ['m' => $m, 'url' => $url, 'enlaces' => $enlaces], [

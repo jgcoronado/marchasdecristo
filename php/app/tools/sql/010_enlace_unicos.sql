@@ -15,8 +15,16 @@
 -- migrate_ingest.php lo explica y los lista, sin borrar nada por su cuenta: qué
 -- fila sobra es una decisión editorial, no automática.
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_enlace_streaming_ent_srv
-    ON enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO);
+-- La versión entra en la clave: una marcha antigua tiene una escucha por
+-- versión (original / actual) en cada servicio, así que dos filas con el mismo
+-- (entidad, servicio) y distinta VERSION son legítimas, no un duplicado. Ver
+-- 004_enlace_streaming.sql y Html::escuchar.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_enlace_streaming_ent_srv_ver
+    ON enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, VERSION);
+
+-- El índice de 3 columnas de la primera versión de esta migración: si está
+-- puesto, impide precisamente las dos versiones del mismo servicio.
+DROP INDEX IF EXISTS ux_enlace_streaming_ent_srv;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_enlace_candidato_ent_srv_url
     ON enlace_candidato (TIPO_ENT, ID_ENT, SERVICIO, URL);

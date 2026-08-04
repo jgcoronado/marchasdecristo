@@ -346,10 +346,18 @@ function sinRestriccionDeUnicidad(): void
     Db::run('ALTER TABLE enlace_streaming RENAME TO enlace_streaming_legacy');
     Db::run('CREATE TABLE enlace_streaming (
         ID_ENLACE INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT,
-        ID_EXT TEXT, ISRC TEXT, VERIFICADO INTEGER NOT NULL DEFAULT 1,
+        ID_EXT TEXT, ISRC TEXT,
+        VERSION TEXT NOT NULL DEFAULT \'actual\', ANIO INTEGER, VERSION_AUTO INTEGER NOT NULL DEFAULT 1,
+        VERIFICADO INTEGER NOT NULL DEFAULT 1,
         FECHA_ALTA TEXT NOT NULL DEFAULT (datetime(\'now\'))
     )');
-    Db::run('INSERT INTO enlace_streaming SELECT * FROM enlace_streaming_legacy');
+    // Lista explícita de columnas, no SELECT *: la tabla ha ido acumulando
+    // columnas (ISRC, y ahora las de versión) y el orden no tiene por qué
+    // coincidir entre la base real y la de este espejo.
+    Db::run('INSERT INTO enlace_streaming
+                 (ID_ENLACE, TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, ISRC, VERSION, ANIO, VERSION_AUTO, VERIFICADO, FECHA_ALTA)
+             SELECT ID_ENLACE, TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, ISRC, VERSION, ANIO, VERSION_AUTO, VERIFICADO, FECHA_ALTA
+             FROM enlace_streaming_legacy');
     Db::run('DROP TABLE enlace_streaming_legacy');
 }
 

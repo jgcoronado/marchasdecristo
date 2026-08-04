@@ -279,6 +279,14 @@ final class EnlacesAuto
         );
         if ($pistas === []) return;
 
+        // Año del disco = año de ESTA grabación. Es lo que decide si el enlace
+        // es de la versión original de la marcha o de la actual (ver
+        // EnlaceRepo::versionDeAnio): un corte de un CD de 1996 de una marcha de
+        // 1990 es de época; el mismo título en un disco de 2020, no.
+        $anioDisco = Db::one('SELECT FECHA_CD FROM disco WHERE ID_DISCO = ?', [$idDisco]);
+        $anioGrab = ($anioDisco !== null && (int) (float) $anioDisco['FECHA_CD'] > 1800)
+            ? (int) (float) $anioDisco['FECHA_CD'] : null;
+
         // Qué servicios tiene ya cada marcha: una marcha vive en varios discos,
         // así que puede venir enlazada de otro.
         $tiene = [];
@@ -324,7 +332,7 @@ final class EnlacesAuto
 
                 if (($track['url'] ?? '') === '' || in_array($servicio, $tiene[$idM], true)) continue;
                 if (AdminRepo::addEnlaceStreamingSiFalta('marcha', $idM, $servicio, (string) $track['url'],
-                    (string) ($track['id'] ?? ''), $track['isrc'] ?? null)) {
+                    (string) ($track['id'] ?? ''), $track['isrc'] ?? null, $anioGrab)) {
                     $tiene[$idM][] = $servicio;
                     $r['marchas']['enlaces']++;
                 }

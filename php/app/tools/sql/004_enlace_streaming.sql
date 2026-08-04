@@ -13,6 +13,22 @@
 -- Idempotente (CREATE ... IF NOT EXISTS): seguro re-ejecutar desde migrate_ingest.php.
 
 -- 1) Enlaces aprobados / publicados (lo que consume la ficha pública).
+--
+-- VERSION: una marcha con muchos años se interpreta hoy de forma muy distinta a
+-- como sonaba al estrenarse, así que su ficha separa las escuchas en "versión
+-- original" (grabaciones de la época) y "versión actual". Por eso la unicidad
+-- incluye VERSION: una misma marcha puede tener DOS enlaces de Spotify, uno por
+-- versión. Para banda y disco el concepto no aplica y todas las filas se quedan
+-- en el DEFAULT 'actual', que reproduce el comportamiento anterior.
+--
+-- ANIO / VERSION_AUTO: la versión se DERIVA del año de la grabación enlazada
+-- (ver EnlaceRepo::versionDeAnio) y esa derivación se recalcula al reingestar.
+-- VERSION_AUTO = 0 marca las filas que un administrador clasificó a mano, para
+-- que ningún recálculo automático las pise.
+--
+-- La unicidad NO va aquí dentro: es el índice de 010_enlace_unicos.sql. Un
+-- CREATE TABLE IF NOT EXISTS no toca las bases donde la tabla ya existía, así
+-- que declararla aquí no garantizaba nada (ver el porqué en esa migración).
 CREATE TABLE IF NOT EXISTS enlace_streaming (
     ID_ENLACE   INTEGER PRIMARY KEY,
     TIPO_ENT    TEXT    NOT NULL CHECK (TIPO_ENT IN ('banda','disco','marcha')),
@@ -20,9 +36,12 @@ CREATE TABLE IF NOT EXISTS enlace_streaming (
     SERVICIO    TEXT    NOT NULL CHECK (SERVICIO IN ('spotify','apple','deezer','youtube','tidal','amazon')),
     URL         TEXT    NOT NULL,
     ID_EXT      TEXT,                       -- id nativo del servicio (album/artist/track)
+    ISRC        TEXT,                       -- ISRC de la grabación, si el servicio lo da
+    VERSION     TEXT    NOT NULL DEFAULT 'actual' CHECK (VERSION IN ('original','actual')),
+    ANIO        INTEGER,                    -- año de la grabación enlazada (deriva VERSION)
+    VERSION_AUTO INTEGER NOT NULL DEFAULT 1,-- 1 = versión derivada; 0 = fijada a mano
     VERIFICADO  INTEGER NOT NULL DEFAULT 1, -- 1 = revisado por admin; 0 = auto sin revisar
-    FECHA_ALTA  TEXT    NOT NULL DEFAULT (datetime('now')),
-    UNIQUE (TIPO_ENT, ID_ENT, SERVICIO)     -- un enlace por entidad+servicio
+    FECHA_ALTA  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_enl_ent ON enlace_streaming (TIPO_ENT, ID_ENT);
 

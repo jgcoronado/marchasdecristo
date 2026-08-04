@@ -239,6 +239,7 @@ final class Admin
             'mode' => 'edit', 'session' => $session, 'action' => "/dashboard/marcha/$id",
             'marcha' => $marcha, 'authors' => Repo::currentAutoresForMarcha($id),
             'proposalMode' => self::proposalMode($session),
+            'enlaces' => EnlaceRepo::detalleDe('marcha', (int) $id),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar marcha #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -1766,6 +1767,40 @@ final class Admin
             // de percusión.
             'ancho' => true,
         ]);
+    }
+
+    /**
+     * Enlaces de escucha de una marcha, separados por versión.
+     *
+     * A diferencia de banda y disco, aquí hay DOS campos por servicio: una
+     * marcha con años se interpreta hoy de forma muy distinta a como se
+     * estrenó, y la ficha pública separa esas escuchas en dos pestañas (ver
+     * Html::escuchar). Lo que se guarde aquí queda marcado como clasificado a
+     * mano ($manual = true), para que la derivación automática por año que
+     * hacen la ingesta y la cascada no lo sobrescriba después.
+     *
+     * Vacío = borrar ese (servicio, versión), igual que en disco y banda.
+     */
+    public static function marchaSocialPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/marcha/$id?err=CSRF", 302);
+
+        foreach (EnlaceRepo::VERSIONES as $version) {
+            foreach (EnlaceRepo::SERVICIOS as $servicio) {
+                $campo = $version . '_' . $servicio;
+                $url = $_POST[$campo] ?? null;
+                $anioRaw = trim((string) ($_POST[$campo . '_anio'] ?? ''));
+                $anio = ctype_digit($anioRaw) ? (int) $anioRaw : null;
+                $r = AdminRepo::setEnlaceStreaming(
+                    'marcha', $id, $servicio, is_string($url) ? $url : null,
+                    null, $version, $anio, true
+                );
+                if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/marcha/$id?err=BAD_REQUEST", 302);
+            }
+        }
+        Http::redirect("/dashboard/marcha/$id?ok=" . rawurlencode('Enlaces de escucha guardados.'), 302);
     }
 
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */

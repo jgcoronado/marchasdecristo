@@ -168,6 +168,8 @@ $router->get('/dashboard/marcha/add', [Admin::class, 'marchaAddForm']);
 $router->post('/dashboard/marcha/add', [Admin::class, 'marchaAddPost']);
 $router->get('/dashboard/marcha/{id}', [Admin::class, 'marchaEditForm']);
 $router->post('/dashboard/marcha/{id}', [Admin::class, 'marchaEditPost']);
+// Enlaces de escucha de la marcha, separados por versión (original / actual).
+$router->post('/dashboard/marcha/{id}/social', [Admin::class, 'marchaSocialPost']);
 // Curación de estilo (CCTT/AM), asignación manual por lote.
 $router->get('/dashboard/estilos', [Admin::class, 'estiloList']);
 $router->post('/dashboard/estilos/asignar', [Admin::class, 'estiloAssignPost']);

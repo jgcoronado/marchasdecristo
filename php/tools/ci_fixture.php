@@ -84,16 +84,21 @@ CREATE TABLE ingest_descarte_ultimo (
   ID INTEGER PRIMARY KEY, IDS_JSON TEXT NOT NULL, N INTEGER NOT NULL,
   USUARIO TEXT, CREATED_AT TEXT DEFAULT (datetime('now'))
 );
--- Espejo de 004_enlace_streaming.sql en lo que la app usa: el UNIQUE es lo que
--- hace funcionar el UPSERT de AdminRepo::setEnlaceStreaming (ON CONFLICT), así
--- que sin él el guardado de enlaces solo fallaría en CI.
+-- Espejo de 004_enlace_streaming.sql en lo que la app usa. La unicidad incluye
+-- VERSION: una marcha antigua tiene una escucha por versión (original/actual)
+-- en cada servicio, así que la clave de 3 columnas impediría justo el caso que
+-- la ficha quiere enseñar. Aquí va como UNIQUE de tabla en vez de como índice
+-- (migración 010) porque el fixture crea la base entera de cero.
 CREATE TABLE enlace_streaming (
   ID_ENLACE INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT,
   ID_EXT TEXT,        -- id nativo del servicio: de aquí sale el tracklist del álbum
   ISRC TEXT,
+  VERSION TEXT NOT NULL DEFAULT 'actual',   -- 'original' | 'actual'
+  ANIO INTEGER,                             -- año de la grabación enlazada
+  VERSION_AUTO INTEGER NOT NULL DEFAULT 1,  -- 0 = versión fijada a mano
   VERIFICADO INTEGER NOT NULL DEFAULT 1,
   FECHA_ALTA TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO)
+  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO, VERSION)
 );
 -- Espejo reducido de 004_enlace_streaming.sql (§2). Igual que arriba: la clave
 -- es ID_CAND y el UNIQUE es el que hace idempotente el INSERT OR IGNORE de la
@@ -176,8 +181,15 @@ $ins('INSERT INTO dedicatoria_alias (ID_DEDIC, VARIANTE, LOCALIDAD) VALUES (?,?,
 $ins('INSERT INTO ingest_candidato (MARCHA_CREADA, VIDEO_ID, PUBLICADO_AT, REVIEWED_AT) VALUES (?,?,?,?)', [
     [1, 'dQw4w9WgXcQ', '2021-03-15', '2026-01-01'],
 ]);
-$ins('INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL) VALUES (?,?,?,?)', [
-    ['marcha', 1, 'spotify', 'https://open.spotify.com/track/x'],
+// La marcha 1 es de 1995: pasa de los 25 años, así que su ficha separa versión
+// original y actual (ver Html::escuchar). Se le dan enlaces de las DOS para que
+// el smoke ejercite las pestañas y no solo la botonera plana.
+// La 5 no tiene año de composición: sin él no hay "época" que distinguir y sale
+// la botonera única, que es el otro camino.
+$ins('INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, VERSION, ANIO) VALUES (?,?,?,?,?,?)', [
+    ['marcha', 1, 'spotify', 'https://open.spotify.com/track/x', 'actual', 2022],
+    ['marcha', 1, 'deezer', 'https://www.deezer.com/es/track/1', 'original', 1996],
+    ['marcha', 5, 'spotify', 'https://open.spotify.com/track/y', 'actual', null],
 ]);
 
 $ins('INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE) VALUES (?,?,?,?,?,?)', [
