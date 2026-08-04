@@ -66,6 +66,14 @@ final class EnlacesAuto
     public const PRESUPUESTO_SEG = 25;
 
     /**
+     * Presupuesto efectivo. El valor por defecto es el del panel, donde hay un
+     * usuario esperando; un proceso CLI que recorre el catálogo entero
+     * (tools/fill_enlaces_cascada.php) lo sube, porque ahí nadie espera y
+     * cortar a los 25 s solo dejaría discos a medias.
+     */
+    public static int $presupuestoSeg = self::PRESUPUESTO_SEG;
+
+    /**
      * Punto de inyección para las pruebas: sustituye TODA la red.
      * Firma: fn(string $operacion, array $args): mixed
      *
@@ -457,7 +465,7 @@ final class EnlacesAuto
             return (self::$red)($operacion, $args);
         }
         if (self::$agotado) return null;
-        if ((microtime(true) - self::$inicio) > self::PRESUPUESTO_SEG) {
+        if ((microtime(true) - self::$inicio) > self::$presupuestoSeg) {
             self::$agotado = true;
             return null;
         }

@@ -147,13 +147,30 @@ final class Tracklist
         return ($id !== '' && $secret !== '') ? [$id, $secret] : null;
     }
 
-    /** Token de client-credentials, o null si este host no tiene credenciales. */
+    /**
+     * Token de client-credentials, o null si este host no tiene credenciales.
+     *
+     * Memoizado: dura una hora en Spotify y aquí se renueva a los 55 min. En una
+     * petición web da igual, pero un proceso que recorre el catálogo entero
+     * (tools/fill_enlaces_cascada.php) pide varios tracklists por disco y sin
+     * esto negociaría un token nuevo en cada llamada.
+     */
     public static function tokenSpotify(): ?string
     {
+        static $token = null;
+        static $caduca = 0;
+
+        if ($token !== null && time() < $caduca) return $token;
+
         $cred = self::credencialesSpotify();
         if ($cred === null) return null;
         self::cargarLib();
-        return spotifyToken($cred[0], $cred[1]);
+        $nuevo = spotifyToken($cred[0], $cred[1]);
+        if ($nuevo !== null) {
+            $token = $nuevo;
+            $caduca = time() + 55 * 60;
+        }
+        return $nuevo;
     }
 
     /**

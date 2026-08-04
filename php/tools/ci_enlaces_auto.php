@@ -411,6 +411,24 @@ $tests['migración 010: crea la unicidad que faltaba'] = static function (): voi
     assertCierto($fallo, 'la base debería rechazar el segundo enlace del mismo servicio');
 };
 
+// ── 6. El script de pasada masiva ────────────────────────────────────────────
+
+$tests['fill_enlaces_cascada: arranca y respeta el fail-safe de solo-lectura'] = static function () use ($dbPath): void {
+    $script = APP_DIR . '/tools/fill_enlaces_cascada.php';
+    assertCierto(is_file($script), 'el script tiene que existir');
+
+    // Sin config.local.php el entorno es 'production': el script debe negarse a
+    // escribir, igual que Db::assertWritable. Comprueba de paso que arranca
+    // (autoload, constantes y config) sin tocar la red ni la BD.
+    $salida = [];
+    $codigo = 0;
+    exec('DB_PATH=' . escapeshellarg($dbPath) . ' php ' . escapeshellarg($script) . ' --disco=1 2>&1', $salida, $codigo);
+    $texto = implode("\n", $salida);
+
+    assertIgual(1, $codigo, "el script debería salir con error fuera de local. Salida:\n$texto");
+    assertCierto(str_contains($texto, "'local'"), 'y explicar que solo el entorno local escribe');
+};
+
 $salida = ciEjecuta($tests);
 if ($argc < 2) ciLimpia($dbPath);
 exit($salida);

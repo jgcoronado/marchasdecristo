@@ -320,6 +320,37 @@ entorno `DB_PATH` permite apuntar a una BD distinta de la que resuelve `config.p
 (útil para pruebas). Salvo que se indique lo contrario, todos son **solo lectura** o
 cuentan con un modo dry-run por defecto.
 
+### `fill_enlaces_cascada.php` — La cascada del panel, sobre todo el catálogo
+
+Pasa `EnlacesAuto::paraDisco()` por **todos los discos que ya tengan al menos un
+enlace**: completa el resto de servicios del disco, el enlace (e ISRC) de cada
+una de sus marchas y el perfil de artista de la banda, más las duraciones que
+falten. No reimplementa nada — es el mismo código que corre al guardar un enlace
+en el panel, así que el criterio no puede divergir.
+
+```bash
+php php/app/tools/fill_enlaces_cascada.php                 # dry-run de todo
+php php/app/tools/fill_enlaces_cascada.php --commit        # escribe
+php php/app/tools/fill_enlaces_cascada.php --desde=300 --limite=50 --commit
+```
+
+- **Dry-run por defecto, y honesto**: ejecuta el mismo código y hace `rollback`
+  de cada disco, así que el informe es lo que escribiría, no una estimación
+  aparte. `--commit` confirma.
+- **Idempotente**: nunca pisa un enlace existente, así que relanzarlo tras un
+  corte no duplica nada. `--desde=ID` reanuda.
+- **Ritmo**: 1 llamada a Odesli por disco y `--pausa` de 6,5 s entre discos, que
+  es lo que admite su API sin clave (~10/min). Para los ~430 discos del catálogo
+  son unos 50 min; la caché de `php/data/odesli_cache/` hace que la segunda
+  pasada vuele.
+- Escribe un CSV por ejecución en `php/data/cascada-<fecha>.csv` (gitignored).
+- Exige `env => local`, como toda escritura: aborta si no.
+
+Complementa a `fill_enlaces_odesli.php` en vez de sustituirlo: aquel parte
+siempre de Spotify y baja a Amazon/Tidal/YouTube **pista a pista** (1 llamada a
+Odesli por pista, caro pero cubre servicios sin tracklist público). Lo normal es
+pasar este primero, que cubre casi todo barato, y dejar aquel para el repaso.
+
 ### `fill_enlaces_streaming.php` — Completar enlaces Spotify de discos y marchas
 
 Obtiene los álbumes/pistas del artista en Spotify y los cruza (fuzzy) con los discos y
