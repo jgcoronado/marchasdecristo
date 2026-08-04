@@ -180,7 +180,10 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endif; ?>
     </header>
 
-    <main id="main-content"><?= $content ?></main>
+    <?php /* $meta['ancho'] ensancha el contenido para las pantallas del panel
+             que son tablas de trabajo, no lectura: con el ancho de lectura
+             (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho. */ ?>
+    <main id="main-content"<?= !empty($meta['ancho']) ? ' class="main-ancho"' : '' ?>><?= $content ?></main>
 
     <footer>
         <div class="inner">

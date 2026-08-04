@@ -177,6 +177,11 @@ header nav {
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
 main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.1rem 1rem 2rem; }
+/* Pantallas del panel que son tabla de trabajo (revisión de la importación de
+   pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
+   ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
+main.main-ancho { max-width: min(90vw, 90rem); }
+main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
 
@@ -274,6 +279,25 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 a.svc:hover { border-color: var(--acc); }
 .svc.off { color: var(--faint); }
 
+/* Versión original / versión actual (ficha de marcha, ver Html::escuchar).
+   Una marcha con muchos años no se toca hoy como el día que se estrenó, así
+   que a partir de cierta antigüedad sus escuchas se separan en dos pestañas.
+   Radios + selector de hermano: funciona sin JS y las flechas del teclado
+   cambian de pestaña sin código nuestro. */
+.vtabs { position: relative; }
+.vtab-in { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.vtab-bar { display: flex; flex-wrap: wrap; gap: 0 1.2rem; border-bottom: 1px solid var(--line); }
+.vtab { font-size: 0.9rem; color: var(--muted-c); cursor: pointer; padding: 0.3rem 0; margin-bottom: -1px; border-bottom: 2px solid transparent; }
+.vtab:hover { color: var(--acc); }
+.vtab-in-o:checked ~ .vtab-bar .vtab-o,
+.vtab-in-a:checked ~ .vtab-bar .vtab-a { color: var(--ink); border-bottom-color: var(--acc); font-weight: 600; }
+.vtab-in-o:focus-visible ~ .vtab-bar .vtab-o,
+.vtab-in-a:focus-visible ~ .vtab-bar .vtab-a { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vtab-panel { display: none; }
+.vtab-in-o:checked ~ .vtab-panel-o,
+.vtab-in-a:checked ~ .vtab-panel-a { display: block; }
+.vtab-vacio { font-size: 0.9rem; color: var(--faint); margin: 0.7rem 0 0.2rem; }
+
 /* Vídeo embebido: fachada sin cookies (no carga YouTube hasta pulsar).
    max-width limita la altura en pantallas anchas (16:9 a ancho completo del
    .record llegaba a invadir la pantalla); se mantiene centrado. */
@@ -286,18 +310,6 @@ a.svc:hover { border-color: var(--acc); }
 .ytfacade-play::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-42%, -50%); border-style: solid; border-width: 0.62rem 0 0.62rem 1.05rem; border-color: transparent transparent transparent #fff; }
 .ytfacade:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-
-/* Reproductor de audio (Spotify / Deezer / Apple Music): misma idea de fachada
-   que el vídeo —no se carga nada de terceros hasta pulsar— pero sin miniatura,
-   porque esos servicios no la sirven abierta. La altura la fija el servicio
-   (--md-alto, ver Media::embedDeUrl), no una proporción. */
-.mdembed { position: relative; max-width: 30rem; height: var(--md-alto, 152px); margin: 0 auto 0.6rem; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); background: var(--bg-2, #f4f4f5); }
-.mdembed .mdfacade { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0 1rem; border: 0; cursor: pointer; background: transparent; display: flex; align-items: center; justify-content: center; gap: 0.6rem; font: inherit; font-size: 0.95rem; color: var(--ink, inherit); }
-.mdfacade:hover, .mdfacade:focus-visible { background: rgba(120, 120, 130, 0.09); }
-.mdfacade:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
-.mdfacade-play { flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%; background: rgba(20, 20, 25, 0.78); position: relative; }
-.mdfacade-play::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-38%, -50%); border-style: solid; border-width: 0.5rem 0 0.5rem 0.85rem; border-color: transparent transparent transparent #fff; }
-.mdembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
 .notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; }

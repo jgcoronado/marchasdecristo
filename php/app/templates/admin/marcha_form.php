@@ -1,8 +1,11 @@
-<?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H; use App\Media as MD;
+<?php use App\View as V; use App\Auth; use App\Slug as S; use App\Html as H; use App\Media as MD; use App\EnlaceRepo as ER;
 /** @var string $mode @var array $session @var string $action
  *  @var array<string,mixed> $marcha @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors
- *  @var bool $proposalMode @var array|null $notice @var string|null $error */
+ *  @var bool $proposalMode @var array|null $notice @var string|null $error
+ *  @var array{original:array<string,array>,actual:array<string,array>} $enlaces
+ *  @var string|null $volver  ruta del panel a la que volver tras crear (importador de pistas) */
 $csrf = Auth::csrfToken($session);
+$volver = $volver ?? null;
 $isEdit = $mode === 'edit';
 $proposalMode = $proposalMode ?? false;
 $val = static fn(string $k): string => V::e($marcha[$k] ?? '');
@@ -34,6 +37,12 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
     <form class="panel" action="<?= V::e($action) ?>" method="POST" id="marchaForm" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="excludeId" value="<?= $excludeId ?>">
+<?php if ($volver !== null): ?>
+        <?php /* Se viene de otra pantalla a medias (importador de pistas): al
+                 crear la marcha se vuelve allí, no a la ficha nueva. */ ?>
+        <input type="hidden" name="volver" value="<?= V::e($volver) ?>">
+        <p class="alert alert-info">Al crear la marcha volverás a la importación de pistas del disco.</p>
+<?php endif; ?>
 
         <div class="field">
             <label class="field-label" for="TITULO">Título <span class="muted small">· obligatorio</span></label>
@@ -133,6 +142,55 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
 
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : ($isEdit ? 'Guardar cambios' : 'Crear marcha') ?></button></div>
     </form>
+
+<?php /* ── Enlaces de escucha, por versión ──────────────────────────────────
+         Va en su propio formulario (POST a /social) porque escribe en
+         enlace_streaming, no en la tabla marcha: mezclarlo con el formulario de
+         datos obligaría a que una propuesta de editor arrastrase enlaces, y
+         esto es cosa de administración. Por eso solo se enseña al admin. */ ?>
+<?php if ($isEdit && !$proposalMode):
+    $enl = $enlaces ?? ['original' => [], 'actual' => []];
+    $mid = (int) $marcha['ID_MARCHA'];
+    $anioMarcha = preg_match('/^\d{4}$/', (string) ($marcha['FECHA'] ?? '')) === 1 ? (int) $marcha['FECHA'] : null;
+    $separa = ER::admiteVersiones($anioMarcha);
+    $etiquetaVersion = ['original' => 'Versión original', 'actual' => 'Versión actual'];
+?>
+    <div class="shead"><h2>Enlaces de escucha</h2></div>
+    <p class="muted small">Se escriben directo en <code class="mono">enlace_streaming</code>, al margen de la cola de candidatos.
+        Vacío = sin enlace (se borra el que hubiera). Un enlace por servicio <em>y versión</em>.</p>
+<?php if ($separa): ?>
+    <p class="muted small">Esta marcha es de <?= (int) $anioMarcha ?>, así que su ficha pública muestra las dos versiones en pestañas separadas:
+        hoy no se interpreta como cuando se estrenó.</p>
+<?php else: ?>
+    <p class="muted small">La ficha pública de esta marcha <strong>no</strong> separa versiones
+        (hace falta que la marcha tenga al menos <?= ER::ANTIGUEDAD_VERSIONES ?> años y un año de composición conocido).
+        Todo lo que pongas aquí saldrá en una sola botonera.</p>
+<?php endif; ?>
+    <p class="muted small">El año es el de la grabación enlazada; aquí solo es informativo, porque al guardar por este
+        formulario la versión queda fijada a mano y ni la ingesta ni la cascada la tocan.
+        La derivación automática cuenta como «original» lo grabado hasta <?= ER::VENTANA_ORIGINAL ?> años tras el estreno.</p>
+
+    <form class="panel" action="/dashboard/marcha/<?= $mid ?>/social" method="POST">
+        <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+<?php foreach (ER::VERSIONES as $version): ?>
+        <h3 class="field-label"><?= V::e($etiquetaVersion[$version]) ?></h3>
+<?php foreach (ER::SERVICIOS as $servicio):
+    $fila = $enl[$version][$servicio] ?? null;
+    $campo = $version . '_' . $servicio;
+    $nombreSvc = H::STREAMING_LABELS[$servicio] ?? ucfirst($servicio);
+?>
+        <div class="field">
+            <label class="field-label" for="<?= $campo ?>"><?= V::e($nombreSvc) ?></label>
+            <input class="input" id="<?= $campo ?>" name="<?= $campo ?>" type="url" placeholder="https://…" value="<?= V::e($fila['url'] ?? '') ?>">
+            <input class="input" name="<?= $campo ?>_anio" type="number" min="1800" max="<?= (int) date('Y') + 1 ?>" step="1"
+                   placeholder="Año de la grabación (opcional)" value="<?= V::e($fila['anio'] ?? '') ?>"
+                   aria-label="Año de la grabación de <?= V::e($nombreSvc) ?> (<?= V::e($etiquetaVersion[$version]) ?>)">
+        </div>
+<?php endforeach; ?>
+<?php endforeach; ?>
+        <div><button class="btn btn-neutral" type="submit">Guardar enlaces de escucha</button></div>
+    </form>
+<?php endif; ?>
 </div>
 <script>window._marchaExcludeId = <?= $excludeId ?>;</script>
 <script src="/assets/admin.js" defer></script>

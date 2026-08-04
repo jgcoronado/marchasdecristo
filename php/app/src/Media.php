@@ -5,22 +5,18 @@ declare(strict_types=1);
 namespace App;
 
 /**
- * Utilidades de medios. `marcha.AUDIO` guarda una URL de vídeo de YouTube,
- * pero desde la ingesta de streaming una marcha puede tener su única escucha
- * en `enlace_streaming` (Spotify/Deezer/Apple), así que la previsualización ya
- * no puede presuponer YouTube: `reproductor()` elige la mejor fuente que haya
- * y `embedDeUrl()` sabe convertir la URL pública de cada servicio en su
- * reproductor incrustable.
+ * Utilidades de medios. `embedDeUrl()` reconoce la URL pública de cada servicio
+ * (YouTube, Spotify, Deezer, Apple Music) y da su reproductor incrustable; se
+ * usa para identificar de qué servicio es un enlace y para previsualizarlo en
+ * el panel al editarlo.
+ *
+ * La ficha de marcha ya NO incrusta reproductores: todas sus escuchas son
+ * botones idénticos (ver Html::escuchar), así que no se pide nada a terceros
+ * hasta que el visitante decide salir al servicio. El único embed que queda es
+ * el vídeo de la "marcha del día" de la portada.
  */
 final class Media
 {
-    /**
-     * Orden de preferencia al elegir reproductor entre varios servicios.
-     * YouTube va primero cuando existe (es vídeo, y es lo que guarda AUDIO);
-     * detrás, los que dan reproductor de audio incrustable.
-     */
-    private const PREFERENCIA = ['youtube', 'spotify', 'deezer', 'apple'];
-
     /**
      * Reproductor incrustable de una URL pública, o null si el servicio no lo
      * tiene (o la URL no se reconoce). `alto` es la altura en píxeles del
@@ -62,28 +58,6 @@ final class Media
                     'alto' => $esPista ? 175 : 450, 'thumb' => null];
         }
 
-        return null;
-    }
-
-    /**
-     * Mejor previsualización disponible de una marcha: primero su AUDIO (que
-     * hoy es siempre YouTube, pero puede ser cualquier servicio reconocible) y
-     * si no da reproductor, sus enlaces publicados de streaming por orden de
-     * preferencia. Null = no hay nada que incrustar (solo enlaces externos).
-     *
-     * @param array<string,string> $enlaces  [servicio => url], ver EnlaceRepo::publicadosDe
-     * @return array{servicio:string, embed:string, url:string, alto:?int, thumb:?string}|null
-     */
-    public static function reproductor(?string $audio, array $enlaces = []): ?array
-    {
-        $delAudio = self::embedDeUrl($audio);
-        if ($delAudio !== null) return $delAudio;
-
-        foreach (self::PREFERENCIA as $servicio) {
-            if (!isset($enlaces[$servicio])) continue;
-            $r = self::embedDeUrl($enlaces[$servicio]);
-            if ($r !== null) return $r;
-        }
         return null;
     }
 

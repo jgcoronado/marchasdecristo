@@ -743,24 +743,45 @@ final class AdminRepo
     public static function aprobarEnlace(int $idCand): array
     {
         $c = Db::one(
-            'SELECT TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, ESTADO FROM enlace_candidato WHERE ID_CAND = ?',
+            'SELECT TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, ANIO_ENC, ESTADO FROM enlace_candidato WHERE ID_CAND = ?',
             [$idCand]
         );
         if ($c === null) return ['code' => 'NOT_FOUND'];
         if ($c['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
 
-        return Db::transaction(static function () use ($c, $idCand): array {
-            Db::run(
-                "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO)
-                 VALUES (?, ?, ?, ?, ?, 1)
-                 ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-                 DO UPDATE SET URL = excluded.URL, ID_EXT = excluded.ID_EXT,
-                               VERIFICADO = 1, FECHA_ALTA = datetime('now')",
-                [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT']]
+        // Versión (original / actual) derivada del año que devolvió el servicio
+        // frente al año de la marcha. Solo aplica a marchas: para banda y disco
+        // el concepto no significa nada y todo se queda en 'actual'.
+        $anio = ($c['ANIO_ENC'] ?? '') !== '' ? (int) (float) $c['ANIO_ENC'] : null;
+        $version = $c['TIPO_ENT'] === 'marcha'
+            ? EnlaceRepo::versionDeAnio($anio, EnlaceRepo::anioDeMarcha((int) $c['ID_ENT']))
+            : 'actual';
+
+        return Db::transaction(static function () use ($c, $idCand, $version, $anio): array {
+            // ON CONFLICT no se puede usar aquí: hay bases anteriores a la
+            // migración 010 cuya tabla enlace_streaming se creó sin la UNIQUE,
+            // y contra ellas el UPSERT falla con «ON CONFLICT clause does not
+            // match any PRIMARY KEY or UNIQUE constraint». Se usa el mismo
+            // patrón que setEnlaceStreaming.
+            //
+            // VERSION_AUTO se queda en 1: la versión sale de la derivación, no
+            // de una decisión humana, así que un recálculo puede corregirla.
+            $updated = Db::run(
+                "UPDATE enlace_streaming
+                    SET URL = ?, ID_EXT = ?, ANIO = COALESCE(?, ANIO), VERIFICADO = 1, FECHA_ALTA = datetime('now')
+                  WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND VERSION = ?",
+                [$c['URL'], $c['ID_EXT'], $anio, $c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $version]
             );
+            if ($updated === 0) {
+                Db::run(
+                    'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERSION, ANIO, VERSION_AUTO, VERIFICADO)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)',
+                    [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT'], $version, $anio]
+                );
+            }
             Db::run("UPDATE enlace_candidato SET ESTADO = 'aprobado' WHERE ID_CAND = ?", [$idCand]);
             Db::logAdmin('APPROVE', 'enlace_candidato', $idCand,
-                ['servicio' => $c['SERVICIO'], 'ent' => $c['TIPO_ENT'] . ':' . $c['ID_ENT']]);
+                ['servicio' => $c['SERVICIO'], 'ent' => $c['TIPO_ENT'] . ':' . $c['ID_ENT'], 'version' => $version]);
             return ['code' => 'APPROVED'];
         });
     }
@@ -772,32 +793,187 @@ final class AdminRepo
      *
      * @return array{code:string}
      */
-    public static function setEnlaceStreaming(string $tipoEnt, int $idEnt, string $servicio, ?string $url, ?string $isrc = null): array
-    {
+    public static function setEnlaceStreaming(
+        string $tipoEnt,
+        int $idEnt,
+        string $servicio,
+        ?string $url,
+        ?string $isrc = null,
+        string $version = 'actual',
+        ?int $anio = null,
+        bool $manual = false
+    ): array {
         if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return ['code' => 'BAD_REQUEST'];
         if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return ['code' => 'BAD_REQUEST'];
+        if (!in_array($version, EnlaceRepo::VERSIONES, true)) return ['code' => 'BAD_REQUEST'];
         $url = self::normalize($url);
         $isrc = self::normalize($isrc);
+        if ($anio !== null && ($anio < 1800 || $anio > (int) date('Y') + 1)) $anio = null;
 
         if ($url === null) {
-            Db::run('DELETE FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?', [$tipoEnt, $idEnt, $servicio]);
-            Db::logAdmin('DELETE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio]);
+            Db::run(
+                'DELETE FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND VERSION = ?',
+                [$tipoEnt, $idEnt, $servicio, $version]
+            );
+            Db::logAdmin('DELETE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio, 'version' => $version]);
             return ['code' => 'DELETED'];
         }
 
         // R-01: el ISRC solo llega desde la ingesta (Spotify/Deezer); una
         // edición manual del enlace en el panel no lo toca — por eso solo se
         // sobrescribe cuando se pasa uno nuevo, nunca se borra a NULL aquí.
-        Db::run(
-            "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ISRC, VERIFICADO)
-             VALUES (?, ?, ?, ?, ?, 1)
-             ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-             DO UPDATE SET URL = excluded.URL, VERIFICADO = 1, FECHA_ALTA = datetime('now'),
-                            ISRC = COALESCE(excluded.ISRC, enlace_streaming.ISRC)",
-            [$tipoEnt, $idEnt, $servicio, $url, $isrc]
-        );
-        Db::logAdmin('UPDATE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio]);
+        //
+        // Se comprueba a mano en vez de con ON CONFLICT: hay bases anteriores a
+        // 004_enlace_streaming.sql cuya tabla se creó SIN la UNIQUE, y contra
+        // ellas el UPSERT no compila («ON CONFLICT clause does not match any
+        // PRIMARY KEY or UNIQUE constraint») y tumbaba el guardado entero. La
+        // migración 010 crea el índice, pero el panel no puede depender de que
+        // se haya pasado.
+        // VERSION_AUTO = 0 cuando la versión la fija una persona: marca la fila
+        // como intocable para cualquier recálculo automático posterior.
+        if (self::enlaceExiste($tipoEnt, $idEnt, $servicio, $version)) {
+            Db::run(
+                "UPDATE enlace_streaming
+                    SET URL = ?, VERIFICADO = 1, FECHA_ALTA = datetime('now'), ISRC = COALESCE(?, ISRC),
+                        ANIO = COALESCE(?, ANIO), VERSION_AUTO = ?
+                  WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND VERSION = ?",
+                [$url, $isrc, $anio, $manual ? 0 : 1, $tipoEnt, $idEnt, $servicio, $version]
+            );
+        } else {
+            Db::run(
+                'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ISRC, VERSION, ANIO, VERSION_AUTO, VERIFICADO)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+                [$tipoEnt, $idEnt, $servicio, $url, $isrc, $version, $anio, $manual ? 0 : 1]
+            );
+        }
+        Db::logAdmin('UPDATE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio, 'version' => $version]);
         return ['code' => 'UPDATED'];
+    }
+
+    /**
+     * ¿Tiene ya esta entidad un enlace de ese servicio en esa versión?
+     *
+     * La versión entra en la clave porque una marcha antigua tiene una escucha
+     * por versión (original / actual) en cada servicio: dos filas con el mismo
+     * (entidad, servicio) y distinta VERSION son legítimas. Ver el índice de la
+     * migración 010 y Html::escuchar.
+     */
+    private static function enlaceExiste(string $tipoEnt, int $idEnt, string $servicio, string $version = 'actual'): bool
+    {
+        return Db::one(
+            'SELECT 1 AS x FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND VERSION = ?',
+            [$tipoEnt, $idEnt, $servicio, $version]
+        ) !== null;
+    }
+
+    /**
+     * Publica un enlace SOLO si esa entidad no tenía ya uno de ese servicio en
+     * esa versión.
+     *
+     * Es la escritura de la cascada automática (App\EnlacesAuto): así un enlace
+     * curado a mano nunca se pisa y repetir la cascada es idempotente.
+     *
+     * El hueco se comprueba con un SELECT en vez de delegar en un INSERT OR
+     * IGNORE porque hay bases cuya `enlace_streaming` se creó sin la unicidad
+     * (ver migración 010): allí el IGNORE no ignoraría nada y la cascada iría
+     * acumulando duplicados en silencio, que es peor que fallar. Con el índice
+     * puesto, el comportamiento es el mismo.
+     *
+     * $anio es el año de la grabación enlazada (para una pista, el del disco de
+     * donde sale). En marchas decide la versión; en banda y disco se guarda como
+     * dato y la versión se queda en 'actual', que es donde no significa nada.
+     *
+     * @return bool  true si se ha escrito una fila nueva
+     */
+    public static function addEnlaceStreamingSiFalta(
+        string $tipoEnt,
+        int $idEnt,
+        string $servicio,
+        string $url,
+        ?string $idExt = null,
+        ?string $isrc = null,
+        ?int $anio = null
+    ): bool {
+        if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return false;
+        if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return false;
+        $url = (string) self::normalize($url);
+        if ($url === '') return false;
+
+        $version = $tipoEnt === 'marcha'
+            ? EnlaceRepo::versionDeAnio($anio, EnlaceRepo::anioDeMarcha($idEnt))
+            : 'actual';
+        if (self::enlaceExiste($tipoEnt, $idEnt, $servicio, $version)) return false;
+
+        Db::run(
+            'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO, ISRC, VERSION, ANIO, VERSION_AUTO)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, 1)',
+            [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($isrc), $version, $anio]
+        );
+        Db::logAdmin('INSERT', 'enlace_streaming', $idEnt,
+            ['tipo' => $tipoEnt, 'servicio' => $servicio, 'version' => $version, 'origen' => 'cascada']);
+        return true;
+    }
+
+    /**
+     * Encola un enlace dudoso para curarlo en /dashboard/enlaces en vez de
+     * publicarlo. Lo usa la cascada automática cuando la coincidencia no llega
+     * al umbral de identidad (recopilatorios, álbumes mal agrupados en Odesli,
+     * artistas con nombre genérico).
+     *
+     * @return bool true si se ha encolado uno nuevo
+     */
+    public static function addEnlaceCandidato(
+        string $tipoEnt,
+        int $idEnt,
+        string $servicio,
+        string $url,
+        ?string $idExt,
+        ?string $tituloEnc,
+        ?string $artistaEnc,
+        ?string $anioEnc,
+        float $score,
+        string $runId
+    ): bool {
+        if (!in_array($tipoEnt, ['banda', 'disco', 'marcha'], true)) return false;
+        if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return false;
+        $url = (string) self::normalize($url);
+        if ($url === '') return false;
+
+        // Mismo motivo que en addEnlaceStreamingSiFalta: la unicidad se comprueba
+        // aquí y no con un INSERT OR IGNORE, para no llenar la cola de curación
+        // de duplicados en las bases donde falte la UNIQUE.
+        $yaEsta = Db::one(
+            'SELECT 1 AS x FROM enlace_candidato WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND URL = ?',
+            [$tipoEnt, $idEnt, $servicio, $url]
+        ) !== null;
+        if ($yaEsta) return false;
+
+        // Mismos tramos que el batch: por encima de 0.40 merece una mirada,
+        // por debajo se guarda igual pero marcado como BAJA.
+        $confianza = $score >= 0.40 ? 'MEDIA' : 'BAJA';
+        Db::run(
+            "INSERT INTO enlace_candidato
+                (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, TITULO_ENC, ARTISTA_ENC, ANIO_ENC, SCORE, CONFIANZA, ESTADO, RUN_ID)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?)",
+            [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($tituloEnc),
+             self::normalize($artistaEnc), self::normalize($anioEnc), $score, $confianza, $runId]
+        );
+        return true;
+    }
+
+    /**
+     * Enlaces publicados de una entidad, con su id nativo — la cascada necesita
+     * el ID_EXT para pedir el tracklist del álbum sin volver a resolver la URL.
+     *
+     * @return array<string,array{url:string,id_ext:string}>
+     */
+    public static function enlacesConIdExt(string $tipoEnt, int $idEnt): array
+    {
+        $out = [];
+        foreach (Db::all('SELECT SERVICIO, URL, ID_EXT FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ?', [$tipoEnt, $idEnt]) as $r) {
+            $out[(string) $r['SERVICIO']] = ['url' => (string) $r['URL'], 'id_ext' => (string) ($r['ID_EXT'] ?? '')];
+        }
+        return $out;
     }
 
     /** @return array{code:string} */

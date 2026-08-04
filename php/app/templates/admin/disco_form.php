@@ -23,6 +23,7 @@ $erroresLegibles = [
     'MARCHA_YA_EN_DISCO' => 'Esa marcha ya está en el disco.',
     'PISTA_OCUPADA' => 'Ya hay una marcha con ese número de pista en ese volumen.',
     'PISTA_NO_EXISTE' => 'Esa pista ya no existe (puede que la hayan quitado).',
+    'SIN_PISTAS_MARCADAS' => 'No habías marcado ninguna pista con marcha asignada, así que no se añadió nada.',
     'MARCHA_NO_EXISTE' => 'No existe ninguna marcha con ese identificador.',
     'PISTA_INVALIDA' => 'El número de pista debe estar entre 1 y 999.',
     'VOLUMEN_INVALIDO' => 'El volumen debe estar entre 1 y 99.',
@@ -170,6 +171,13 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
     <div class="shead"><h2>Añadir marchas</h2>
         <span class="n"><?= count($pistas) === 1 ? '1 pista' : $num(count($pistas)) . ' pistas' ?></span>
     </div>
+
+    <?php /* Atajo al alta asistida: del enlace del álbum salen todas las pistas
+             de una vez, con su orden y su duración. El alta de abajo, a mano,
+             sigue siendo el camino de siempre. */ ?>
+    <p class="muted small">¿El disco está en Spotify, Apple Music o Deezer?
+        <a href="/dashboard/disco/<?= $id ?>/importar">Importar las pistas desde el enlace del álbum →</a>
+    </p>
 
     <form class="panel" action="/dashboard/disco/<?= $id ?>/pista" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
@@ -345,6 +353,14 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
     </div>
     <p class="muted small">Vincula este álbum en cada servicio. Vacío = sin enlace (se borra el que hubiera).
         Se escribe directo en <code class="mono">enlace_streaming</code>, al margen de la cola de candidatos.</p>
+    <?php /* La cascada se dispara al guardar, siempre: así «Guardar enlaces» es
+             también el botón de reintento. Solo rellena huecos. */ ?>
+    <p class="muted small">Al guardar, el panel <strong>busca solo lo que falte</strong> a partir de estos
+        enlaces: el resto de servicios de este álbum, el enlace de cada una de sus marchas y el perfil de
+        artista de la banda. Nunca pisa un enlace ya puesto, y lo que no da la talla se queda pendiente en
+        <a href="/dashboard/enlaces">la cola de enlaces</a>. Amazon, Tidal y YouTube <em>a nivel de marcha</em>
+        los completa después <code class="mono">fill_enlaces_odesli.php</code>: ahí cada pista cuesta una
+        llamada a Odesli y no cabe en una petición web.</p>
 
     <form class="panel" action="/dashboard/disco/<?= $id ?>/social" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">

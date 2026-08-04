@@ -117,7 +117,6 @@ function spotifyToken(string $id, string $secret): string {
         CURLOPT_SSL_VERIFYHOST => 0,
     ]);
     $res = json_decode((string) curl_exec($ch), true);
-    curl_close($ch);
     return $res['access_token'] ?? throw new \RuntimeException('No se pudo obtener token de Spotify');
 }
 
@@ -134,7 +133,6 @@ function spotifyGet(string $url, string $token): array {
         ]);
         $body = (string) curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
         if ($code === 200) return json_decode($body, true) ?? [];
         if ($code === 429) {
             // Rate-limit: espera y reintenta

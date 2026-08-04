@@ -168,6 +168,8 @@ $router->get('/dashboard/marcha/add', [Admin::class, 'marchaAddForm']);
 $router->post('/dashboard/marcha/add', [Admin::class, 'marchaAddPost']);
 $router->get('/dashboard/marcha/{id}', [Admin::class, 'marchaEditForm']);
 $router->post('/dashboard/marcha/{id}', [Admin::class, 'marchaEditPost']);
+// Enlaces de escucha de la marcha, separados por versión (original / actual).
+$router->post('/dashboard/marcha/{id}/social', [Admin::class, 'marchaSocialPost']);
 // Curación de estilo (CCTT/AM), asignación manual por lote.
 $router->get('/dashboard/estilos', [Admin::class, 'estiloList']);
 $router->post('/dashboard/estilos/asignar', [Admin::class, 'estiloAssignPost']);
@@ -190,6 +192,11 @@ $router->get('/dashboard/disco/add', [Admin::class, 'discoAddForm']);
 $router->post('/dashboard/disco/add', [Admin::class, 'discoAddPost']);
 $router->get('/dashboard/disco/{id}', [Admin::class, 'discoEditForm']);
 $router->post('/dashboard/disco/{id}', [Admin::class, 'discoEditPost']);
+// Alta asistida: del enlace del álbum en streaming a las pistas del disco.
+// Es lo que se ofrece nada más crear un disco; el alta manual sigue en /{id}.
+$router->get('/dashboard/disco/{id}/importar', [Admin::class, 'discoImportarForm']);
+$router->post('/dashboard/disco/{id}/importar', [Admin::class, 'discoImportarPost']);
+$router->post('/dashboard/disco/{id}/importar/confirmar', [Admin::class, 'discoImportarConfirmar']);
 $router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/editar', [Admin::class, 'discoPistaEditPost']);

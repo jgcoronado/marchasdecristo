@@ -86,9 +86,96 @@ final class Html
     public static function streaming(array $enlaces): string
     {
         if ($enlaces === []) return '';
+        return self::botonesEscucha($enlaces);
+    }
+
+    /**
+     * Sección "Escuchar" de la ficha de marcha.
+     *
+     * Todas las escuchas se pintan como el MISMO botón, venga el enlace de
+     * `marcha.AUDIO` o de `enlace_streaming`: antes el vídeo de YouTube salía
+     * como miniatura grande y el resto como botoncitos, lo que sugería una
+     * jerarquía entre servicios que no existe — solo reflejaba de qué columna
+     * de la BD había salido cada uno.
+     *
+     * Cuando la marcha tiene ya sus años ($conVersiones), los enlaces se
+     * reparten en dos pestañas: una marcha de 1950 no se toca hoy como se tocó
+     * al estrenarse, y mezclar ambas grabaciones en una lista plana engaña
+     * sobre lo que se va a oír. Las pestañas son radios + CSS, sin JS.
+     *
+     * @param array{original: array<string,string>, actual: array<string,string>} $porVersion
+     * @param string|null $audio  marcha.AUDIO — su servicio se detecta; sin año
+     *                            conocido cae siempre en la versión actual.
+     */
+    public static function escuchar(array $porVersion, ?string $audio, bool $conVersiones, int $idMarcha): string
+    {
+        $original = $porVersion['original'] ?? [];
+        $actual = $porVersion['actual'] ?? [];
+
+        // marcha.AUDIO no lleva año de grabación, así que se le asigna la
+        // versión actual. Si ya hay un enlace curado del mismo servicio, gana
+        // AUDIO: es el que un humano puso a mano en la ficha.
+        $audio = trim((string) $audio);
+        if ($audio !== '' && preg_match('~^https?://~i', $audio) === 1) {
+            // Servicio no reconocido: se enseña igual, con etiqueta neutra.
+            $svc = Media::embedDeUrl($audio)['servicio'] ?? 'otro';
+            $actual = [$svc => $audio] + $actual;
+        }
+
+        if ($original === [] && $actual === []) return '';
+
+        // Sin antigüedad suficiente no hay pestañas: serían dos, una vacía,
+        // para no decir nada.
+        if (!$conVersiones) {
+            // La actual gana cuando el mismo servicio está en las dos.
+            return '<div class="listen">' . self::botonesEscucha($actual + $original) . '</div>';
+        }
+
+        $n = 'ver-m' . $idMarcha;
+        // Se abre en "actual" cuando no hay ninguna grabación de época: abrir en
+        // una pestaña vacía sería enseñar un hueco como primera impresión.
+        $abreOriginal = $original !== [];
+
+        return '<div class="listen"><div class="vtabs">'
+            . '<input class="vtab-in vtab-in-o" type="radio" name="' . self::e($n) . '" id="' . self::e($n) . '-o"'
+                . ($abreOriginal ? ' checked' : '') . '>'
+            . '<input class="vtab-in vtab-in-a" type="radio" name="' . self::e($n) . '" id="' . self::e($n) . '-a"'
+                . ($abreOriginal ? '' : ' checked') . '>'
+            . '<div class="vtab-bar">'
+            . '<label class="vtab vtab-o" for="' . self::e($n) . '-o">Versión original</label>'
+            . '<label class="vtab vtab-a" for="' . self::e($n) . '-a">Versión actual</label>'
+            . '</div>'
+            . '<div class="vtab-panel vtab-panel-o">'
+            . ($original !== []
+                ? self::botonesEscucha($original)
+                : '<p class="vtab-vacio">Sin grabaciones de la época documentadas.</p>')
+            . '</div>'
+            . '<div class="vtab-panel vtab-panel-a">'
+            . ($actual !== []
+                ? self::botonesEscucha($actual)
+                : '<p class="vtab-vacio">Sin grabaciones actuales documentadas.</p>')
+            . '</div>'
+            . '</div></div>';
+    }
+
+    /** @param array<string,string> $enlaces [servicio => url] */
+    private static function botonesEscucha(array $enlaces): string
+    {
+        // Orden canónico de servicios (el de las etiquetas), con los no
+        // reconocidos al final. Así las dos pestañas presentan los mismos
+        // servicios en la misma posición.
+        $ordenado = [];
+        foreach (array_keys(self::STREAMING_LABELS) as $s) {
+            if (isset($enlaces[$s])) $ordenado[$s] = $enlaces[$s];
+        }
+        foreach ($enlaces as $s => $url) {
+            if (!isset($ordenado[$s])) $ordenado[$s] = $url;
+        }
+
         $btns = '';
-        foreach ($enlaces as $servicio => $url) {
-            $label = self::STREAMING_LABELS[$servicio] ?? ucfirst($servicio);
+        foreach ($ordenado as $servicio => $url) {
+            $label = self::STREAMING_LABELS[$servicio]
+                ?? ($servicio === 'otro' ? 'Escuchar' : ucfirst((string) $servicio));
             $btns .= '<a class="stream-btn stream-' . self::e($servicio) . '" href="' . self::e($url)
                 . '" target="_blank" rel="noopener noreferrer nofollow">' . self::e($label) . '</a>';
         }

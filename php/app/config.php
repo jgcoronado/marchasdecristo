@@ -4,6 +4,33 @@ declare(strict_types=1);
 
 // Valores por defecto (sin secretos). Los secretos y overrides locales van en
 // config.local.php (NO se sube al git). Ver config.local.example.php.
+
+/**
+ * Variable del `.env` de la raíz del repo, si existe.
+ *
+ * Es el fichero que ya usan los scripts de `app/tools/` y `scripts/` (SPOTIFY_*,
+ * FTP_*), así que las credenciales que valen para el batch valen también para el
+ * panel sin copiarlas en dos sitios. En el hosting ese fichero no existe y esto
+ * devuelve null sin más: allí se configura por config.local.php.
+ *
+ * Orden de precedencia: config.local.php > variable de entorno > .env > vacío.
+ */
+$envRepo = static function (string $clave): ?string {
+    static $vars = null;
+    if ($vars === null) {
+        $vars = [];
+        // BASE_DIR es php/ en local (repo/php) y /home/USER en HelioHost.
+        $fichero = dirname(BASE_DIR) . '/.env';
+        foreach (is_file($fichero) ? (file($fichero, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $linea) {
+            $linea = trim($linea);
+            if ($linea === '' || str_starts_with($linea, '#') || !str_contains($linea, '=')) continue;
+            [$k, $v] = explode('=', $linea, 2);
+            $vars[trim($k)] = trim($v, " \t'\"");
+        }
+    }
+    return $vars[$clave] ?? null;
+};
+
 $defaults = [
     'debug'            => false,
     // Fail-safe: solo 'local' habilita escrituras en la BD desde el panel.
@@ -49,6 +76,17 @@ $defaults = [
     // que es donde viven los ficheros). PRE tiene docroot propio y sin portadas,
     // así que apunta al de producción para verlas. Ver docs/entornos.md.
     'cover_base_url'     => '',
+    // Credenciales de la API de Spotify (client-credentials, app gratuita en
+    // developer.spotify.com). Las necesita el panel cuando el enlace pegado es
+    // de Spotify (App\Tracklist) y para el tracklist de Spotify en la cascada
+    // (App\EnlacesAuto); Apple Music y Deezer se leen sin credenciales. Vacío =
+    // Spotify desactivado, con aviso en pantalla en vez de un fallo opaco.
+    //
+    // Se leen del MISMO sitio que los scripts de tools/: el `.env` de la raíz
+    // del repo. Si ya tienes ahí SPOTIFY_CLIENT_ID/SECRET para el batch, el
+    // panel las coge solas y no hay que duplicar nada.
+    'spotify_client_id'     => getenv('SPOTIFY_CLIENT_ID') ?: ($envRepo('SPOTIFY_CLIENT_ID') ?? ''),
+    'spotify_client_secret' => getenv('SPOTIFY_CLIENT_SECRET') ?: ($envRepo('SPOTIFY_CLIENT_SECRET') ?? ''),
     // M7: notificaciones editoriales por email. Configurar en config.local.php.
     // Si mail_from está vacío, Mailer::send() devuelve false sin intentar nada.
     'mail_from'      => null,               // 'noreply@marchasdecristo.com'

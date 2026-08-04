@@ -52,7 +52,6 @@ function httpGet(string $url): array
     }
     $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    curl_close($ch);
 
     $rawHeaders = substr($raw, 0, $headerSize);
     $body = substr($raw, $headerSize);
@@ -64,6 +63,41 @@ function httpGet(string $url): array
         }
     }
     return ['status' => $status, 'headers' => $headers, 'body' => (string) $body];
+}
+
+/**
+ * POST sin cuerpo útil: sirve para comprobar que una ruta POST existe y está
+ * protegida. No se puede ir más allá sin sesión (y sin CSRF), que es
+ * precisamente lo que se quiere verificar.
+ *
+ * @return array{status:int,headers:array<string,string>,body:string}
+ */
+function httpPost(string $url, array $campos = []): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($campos),
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $raw = curl_exec($ch);
+    if ($raw === false) {
+        throw new RuntimeException("curl error en $url: " . curl_error($ch));
+    }
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+    $headers = [];
+    foreach (explode("\r\n", substr($raw, 0, $headerSize)) as $line) {
+        if (str_contains($line, ':')) {
+            [$k, $v] = explode(':', $line, 2);
+            $headers[strtolower(trim($k))] = trim($v);
+        }
+    }
+    return ['status' => $status, 'headers' => $headers, 'body' => (string) substr($raw, $headerSize)];
 }
 
 function assertStatus(string $path, int $expected, string $base): array
@@ -362,6 +396,37 @@ $tests = [
     'marcha inexistente 404' => static fn() => assertStatus('/marcha/nada-999999', 404, $base),
     'marcha coherencia canónica ↔ JSON-LD (M8)' => static fn() => assertJsonLdUrlsCanonical('/marcha/costalero-bueno-3', $base),
 
+    // ── Escuchar: botonera única y pestañas por versión ─────────────────────
+    // La marcha 1 es de 1995 (más de 25 años) y tiene enlaces de las dos
+    // versiones en la fixture, así que su ficha debe partirlas en pestañas.
+    'marcha antigua separa versión original y actual' => static function () use ($base): void {
+        assertContains('/marcha/consuelo-gitano-1', 'Versión original', $base);
+        assertContains('/marcha/consuelo-gitano-1', 'Versión actual', $base);
+    },
+    // El enlace de AUDIO es un botón más, no una miniatura de YouTube: la ficha
+    // de marcha ya no incrusta reproductores de terceros.
+    'marcha no incrusta reproductores' => static function () use ($base): void {
+        $r = assertStatus('/marcha/consuelo-gitano-1', 200, $base);
+        foreach (['ytembed', 'mdembed'] as $muerto) {
+            if (str_contains($r['body'], $muerto)) {
+                throw new RuntimeException("/marcha/consuelo-gitano-1 → sigue incrustando '$muerto'");
+            }
+        }
+        if (!str_contains($r['body'], 'stream-youtube')) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → el enlace de AUDIO no sale como botón');
+        }
+    },
+    // Sin año de composición no hay "época" que distinguir: botonera única.
+    'marcha sin año no separa versiones' => static function () use ($base): void {
+        $r = assertStatus('/marcha/reina-de-san-roman-5', 200, $base);
+        if (str_contains($r['body'], 'Versión original')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → sin año de composición no debería haber pestañas de versión');
+        }
+        if (!str_contains($r['body'], 'stream-spotify')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → falta el botón de Spotify');
+        }
+    },
+
     // ── Autor / Banda / Disco / Dedicatoria ─────────────────────────────────
     'autor listado 200' => static fn() => assertStatus('/autor', 200, $base),
     'autor ficha 200 + JSON-LD Person' => static fn() => assertJsonLd('/autor/jose-garcia-perez-1', $base, 'Person'),
@@ -427,7 +492,7 @@ $tests = [
     // el guard de autenticación está puesto.
     'panel: las rutas de disco existen y exigen sesión' => static function () use ($base): void {
         // 302 al login (no el 308/301 canónico que comprueba assertRedirect).
-        foreach (['/dashboard/disco/add', '/dashboard/disco/1'] as $ruta) {
+        foreach (['/dashboard/disco/add', '/dashboard/disco/1', '/dashboard/disco/1/importar'] as $ruta) {
             $r = httpGet($base . $ruta);
             if ($r['status'] !== 302) {
                 throw new RuntimeException("$ruta → esperado 302 al login, obtenido {$r['status']}");
@@ -435,6 +500,20 @@ $tests = [
             $loc = $r['headers']['location'] ?? '';
             if (!str_ends_with($loc, '/login')) {
                 throw new RuntimeException("$ruta → redirige a '$loc' en vez de /login");
+            }
+        }
+    },
+    // Importación de pistas desde el enlace del álbum: los dos POST del flujo
+    // (analizar y confirmar) tienen que existir y exigir sesión. Sin este caso,
+    // una ruta mal registrada solo se notaría al usarla a mano en local.
+    'panel: los POST del importador de pistas existen y exigen sesión' => static function () use ($base): void {
+        foreach (['/dashboard/disco/1/importar', '/dashboard/disco/1/importar/confirmar'] as $ruta) {
+            $r = httpPost($base . $ruta, ['url' => 'https://www.deezer.com/album/1']);
+            if ($r['status'] !== 302) {
+                throw new RuntimeException("POST $ruta → esperado 302 al login, obtenido {$r['status']}");
+            }
+            if (!str_ends_with($r['headers']['location'] ?? '', '/login')) {
+                throw new RuntimeException("POST $ruta → no redirige al login");
             }
         }
     },

@@ -34,6 +34,14 @@ return [
     // 'cover_base_url' => 'https://marchasdecristo.com', // SOLO en PRE: las portadas
     //                          // solo existen en el docroot de producción.
 
+    // 'spotify_client_id'     => '…', // Solo si NO usas el .env de la raíz del repo:
+    // 'spotify_client_secret' => '…', // por defecto el panel lee de ahí las mismas
+    //                          // SPOTIFY_CLIENT_ID/SECRET que los scripts de tools/.
+    //                          // Se crean gratis en developer.spotify.com (crea una
+    //                          // app → client id + secret). Hacen falta para pegar
+    //                          // enlaces de Spotify; Apple Music y Deezer funcionan
+    //                          // sin ellas. En el hosting no hay .env: ahí van aquí.
+
     // 'secciones_publicadas' => ['mapa'], // secciones de App\Secciones::EN_MADURACION
     //                          // que este host enseña pese a no estar publicadas
     //                          // todavía. Sirve para sacarlas primero en PRE y

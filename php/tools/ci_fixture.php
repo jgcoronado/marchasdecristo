@@ -63,9 +63,15 @@ CREATE TABLE dedicatoria (
   PROVINCIA TEXT, SLUG_KEY TEXT, PERSONAL INTEGER DEFAULT 0
 );
 CREATE TABLE dedicatoria_alias (ID_ALIAS INTEGER PRIMARY KEY, ID_DEDIC INTEGER, VARIANTE TEXT, LOCALIDAD TEXT DEFAULT '');
+-- Espejo reducido de 001_ingest_staging.sql: solo las columnas que consulta la
+-- app, pero con SUS nombres. La clave se llama ID_CAND, no ID: crear una marcha
+-- reevalúa los candidatos pendientes (IngestaRepo::reevaluarTrasCrearMarcha) y
+-- con la clave mal nombrada esa consulta reventaba solo contra la fixture.
 CREATE TABLE ingest_candidato (
-  ID INTEGER PRIMARY KEY, MARCHA_CREADA INTEGER, VIDEO_ID TEXT,
+  ID_CAND INTEGER PRIMARY KEY, MARCHA_CREADA INTEGER, VIDEO_ID TEXT, VIDEO_URL TEXT,
+  VIDEO_TITULO TEXT, P_TITULO TEXT, P_BANDA_ESTRENO INTEGER, ID_BANDA INTEGER,
   FUENTE TEXT NOT NULL DEFAULT 'youtube',
+  ESTADO TEXT NOT NULL DEFAULT 'pendiente', MOTIVO TEXT,
   PUBLICADO_AT TEXT, REVIEWED_AT TEXT,
   ISRC TEXT  -- R-01: espejo de migrate_ingest.php
 );
@@ -78,8 +84,32 @@ CREATE TABLE ingest_descarte_ultimo (
   ID INTEGER PRIMARY KEY, IDS_JSON TEXT NOT NULL, N INTEGER NOT NULL,
   USUARIO TEXT, CREATED_AT TEXT DEFAULT (datetime('now'))
 );
-CREATE TABLE enlace_streaming (ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ISRC TEXT);
-CREATE TABLE enlace_candidato (ID INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ESTADO TEXT, CONFIANZA TEXT);
+-- Espejo de 004_enlace_streaming.sql en lo que la app usa. La unicidad incluye
+-- VERSION: una marcha antigua tiene una escucha por versión (original/actual)
+-- en cada servicio, así que la clave de 3 columnas impediría justo el caso que
+-- la ficha quiere enseñar. Aquí va como UNIQUE de tabla en vez de como índice
+-- (migración 010) porque el fixture crea la base entera de cero.
+CREATE TABLE enlace_streaming (
+  ID_ENLACE INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT,
+  ID_EXT TEXT,        -- id nativo del servicio: de aquí sale el tracklist del álbum
+  ISRC TEXT,
+  VERSION TEXT NOT NULL DEFAULT 'actual',   -- 'original' | 'actual'
+  ANIO INTEGER,                             -- año de la grabación enlazada
+  VERSION_AUTO INTEGER NOT NULL DEFAULT 1,  -- 0 = versión fijada a mano
+  VERIFICADO INTEGER NOT NULL DEFAULT 1,
+  FECHA_ALTA TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO, VERSION)
+);
+-- Espejo reducido de 004_enlace_streaming.sql (§2). Igual que arriba: la clave
+-- es ID_CAND y el UNIQUE es el que hace idempotente el INSERT OR IGNORE de la
+-- cascada automática (App\EnlacesAuto).
+CREATE TABLE enlace_candidato (
+  ID_CAND INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT, ID_EXT TEXT,
+  TITULO_ENC TEXT, ARTISTA_ENC TEXT, ANIO_ENC TEXT, SCORE REAL NOT NULL DEFAULT 0,
+  CONFIANZA TEXT, ESTADO TEXT NOT NULL DEFAULT 'pendiente', RUN_ID TEXT,
+  FECHA TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (TIPO_ENT, ID_ENT, SERVICIO, URL)
+);
 CREATE TABLE admin_log (ID INTEGER PRIMARY KEY, accion TEXT, tabla TEXT, id_registro INTEGER, usuario TEXT, ts INTEGER, payload TEXT);
 CREATE TABLE contrato (
   ID_CONTRATO INTEGER PRIMARY KEY, ID_BANDA INTEGER, HERMANDAD TEXT, HERMANDAD_SLUG TEXT,
@@ -151,8 +181,15 @@ $ins('INSERT INTO dedicatoria_alias (ID_DEDIC, VARIANTE, LOCALIDAD) VALUES (?,?,
 $ins('INSERT INTO ingest_candidato (MARCHA_CREADA, VIDEO_ID, PUBLICADO_AT, REVIEWED_AT) VALUES (?,?,?,?)', [
     [1, 'dQw4w9WgXcQ', '2021-03-15', '2026-01-01'],
 ]);
-$ins('INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL) VALUES (?,?,?,?)', [
-    ['marcha', 1, 'spotify', 'https://open.spotify.com/track/x'],
+// La marcha 1 es de 1995: pasa de los 25 años, así que su ficha separa versión
+// original y actual (ver Html::escuchar). Se le dan enlaces de las DOS para que
+// el smoke ejercite las pestañas y no solo la botonera plana.
+// La 5 no tiene año de composición: sin él no hay "época" que distinguir y sale
+// la botonera única, que es el otro camino.
+$ins('INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, VERSION, ANIO) VALUES (?,?,?,?,?,?)', [
+    ['marcha', 1, 'spotify', 'https://open.spotify.com/track/x', 'actual', 2022],
+    ['marcha', 1, 'deezer', 'https://www.deezer.com/es/track/1', 'original', 1996],
+    ['marcha', 5, 'spotify', 'https://open.spotify.com/track/y', 'actual', null],
 ]);
 
 $ins('INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE) VALUES (?,?,?,?,?,?)', [

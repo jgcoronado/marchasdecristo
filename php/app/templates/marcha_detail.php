@@ -1,5 +1,6 @@
-<?php use App\View as V; use App\Slug as S; use App\Media as MD; use App\Html as H; use App\Pages as P;
-/** @var array<string,mixed> $m @var array<string,string> $enlaces */
+<?php use App\View as V; use App\Slug as S; use App\Html as H; use App\Pages as P; use App\EnlaceRepo as ER;
+/** @var array<string,mixed> $m
+ *  @var array{original: array<string,string>, actual: array<string,string>} $enlaces */
 /** @var string|null $url  URL canónica absoluta (permalink) */
 
 // "truthy" al estilo JS: null, '', 0, 0.0 y false son falsos; '0' (string) es verdadero.
@@ -22,16 +23,6 @@ $autoridad = static function (array $a): string {
 };
 
 $mid = (int) $m['ID_MARCHA'];
-$ytid = MD::youtubeId($m['AUDIO'] ?? null);
-$audioEsUrl = $t($m['AUDIO']) && preg_match('~^https?://~i', (string) $m['AUDIO']) === 1;
-// Previsualización: el vídeo de AUDIO si lo hay y, si no, el reproductor del
-// servicio en el que sí esté publicada (las marchas que entran por la ingesta
-// de streaming no tienen vídeo, solo su enlace de Spotify/Deezer/Apple).
-$repro = MD::reproductor($m['AUDIO'] ?? null, $enlaces ?? []);
-$reproAudio = $repro !== null && $repro['servicio'] !== 'youtube' ? $repro : null;
-// Servicio del enlace guardado en AUDIO, para nombrarlo en el botón externo
-// en vez del "Escuchar" a secas de cuando no se sabía de dónde venía.
-$audioSvc = MD::embedDeUrl($m['AUDIO'] ?? null)['servicio'] ?? null;
 $tipo = $t($m['TIPO'] ?? null) ? ucfirst(mb_strtolower((string) $m['TIPO'])) : 'Marcha';
 $estilo = match ($m['ESTILO'] ?? null) {
     'CCTT' => 'Cornetas y Tambores',
@@ -69,7 +60,15 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 <article class="record">
     <h1><?= V::e($m['TITULO']) ?></h1>
 
-<?php $hayEscuchar = $t($m['AUDIO']) || ($enlaces ?? []) !== []; ?>
+<?php
+/* Sección Escuchar: una sola botonera homogénea, y partida en dos pestañas
+   (original / actual) cuando la marcha lleva ya bastantes años sobre la calle
+   y sus grabaciones de época y actuales no se parecen. Ver Html::escuchar. */
+$enl = $enlaces ?? ['original' => [], 'actual' => []];
+$anioMarcha = $anioOk ? (int) $m['FECHA'] : null;
+$escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarcha), $mid);
+$hayEscuchar = $escuchar !== '';
+?>
 <?php /* Las anclas solo se pintan si la ficha no cabe en pantalla. Con pocas
          grabaciones llevaban a secciones visibles sin desplazarse: ruido. */ ?>
 <?php if ($nGrab >= 12): ?>
@@ -117,35 +116,12 @@ $anioOk = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1;
 
 <?php /* Escuchar va abierto: es lo que la mayoría de visitantes viene a hacer.
          Plegado tras un <details> se llevaba un clic el contenido principal de
-         la ficha. La fachada del vídeo sigue sin cargar YouTube hasta pulsar. */ ?>
-<?php $enl = $enlaces ?? []; if ($hayEscuchar): ?>
+         la ficha. Ya no hay reproductor incrustado: todas las escuchas son
+         botones idénticos, así que no se carga nada de terceros hasta que el
+         visitante decide irse al servicio. */ ?>
+<?php if ($hayEscuchar): ?>
     <div class="shead" id="escuchar"><h2>Escuchar</h2></div>
-    <div class="listen">
-<?php if ($ytid !== null): ?>
-        <div class="ytembed" data-ytid="<?= V::e($ytid) ?>">
-            <button type="button" class="ytfacade" aria-label="Reproducir el vídeo (carga YouTube al pulsar)">
-                <img class="ytfacade-img" src="<?= V::e(MD::youtubeThumb($ytid)) ?>" alt="" loading="lazy" width="480" height="270">
-                <span class="ytfacade-play" aria-hidden="true"></span>
-            </button>
-        </div>
-<?php elseif ($reproAudio !== null): ?>
-        <?php $svcNombre = H::STREAMING_LABELS[$reproAudio['servicio']] ?? ucfirst($reproAudio['servicio']); ?>
-        <div class="mdembed" data-embed="<?= V::e($reproAudio['embed']) ?>"
-             data-embed-title="Reproductor de <?= V::e($svcNombre) ?>"
-             style="--md-alto: <?= (int) ($reproAudio['alto'] ?? 152) ?>px">
-            <button type="button" class="mdfacade" aria-label="Reproducir en <?= V::e($svcNombre) ?> (carga el reproductor al pulsar)">
-                <span class="mdfacade-play" aria-hidden="true"></span>
-                <span>Escuchar en <?= V::e($svcNombre) ?></span>
-            </button>
-        </div>
-<?php endif; ?>
-<?php if ($ytid !== null || $audioEsUrl): ?>
-        <div class="svcs">
-            <a class="svc" href="<?= V::e($m['AUDIO']) ?>" rel="noopener" target="_blank">▶ <?= V::e($audioSvc !== null ? (H::STREAMING_LABELS[$audioSvc] ?? ucfirst($audioSvc)) : 'Escuchar') ?></a>
-        </div>
-<?php endif; ?>
-        <?= H::streaming($enl) ?>
-    </div>
+    <?= $escuchar ?>
 <?php endif; ?>
 
 <?php if ($notas !== ''): ?>
