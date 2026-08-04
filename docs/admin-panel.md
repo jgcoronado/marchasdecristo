@@ -576,9 +576,12 @@ ni tablas temporales:
 | 3 | POST `…/importar/confirmar` | Escribe lo aprobado (`ImportadorPistas::aplicar` → `AdminRepo::addPista`) |
 
 - **Servicios**: Spotify, Apple Music y Deezer, que son los que devuelven
-  tracklist con duración. Apple y Deezer no necesitan credenciales; Spotify sí
-  (`spotify_client_id`/`spotify_client_secret` en `config.local.php`) y sin ellas
-  la pantalla lo dice en vez de fallar. **Instagram/Facebook/X quedan fuera a
+  tracklist con duración. Apple y Deezer no necesitan credenciales; Spotify sí, y
+  sin ellas la pantalla lo dice en vez de fallar. Salen del **`.env` de la raíz
+  del repo** (`SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`), el mismo que ya usan
+  los scripts de `app/tools/`, así que no hay que duplicarlas; en el hosting, que
+  no tiene `.env`, se ponen como `spotify_client_id`/`spotify_client_secret` en
+  `config.local.php`. Precedencia: `config.local.php` > entorno > `.env`. **Instagram/Facebook/X quedan fuera a
   propósito**: un post no publica el listado en ningún formato estable (suele ser
   una foto de la contraportada) y su HTML público está tras un muro de sesión.
 - **Nada de red nueva**: las llamadas y el parseo por servicio son los de

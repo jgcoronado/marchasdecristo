@@ -13,7 +13,7 @@ $bandaDisco = (int) ($disco['BANDADISCO'] ?? 0);
 
 $erroresLegibles = [
     'URL_NO_RECONOCIDA' => 'No reconozco ese enlace. Tiene que ser la página del álbum en Spotify, Apple Music o Deezer.',
-    'SPOTIFY_SIN_CREDENCIALES' => 'Este servidor no tiene credenciales de Spotify configuradas (spotify_client_id / spotify_client_secret en config.local.php). Prueba con el enlace de Apple Music o Deezer del mismo disco, que no necesitan credenciales.',
+    'SPOTIFY_SIN_CREDENCIALES' => 'Este servidor no tiene credenciales de Spotify. Pon SPOTIFY_CLIENT_ID y SPOTIFY_CLIENT_SECRET en el .env de la raíz del repo (el mismo que usan los scripts de tools/), o spotify_client_id / spotify_client_secret en app/config.local.php. Mientras tanto, el enlace de Apple Music o Deezer del mismo disco funciona sin credenciales.',
     'SIN_PISTAS' => 'El servicio no ha devuelto ninguna pista para ese álbum. Comprueba el enlace, o inténtalo de nuevo en un momento.',
     'CSRF' => 'La sesión ha caducado. Vuelve a intentarlo.',
 ];
@@ -68,7 +68,9 @@ $nueva = isset($_GET['nueva']) ? (int) $_GET['nueva'] : 0;
                 el orden de las pistas, sus títulos y su duración; después revisas marcha a marcha antes de
                 guardar nada.
 <?php if (!Tracklist::disponible('spotify')): ?>
-                <br>⚠ Spotify no está configurado en este servidor: usa el enlace de Apple Music o Deezer.
+                <br>⚠ Spotify no está configurado en este servidor (faltan <code class="mono">SPOTIFY_CLIENT_ID</code>
+                y <code class="mono">SPOTIFY_CLIENT_SECRET</code> en el <code class="mono">.env</code> de la raíz del repo):
+                usa el enlace de Apple Music o Deezer, que no las necesitan.
 <?php endif; ?>
             </p>
         </div>
