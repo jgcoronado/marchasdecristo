@@ -243,7 +243,10 @@ dl.desc .f { display: grid; grid-template-columns: 10.5rem 1fr; gap: 0.9rem; pad
 dl.desc .f:nth-child(odd) { background: var(--zebra); }
 dl.desc dt { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--muted-c); }
 dl.desc dd { margin: 0; font-size: 0.98rem; }
-.cnt { font-size: 0.84rem; color: var(--faint); }
+/* Cifras y códigos accesorios (recuentos, IDs). Sin paréntesis, el tamaño
+   reducido y el color tenue son lo que los separa visualmente del texto
+   principal — actúan como subíndice sin desplazarse de la línea base. */
+.cnt { font-size: 0.76rem; color: var(--faint); }
 
 /* Anclas de la ficha (Datos / Escuchar / Grabaciones): enlaces #ancla
    normales, sin JS. Solo se pintan cuando la página es larga de verdad (ver
@@ -339,9 +342,11 @@ table.reg td.num, table.reg th.num { text-align: right; }
    el icono explica por qué esa toma es ~40 s más larga que las demás. */
 .perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
-/* Véase también */
-ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+/* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
+   porque son enlaces y ya se ve que lo son. */
+ul.vease { list-style: disc; margin: 0.5rem 0 0; padding: 0 0 0 1.15rem; }
 ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
+ul.vease li::marker { color: var(--faint); }
 
 /* Permalink del registro */
 .ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }

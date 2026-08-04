@@ -23,13 +23,13 @@ $total = (int) $result['totalRows'];
         <h2 class="section-title">Resumen del año</h2>
         <ul class="vease">
 <?php if ($anuario['autor']): $a = $anuario['autor']; ?>
-            <li>→ Compositor con más marchas: <a href="<?= V::e(S::buildDetailPath('autor', $a['ID_AUTOR'], (string) $a['AUTOR'])) ?>"><?= V::e($a['AUTOR']) ?></a> <span class="cnt">(<?= $num($a['MARCHAS']) ?>)</span></li>
+            <li>Compositor con más marchas: <a href="<?= V::e(S::buildDetailPath('autor', $a['ID_AUTOR'], (string) $a['AUTOR'])) ?>"><?= V::e($a['AUTOR']) ?></a> <span class="cnt"><?= $num($a['MARCHAS']) ?></span></li>
 <?php endif; ?>
 <?php if ($anuario['estreno']): $e = $anuario['estreno']; ?>
-            <li>→ Banda con más estrenos: <a href="<?= V::e(S::buildDetailPath('banda', $e['ID_BANDA'], (string) $e['BANDA'])) ?>"><?= V::e($e['BANDA']) ?></a> <span class="cnt">(<?= $num($e['MARCHAS']) ?>)</span></li>
+            <li>Banda con más estrenos: <a href="<?= V::e(S::buildDetailPath('banda', $e['ID_BANDA'], (string) $e['BANDA'])) ?>"><?= V::e($e['BANDA']) ?></a> <span class="cnt"><?= $num($e['MARCHAS']) ?></span></li>
 <?php endif; ?>
 <?php if ($anuario['grabada']): $g = $anuario['grabada']; ?>
-            <li>→ Marcha más grabada: <a href="<?= V::e(S::buildDetailPath('marcha', $g['ID_MARCHA'], (string) $g['TITULO'])) ?>"><?= V::e($g['TITULO']) ?></a> <span class="cnt">(<?= $num($g['GRABACIONES']) ?> <?= (int) $g['GRABACIONES'] === 1 ? 'grabación' : 'grabaciones' ?>)</span></li>
+            <li>Marcha más grabada: <a href="<?= V::e(S::buildDetailPath('marcha', $g['ID_MARCHA'], (string) $g['TITULO'])) ?>"><?= V::e($g['TITULO']) ?></a> <span class="cnt"><?= $num($g['GRABACIONES']) ?> <?= (int) $g['GRABACIONES'] === 1 ? 'grabación' : 'grabaciones' ?></span></li>
 <?php endif; ?>
         </ul>
     </div>
@@ -69,7 +69,7 @@ $total = (int) $result['totalRows'];
     <div class="shead"><h2>Véase también</h2></div>
     <ul class="vease">
 <?php foreach ($vease as $vs): ?>
-        <li>→ <a href="<?= V::e($vs['href']) ?>"><?= V::e($vs['label']) ?></a><?php if ($vs['cnt'] !== null): ?> <span class="cnt">(<?= $num($vs['cnt']) ?> registros)</span><?php endif; ?></li>
+        <li><a href="<?= V::e($vs['href']) ?>"><?= V::e($vs['label']) ?></a><?php if ($vs['cnt'] !== null): ?> <span class="cnt"><?= $num($vs['cnt']) ?> registros</span><?php endif; ?></li>
 <?php endforeach; ?>
     </ul>
 <?php endif; ?>

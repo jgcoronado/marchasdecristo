@@ -57,7 +57,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             <h2 class="section-title">Explorar el catálogo</h2>
             <ul class="vease">
 <?php foreach ($sugerencias as $s): ?>
-                <li>→ <a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt">(<?= $num($s['cnt']) ?> registros)</span><?php elseif ($s['note'] !== null): ?> <span class="cnt">— <?= V::e($s['note']) ?></span><?php endif; ?></li>
+                <li><a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt"><?= $num($s['cnt']) ?> registros</span><?php elseif ($s['note'] !== null): ?> <span class="cnt"><?= V::e($s['note']) ?></span><?php endif; ?></li>
 <?php endforeach; ?>
             </ul>
         </section>
