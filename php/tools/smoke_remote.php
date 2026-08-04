@@ -52,7 +52,6 @@ function httpGet(string $url): array
     }
     $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    curl_close($ch);
 
     $rawHeaders = substr($raw, 0, $headerSize);
     $body = substr($raw, $headerSize);

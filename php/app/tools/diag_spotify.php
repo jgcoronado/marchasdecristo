@@ -58,7 +58,6 @@ curl_setopt_array($ch, [
 $body  = (string) curl_exec($ch);
 $code  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $cerr  = curl_error($ch);
-curl_close($ch);
 $token = json_decode($body, true)['access_token'] ?? null;
 
 printf("· POST /api/token → HTTP %d %s\n", $code, $cerr !== '' ? "(curl: $cerr)" : '');
@@ -111,7 +110,6 @@ foreach ($discos as $d) {
         $b    = curl_exec($ch);
         $c    = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err  = curl_error($ch);
-        curl_close($ch);
 
         $j = is_string($b) ? json_decode($b, true) : null;
         if ($c === 200 && $etiqueta === 'tracks') {

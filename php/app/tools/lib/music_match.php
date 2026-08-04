@@ -95,7 +95,13 @@ function similitud(string $tituloBd, string $tituloSrv): float {
 //  HTTP
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** GET genérico con reintentos y backoff. Devuelve el body o null. */
+/**
+ * GET genérico con reintentos y backoff. Devuelve el body o null.
+ *
+ * Sin `curl_close()` a propósito: desde PHP 8.0 el handle es un objeto que se
+ * libera solo al salir de ámbito, la función no hace nada, y en PHP 8.5 emite un
+ * aviso de obsolescencia que en local (con debug) se pinta encima de la página.
+ */
 function httpGet(string $url, array $headers = [], int $intentos = 4): ?string {
     for ($i = 0; $i < $intentos; $i++) {
         $ch = curl_init($url);
@@ -109,7 +115,6 @@ function httpGet(string $url, array $headers = [], int $intentos = 4): ?string {
         ]);
         $body = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($code === 200 && is_string($body)) return $body;
         if ($code === 429 || $code >= 500 || $code === 0) {
@@ -135,7 +140,6 @@ function spotifyToken(string $id, string $secret): ?string {
         CURLOPT_TIMEOUT        => 30,
     ]);
     $res = json_decode((string) curl_exec($ch), true);
-    curl_close($ch);
     return $res['access_token'] ?? null;
 }
 

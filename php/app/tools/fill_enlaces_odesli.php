@@ -363,7 +363,6 @@ function porQueNoHayTracklist(string $srv, string $idExt, ?string $token): strin
     $body = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err  = curl_error($ch);
-    curl_close($ch);
 
     $extra = substr(preg_replace('/\s+/', ' ', (string) $body) ?? '', 0, 140);
     return match (true) {
