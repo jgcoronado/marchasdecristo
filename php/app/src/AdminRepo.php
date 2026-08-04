@@ -788,25 +788,50 @@ final class AdminRepo
         // R-01: el ISRC solo llega desde la ingesta (Spotify/Deezer); una
         // edición manual del enlace en el panel no lo toca — por eso solo se
         // sobrescribe cuando se pasa uno nuevo, nunca se borra a NULL aquí.
-        Db::run(
-            "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ISRC, VERIFICADO)
-             VALUES (?, ?, ?, ?, ?, 1)
-             ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-             DO UPDATE SET URL = excluded.URL, VERIFICADO = 1, FECHA_ALTA = datetime('now'),
-                            ISRC = COALESCE(excluded.ISRC, enlace_streaming.ISRC)",
-            [$tipoEnt, $idEnt, $servicio, $url, $isrc]
-        );
+        //
+        // Se comprueba a mano en vez de con ON CONFLICT: hay bases anteriores a
+        // 004_enlace_streaming.sql cuya tabla se creó SIN la UNIQUE, y contra
+        // ellas el UPSERT no compila («ON CONFLICT clause does not match any
+        // PRIMARY KEY or UNIQUE constraint») y tumbaba el guardado entero. La
+        // migración 010 crea el índice, pero el panel no puede depender de que
+        // se haya pasado.
+        if (self::enlaceExiste($tipoEnt, $idEnt, $servicio)) {
+            Db::run(
+                "UPDATE enlace_streaming
+                    SET URL = ?, VERIFICADO = 1, FECHA_ALTA = datetime('now'), ISRC = COALESCE(?, ISRC)
+                  WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?",
+                [$url, $isrc, $tipoEnt, $idEnt, $servicio]
+            );
+        } else {
+            Db::run(
+                'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ISRC, VERIFICADO) VALUES (?, ?, ?, ?, ?, 1)',
+                [$tipoEnt, $idEnt, $servicio, $url, $isrc]
+            );
+        }
         Db::logAdmin('UPDATE', 'enlace_streaming', $idEnt, ['tipo' => $tipoEnt, 'servicio' => $servicio]);
         return ['code' => 'UPDATED'];
+    }
+
+    /** ¿Tiene ya esta entidad un enlace de ese servicio? */
+    private static function enlaceExiste(string $tipoEnt, int $idEnt, string $servicio): bool
+    {
+        return Db::one(
+            'SELECT 1 AS x FROM enlace_streaming WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?',
+            [$tipoEnt, $idEnt, $servicio]
+        ) !== null;
     }
 
     /**
      * Publica un enlace SOLO si esa entidad no tenía ya uno de ese servicio.
      *
-     * Es la escritura de la cascada automática (App\EnlacesAuto): el guardarraíl
-     * es la UNIQUE(TIPO_ENT, ID_ENT, SERVICIO), así que un enlace curado a mano
-     * nunca se pisa y repetir la cascada es idempotente. Mismo criterio (y misma
-     * sentencia) que el INSERT OR IGNORE de tools/fill_enlaces_odesli.php.
+     * Es la escritura de la cascada automática (App\EnlacesAuto): así un enlace
+     * curado a mano nunca se pisa y repetir la cascada es idempotente.
+     *
+     * El hueco se comprueba con un SELECT en vez de delegar en un INSERT OR
+     * IGNORE porque hay bases cuya `enlace_streaming` se creó sin la
+     * UNIQUE(TIPO_ENT, ID_ENT, SERVICIO) (ver migración 010): allí el IGNORE no
+     * ignoraría nada y la cascada iría acumulando duplicados en silencio, que es
+     * peor que fallar. Con el índice puesto, el comportamiento es el mismo.
      *
      * @return bool  true si se ha escrito una fila nueva
      */
@@ -822,17 +847,16 @@ final class AdminRepo
         if (!in_array($servicio, EnlaceRepo::SERVICIOS, true)) return false;
         $url = (string) self::normalize($url);
         if ($url === '') return false;
+        if (self::enlaceExiste($tipoEnt, $idEnt, $servicio)) return false;
 
-        $filas = Db::run(
-            'INSERT OR IGNORE INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO, ISRC)
+        Db::run(
+            'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO, ISRC)
              VALUES (?, ?, ?, ?, ?, 1, ?)',
             [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($isrc)]
         );
-        if ($filas > 0) {
-            Db::logAdmin('INSERT', 'enlace_streaming', $idEnt,
-                ['tipo' => $tipoEnt, 'servicio' => $servicio, 'origen' => 'cascada']);
-        }
-        return $filas > 0;
+        Db::logAdmin('INSERT', 'enlace_streaming', $idEnt,
+            ['tipo' => $tipoEnt, 'servicio' => $servicio, 'origen' => 'cascada']);
+        return true;
     }
 
     /**
@@ -860,17 +884,26 @@ final class AdminRepo
         $url = (string) self::normalize($url);
         if ($url === '') return false;
 
+        // Mismo motivo que en addEnlaceStreamingSiFalta: la unicidad se comprueba
+        // aquí y no con un INSERT OR IGNORE, para no llenar la cola de curación
+        // de duplicados en las bases donde falte la UNIQUE.
+        $yaEsta = Db::one(
+            'SELECT 1 AS x FROM enlace_candidato WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ? AND URL = ?',
+            [$tipoEnt, $idEnt, $servicio, $url]
+        ) !== null;
+        if ($yaEsta) return false;
+
         // Mismos tramos que el batch: por encima de 0.40 merece una mirada,
         // por debajo se guarda igual pero marcado como BAJA.
         $confianza = $score >= 0.40 ? 'MEDIA' : 'BAJA';
-        $filas = Db::run(
-            "INSERT OR IGNORE INTO enlace_candidato
+        Db::run(
+            "INSERT INTO enlace_candidato
                 (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, TITULO_ENC, ARTISTA_ENC, ANIO_ENC, SCORE, CONFIANZA, ESTADO, RUN_ID)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?)",
             [$tipoEnt, $idEnt, $servicio, $url, self::normalize($idExt), self::normalize($tituloEnc),
              self::normalize($artistaEnc), self::normalize($anioEnc), $score, $confianza, $runId]
         );
-        return $filas > 0;
+        return true;
     }
 
     /**

@@ -33,6 +33,9 @@ if (!is_file($db)) {
     exit(1);
 }
 
+/** Avisos no fatales (p. ej. un índice único que no cabe por duplicados). */
+$avisos = [];
+
 $sqlDir = __DIR__ . '/sql';
 $files = glob($sqlDir . '/*.sql') ?: [];
 sort($files, SORT_STRING);
@@ -52,8 +55,44 @@ try {
             exit(1);
         }
         // Cada fichero es un lote de sentencias; PDO::exec ejecuta múltiples con ';'.
-        $pdo->exec($sql);
-        echo 'aplicado: ' . basename($file) . "\n";
+        try {
+            $pdo->exec($sql);
+            echo 'aplicado: ' . basename($file) . "\n";
+        } catch (PDOException $e) {
+            // Un lote puede fallar por una sola sentencia (el caso real: el
+            // índice único de 010 contra una tabla que ya arrastra duplicados).
+            // Se reintenta sentencia a sentencia para aplicar lo que sí cabe y
+            // poder decir exactamente qué ha quedado fuera y por qué.
+            echo 'parcial:  ' . basename($file) . ' — ' . $e->getMessage() . "\n";
+            foreach (explode(";\n", $sql) as $sentencia) {
+                // Fuera los comentarios de cabecera: si se descarta el trozo
+                // entero por empezar con "--", se pierde la sentencia que va
+                // detrás (el fichero empieza siempre explicándose).
+                $sentencia = trim((string) preg_replace('/^\s*--[^\n]*$/m', '', $sentencia));
+                if ($sentencia === '') continue;
+                try {
+                    $pdo->exec($sentencia);
+                } catch (PDOException $e2) {
+                    $avisos[] = basename($file) . ': ' . $e2->getMessage();
+                    $tabla = preg_match('/\bON\s+(\w+)\s*\(/i', $sentencia, $m) === 1 ? $m[1] : null;
+                    $cols = preg_match('/\(([^)]+)\)\s*;?$/', $sentencia, $m2) === 1 ? trim($m2[1]) : null;
+                    if ($tabla !== null && $cols !== null && str_contains($e2->getMessage(), 'UNIQUE')) {
+                        // Los duplicados que impiden el índice, para poder
+                        // resolverlos a mano: cuál sobra es decisión editorial.
+                        $dups = $pdo->query(
+                            "SELECT $cols, COUNT(*) AS n FROM $tabla GROUP BY $cols HAVING COUNT(*) > 1 LIMIT 20"
+                        )->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($dups as $d) {
+                            $avisos[] = '   duplicado en ' . $tabla . ': ' . implode(' · ', array_map(
+                                static fn($k, $v): string => "$k=$v",
+                                array_keys($d),
+                                array_values($d)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Columnas nuevas sobre tablas que ya existen. SQLite no tiene
@@ -133,3 +172,15 @@ try {
 }
 
 echo 'OK. Tablas de ingesta: ' . (empty($tables) ? '(ninguna)' : implode(', ', $tables)) . "\n";
+
+// Lo que no se ha podido aplicar se cuenta al final, no se esconde. El caso
+// típico: la unicidad de enlace_streaming (migración 010) contra una base que
+// ya tiene dos enlaces del mismo servicio para la misma entidad. Hasta que se
+// resuelva, el panel sigue funcionando (comprueba la unicidad en PHP), pero la
+// base no la garantiza.
+if ($avisos !== []) {
+    echo "\nAVISOS (nada se ha borrado; requieren decisión manual):\n";
+    foreach ($avisos as $a) echo '  · ' . $a . "\n";
+    echo "\nPara la unicidad de enlaces: revisa cada duplicado, borra el que sobre\n"
+       . "y vuelve a ejecutar esta migración.\n";
+}

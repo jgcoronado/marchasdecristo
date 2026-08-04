@@ -329,6 +329,88 @@ $tests['resumen: los dudosos se anuncian con su sitio de curación'] = static fu
     assertCierto(str_contains($texto, '/dashboard/enlaces'), 'debería decir dónde se curan');
 };
 
+// ── 5. Bases sin la UNIQUE (las anteriores a la migración 010) ───────────────
+//
+// Van al final a propósito: rehacen `enlace_streaming` sin su restricción de
+// unicidad y ese cambio se queda hecho para lo que venga detrás.
+//
+// El caso es real: si las tablas ya existían cuando se aplicó
+// 004_enlace_streaming.sql, su `CREATE TABLE IF NOT EXISTS` no hizo nada y la
+// UNIQUE nunca llegó. Ahí el UPSERT de setEnlaceStreaming reventaba («ON
+// CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint») y un
+// INSERT OR IGNORE habría ido acumulando duplicados sin decir nada.
+
+/** Deja `enlace_streaming` como en una base anterior a la migración 010. */
+function sinRestriccionDeUnicidad(): void
+{
+    Db::run('ALTER TABLE enlace_streaming RENAME TO enlace_streaming_legacy');
+    Db::run('CREATE TABLE enlace_streaming (
+        ID_ENLACE INTEGER PRIMARY KEY, TIPO_ENT TEXT, ID_ENT INTEGER, SERVICIO TEXT, URL TEXT,
+        ID_EXT TEXT, ISRC TEXT, VERIFICADO INTEGER NOT NULL DEFAULT 1,
+        FECHA_ALTA TEXT NOT NULL DEFAULT (datetime(\'now\'))
+    )');
+    Db::run('INSERT INTO enlace_streaming SELECT * FROM enlace_streaming_legacy');
+    Db::run('DROP TABLE enlace_streaming_legacy');
+}
+
+$tests['base sin UNIQUE: guardar un enlace no revienta y no duplica'] = static function (): void {
+    sinRestriccionDeUnicidad();
+
+    $id = discoConEnlace('Sevilla Cofrade Vol. 1', null, [], 1);
+    // Esto es lo que devolvía el 500 en la pantalla de importación.
+    AdminRepo::setEnlaceStreaming('disco', $id, 'spotify', SEMILLA);
+    AdminRepo::setEnlaceStreaming('disco', $id, 'spotify', 'https://open.spotify.com/album/SP1?si=otra');
+
+    $filas = Db::all("SELECT URL FROM enlace_streaming WHERE TIPO_ENT='disco' AND ID_ENT=? AND SERVICIO='spotify'", [$id]);
+    assertIgual(1, count($filas), 'guardar dos veces el mismo servicio deja UNA fila');
+    assertIgual('https://open.spotify.com/album/SP1?si=otra', (string) $filas[0]['URL'], 'y con el último valor');
+};
+
+$tests['base sin UNIQUE: la cascada sigue siendo idempotente'] = static function (): void {
+    $marcha = marchaNueva('Consuelo Gitano');
+    $id = discoConEnlace('Sevilla Cofrade Vol. 1', SEMILLA, [$marcha]);
+
+    EnlacesAuto::paraDisco($id);
+    $primera = publicados('disco', $id);
+    $r2 = EnlacesAuto::paraDisco($id);
+
+    assertIgual($primera, publicados('disco', $id), 'la segunda pasada no añade nada');
+    assertIgual([], $r2['disco']['nuevos'], 'ni lo cree');
+    $porServicio = Db::all("SELECT SERVICIO, COUNT(*) n FROM enlace_streaming WHERE TIPO_ENT='disco' AND ID_ENT=? GROUP BY SERVICIO", [$id]);
+    foreach ($porServicio as $fila) {
+        assertIgual(1, (int) $fila['n'], 'un solo enlace por servicio (' . $fila['SERVICIO'] . ')');
+    }
+    $marchas = Db::all("SELECT SERVICIO, COUNT(*) n FROM enlace_streaming WHERE TIPO_ENT='marcha' AND ID_ENT=? GROUP BY SERVICIO", [$marcha]);
+    foreach ($marchas as $fila) {
+        assertIgual(1, (int) $fila['n'], 'y un solo enlace por servicio en la marcha (' . $fila['SERVICIO'] . ')');
+    }
+};
+
+$tests['migración 010: crea la unicidad que faltaba'] = static function (): void {
+    $indices = static fn(): array => array_column(
+        Db::all("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'ux_enlace%'"), 'name'
+    );
+    assertIgual([], $indices(), 'la tabla recreada no tiene el índice');
+
+    // Se aplica el .sql tal cual lo aplicaría migrate_ingest.php.
+    foreach (explode(";\n", (string) file_get_contents(APP_DIR . '/tools/sql/010_enlace_unicos.sql')) as $sentencia) {
+        $sentencia = trim((string) preg_replace('/^\s*--[^\n]*$/m', '', $sentencia));
+        if ($sentencia === '') continue;
+        Db::run($sentencia);
+    }
+    assertIgual(['ux_enlace_streaming_ent_srv', 'ux_enlace_candidato_ent_srv_url'], $indices(), 'índices creados');
+
+    // Y con el índice puesto, la base también rechaza el duplicado por su cuenta.
+    $fallo = false;
+    try {
+        Db::run("INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL) VALUES ('disco', 1, 'spotify', 'https://x')");
+        Db::run("INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL) VALUES ('disco', 1, 'spotify', 'https://y')");
+    } catch (PDOException) {
+        $fallo = true;
+    }
+    assertCierto($fallo, 'la base debería rechazar el segundo enlace del mismo servicio');
+};
+
 $salida = ciEjecuta($tests);
 if ($argc < 2) ciLimpia($dbPath);
 exit($salida);

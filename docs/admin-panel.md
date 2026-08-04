@@ -620,10 +620,18 @@ Tres reglas que explican todo lo demás:
   código de barras de la edición y el artista se lee del propio álbum. Nunca se
   busca «una banda que se llame así», que es de donde salían los falsos
   positivos del pipeline offline («Los Angeles» ≠ BCT Ángeles).
-- **Nunca se pisa nada** (`AdminRepo::addEnlaceStreamingSiFalta`, INSERT OR
-  IGNORE contra la UNIQUE): un enlace curado a mano sobrevive y repetir la
-  cascada es idempotente. Por eso «Guardar enlaces» la lanza siempre y sirve
-  también de reintento.
+- **Nunca se pisa nada** (`AdminRepo::addEnlaceStreamingSiFalta`): un enlace
+  curado a mano sobrevive y repetir la cascada es idempotente. Por eso «Guardar
+  enlaces» la lanza siempre y sirve también de reintento. La unicidad se
+  comprueba **en PHP**, no delegando en la restricción de la tabla: hay bases
+  cuyas `enlace_streaming`/`enlace_candidato` ya existían cuando se aplicó
+  `004_enlace_streaming.sql`, así que su `CREATE TABLE IF NOT EXISTS` no hizo
+  nada y la UNIQUE nunca llegó. Ahí un UPSERT muere con «ON CONFLICT clause does
+  not match any PRIMARY KEY or UNIQUE constraint» y un INSERT OR IGNORE acumula
+  duplicados en silencio. La migración `010_enlace_unicos.sql` añade esa
+  unicidad como índice (se puede crear sobre una tabla existente); si la base
+  arrastra duplicados, `migrate_ingest.php` los **lista y no borra nada** —
+  cuál sobra es decisión editorial— y el panel sigue funcionando igual.
 - **Lo dudoso no se publica**: por debajo del umbral va a `enlace_candidato`
   (pendiente, con su score) y se cura en `/dashboard/enlaces`. Umbrales:
   disco 0,55 · pista 0,85 (candidato desde 0,60) · banda 0,55. Un recopilatorio
