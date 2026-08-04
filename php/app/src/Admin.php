@@ -1758,7 +1758,14 @@ final class Admin
             'filas' => [],
             'error' => null,
             'creado' => false,
-        ], $extra), ['title' => 'Importar pistas · disco #' . (int) $data['disco']['ID_DISCO'] . ' — Marchas de Cristo', 'noindex' => true]);
+        ], $extra), [
+            'title' => 'Importar pistas · disco #' . (int) $data['disco']['ID_DISCO'] . ' — Marchas de Cristo',
+            'noindex' => true,
+            // La revisión es una tabla de trabajo con siete columnas: con el
+            // ancho de lectura se recortan el buscador de marcha y el selector
+            // de percusión.
+            'ancho' => true,
+        ]);
     }
 
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */

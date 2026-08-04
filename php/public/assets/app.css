@@ -177,6 +177,11 @@ header nav {
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
 main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.1rem 1rem 2rem; }
+/* Pantallas del panel que son tabla de trabajo (revisión de la importación de
+   pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
+   ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
+main.main-ancho { max-width: min(90vw, 90rem); }
+main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
 

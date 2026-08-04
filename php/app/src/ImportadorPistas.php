@@ -174,6 +174,14 @@ final class ImportadorPistas
      * SQL (comparte alguna palabra significativa del título) antes de puntuar
      * en PHP: sin ella habría que recorrer las ~5.000 marchas por cada pista.
      *
+     * El ORDEN importa tanto como el filtro. Un título con palabras comunes
+     * («Señor», «Virgen», «Cristo») casa con cientos de marchas, así que el
+     * LIMIT recorta; sin ORDER BY, SQLite devuelve por rowid y el recorte se
+     * lleva por delante justo a las marchas de alta reciente. Eso hacía que una
+     * marcha con el título EXACTO —y creada la semana pasada— saliera como «sin
+     * coincidencia». Por eso se puntúa en SQL: coincidencia exacta primero,
+     * luego cuántas palabras comparte, y a igualdad la de longitud más parecida.
+     *
      * @return list<array<string,mixed>>
      */
     public static function candidatas(string $titulo, int $limit = 120): array
@@ -190,8 +198,12 @@ final class ImportadorPistas
         // título entero, que sigue siendo mejor que no buscar nada.
         if ($tokens === []) $tokens = [$norm];
 
+        $like = array_map(static fn(string $t): string => '%' . $t . '%', $tokens);
         $cond = implode(' OR ', array_fill(0, count($tokens), 'NOACC(m.TITULO) LIKE ?'));
-        $vals = array_map(static fn(string $t): string => '%' . $t . '%', $tokens);
+        // Un punto por palabra compartida; el título exacto se lleva más que
+        // cualquier suma de palabras y por tanto nunca se queda fuera del LIMIT.
+        $puntos = 'CASE WHEN NOACC(m.TITULO) = ? THEN 100 ELSE 0 END'
+            . str_repeat(' + CASE WHEN NOACC(m.TITULO) LIKE ? THEN 1 ELSE 0 END', count($tokens));
 
         return Db::all(
             "SELECT m.ID_MARCHA, m.TITULO, m.FECHA,
@@ -200,8 +212,9 @@ final class ImportadorPistas
                       WHERE ma.ID_MARCHA = m.ID_MARCHA) AS AUTORES
                FROM marcha m
               WHERE $cond
+              ORDER BY ($puntos) DESC, ABS(LENGTH(NOACC(m.TITULO)) - ?) ASC, m.ID_MARCHA ASC
               LIMIT ?",
-            [...$vals, $limit]
+            [...$like, $norm, ...$like, mb_strlen($norm), $limit]
         );
     }
 

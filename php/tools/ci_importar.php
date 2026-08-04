@@ -356,6 +356,51 @@ $tests['pantalla del enlace: explica el error y deja seguir a mano'] = static fu
     assertCierto(str_contains($html, '/dashboard/disco/1?tab=pistas'), 'siempre tiene que haber salida al alta manual');
 };
 
+// ── 8. Catálogo grande: la preselección no puede perder la marcha buena ──────
+//
+// Va al final porque siembra cientos de marchas de ruido en la BD compartida.
+//
+// El fallo que cubre es real (2026-08-04): una marcha con el título EXACTO salía
+// como «sin coincidencia» porque compartía palabras comunes («Señor») con
+// cientos de marchas, el LIMIT de la preselección recortaba y —sin ORDER BY—
+// SQLite devolvía por rowid, así que las marchas de alta reciente eran
+// justamente las que se quedaban fuera.
+
+$tests['catálogo grande: el título exacto se reconoce aunque sea de alta reciente'] = static function (): void {
+    // Ruido: muchas marchas que comparten palabras con lo que se va a buscar.
+    for ($i = 0; $i < 200; $i++) {
+        Db::run('INSERT INTO marcha (TITULO) VALUES (?)', ["Señor de los Milagros $i"]);
+        Db::run('INSERT INTO marcha (TITULO) VALUES (?)', ["La Musica del Silencio $i"]);
+    }
+    // La buena, creada la última: la que el LIMIT se llevaba por delante.
+    Db::run('INSERT INTO marcha (TITULO) VALUES (?)', ['La Música Para El Señor']);
+    $idExacta = Db::lastInsertId();
+
+    $ids = array_map(static fn(array $m): int => (int) $m['ID_MARCHA'], ImportadorPistas::candidatas('La Música Para El Señor'));
+    assertCierto(in_array($idExacta, $ids, true), 'la preselección tiene que incluir el título exacto');
+    assertIgual($idExacta, $ids[0], 'y ponerlo el primero, por delante del ruido');
+
+    $idDisco = discoNuevo('Álbum de prueba · catálogo grande');
+    $filas = ImportadorPistas::analizar($idDisco, [
+        ['titulo' => 'La Música Para El Señor', 'seg' => 229, 'n' => 1, 'disco' => 1],
+    ]);
+    assertIgual('reconocida', fila($filas, 0)['estado'], 'y el corte tiene que reconocerse');
+    assertIgual($idExacta, fila($filas, 0)['idMarcha'], 'contra esa marcha');
+};
+
+$tests['catálogo grande: sigue distinguiendo un título parecido de uno igual'] = static function (): void {
+    Db::run('INSERT INTO marcha (TITULO) VALUES (?)', ['Tu Misericordia']);
+    Db::run('INSERT INTO marcha (TITULO) VALUES (?)', ['Bajo Tu Misericordia']);
+    $idExacta = Db::lastInsertId();
+
+    $idDisco = discoNuevo('Álbum de prueba · títulos parecidos');
+    $filas = ImportadorPistas::analizar($idDisco, [
+        ['titulo' => 'Bajo Tu Misericordia', 'seg' => 215, 'n' => 1, 'disco' => 1],
+    ]);
+    assertIgual('reconocida', fila($filas, 0)['estado'], 'estado');
+    assertIgual($idExacta, fila($filas, 0)['idMarcha'], 'gana el título exacto, no el que solo se le parece');
+};
+
 // ── Runner ───────────────────────────────────────────────────────────────────
 $salida = ciEjecuta($tests);
 if ($argc < 2) ciLimpia($dbPath);

@@ -175,7 +175,10 @@ $nueva = isset($_GET['nueva']) ? (int) $_GET['nueva'] : 0;
                         if ($anioDisco !== '') $qs['FECHA'] = $anioDisco;
                         if ($bandaDisco > 0) $qs['BANDA_ESTRENO'] = (string) $bandaDisco;
                         ?>
-                        <a class="btn btn-sm btn-ghost" href="/dashboard/marcha/add?<?= V::e(http_build_query($qs)) ?>">Crear esta marcha</a>
+                        <?php /* En pestaña nueva: crear la marcha no debe costar
+                                 perder la revisión ya hecha en esta. */ ?>
+                        <a class="btn btn-sm btn-ghost" target="_blank" rel="noopener"
+                           href="/dashboard/marcha/add?<?= V::e(http_build_query($qs)) ?>">Crear esta marcha ↗</a>
                         <span class="muted small">sin coincidencia<?php
                             if ($f['sugerencia'] !== null): ?> · lo más parecido, <?= $pct((float) $f['sugerencia']['score']) ?><?php endif; ?></span>
 <?php endif; ?>
