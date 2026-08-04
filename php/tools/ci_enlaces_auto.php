@@ -406,7 +406,7 @@ $tests['migración 010: crea la unicidad que faltaba'] = static function (): voi
         if ($sentencia === '') continue;
         Db::run($sentencia);
     }
-    assertIgual(['ux_enlace_streaming_ent_srv', 'ux_enlace_candidato_ent_srv_url'], $indices(), 'índices creados');
+    assertIgual(['ux_enlace_streaming_ent_srv_ver', 'ux_enlace_candidato_ent_srv_url'], $indices(), 'índices creados');
 
     // Y con el índice puesto, la base también rechaza el duplicado por su cuenta.
     $fallo = false;
