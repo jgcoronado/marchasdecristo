@@ -750,14 +750,24 @@ final class AdminRepo
         if ($c['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
 
         return Db::transaction(static function () use ($c, $idCand): array {
-            Db::run(
-                "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO)
-                 VALUES (?, ?, ?, ?, ?, 1)
-                 ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-                 DO UPDATE SET URL = excluded.URL, ID_EXT = excluded.ID_EXT,
-                               VERIFICADO = 1, FECHA_ALTA = datetime('now')",
-                [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT']]
+            // ON CONFLICT no se puede usar aquí: hay bases anteriores a la
+            // migración 010 cuya tabla enlace_streaming se creó sin la UNIQUE
+            // (TIPO_ENT, ID_ENT, SERVICIO), y contra ellas el UPSERT falla con
+            // «ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE
+            // constraint». Se usa el mismo patrón que setEnlaceStreaming.
+            $updated = Db::run(
+                "UPDATE enlace_streaming
+                    SET URL = ?, ID_EXT = ?, VERIFICADO = 1, FECHA_ALTA = datetime('now')
+                  WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?",
+                [$c['URL'], $c['ID_EXT'], $c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO']]
             );
+            if ($updated === 0) {
+                Db::run(
+                    'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO)
+                     VALUES (?, ?, ?, ?, ?, 1)',
+                    [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT']]
+                );
+            }
             Db::run("UPDATE enlace_candidato SET ESTADO = 'aprobado' WHERE ID_CAND = ?", [$idCand]);
             Db::logAdmin('APPROVE', 'enlace_candidato', $idCand,
                 ['servicio' => $c['SERVICIO'], 'ent' => $c['TIPO_ENT'] . ':' . $c['ID_ENT']]);
