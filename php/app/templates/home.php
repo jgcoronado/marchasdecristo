@@ -34,7 +34,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                     <span class="ultima-title"><?= V::e($mdd['TITULO']) ?></span>
                     <span class="ultima-authors"><?= V::e($mddAutores) ?></span>
 <?php if (!empty($mdd['BANDA_NOMBRE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?><?php if (!empty($mdd['BANDA_LOC'])): ?>, <?= V::e($mdd['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
 <?php if ($mddFecha !== '' && $mddFecha !== 's/f'): ?>
@@ -75,7 +75,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                     <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
                     <span class="ultima-authors"><?= V::e($authors) ?></span>
 <?php if (!empty($m['BANDA_BREVE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
                 <span class="ultima-date"><?= V::e($m['FECHA']) ?></span>

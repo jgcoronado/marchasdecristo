@@ -1263,7 +1263,7 @@ final class Repo
     public static function fetchUltimas(): array
     {
         $rows = Db::all(
-            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE
+            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE, b.LOCALIDAD AS BANDA_LOC
              FROM marcha m
              LEFT OUTER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              WHERE EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
