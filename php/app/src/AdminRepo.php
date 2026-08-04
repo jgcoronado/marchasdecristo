@@ -750,14 +750,22 @@ final class AdminRepo
         if ($c['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
 
         return Db::transaction(static function () use ($c, $idCand): array {
-            Db::run(
-                "INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO)
-                 VALUES (?, ?, ?, ?, ?, 1)
-                 ON CONFLICT(TIPO_ENT, ID_ENT, SERVICIO)
-                 DO UPDATE SET URL = excluded.URL, ID_EXT = excluded.ID_EXT,
-                               VERIFICADO = 1, FECHA_ALTA = datetime('now')",
-                [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT']]
-            );
+            // Mismo patrón que setEnlaceStreaming(): evita ON CONFLICT para
+            // compatibilidad con tablas sin la UNIQUE creada por migración 010.
+            if (self::enlaceExiste($c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'])) {
+                Db::run(
+                    "UPDATE enlace_streaming
+                        SET URL = ?, ID_EXT = ?, VERIFICADO = 1, FECHA_ALTA = datetime('now')
+                      WHERE TIPO_ENT = ? AND ID_ENT = ? AND SERVICIO = ?",
+                    [$c['URL'], $c['ID_EXT'], $c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO']]
+                );
+            } else {
+                Db::run(
+                    'INSERT INTO enlace_streaming (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, VERIFICADO)
+                     VALUES (?, ?, ?, ?, ?, 1)',
+                    [$c['TIPO_ENT'], (int) $c['ID_ENT'], $c['SERVICIO'], $c['URL'], $c['ID_EXT']]
+                );
+            }
             Db::run("UPDATE enlace_candidato SET ESTADO = 'aprobado' WHERE ID_CAND = ?", [$idCand]);
             Db::logAdmin('APPROVE', 'enlace_candidato', $idCand,
                 ['servicio' => $c['SERVICIO'], 'ent' => $c['TIPO_ENT'] . ':' . $c['ID_ENT']]);

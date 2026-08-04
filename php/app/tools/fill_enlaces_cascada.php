@@ -138,6 +138,7 @@ $tot = [
     'banda_nuevos' => 0, 'banda_cand' => 0, 'errores' => 0,
 ];
 $porServicio = [];
+$sinPorServicio = [];
 $csv = [];
 
 foreach ($discos as $i => $d) {
@@ -172,6 +173,9 @@ foreach ($discos as $i => $d) {
     $tot['banda_cand'] += count($r['banda']['candidatos']);
     foreach ([...$r['disco']['nuevos'], ...$r['banda']['nuevos']] as $servicio) {
         $porServicio[$servicio] = ($porServicio[$servicio] ?? 0) + 1;
+    }
+    foreach ($r['disco']['sin'] as $servicio) {
+        $sinPorServicio[$servicio] = ($sinPorServicio[$servicio] ?? 0) + 1;
     }
 
     $resumen = EnlacesAuto::resumen($r);
@@ -208,6 +212,12 @@ echo "\n══ Resumen ══\n";
 printf("Discos procesados:   %d (errores: %d)\n", $tot['discos'], $tot['errores']);
 printf("Disco  → publicados: %d · a curar: %d · sin encontrar: %d\n",
     $tot['disco_nuevos'], $tot['disco_cand'], $tot['disco_sin']);
+if ($sinPorServicio !== []) {
+    ksort($sinPorServicio);
+    echo '   Sin encontrar por servicio: ';
+    echo implode(' · ', array_map(static fn(string $s, int $n): string => "$s=$n",
+        array_keys($sinPorServicio), array_values($sinPorServicio))) . "\n";
+}
 printf("Marcha → publicados: %d · a curar: %d · pistas sin emparejar: %d\n",
     $tot['marcha_enlaces'], $tot['marcha_cand'], $tot['marcha_sin_match']);
 printf("Banda  → publicados: %d · a curar: %d\n", $tot['banda_nuevos'], $tot['banda_cand']);
