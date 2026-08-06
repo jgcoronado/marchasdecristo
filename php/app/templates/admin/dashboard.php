@@ -62,15 +62,15 @@ $isAdmin = Roles::isAdmin($rol);
         <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
         <div class="field">
             <label class="field-label" for="q">Buscar marcha</label>
-            <div data-dash-box="marcha">
-                <div class="autocomplete row">
+            <div class="row" data-dash-box="marcha">
+                <div class="autocomplete dash-ac">
                     <input class="input" id="q" name="q" type="text"
                            value="<?= V::e($q) ?>" placeholder="Título o ID…"
                            autocomplete="off" aria-autocomplete="list" aria-expanded="false" autofocus
                            data-dash-input>
-                    <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+                    <div class="suggest" data-dash-suggest hidden role="listbox"></div>
                 </div>
-                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
+                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
             </div>
         </div>
     </form>
@@ -80,15 +80,15 @@ $isAdmin = Roles::isAdmin($rol);
         <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
         <div class="field">
             <label class="field-label" for="qa">Buscar compositor</label>
-            <div data-dash-box="autor">
-                <div class="autocomplete row">
+            <div class="row" data-dash-box="autor">
+                <div class="autocomplete dash-ac">
                     <input class="input" id="qa" name="q" type="text"
                            value="<?= V::e($q) ?>" placeholder="Nombre o ID…"
                            autocomplete="off" aria-autocomplete="list" aria-expanded="false"
                            data-dash-input>
-                    <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+                    <div class="suggest" data-dash-suggest hidden role="listbox"></div>
                 </div>
-                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
+                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
             </div>
         </div>
     </form>
@@ -98,15 +98,15 @@ $isAdmin = Roles::isAdmin($rol);
         <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
         <div class="field">
             <label class="field-label" for="qb">Buscar banda <span class="muted small">· para editar sus datos y su linaje</span></label>
-            <div data-dash-box="banda">
-                <div class="autocomplete row">
+            <div class="row" data-dash-box="banda">
+                <div class="autocomplete dash-ac">
                     <input class="input" id="qb" name="qb" type="text"
                            value="<?= V::e($qb) ?>" placeholder="Nombre o ID…"
                            autocomplete="off" aria-autocomplete="list" aria-expanded="false"
                            data-dash-input>
-                    <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+                    <div class="suggest" data-dash-suggest hidden role="listbox"></div>
                 </div>
-                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
+                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
             </div>
         </div>
     </form>
@@ -117,15 +117,15 @@ $isAdmin = Roles::isAdmin($rol);
         <input type="hidden" name="qb" value="<?= V::e($qb) ?>">
         <div class="field">
             <label class="field-label" for="qd">Buscar disco <span class="muted small">· para editar sus datos, su portada y sus pistas</span></label>
-            <div data-dash-box="disco">
-                <div class="autocomplete row">
+            <div class="row" data-dash-box="disco">
+                <div class="autocomplete dash-ac">
                     <input class="input" id="qd" name="qd" type="text"
                            value="<?= V::e($qd) ?>" placeholder="Nombre o ID…"
                            autocomplete="off" aria-autocomplete="list" aria-expanded="false"
                            data-dash-input>
-                    <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+                    <div class="suggest" data-dash-suggest hidden role="listbox"></div>
                 </div>
-                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
+                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
             </div>
         </div>
     </form>

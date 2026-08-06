@@ -597,9 +597,9 @@ dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
 .suggest-id { color: var(--muted-c); font-size: 0.8em; margin-right: 0.4em; }
 .suggest-meta { display: block; font-size: 0.8em; color: var(--muted-c); margin-top: 0.1em; }
 
-/* ── Buscador del panel (widget de pestañas + predictivo) ───────────────── */
-.dash-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-.dash-tabs .btn.is-on { background: var(--acc); color: #fff; border-color: var(--acc); }
+/* ── Buscador del panel (predictivo por caja) ───────────────────────────── */
+.dash-ac { flex: 1; min-width: 0; position: relative; }
+.dash-ac .input { width: 100%; }
 
 /* ── Índice de dedicatorias (N-02) ──────────────────────────────────────── */
 .aznav { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.1rem 0 0.4rem; }
