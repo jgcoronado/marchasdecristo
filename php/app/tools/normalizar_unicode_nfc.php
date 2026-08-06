@@ -77,6 +77,7 @@ $esNfc = static fn(string $s): bool => Normalizer::isNormalized($s, Normalizer::
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:normalizar_unicode_nfc' WHERE ID = 1");
 
     // ── Recuento previo ──────────────────────────────────────────────────────
     $pendientes = [];   // [tabla, pk, col, id, viejo, nuevo]

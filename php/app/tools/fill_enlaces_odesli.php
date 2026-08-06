@@ -144,6 +144,7 @@ $ytKey         = $dotenv['YOUTUBE_API_KEY']        ?? '';
 
 $db = new PDO("sqlite:$dbPath");
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$db->exec("UPDATE log_actor SET ACTOR = 'cli:fill_enlaces_odesli' WHERE ID = 1");
 
 // ── Fixtures (tests: sin red) ─────────────────────────────────────────────────
 /**

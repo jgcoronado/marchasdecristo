@@ -119,6 +119,7 @@ $LOCALIDAD_PROVINCIA = [
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:completar_provincia' WHERE ID = 1");
 
     $pendientes = []; // localidad original => tabla
 

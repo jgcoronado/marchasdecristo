@@ -56,6 +56,7 @@ function claveMunicipio(string $provincia, string $nombre): string
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:seed_municipios' WHERE ID = 1");
 
     $tabla = $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='municipio'")->fetchColumn();
     if ($tabla === false) {

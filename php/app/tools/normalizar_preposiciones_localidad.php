@@ -88,6 +88,7 @@ $OBJETIVOS = [
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:normalizar_preposiciones_localidad' WHERE ID = 1");
 
     // 1) Calcular el plan de cambios antes de tocar nada.
     $plan = [];
