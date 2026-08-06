@@ -1,0 +1,240 @@
+# Estado congelado de PHPStan: los errores que YA existían cuando se introdujo
+# el gate (2026-08-03, nivel 5). CI está en verde con este fichero, así que el
+# código NUEVO tiene que salir limpio desde el primer día.
+#
+# Esto NO es una lista de cosas ignoradas para siempre: es la lista de trabajo
+# del burn-down priorizado de docs/code-quality.md §6. Al resolver un error,
+# regenera el fichero con `scripts/quality.sh baseline` y el contador baja.
+#
+#   97 → 74 (2026-08-03, §6.1 resuelto). Lo que queda es el ruido de `??`
+#   redundante de §6.4: 66 nullCoalesce.offset + 8 nullCoalesce.variable.
+#
+# Los falsos positivos estructurales (extract() en plantillas, closures con
+# use (&$x), el artefacto de tuplas de banda_form…) NO viven aquí, sino en
+# `ignoreErrors` de phpstan.neon.dist, con su motivo escrito. Si algo de este
+# fichero resulta ser un falso positivo, muévelo allí en vez de dejarlo aquí.
+
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Offset ''NOMBRE_BREVE'' on array\{NOMBRE_COMPLETO\: mixed, NOMBRE_BREVE\: mixed, LOCALIDAD\: mixed, PROVINCIA\: mixed, FECHA_FUND\: mixed, FECHA_EXT\: mixed, DIRECTOR_ACTUAL\: mixed, DIR_MUS_ACTUAL\: mixed, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, autorId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, bandaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, clave\?\: string, usuario\?\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, contratoId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, count\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 6
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, count\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, dmId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, idDedic\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int, autorId\?\: int, bandaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 4
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchas\?\: int, variantes\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, relacionId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, usuario\?\: string, clave\?\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 18
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/AdminRepo.php
+
+		-
+			message: '#^Offset ''rol'' on array\{user\: string, rol\: string, jti\?\: string, iat\?\: int, exp\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/src/Auth.php
+
+		-
+			message: '#^Offset ''BANDA_LOCALIDAD'' on array\{ID_CONTRATO\: int, HERMANDAD\: string, HERMANDAD_SLUG\: string, TITULAR\: string\|null, FUENTE\: string\|null, ID_BANDA\: int, BANDA\: string, BANDA_LOCALIDAD\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Pages.php
+
+		-
+			message: '#^Offset ''PERSONAL'' on array\{ID_DEDIC\: int, NOMBRE\: string, LOCALIDAD\: string, PROVINCIA\: string\|null, SLUG_KEY\: string, PERSONAL\: int, marchas\: list\<array\<string, mixed\>\>, N\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Pages.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, changes\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/PropuestaRepo.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int, autorId\?\: int, bandaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/PropuestaRepo.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/PropuestaRepo.php
+
+		-
+			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Repo.php
+
+		-
+			message: '#^Offset ''LOCALIDAD'' on array\{NOMBRE\: string, LOCALIDAD\: string, marchas\: list\<array\<string, mixed\>\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Seo.php
+
+		-
+			message: '#^Variable \$banda on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/banda_add.php
+
+		-
+			message: '#^Variable \$proposalMode on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/banda_add.php
+
+		-
+			message: '#^Offset ''amazon''\|''apple''\|''deezer''\|''spotify''\|''tidal''\|''youtube'' on array\{spotify\: ''Spotify'', apple\: ''Apple Music'', deezer\: ''Deezer'', youtube\: ''YouTube'', tidal\: ''Tidal'', amazon\: ''Amazon Music''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/admin/banda_form.php
+
+		-
+			message: '#^Variable \$enlaces on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/banda_form.php
+
+		-
+			message: '#^Variable \$showLinaje on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/banda_form.php
+
+		-
+			message: '#^Variable \$disco on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/disco_add.php
+
+		-
+			message: '#^Variable \$disco on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/disco_form.php
+
+		-
+			message: '#^Offset ''AM''\|''CCTT''\|''pendiente''\|''todos'' on array\{todos\: int, pendiente\: int, CCTT\: int, AM\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/admin/estilo_list.php
+
+		-
+			message: '#^Variable \$cand on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/ingesta_detail.php
+
+		-
+			message: '#^Offset ''NOMBRE_BREVE'' on array\{ID_BANDA\: int, NOMBRE_BREVE\: string, LOCALIDAD\: string\|null, N\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/admin/ingesta_list.php
+
+		-
+			message: '#^Variable \$proposalMode on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/marcha_form.php
+
+		-
+			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/layout.php
+
+		-
+			message: '#^Offset ''album_year'' on array\{id\: mixed, name\: mixed, url\: mixed, album_id\: mixed, album\: mixed, album_year\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/tools/fill_enlaces_streaming.php
+

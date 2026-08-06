@@ -1,6 +1,6 @@
 # Deuda técnica — marchasdecristo.com
 
-> Última actualización: 2026-07-27 (auditoría documental: 3.1 y 3.2 resueltos desde el origen del documento, no eran deuda real)
+> Última actualización: 2026-08-03 (auditoría automática de calidad: 3.3 resuelto, 3.5 a un tercio; abiertos 3.4 y 3.5 — ver [code-quality.md](code-quality.md))
 > La auditoría de la BD vive en [db-analysis.md](db-analysis.md). El análisis del panel en [admin-panel.md](admin-panel.md). El **plan priorizado de trabajo futuro** (deuda incluida) vive en [roadmap.md](roadmap.md) §2, que desde el 2026-07-29 es la fuente única; `consejo-de-sabios-2026-07.md` es la evaluación histórica que lo originó, no un tracker. Los ítems abiertos de este documento están referenciados en el plan como `D-x.x`.
 
 ## Resumen ejecutivo
@@ -9,7 +9,7 @@
 |-----------|-----------------|-------------------|
 | Operativa / observabilidad | 0 | — |
 | Deploy | 1 | 🟡 Media |
-| Calidad de código PHP | 0 | — |
+| Calidad de código PHP | 2 | 🟡 Media |
 | Base de datos (SQLite) | 2 | 🟢 Baja |
 | Panel de administración | 1 | 🟢 Baja |
 
@@ -62,6 +62,50 @@ además de deuda).
 ---
 
 ## 3. Calidad del código PHP
+
+> Los ítems 3.3–3.5 salen de la primera auditoría automática (2026-08-03). El
+> análisis de herramientas, los números medidos y el plan de resolución completo
+> viven en [code-quality.md](code-quality.md); aquí solo queda el registro del
+> estado. Se miden con `scripts/quality.sh`.
+
+### ~~3.3 Comparaciones que nunca se cumplen~~ ✅ Resuelto (2026-08-03)
+- Verificados uno a uno: **97 → 74 errores de PHPStan**. El aviso más alarmante
+  (`Pages.php:661`, "el `noindex` de dedicatorias personales no se aplica
+  nunca") **no era un bug**: el `@return` de `Repo::fetchDedicatoria` omitía
+  `PERSONAL` y `SLUG_KEY`, que el `SELECT` sí trae — docblock obsoleto, código
+  correcto, verificado en ejecución. Igual con la faceta `estilo` de
+  `marcha_list.php` y con `PERSONAL` en `dedicatoria_form.php`.
+- El bug real estaba donde no se esperaba: en `import_candidatos.php`, `$pdo` se
+  usaba en el `catch` pero se asigna dentro del `try`, así que un fallo del
+  propio `new PDO` fatalaba y se comía el mensaje de error controlado.
+- Además, limpiadas las redundancias probadas (`load_canales.php`,
+  `reevaluar_ingesta.php`, `migrate_marcha_estilo.php`, `sync_db_to_prod.php`,
+  `banda_list.php`, `Admin.php`), el parámetro muerto `$img` de `Og.php` y la
+  constante sin usar `PropuestaRepo::ESTADOS`. Detalle en
+  [code-quality.md §6.1](code-quality.md); smoke 82/82.
+
+### 3.4 Cuatro god classes concentran el 39% del código 🟡
+- `Repo.php` (1.607 líneas, 51 métodos públicos), `Admin.php` (1.447, 62
+  públicos), `Pages.php` (1.414) y `AdminRepo.php` (1.164). Los métodos por
+  separado están bien (solo 4 pasan de 80 líneas); el problema es que en esos
+  cuatro ficheros no cabe el contexto de un vistazo, que es lo que hace caro
+  revisar y modificar el proyecto.
+- **Fix**: partir por corte natural y de uno en uno, siguiendo el patrón que ya
+  usan `MunicipioRepo`/`EnlaceRepo`/`IngestaRepo`, con el smoke verde entre
+  medias y `parity_compare.php` como red para lo que salga de `Repo.php`. Plan
+  en [code-quality.md §6.3](code-quality.md).
+
+### 3.5 Duplicación concentrada en tres patrones 🟢 (1 de 3 resuelto)
+- Medida inicial 3,91% de líneas duplicadas — baja en términos absolutos, pero
+  concentrada y reparable en tres patrones.
+- ✅ **Bootstrap CLI** (14 líneas × 10 scripts de `app/tools/`): extraído a
+  `app/tools/_cli.php` (`cliBootstrap()`) el 2026-08-03. **53 → 43 clones,
+  3,91% → 3,20%**; umbral de `.jscpd.json` apretado a 4%.
+- Abierto: 86 líneas de helpers FTP compartidas entre los dos scripts de sync
+  (→ `scripts/ftp_lib.php`, con cuidado: `sync_db_to_prod.php` lleva checksum y
+  rollback) y ~130 líneas de paginación/tabla entre las plantillas de listado
+  (→ parciales o helpers en `Html.php`). Detalle y orden en
+  [code-quality.md §6.2](code-quality.md).
 
 ### ~~3.1 Autoload manual sin PSR-4 ni gestor de paquetes~~ ✅ No era deuda real (verificado 2026-07-27)
 - Descripción errónea desde el origen del documento: `bootstrap.php` ya

@@ -27,6 +27,13 @@ __pycache__/
 # Legacy deployment artifacts (kept local only)
 .vercel
 
+# Herramientas de calidad (docs/code-quality.md): los PHARs que descarga
+# scripts/quality.sh y los informes que genera. Todo reproducible, nada que
+# versionar. phpstan.neon es la copia local opcional del .dist.
+/.tools/
+/build/
+/phpstan.neon
+
 # IDE / tools
 .claude
 .vscode

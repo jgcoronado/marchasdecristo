@@ -201,7 +201,10 @@ try {
 
     $pdo->commit();
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
+    // isset(): si lo que falla es el propio `new PDO` (ruta mala, .db bloqueado)
+    // $pdo no existe todavía y tocarlo aquí convertiría el error controlado en
+    // un fatal de "variable no definida", tapando el mensaje de abajo.
+    if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
     fwrite(STDERR, 'Importación falló: ' . $e->getMessage() . "\n");
     exit(1);
 }

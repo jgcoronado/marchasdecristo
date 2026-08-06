@@ -1371,7 +1371,7 @@ final class Repo
      * (con autores, año, banda de estreno y nº de grabaciones), en orden
      * cronológico. Devuelve null si no existe o no tiene marchas vivas.
      *
-     * @return array{ID_DEDIC:int,NOMBRE:string,LOCALIDAD:string,PROVINCIA:?string,marchas:list<array<string,mixed>>,N:int}|null
+     * @return array{ID_DEDIC:int,NOMBRE:string,LOCALIDAD:string,PROVINCIA:?string,SLUG_KEY:string,PERSONAL:int,marchas:list<array<string,mixed>>,N:int}|null
      */
     public static function fetchDedicatoria(string $id): ?array
     {
