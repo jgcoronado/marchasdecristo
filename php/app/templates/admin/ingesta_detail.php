@@ -98,7 +98,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
 
     <?php /* ── Pestañas ─────────────────────────────────────────────── */ ?>
     <div class="tab-bar" role="tablist" style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:0">
-        <button type="button" role="tab" aria-selected="true"  aria-controls="tab-nueva"   id="btn-nueva"   class="tab-btn tab-btn--active"  style="padding:.5rem 1.1rem;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--color-primary,#2563eb);margin-bottom:-2px;font-weight:600">Crear marcha nueva</button>
+        <button type="button" role="tab" aria-selected="true"  aria-controls="tab-nueva"   id="btn-nueva"   class="tab-btn tab-btn--active"  style="padding:.5rem 1.1rem;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--acc);margin-bottom:-2px;font-weight:600">Crear marcha nueva</button>
         <button type="button" role="tab" aria-selected="false" aria-controls="tab-asociar" id="btn-asociar" class="tab-btn"                  style="padding:.5rem 1.1rem;border:none;background:none;cursor:pointer;color:var(--muted)">Asociar a marcha existente</button>
     </div>
 
@@ -229,11 +229,11 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     </form>
     </div><?php /* /tab-asociar */ ?>
 
-    <form class="panel" style="border:2px solid var(--color-danger,#dc2626);background:color-mix(in srgb,var(--color-danger,#dc2626) 5%,transparent)"
+    <form class="panel" style="border:2px solid var(--err);background:var(--err-bg)"
           action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/descartar" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
-        <p class="small" style="color:var(--color-danger,#dc2626);font-weight:600;margin-bottom:0.5rem">⚠ Zona de descarte</p>
+        <p class="small" style="color:var(--err);font-weight:600;margin-bottom:0.5rem">⚠ Zona de descarte</p>
         <p class="small muted" style="margin-bottom:0.5rem">Al descartarlo, este origen queda vetado y no volverá a proponerse en futuras pasadas. Si te equivocas, puedes deshacerlo desde el listado (solo el último descarte).</p>
         <p class="small" style="margin-bottom:0.5rem">💡 Si la marcha <strong>ya existe en la base de datos</strong> con otro nombre, usa la pestaña <strong>"Asociar a marcha existente"</strong> en lugar de descartar — así el enlace queda vinculado y el título queda vetado automáticamente en futuras pasadas.</p>
         <div class="row" style="align-items:flex-end;gap:0.75rem;flex-wrap:wrap">
@@ -350,8 +350,8 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
         var isNueva = (tab === 'nueva');
         btnNueva.setAttribute('aria-selected', isNueva ? 'true' : 'false');
         btnAsociar.setAttribute('aria-selected', isNueva ? 'false' : 'true');
-        btnNueva.style.borderBottom   = isNueva ? '2px solid var(--color-primary,#2563eb)' : 'none';
-        btnAsociar.style.borderBottom = isNueva ? 'none' : '2px solid var(--color-primary,#2563eb)';
+        btnNueva.style.borderBottom   = isNueva ? '2px solid var(--acc)' : 'none';
+        btnAsociar.style.borderBottom = isNueva ? 'none' : '2px solid var(--acc)';
         btnNueva.style.fontWeight   = isNueva ? '600' : 'normal';
         btnAsociar.style.fontWeight = isNueva ? 'normal' : '600';
         btnNueva.style.color   = isNueva ? '' : 'var(--muted)';
