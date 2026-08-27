@@ -47,9 +47,12 @@ documentado, que es lo que hace que se planifique mal.
 
 | Ref | Tarea | Coste | Estado |
 |---|---|---|---|
-| **B-01** | Fusionar todas las ramas `claude/*` sueltas + M6/M7 en `claude/siguiente-que-hacer-pvvxrn`, traer los fixes de mapa que ya estaban en `pre`, relanzar smoke en local (82/82), push a `pre` → deploy automático + smoke remoto contra PRE (`/health`, robots.txt, cinta de preproducción, `/mapa` y `/temporada` visibles, ficha real del sitemap, panel protegido). PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) `pre`→`main` abierto. **Falta**: validación visual en navegador (mantenedor), fusionar el PR (dispara deploy a PRO), borrar las 4 ramas ya integradas (bloqueado: el proxy git de la sesión no permite borrar refs remotas — pendiente a mano) | 1–2 h | 🟡 PR abierto, pendiente de validación visual y de fusionar a `main` |
-| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php`. **No ejecutable desde una sesión sandbox**: requiere `.env.ftp` (credenciales FTP de producción), `php/data/mdc.db` local real y `config.local.php` — ninguno existe fuera de la máquina del mantenedor | 30 min | ⏳ Depende de que B-01 llegue a `main`/PRO, y solo lo puede correr el mantenedor |
+| ~~B-01~~ | ~~Fusionar todas las ramas `claude/*` sueltas + M6/M7, relanzar smoke, PR `pre`→`main`~~ | — | ✅ 2026-08-02 — PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) fusionado a `main` (`1569fed`). No verificable desde aquí si el deploy automático a PRO se completó (sin red saliente para comprobar `/health` en producción). Sigue bloqueado borrar del remoto las 4 ramas `claude/*` ya integradas (permiso), pendiente a mano del mantenedor |
+| **B-02** | `pre` volvió a acumular trabajo sin subir a `main`: **29 commits entre el 2026-07-31 y el 2026-08-06** (sin actividad desde hace 3 semanas) — detalle completo en §4.2 | 1–2 h revisión | 🟡 Pendiente de abrir PR y validar |
+| **B-03** | Fusionar `design/paleta-variables` (rama suelta, 1 commit, 2026-08-12, ni siquiera en `pre`) — refactor de la paleta CSS a variables editables, sin cambio de comportamiento, contraste verificado. Detalle en §4.3 | 15 min | 🟡 Rama suelta sin fusionar |
+| **OPS-01** | Aplicar la migración `008_ingest_streaming.sql` en local e importar los candidatos; subir con `sync_db_to_prod.php`. **No ejecutable desde una sesión sandbox**: requiere `.env.ftp` (credenciales FTP de producción), `php/data/mdc.db` local real y `config.local.php` — ninguno existe fuera de la máquina del mantenedor | 30 min | ⏳ B-01 ya está en `main` (2026-08-02); solo falta que lo ejecute el mantenedor |
 | **OPS-02** | Ejecutar `seed_dedicatorias.php` en **prod** (Plesk → Scheduled Tasks → «Run a PHP script», **seleccionar PHP 8.4 explícitamente**) — pendiente desde el 2026-07-23 | 15 min | ⏳ |
+| **OPS-04** | Activar **M7** en producción de verdad: `mail_from`/`mail_admin_to`/`notif_emails` en el `config.local.php` del servidor + `digest_semanal.php` en Plesk Scheduled Tasks (PHP 8.4, lunes 08:00). El código ya está en `main` desde el 2026-08-02 (`71cabb9`/`7975e02`) — sin esto no manda ningún email | 20 min | ⏳ |
 | ~~OPS-03 · T-03~~ | ~~Verificar en Plesk si el cron de backup existe de verdad~~ | — | ✅ 2026-07-29 — confirmado en Plesk, backup manual de comprobación ejecutado (`mdc-20260729-132640.db`, 9,6 MB). Detalle en [pendientes-post-cutover.md §2](pendientes-post-cutover.md) |
 | ~~DEC-01~~ | ~~Decidir sobre `/temporada`~~ | — | ✅ 2026-07-29 — **se oculta en producción** (404 + fuera de nav/sitemap/`llms.txt`), pero **queda visible en PRE** para rellenarla y validarla antes de publicar. **Revisado el 2026-08-03**: también se oculta en PRE, junto con dedicatorias, estado del catálogo y mapa; las cuatro se publican solo en local hasta que maduren (`App\Secciones`, ver [entornos.md](entornos.md)) |
 | ~~DEC-02~~ | ~~Decidir sobre el VPS de rollback~~ | — | ✅ 2026-07-29 — **apagado por completo** (contenedor, servidor y TTL de DNS revertido). El runbook de rollback de infraestructura de [cutover-fase5.md §7](cutover-fase5.md) queda obsoleto: no hay ya destino al que volver |
@@ -66,7 +69,7 @@ campaña se haga una vez y bien**, no dos veces.
 | Ref | Tarea | Por qué va aquí | Coste | Foco |
 |---|---|---|---|---|
 | **R-01** | **Capturar el ISRC** en la ingesta de streaming (columna nueva en `enlace_streaming` / `ingest_candidato`) | Spotify (`external_ids.isrc`) y Deezer (campo `isrc`) lo devuelven gratis y hoy se tira. Es la clave exacta que falta: la corroboración entre catálogos se hace por título normalizado y por eso exige ≥2 servicios, dejando fuera a las bandas con uno solo. Con ISRC la misma grabación se reconoce aunque el título difiera, y desaparece el ruido de recopilatorios. **Vale mucho más antes de curar 616 candidatos que después** | 3–4 h | 🎺 |
-| **R-07** | **Página pública «estado del catálogo»** con el KPI de cobertura (% de marchas con escucha, por año y por banda) | El issue [#16](https://github.com/jgcoronado/mdc-back/issues/16) pide medir antes/después y **hoy no hay forma de medirlo**. Además es el mapa de curación del admin y contenido indexable honesto sobre lo que falta | 4 h | 🎺🔍 |
+| **R-07** | **Página pública «estado del catálogo»** con el KPI de cobertura (% de marchas con escucha, por año y por banda) — 🟡 **código completo en `pre`** (`/estado-catalogo`, `Pages::estadoCatalogo`), se publica al fusionar **B-02** | El issue [#16](https://github.com/jgcoronado/mdc-back/issues/16) pide medir antes/después y **hoy sigue sin verse en producción**. Además es el mapa de curación del admin y contenido indexable honesto sobre lo que falta | 4 h → hecho, falta desplegar | 🎺🔍 |
 | **M2 · P-01** | **Campaña de cobertura de audio**: curar los 616 candidatos + la cola de YouTube | Carril manual, arranca en cuanto R-01 y R-07 estén. Cuello de botella real: **el autor**, que ninguna de las tres APIs devuelve | 15 h+ | 🎺 |
 | **R-02** | **Mover la duración de la obra a la grabación** (`disco_marcha.DURACION_SEG`, manteniendo la de `marcha` como referencia) — *herramienta hecha, falta ejecutarla* | Hoy `DURACION_SEG` cuelga de `marcha`, que es la **obra**; la duración es propiedad de cada **grabación** y varía entre versiones. La ingesta ya la trae de las tres APIs y se descarta. `app/tools/fill_duraciones.php` lee el tracklist de los álbumes ya enlazados en `enlace_streaming` y rellena `disco_marcha` (1.325 de 1.514 pistas en el primer dry-run, precisión 98,6%). Segunda pasada: `marcha.DURACION_SEG` = mediana de sus grabaciones cuando las tiene (826 marchas), y valor de catálogo intacto cuando no. Ver [pendientes-manuales-2026-07-31.md](pendientes-manuales-2026-07-31.md) | 3 h | 🎺 |
 | **D-2.1** | `PRAGMA integrity_check` sobre el backup recién creado + copia externa fuera de HelioHost | Único ítem 🟡 abierto de [technical-debt.md](technical-debt.md). Un backup que nadie verifica no es un backup | 3 h | ⚙️ |
@@ -79,11 +82,13 @@ asentado antes de Cuaresma**, no durante.
 
 | Ref | Tarea | Por qué va aquí | Coste | Foco |
 |---|---|---|---|---|
-| **M6 · R-05** | **Accesibilidad** (foco visible, skip-link, `aria-sort`, contraste) **+ hoja de impresión** de fichas | Issue [#20](https://github.com/jgcoronado/mdc-back/issues/20). La hoja de impresión da el 80 % del caso «llevar la ficha a la calle» que L5 (PWA, 15 h) resolvería al 100 %. Con la gramática bibliográfica de la ficha, imprimir es casi gratis | 6 h | 🎺 |
 | **R-06 · L4** | **Estado vacío de «Escuchar» con CTA** + **formulario público «propón una grabación»** | Convierte el hueco de cobertura en entrada de datos: hoy el visitante que conoce la grabación es tráfico que se pierde. Reutiliza la cola de propuestas existente, sin superficie de escritura nueva. Adelantado desde el largo plazo del consejo | 8–12 h | 🎺 |
-| **R-08** | **Búsqueda**: filtro «solo con audio» + tolerancia a acentos/erratas en banda y disco (hoy van por `LIKE`, no por FTS5) | Es el filtro que más usa quien busca algo que escuchar, y llega justo cuando la campaña de audio lo hace útil | 4 h | 🎺 |
-| **M7** | **Notificaciones editoriales**: email al aceptar/rechazar propuesta + digest semanal de colas | Issue [#21](https://github.com/jgcoronado/mdc-back/issues/21). Con R-06 abriendo la puerta a propuestas del público, el flujo editorial deja de ser opcional. **Depende de validar email/cron en HelioHost** | 6 h | ⚙️ |
-| **R-04** | **Partituras**: enlace/edición por marcha (editorial, año, dominio público, PDF externo) + hub «marchas con partitura disponible» | Hueco funcional más claro frente a [marchasdeprocesion.com](https://www.marchasdeprocesion.com/), y el dato que le falta a quien **toca** la marcha. No requiere alojar nada: basta enlazar y declarar | 6 h | 🎺🔍 |
+| **R-08** | **Búsqueda**: filtro «solo con audio» + tolerancia a acentos/erratas en banda y disco (hoy van por `LIKE`, no por FTS5) — el cálculo de cobertura (`Repo::conAudio`, usado por R-07) ya existe, falta exponerlo como filtro en `/buscar` | Es el filtro que más usa quien busca algo que escuchar, y llega justo cuando la campaña de audio lo hace útil | 3–4 h (bajó de 4 h: la mitad ya está) | 🎺 |
+| **R-04** | **Partituras**: enlace/edición por marcha (editorial, año, dominio público, PDF externo) + hub «marchas con partitura disponible» — el campo ya existe en `templates/admin/marcha_form.php`, falta el hub público | Hueco funcional más claro frente a [marchasdeprocesion.com](https://www.marchasdeprocesion.com/), y el dato que le falta a quien **toca** la marcha. No requiere alojar nada: basta enlazar y declarar | 4–5 h (bajó: falta solo el hub) | 🎺🔍 |
+
+> M6 y M7 se cerraron el 2026-08-02 (código en `main`) — ver §3.1 y §5. M7
+> necesita además **OPS-04** (config de correo + cron) para activarse de
+> verdad.
 
 ### P3 · Después de Semana Santa 2027, o condicionado
 
@@ -146,8 +151,8 @@ discrepancia sea una decisión y no un olvido.
 | M3 Búsqueda global | ✅ En producción (N-11) | §5 · ampliación en **R-08** (P2) |
 | M4 `og:image` dinámica | ✅ En producción | §5 |
 | M5 Deploy automatizado | ✅ En producción (PRE + PRO, [entornos.md](entornos.md)) | §5 |
-| M6 Accesibilidad + impresión | ⏳ **Promovida** — ver §3.2 punto 2 | **P2** |
-| M7 Notificaciones editoriales | ⏳ Pendiente, ahora con dependencia clara | **P2** |
+| M6 Accesibilidad + impresión | ✅ En `main` desde 2026-08-02 (`71cabb9`) | §5 |
+| M7 Notificaciones editoriales | ✅ Código en `main` desde 2026-08-02 (`7975e02`) — activación real pendiente de **OPS-04** | §5 (código) / P0 (activación) |
 | M8 Slugify unificado + CSP/HSTS | ✅ En producción | §5 |
 | M9 Estadísticas indexables | ✅ Cubierta por N-07/N-08/N-09/N-10 — issue #23 cerrado el 2026-07-29 | §6 |
 | L1 Dumps versionados | ⏳ No iniciada | **P3** |
@@ -207,42 +212,65 @@ Wikidata (enlazado de autoridades).
 
 ---
 
-## 4. Ramas abiertas (última actualización 2026-07-30)
+## 4. Ramas abiertas (última actualización 2026-08-27)
 
-**Estado: todo consolidado y en `pre`, con PR [#27](https://github.com/jgcoronado/mdc-back/pull/27) abierto hacia `main` (sin fusionar a propósito — la fusión a `main` dispara el deploy a PRO y queda para cuando el mantenedor valide en navegador).**
+**El ciclo de B-01 se cerró — y volvió a abrirse.** El PR
+[#27](https://github.com/jgcoronado/mdc-back/pull/27) (`pre`→`main`) se
+fusionó el 2026-08-02 (`1569fed`). Desde entonces **`pre` ha vuelto a
+acumular 29 commits sin subir a `main`** (2026-07-31 → 2026-08-06, sin
+actividad desde hace tres semanas), más una rama suelta que no ha llegado ni
+a `pre`. Es el mismo patrón que motivó B-01 la primera vez — ver «Patrón
+detectado» al final de esta sección.
 
-Las cuatro ramas `claude/*` que estaban sueltas en el remoto (más los commits de M6 y M7) se fusionaron en `claude/siguiente-que-hacer-pvvxrn`, que luego se fusionó también con `origin/pre` (traía fixes de mapa de otra sesión que no estaban en `siguiente-que-hacer`) y se empujó a `pre` en fast-forward — disparando CI + deploy automático a PRE.
+### 4.1 `main` — última fusión: PR #27 (2026-08-02, `1569fed`)
 
-| Origen | Contenido | Estado |
+Incluye M6 (accesibilidad + hoja de impresión, `71cabb9`) y M7
+(notificaciones editoriales, `7975e02`), la ingesta desde el catálogo de
+streaming de las bandas, el rediseño discreto/sencillo y el alta de discos
+con portada y pistas. Detalle completo en el histórico de §6.1–§6.2.
+**No verificable desde aquí** si el deploy automático a PRO llegó a
+completarse (sin salida de red para comprobar `/health` en producción desde
+esta sesión) — confírmalo cuando puedas.
+
+### 4.2 `pre` — 29 commits por delante de `main`, sin PR abierto (**B-02**)
+
+| Bloque | Contenido | Dónde está en el código |
 |---|---|---|
-| `claude/project-roadmap-review-yrc7zt` | Revisión del roadmap, documentación de B-01 y decisiones de arranque (docs únicamente) | ✅ Fusionada |
-| `claude/filtrado-candidatas-videos-drdd1y` | **Ingesta de marchas desde el catálogo de streaming de las bandas** (Spotify/Deezer/Apple): `tools/music_links/descubrir_marchas.py`, migración `008_ingest_streaming.sql` (`ingest_veto`, `ingest_descarte_ultimo`), descarte definitivo + deshacer, reproductor por servicio en el panel y en la ficha pública, `docs/ingesta-streaming.md`. Filtra directo/vivo, Navidad/cabalgata y exige corroboración en ≥2 catálogos | ✅ Fusionada |
-| `claude/bandas-rrss-discos-sync-x60kfw` | Ancestro estricto de la anterior | 🗑 Redundante, no se fusionó — **queda por borrar del remoto (bloqueado, ver abajo)** |
-| `claude/diseño-discreto-sencillo-jymud4` | Rediseño de pantallas públicas + dos regresiones del mapa corregidas + **alta/edición de discos con portada y pistas** (`/dashboard/disco/*`), cierra [technical-debt §5.1](technical-debt.md) | ✅ Fusionada |
-| `claude/siguiente-que-hacer-pvvxrn` | **M6** (accesibilidad + hoja de impresión) + **M7** (notificaciones editoriales: Mailer, digest semanal, notif de propuesta) + integración de todas las ramas anteriores + fixes de mapa traídos de `pre` | ✅ En `pre`, PR abierto a `main` |
+| R-07 | Página pública «estado del catálogo» completa: KPI de cobertura global, por año y por banda | `routes.php` (`/estado-catalogo`), `Pages::estadoCatalogo`, `templates/estado_catalogo.php` |
+| Migraciones | `009_contrato_localidad.sql`, `010_enlace_unicos.sql` | `php/app/tools/sql/` |
+| Alta asistida de discos | Importar las pistas desde el enlace del álbum en streaming, con confirmación | `App\ImportadorPistas`, `App\Tracklist`, `templates/admin/disco_importar.php`, `/dashboard/disco/{id}/importar*` |
+| Cascada de enlaces | Enlace automático al guardar el enlace de un disco + desglose por servicio de lo no encontrado | `App\EnlacesAuto`, `app/tools/fill_enlaces_cascada.php` |
+| Ingesta | Asociar un candidato pendiente a una marcha ya catalogada, en vez de alta duplicada o descarte | `Admin::ingestaAsociar`, pestaña nueva en `templates/admin/ingesta_detail.php` |
+| Ficha pública | Versión original/actual de escucha, separadas | `/dashboard/marcha/{id}/social`, `templates/marcha_detail.php` |
+| Visibilidad de secciones | `/temporada`, dedicatorias, estado del catálogo y mapa fuera de local, centralizado (ya no se lee `config['preproduccion']` a mano) | `App\Secciones`, `App\Entorno` |
+| Calidad | Auditoría PHPStan/jscpd/PHPMD con gate en CI; bootstrap CLI unificado (53→43 clones dup., 3,91%→3,20%) | `docs/code-quality.md`, `phpstan.neon.dist`, `phpmd.xml`, `scripts/quality.sh`, `app/tools/_cli.php` |
+| Fixes | `curl_close()` obsoleto en PHP 8.5; `aprobarEnlace` sin depender de una `UNIQUE` que no todas las bases tienen; la preselección de importación perdía altas recientes | `935070e`, `1fb471a`/`0924b5a`, `e483989` |
+| Docs | `ai-handoff-guide.md` (nuevo, punto de entrada para otra IA), `technical-debt.md` ampliado, `duplicados-2026-07-31.md`, `enlaces-otras-rrss-2026-08-01.md`, `pendientes-manuales-2026-07-31.md` | `docs/` |
 
-**Conflictos al fusionar** (todos resueltos):
-- `docs/admin-panel.md` (×2, en distintas fusiones): colisiones de numeración en §11/§12 — se conservan todas las secciones, renumeradas en orden.
-- `php/app/src/Admin.php`: el bloque M7 (`notifPropuesta`/`propuestaLabel`) + los métodos de disco coexisten en el mismo fichero — se incluyeron los dos bloques.
-- `php/public/assets/app.css`: `font-size: 0.92rem` del rediseño + `:focus-within` de accesibilidad (M6) conviven; el contraste de `--acc` subido por el fix del mapa se mantuvo.
+**Falta para cerrar B-02**: confirmar lint + smoke 82/82 en local (o que el CI
+de `pre` esté verde — no verificable desde aquí sin acceso a GitHub Actions),
+validación visual del mantenedor en PRE, PR `pre`→`main`, fusionar → deploy a
+PRO + smoke remoto PRO.
 
-**Verificación hecha:**
-- Lint (`php -l`) limpio en todo el árbol.
-- **82/82 smoke tests** en local, reproduciendo `ci.yml` (fixture determinista + servidor embebido + `ci_smoke.php`).
-- **Smoke remoto contra PRE** (`https://marchasdecristo.jaguerra27.helioho.st`): `/health` → `entorno: pre`, `db: ok`; `robots.txt` con `Disallow: /` total (correcto, PRE no se indexa); cinta de preproducción presente en el HTML; `/mapa` → 200 y `/temporada` → 302 (ambas visibles, confirma que el gate PRE/PRO distingue bien); ficha de marcha real tomada del sitemap → 200 con JSON-LD `MusicComposition`; `/dashboard/disco/add` sin sesión → 302 a `/login`; skip-link de M6 presente en el DOM de portada.
-- **Nota sobre `ci_smoke.php` contra PRE**: correrlo tal cual contra PRE da ~30 "fallos" que **no son bugs** — el script está escrito para la fixture determinista de CI, no para datos reales. En PRE fallan por diseño: noindex/robots-disallow global (comparado contra fixture sin ese gate) y slugs/contenido de la fixture que no existen en la BD real que PRE espeja. No usar `ci_smoke.php` sin más contra un entorno con datos reales.
+### 4.3 Rama suelta sin fusionar ni a `pre` — `design/paleta-variables` (**B-03**)
 
-### Qué falta para cerrar B-01
+1 commit (`2c4d2fc`, 2026-08-12). Reorganiza `app.css` en cuatro bloques de
+variables editables (colores base por tema, proporciones de mezcla, tonos
+derivados con `color-mix()`, excepciones declaradas de marca/impresión) sin
+cambio de comportamiento — contraste verificado token a token, todas las
+combinaciones dentro de ±0,5 del valor anterior y ninguna baja de 4,5:1. De
+paso corrige tres colores que caían al valor de reserva (`--accent` en
+`.link-btn`, `--color-primary`/`--color-danger` en `ingesta_detail.php`).
+Bajo riesgo — fusionable primero y sin esperar a B-02.
 
-1. ~~Smoke tests en local~~ ✅
-2. ~~Push a `pre` (fast-forward) → deploy automático~~ ✅
-3. ~~Smoke remoto contra PRE~~ ✅ — **falta la validación visual en navegador** (mantenedor): cinta de preproducción, rediseño, alta de discos con portada.
-4. ~~PR de `pre` a `main`~~ ✅ abierto ([#27](https://github.com/jgcoronado/mdc-back/pull/27)) — **sin fusionar a propósito**, pendiente de la validación del punto 3.
-5. Fusionar el PR → deploy automático a PRO + smoke remoto PRO (ahí `/temporada` y `/mapa` deben dar 404).
-6. Borrar las ramas `claude/*` ya integradas del remoto — **bloqueado**: el proxy git de la sesión que hizo la consolidación no tiene permiso para borrar refs remotas (403 en `git push --delete`); hace falta borrarlas a mano o desde una sesión/token con ese permiso.
-7. Seguir con **OPS-01** (migración `008` + importar candidatos) una vez el código esté en `main`/PRO — **solo ejecutable por el mantenedor**: requiere `.env.ftp`, `php/data/mdc.db` local y `config.local.php`, que no existen en una sesión sandbox.
-8. **OPS-02**: ejecutar `seed_dedicatorias.php` en prod (Plesk → PHP 8.4 explícito).
-9. **M7 en producción**: añadir `mail_from`, `mail_admin_to`, `notif_emails` a `config.local.php`; añadir `digest_semanal.php` a Plesk Scheduled Tasks (PHP 8.4, lunes 08:00).
+### Patrón detectado
+
+Es la segunda vez que `pre` acumula semanas de trabajo terminado antes de
+promoverlo a `main` — el mismo problema que motivó B-01. La causa no es
+técnica (el pipeline `pre`→PRE es automático en cada push); es que nadie abre
+el PR `pre`→`main` hasta que se acumula un bloque grande. Recomendación:
+abrir ese PR con cadencia corta (cada 1–2 semanas, o al cerrar un bloque de
+trabajo) en vez de esperar a que se note.
 
 ---
 
@@ -259,7 +287,7 @@ GoatCounter opt-in (P-08) · Slugify unificado + CSP/HSTS (M8) · **N-07**
 con smoke tests (C5) ·
 uptime externo (C6) · sync endurecido con checksum y rollback (C7) · despliegue
 automático PRE/PRO (M5) · catálogo cerrado de municipios y selector en cascada
-(análisis UX, prioridad 4).
+(análisis UX, prioridad 4) · **M6** accesibilidad + hoja de impresión (`71cabb9`) · **M7** notificaciones editoriales — código en `main` (`7975e02`; activación real pendiente de **OPS-04**).
 
 ---
 
