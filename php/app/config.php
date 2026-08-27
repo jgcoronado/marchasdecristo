@@ -21,7 +21,14 @@ $envRepo = static function (string $clave): ?string {
         $vars = [];
         // BASE_DIR es php/ en local (repo/php) y /home/USER en HelioHost.
         $fichero = dirname(BASE_DIR) . '/.env';
-        foreach (is_file($fichero) ? (file($fichero, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $linea) {
+        // @: dirname(BASE_DIR) cae fuera del open_basedir del hosting
+        // (BASE_DIR ya es la raiz de la cuenta ahi, sin la capa php/ de
+        // local) y is_file()/file() emiten E_WARNING al body en cualquier
+        // ruta fuera de la jaula, exista o no el fichero. El .env nunca
+        // existe en el hosting (documentado arriba), asi que aqui no hay
+        // nada que enmascarar: solo evita que el warning rompa el XML de
+        // /sitemap.xml y /feed.xml (smoke_remote.php hace loadXML()).
+        foreach (@is_file($fichero) ? (@file($fichero, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) : [] as $linea) {
             $linea = trim($linea);
             if ($linea === '' || str_starts_with($linea, '#') || !str_contains($linea, '=')) continue;
             [$k, $v] = explode('=', $linea, 2);
