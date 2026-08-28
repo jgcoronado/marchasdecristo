@@ -86,6 +86,15 @@ parameters:
         # Variables capturadas por referencia en un closure (`use (&$x)`):
         # PHPStan las evalúa con el valor del momento de la definición y no ve
         # las escrituras posteriores. Falso positivo conocido.
+        # BASE_DIR se define en tiempo de petición (index.php, _cli.php, seed_*.php...)
+        # antes de requerir config.php con una ruta dinámica (`APP_DIR . '/config.php'`),
+        # así que PHPStan no puede seguir ese require y no ve la constante definida.
+        # dynamicConstantNames NO evita este aviso (solo afecta el valor inferido de
+        # una constante que ya se considera existente, no su existencia) — comprobado
+        # con phpstan 2.2.7.
+        -
+            identifier: constant.notFound
+            path: php/app/config.php
         -
             identifier: booleanNot.alwaysTrue
             path: scripts/sync_db_to_prod.php

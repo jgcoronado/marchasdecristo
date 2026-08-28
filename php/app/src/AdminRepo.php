@@ -422,8 +422,15 @@ final class AdminRepo
     // y volver a crear si hay un error, es más simple que un formulario de
     // edición para el volumen bajo que tiene esto de momento. ────────────────
 
-    /** @return array{code:string, contratoId?:int} */
-    public static function addContrato(int $idBanda, string $hermandad, string $anio, ?string $titular, ?string $fuente, ?string $nota): array
+    /**
+     * $localidad es la del ACOMPAÑAMIENTO (ciudad de cuya Semana Santa procede
+     * el contrato), no la de la banda — ver 009_contrato_localidad.sql. Tabla
+     * satélite 1:1 opcional: sin ella, "sin localidad conocida", no se fuerza
+     * NOT NULL en el alta.
+     *
+     * @return array{code:string, contratoId?:int}
+     */
+    public static function addContrato(int $idBanda, string $hermandad, string $anio, ?string $titular, ?string $fuente, ?string $nota, ?string $localidad = null): array
     {
         if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
         $hermandad = trim($hermandad);
@@ -436,6 +443,12 @@ final class AdminRepo
             [$idBanda, $hermandad, Slug::slugify($hermandad), self::normalize($titular), (int) $anio, self::normalize($fuente), self::normalize($nota)]
         );
         $contratoId = Db::lastInsertId();
+
+        $localidad = self::normalize($localidad);
+        if ($localidad !== null) {
+            Db::run('INSERT INTO contrato_localidad (ID_CONTRATO, LOCALIDAD) VALUES (?, ?)', [$contratoId, $localidad]);
+        }
+
         Db::logAdmin('INSERT', 'contrato', $contratoId, ['banda' => $idBanda, 'hermandad' => $hermandad, 'anio' => $anio]);
         return ['code' => 'CREATED', 'contratoId' => $contratoId];
     }

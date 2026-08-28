@@ -9,6 +9,17 @@
 #   97 → 74 (2026-08-03, §6.1 resuelto). Lo que queda es el ruido de `??`
 #   redundante de §6.4: 66 nullCoalesce.offset + 8 nullCoalesce.variable.
 #
+#   74 → 137 (2026-08-28). No es limpieza: es deuda real acumulada en `pre`
+#   entre el 31-jul y el 12-ago sin regenerar este fichero (B-02/B-03 en
+#   docs/roadmap.md) — código y ficheros nuevos que el baseline de agosto
+#   nunca llegó a ver (seed_bandas_2026.php, seed_contratos_2026.php,
+#   ci_smoke.php, fill_enlaces_odesli.php, disco_form.php...). De camino se
+#   corrigieron dos cosas que NO se baselinean por ser bugs reales, no ruido
+#   de `??`: la constante BASE_DIR sin declarar en config.php (ver
+#   ignoreErrors de phpstan.neon.dist) y AdminRepo::addContrato() invocado
+#   con 7 argumentos cuando solo aceptaba 6 (seed_contratos_2026.php perdía
+#   la localidad del acompañamiento en silencio — el método ya la persiste).
+#
 # Los falsos positivos estructurales (extract() en plantillas, closures con
 # use (&$x), el artefacto de tuplas de banda_form…) NO viven aquí, sino en
 # `ignoreErrors` de phpstan.neon.dist, con su motivo escrito. Si algo de este
@@ -59,12 +70,6 @@ parameters:
 			path: php/app/src/Admin.php
 
 		-
-			message: '#^Offset ''code'' on array\{code\: string, dmId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 2
-			path: php/app/src/Admin.php
-
-		-
 			message: '#^Offset ''code'' on array\{code\: string, idDedic\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 2
@@ -79,7 +84,7 @@ parameters:
 		-
 			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 4
+			count: 6
 			path: php/app/src/Admin.php
 
 		-
@@ -103,7 +108,13 @@ parameters:
 		-
 			message: '#^Offset ''code'' on array\{code\: string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
-			count: 18
+			count: 22
+			path: php/app/src/Admin.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
 			path: php/app/src/Admin.php
 
 		-
@@ -117,6 +128,24 @@ parameters:
 			identifier: nullCoalesce.offset
 			count: 2
 			path: php/app/src/Auth.php
+
+		-
+			message: '#^Offset ''actual'' on array\{original\: array\<string, string\>, actual\: array\<string, string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Html.php
+
+		-
+			message: '#^Offset ''original'' on array\{original\: array\<string, string\>, actual\: array\<string, string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/src/Html.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: php/app/src/ImportadorPistas.php
 
 		-
 			message: '#^Offset ''BANDA_LOCALIDAD'' on array\{ID_CONTRATO\: int, HERMANDAD\: string, HERMANDAD_SLUG\: string, TITULAR\: string\|null, FUENTE\: string\|null, ID_BANDA\: int, BANDA\: string, BANDA_LOCALIDAD\: string\} on left side of \?\? always exists and is not nullable\.$#'
@@ -161,6 +190,12 @@ parameters:
 			path: php/app/src/Seo.php
 
 		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: php/app/src/Tracklist.php
+
+		-
 			message: '#^Variable \$banda on left side of \?\? is never defined\.$#'
 			identifier: nullCoalesce.variable
 			count: 1
@@ -197,7 +232,19 @@ parameters:
 			path: php/app/templates/admin/disco_add.php
 
 		-
+			message: '#^Offset ''amazon''\|''apple''\|''deezer''\|''spotify''\|''tidal''\|''youtube'' on array\{spotify\: ''Spotify'', apple\: ''Apple Music'', deezer\: ''Deezer'', youtube\: ''YouTube'', tidal\: ''Tidal'', amazon\: ''Amazon Music''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/admin/disco_form.php
+
+		-
 			message: '#^Variable \$disco on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/disco_form.php
+
+		-
+			message: '#^Variable \$enlaces on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.variable
 			count: 1
 			path: php/app/templates/admin/disco_form.php
@@ -221,6 +268,18 @@ parameters:
 			path: php/app/templates/admin/ingesta_list.php
 
 		-
+			message: '#^Offset ''amazon''\|''apple''\|''deezer''\|''spotify''\|''tidal''\|''youtube'' on array\{spotify\: ''Spotify'', apple\: ''Apple Music'', deezer\: ''Deezer'', youtube\: ''YouTube'', tidal\: ''Tidal'', amazon\: ''Amazon Music''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: php/app/templates/admin/marcha_form.php
+
+		-
+			message: '#^Variable \$enlaces on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/admin/marcha_form.php
+
+		-
 			message: '#^Variable \$proposalMode on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.variable
 			count: 1
@@ -233,8 +292,110 @@ parameters:
 			path: php/app/templates/layout.php
 
 		-
+			message: '#^Variable \$enlaces on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: php/app/templates/marcha_detail.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 2
+			path: php/app/tools/fill_enlaces_odesli.php
+
+		-
+			message: '#^Right side of \|\| is always false\.$#'
+			identifier: booleanOr.rightAlwaysFalse
+			count: 2
+			path: php/app/tools/fill_enlaces_odesli.php
+
+		-
+			message: '#^Undefined variable\: \$idExt»$#'
+			identifier: variable.undefined
+			count: 1
+			path: php/app/tools/fill_enlaces_odesli.php
+
+		-
 			message: '#^Offset ''album_year'' on array\{id\: mixed, name\: mixed, url\: mixed, album_id\: mixed, album\: mixed, album_year\: string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: php/app/tools/fill_enlaces_streaming.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between int\<1, max\> and 0 will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: php/app/tools/import_candidatos.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, contratoId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/app/tools/seed_contratos_2026.php
+
+		-
+			message: '#^Anonymous function has an unused use \$F\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: php/tools/ci_enlaces_auto.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, bandaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/tools/ci_enlaces_auto.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, marchaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/tools/ci_enlaces_auto.php
+
+		-
+			message: '#^Function assertStatus\(\) should return array but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: php/tools/ci_smoke.php
+
+		-
+			message: '#^Offset ''body'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: php/tools/ci_smoke.php
+
+		-
+			message: '#^Offset ''headers'' on string\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 6
+			path: php/tools/ci_smoke.php
+
+		-
+			message: '#^Offset ''status'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 15
+			path: php/tools/ci_smoke.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, bandaId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 3
+			path: php/tools/seed_bandas_2026.php
+
+		-
+			message: '#^Offset ''code'' on array\{code\: string, contratoId\?\: int\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: php/tools/seed_contratos_2026.php
+
+		-
+			message: '#^Function get200\(\) should return array but returns string\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: php/tools/smoke_remote.php
+
+		-
+			message: '#^Offset ''status'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: php/tools/smoke_remote.php
 
