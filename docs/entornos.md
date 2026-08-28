@@ -23,6 +23,8 @@ Hay **tres entornos**: el **local** (donde se desarrolla), **preproducción**
 | Portadas | `php/public/cover/` | se cargan de PRO (`cover_base_url`) | `marchasdecristo.com/cover/` |
 | Indexación | — | **Bloqueada** (noindex + `X-Robots-Tag` + `robots.txt` Disallow total) | Normal |
 | Señas visibles | — | Cinta «Entorno de preproducción»; `/health` dice `entorno: pre` | `/health` dice `entorno: prod` |
+| Secciones en maduración | Todas visibles | Ocultas | Ocultas |
+| Panel de admin | Escribe directo | Solo propuestas | Solo propuestas |
 | Deploy de código | — | **Automático** en cada push a `pre` | **Automático** al fusionar `pre` en `main` |
 | Deploy de BD | — | — (usa la de PRO) | Manual: `php scripts/sync_db_to_prod.php` |
 | Backups (cron Plesk) | — | — | Sí (`app/tools/backup.php`) |
@@ -74,11 +76,69 @@ mantiene `env => 'production'`, que es el fail-safe que bloquea las escrituras
 del panel (`Db::assertWritable()`). Preproducción sirve para validar *código*
 contra datos reales, no para probar escrituras — para eso está el local.
 
+`App\Entorno` es el único sitio donde se deduce «qué entorno es este» a partir
+de esas dos claves (`env` y `preproduccion`). De ahí salen los tres nombres que
+imprime `/health` —`local`, `pre`, `prod`— y las dos decisiones que dependen
+del entorno: qué secciones se publican y si el panel puede escribir.
+
+## Qué secciones se publican en cada entorno
+
+Algunas secciones están terminadas de código pero aún no tienen el grado de
+madurez (datos, curación o pulido) para enseñarlas fuera de local. **No se
+borran: se ocultan**, y se republican cuando toque. La lista, con el motivo de
+cada una, vive en `App\Secciones::EN_MADURACION`:
+
+| Sección | Rutas | Espera a… |
+|---|---|---|
+| Dedicatorias | `/dedicatorias`, `/dedicatoria/{slug-id}` | que la curación de advocaciones (alias, unificaciones) esté estable |
+| Estado del catálogo | `/estado-catalogo` | que la campaña de audio (P1 · M2) deje la cobertura en un número presentable |
+| Mapa | `/mapa`, `/mapa/provincia/{slug}` | corregir el solape de dianas de clic entre municipios próximos |
+| Temporada | `/temporada`, `/temporada/{año}` | que `contrato` tenga datos de calidad suficiente |
+
+Ocultar una sección la apaga a la vez en sus **cuatro superficies**: la ruta
+(404), el enlace del nav, el `sitemap.xml` y `llms.txt` — más los enlaces
+entrantes desde secciones que sí se publican (la sugerencia de la home,
+`/rankings` → `/estado-catalogo`). Anunciar una URL que el propio sitio
+responde con 404 es peor que no anunciarla.
+
+**Para publicar una sección** hay dos escalones, y se pueden usar en orden:
+
+1. **Solo en un host**: añadir su slug a `secciones_publicadas` en el
+   `config.local.php` de ese host. Sirve para sacarla primero en PRE, validarla
+   con datos reales y decidir. No requiere desplegar código.
+2. **En todas partes**: quitarla de `Secciones::EN_MADURACION` y borrar el slug
+   de los `config.local.php` que lo tuvieran. Eso es «publicarla» de verdad.
+
+La segunda pasada de CI (ver abajo) es la que sigue probando el contenido de
+estas secciones mientras están ocultas, para que republicarlas no sea un salto
+al vacío.
+
+## El panel en PRE y PRO: solo propuestas
+
+Fuera de local **no escribe nadie en la BD, tampoco el administrador**. La
+maestra es la local y el sync reemplaza el `.db` remoto entero, así que un
+cambio hecho en PRE o PRO se perdería —o pisaría datos buenos— en el siguiente
+`sync_db_to_prod.php`.
+
+- **Marcha, banda y autor**: el envío se guarda como **propuesta**
+  (`Admin::proposalMode()`), igual que lo que hace el editor en cualquier
+  entorno. No se pierde: se baja con `sync_propuestas_from_prod.php` y se aplica
+  en local. Como PRE y PRO comparten el directorio de datos, una propuesta
+  creada en PRE aparece en la misma cola que las de PRO.
+- **El resto del panel** (discos, dedicatorias, estilos, ingesta, enlaces,
+  usuarios, temporada) escribe directo y choca con `Db::assertWritable()`: 503
+  de solo lectura. Sigue accesible para el admin porque a veces hay que
+  *mirarlo* con datos reales.
+- El admin ve en todas las pantallas del panel la cinta roja **«PELIGRO: riesgo
+  de desincronización. No actuar en este entorno salvo urgencia.»**, y en
+  `/dashboard` un aviso que detalla qué funciona y qué no. El editor no la
+  necesita: su flujo es idéntico aquí y en local.
+
 ## Flujo normal de trabajo
 
 ```
 cambio de código → push a la rama `pre`
-                 → CI (lint + smoke sobre fixture)
+                 → CI (lint + smoke sobre fixture, dos pasadas: PRO y local)
                  → deploy automático a PRE (lftp mirror)
                  → smoke remoto contra PRE (datos reales, exige noindex y cinta)
                  → LO VALIDAS EN EL NAVEGADOR

@@ -201,9 +201,14 @@ function searchDiscos(query, page = 1, limit = 20) {
   const countRows = dbAll(`SELECT COUNT(*) AS n FROM disco d WHERE ${where}`, values);
   const totalRows = countRows[0]?.n ?? 0;
   const offset = (page - 1) * limit;
+  // TIENE_STREAMING no existe en api.ts: es una columna añadida por la versión
+  // PHP (icono "Escuchar" del listado /disco). Se replica aquí para que el
+  // comparador siga verde — la divergencia es intencionada, no un fallo de porte.
   const rows = dbAll(`
     SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, b.ID_BANDA,
-      (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+      (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
+      EXISTS (SELECT 1 FROM enlace_streaming es
+              WHERE es.TIPO_ENT = 'disco' AND es.ID_ENT = d.ID_DISCO) AS TIENE_STREAMING
     FROM disco d LEFT JOIN banda b ON b.ID_BANDA = d.BANDADISCO
     WHERE ${where} ORDER BY d.FECHA_CD ASC LIMIT ? OFFSET ?`, [...values, limit, offset]);
   return { rowsReturned: rows.length, totalRows, data: rows };

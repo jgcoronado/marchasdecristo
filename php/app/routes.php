@@ -62,6 +62,9 @@ $router->get('/rankings/{anio}', [Pages::class, 'rankingsAnioHub']);
 $router->get('/aniversarios', [Pages::class, 'aniversariosIndex']);
 $router->get('/aniversarios/{anio}', [Pages::class, 'aniversariosAnioHub']);
 
+// ── Estado del catálogo (R-07): KPI de cobertura de audio ────────────────────
+$router->get('/estado-catalogo', [Pages::class, 'estadoCatalogo']);
+
 // ── Mapa (N-10): coropleta SVG por provincia ──────────────────────────────────
 $router->get('/mapa', [Pages::class, 'mapa']);
 $router->get('/mapa/provincia/{slug}', [Pages::class, 'mapaProvincia']);
@@ -114,8 +117,10 @@ $router->get('/health', static function (): void {
     echo "status: ok\n";
     echo 'php: ' . PHP_VERSION . "\n";
     // Identificador de entorno: confirma de un vistazo (o desde el smoke
-    // remoto del pipeline) contra qué host se ha resuelto la petición.
-    echo 'entorno: ' . (!empty($GLOBALS['config']['preproduccion']) ? 'pre' : 'prod') . "\n";
+    // remoto del pipeline) contra qué host se ha resuelto la petición. Es la
+    // misma deducción que decide qué secciones se publican y si el panel puede
+    // escribir, así que sale de App\Entorno y no de una copia local.
+    echo 'entorno: ' . App\Entorno::nombre() . "\n";
 
     // Chequeo de BD visible para cualquiera (incluido un monitor externo):
     // solo ok/error, sin ruta ni mensaje de excepción — el detalle completo
@@ -163,6 +168,8 @@ $router->get('/dashboard/marcha/add', [Admin::class, 'marchaAddForm']);
 $router->post('/dashboard/marcha/add', [Admin::class, 'marchaAddPost']);
 $router->get('/dashboard/marcha/{id}', [Admin::class, 'marchaEditForm']);
 $router->post('/dashboard/marcha/{id}', [Admin::class, 'marchaEditPost']);
+// Enlaces de escucha de la marcha, separados por versión (original / actual).
+$router->post('/dashboard/marcha/{id}/social', [Admin::class, 'marchaSocialPost']);
 // Curación de estilo (CCTT/AM), asignación manual por lote.
 $router->get('/dashboard/estilos', [Admin::class, 'estiloList']);
 $router->post('/dashboard/estilos/asignar', [Admin::class, 'estiloAssignPost']);
@@ -185,8 +192,15 @@ $router->get('/dashboard/disco/add', [Admin::class, 'discoAddForm']);
 $router->post('/dashboard/disco/add', [Admin::class, 'discoAddPost']);
 $router->get('/dashboard/disco/{id}', [Admin::class, 'discoEditForm']);
 $router->post('/dashboard/disco/{id}', [Admin::class, 'discoEditPost']);
+// Alta asistida: del enlace del álbum en streaming a las pistas del disco.
+// Es lo que se ofrece nada más crear un disco; el alta manual sigue en /{id}.
+$router->get('/dashboard/disco/{id}/importar', [Admin::class, 'discoImportarForm']);
+$router->post('/dashboard/disco/{id}/importar', [Admin::class, 'discoImportarPost']);
+$router->post('/dashboard/disco/{id}/importar/confirmar', [Admin::class, 'discoImportarConfirmar']);
 $router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
+$router->post('/dashboard/disco/{id}/pista/{dm}/editar', [Admin::class, 'discoPistaEditPost']);
+$router->post('/dashboard/disco/{id}/social', [Admin::class, 'discoSocialPost']);
 $router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
@@ -221,6 +235,7 @@ $router->post('/dashboard/ingesta/descartar-multiple', [Admin::class, 'ingestaDe
 $router->post('/dashboard/ingesta/deshacer-descarte', [Admin::class, 'ingestaDeshacerDescarte']);
 $router->get('/dashboard/ingesta/{id}', [Admin::class, 'ingestaDetail']);
 $router->post('/dashboard/ingesta/{id}/aceptar', [Admin::class, 'ingestaAceptar']);
+$router->post('/dashboard/ingesta/{id}/asociar', [Admin::class, 'ingestaAsociar']);
 $router->post('/dashboard/ingesta/{id}/descartar', [Admin::class, 'ingestaDescartar']);
 
 // ── Temporada / contratos (N-04/N-05): alta manual desde el panel ───────────

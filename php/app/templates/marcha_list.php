@@ -1,6 +1,6 @@
 <?php use App\View as V; use App\Slug as S; use App\Html as H;
 /** @var array<string,string> $criteria @var array $result @var int $page @var int $limit
- *  @var array{tipo:list<array>,provincia:list<array>,decada:list<array>} $facets */
+ *  @var array{tipo:list<array>,estilo:list<array>,provincia:list<array>,decada:list<array>} $facets */
 $val = static fn(string $k): string => V::e($criteria[$k] ?? '');
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 

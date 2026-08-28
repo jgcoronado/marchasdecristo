@@ -82,46 +82,90 @@
     }
 
     // ── Marcha que se añade como pista ──────────────────────────────────────
+    // Solo existe en la ficha del disco (formulario de alta manual). La
+    // pantalla de importación reutiliza este mismo fichero pero solo trae
+    // buscadores por fila, así que este bloque se salta sin cortar el resto.
     var pistaRaiz = document.querySelector('[data-marcha-picker]');
-    if (!pistaRaiz) return;
+    if (pistaRaiz) cablearAltaManual(pistaRaiz);
 
-    var previa = document.querySelector('[data-pista-previa]');
-    var previaTitulo = previa && previa.querySelector('[data-previa-titulo]');
-    var previaSub = previa && previa.querySelector('[data-previa-sub]');
-    var numeroInput = document.querySelector('[data-pista-numero]');
-    var volumenInput = document.querySelector('[data-pista-volumen]');
-    var previaNum = previa && previa.querySelector('[data-previa-num]');
+    function cablearAltaManual(pistaRaiz) {
+        var previa = document.querySelector('[data-pista-previa]');
+        var previaTitulo = previa && previa.querySelector('[data-previa-titulo]');
+        var previaSub = previa && previa.querySelector('[data-previa-sub]');
+        var numeroInput = document.querySelector('[data-pista-numero]');
+        var volumenInput = document.querySelector('[data-pista-volumen]');
+        var previaNum = previa && previa.querySelector('[data-previa-num]');
 
-    function refrescarNumero() {
-        if (!previaNum) return;
-        var n = numeroInput && numeroInput.value ? numeroInput.value : '—';
-        var v = volumenInput && volumenInput.value ? volumenInput.value : '1';
-        previaNum.textContent = (volumenInput && volumenInput.max !== '1' && Number(v) > 1)
-            ? ('vol. ' + v + ' · pista ' + n) : ('pista ' + n);
+        function refrescarNumero() {
+            if (!previaNum) return;
+            var n = numeroInput && numeroInput.value ? numeroInput.value : '—';
+            var v = volumenInput && volumenInput.value ? volumenInput.value : '1';
+            previaNum.textContent = (volumenInput && volumenInput.max !== '1' && Number(v) > 1)
+                ? ('vol. ' + v + ' · pista ' + n) : ('pista ' + n);
+        }
+        if (numeroInput) numeroInput.addEventListener('input', refrescarNumero);
+        if (volumenInput) volumenInput.addEventListener('input', refrescarNumero);
+
+        autocompletar({
+            input: pistaRaiz.querySelector('[data-marcha-input]'),
+            hidden: pistaRaiz.querySelector('[data-marcha-id]'),
+            panel: pistaRaiz.querySelector('[data-marcha-suggest]'),
+            url: '/api/marcha/fastSearch?q=',
+            // 1 carácter basta si es un ID; el servidor ya exige 3 para texto.
+            min: 1,
+            pintar: function (r) {
+                return '<strong>' + esc(r.TITULO) + '</strong> <span class="muted small">#' + esc(r.ID_MARCHA)
+                    + (r.FECHA ? ' · ' + esc(r.FECHA) : '')
+                    + (r.AUTORES ? ' · ' + esc(r.AUTORES) : '') + '</span>';
+            },
+            id: function (r) { return r.ID_MARCHA; },
+            etiqueta: function (r) { return r.TITULO + ' (#' + r.ID_MARCHA + ')'; },
+            alElegir: function (id, etiqueta) {
+                if (!previa) return;
+                previa.hidden = false;
+                if (previaTitulo) previaTitulo.textContent = etiqueta;
+                if (previaSub) previaSub.textContent = 'Marcha #' + id;
+                refrescarNumero();
+            },
+        });
     }
-    if (numeroInput) numeroInput.addEventListener('input', refrescarNumero);
-    if (volumenInput) volumenInput.addEventListener('input', refrescarNumero);
 
-    autocompletar({
-        input: pistaRaiz.querySelector('[data-marcha-input]'),
-        hidden: pistaRaiz.querySelector('[data-marcha-id]'),
-        panel: pistaRaiz.querySelector('[data-marcha-suggest]'),
-        url: '/api/marcha/fastSearch?q=',
-        // 1 carácter basta si es un ID; el servidor ya exige 3 para texto.
-        min: 1,
-        pintar: function (r) {
-            return '<strong>' + esc(r.TITULO) + '</strong> <span class="muted small">#' + esc(r.ID_MARCHA)
-                + (r.FECHA ? ' · ' + esc(r.FECHA) : '')
-                + (r.AUTORES ? ' · ' + esc(r.AUTORES) : '') + '</span>';
-        },
-        id: function (r) { return r.ID_MARCHA; },
-        etiqueta: function (r) { return r.TITULO + ' (#' + r.ID_MARCHA + ')'; },
-        alElegir: function (id, etiqueta) {
-            if (!previa) return;
-            previa.hidden = false;
-            if (previaTitulo) previaTitulo.textContent = etiqueta;
-            if (previaSub) previaSub.textContent = 'Marcha #' + id;
-            refrescarNumero();
-        },
+    // ── Editar pista existente ──────────────────────────────────────────────
+    // Cada fila de "Contenido del disco" trae su propia fila oculta con un
+    // formulario de edición (marcha, número, volumen, duración). Un botón
+    // "Editar" la muestra; hay un picker de marcha por fila, así que se
+    // cablean todos con querySelectorAll en vez de uno solo como el de arriba.
+    document.querySelectorAll('[data-marcha-picker-edit]').forEach(function (raiz) {
+        autocompletar({
+            input: raiz.querySelector('[data-marcha-input]'),
+            hidden: raiz.querySelector('[data-marcha-id]'),
+            panel: raiz.querySelector('[data-marcha-suggest]'),
+            url: '/api/marcha/fastSearch?q=',
+            min: 1,
+            pintar: function (r) {
+                return '<strong>' + esc(r.TITULO) + '</strong> <span class="muted small">#' + esc(r.ID_MARCHA)
+                    + (r.FECHA ? ' · ' + esc(r.FECHA) : '')
+                    + (r.AUTORES ? ' · ' + esc(r.AUTORES) : '') + '</span>';
+            },
+            id: function (r) { return r.ID_MARCHA; },
+            etiqueta: function (r) { return r.TITULO + ' (#' + r.ID_MARCHA + ')'; },
+        });
+    });
+
+    function filaEdicion(btn, attr) {
+        var pid = btn.getAttribute(attr);
+        return document.querySelector('[data-pista-edit-row="' + pid + '"]');
+    }
+    document.querySelectorAll('[data-pista-editar]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var fila = filaEdicion(btn, 'data-pista-editar');
+            if (fila) fila.hidden = !fila.hidden;
+        });
+    });
+    document.querySelectorAll('[data-pista-editar-cancelar]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var fila = filaEdicion(btn, 'data-pista-editar-cancelar');
+            if (fila) fila.hidden = true;
+        });
     });
 })();

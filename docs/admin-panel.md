@@ -23,7 +23,18 @@
 | **CSRF** | Token derivado de la sesión (`Auth::csrfToken`/`checkCsrf`), validado en todos los POST del panel |
 | **Roles** (`App\Roles`) | `admin` (acceso total, comodín `*`) y `editor` (capacidades `marcha.add/edit`, `banda.add/edit`, `autor.add/edit` vía `Roles::EDITOR_CAPS`; sin acceso a ingesta, enlaces, dedicatorias, estilos, linaje de bandas ni gestión de usuarios) |
 
-El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`. `Admin::isAdmin($session)` (envuelve `Roles::isAdmin($rol)`) es lo que decide, por ruta, si el POST escribe directo o desvía a propuesta (`proposalMode` en cada controlador).
+El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`.
+
+Quién escribe directo y quién propone lo decide `Admin::proposalMode($session)`, con **dos** condiciones y basta una:
+
+| | local | PRE | PRO |
+|---|---|---|---|
+| **admin** | escribe directo | propone | propone |
+| **editor** | propone | propone | propone |
+
+El rol es la primera condición (el editor siempre propone). La segunda es el **entorno**: fuera de local no escribe nadie, tampoco el admin, porque la BD maestra es la local y `scripts/sync_db_to_prod.php` reemplaza el `.db` remoto entero — una escritura hecha en PRE o PRO se perdería en el siguiente sync, o pisaría datos buenos. Encolarla como propuesta la conserva (el admin la baja con `sync_propuestas_from_prod.php` y la aplica en local). Ver [entornos.md](entornos.md).
+
+Solo hay propuesta para **marcha, banda y autor**. El resto de pantallas del panel (discos, dedicatorias, estilos, ingesta, enlaces, usuarios, temporada) escriben directo, así que en PRE y PRO chocan con `Db::assertWritable()` y devuelven el 503 de solo lectura. Siguen visibles para el admin —a veces hace falta *mirarlas* con datos reales— pero el panel avisa de dos formas: la cinta roja «PELIGRO: riesgo de desincronización» en todas sus pantallas (`layout.php`) y un aviso en `/dashboard` que detalla qué funciona y qué no.
 
 ---
 
@@ -309,6 +320,37 @@ entorno `DB_PATH` permite apuntar a una BD distinta de la que resuelve `config.p
 (útil para pruebas). Salvo que se indique lo contrario, todos son **solo lectura** o
 cuentan con un modo dry-run por defecto.
 
+### `fill_enlaces_cascada.php` — La cascada del panel, sobre todo el catálogo
+
+Pasa `EnlacesAuto::paraDisco()` por **todos los discos que ya tengan al menos un
+enlace**: completa el resto de servicios del disco, el enlace (e ISRC) de cada
+una de sus marchas y el perfil de artista de la banda, más las duraciones que
+falten. No reimplementa nada — es el mismo código que corre al guardar un enlace
+en el panel, así que el criterio no puede divergir.
+
+```bash
+php php/app/tools/fill_enlaces_cascada.php                 # dry-run de todo
+php php/app/tools/fill_enlaces_cascada.php --commit        # escribe
+php php/app/tools/fill_enlaces_cascada.php --desde=300 --limite=50 --commit
+```
+
+- **Dry-run por defecto, y honesto**: ejecuta el mismo código y hace `rollback`
+  de cada disco, así que el informe es lo que escribiría, no una estimación
+  aparte. `--commit` confirma.
+- **Idempotente**: nunca pisa un enlace existente, así que relanzarlo tras un
+  corte no duplica nada. `--desde=ID` reanuda.
+- **Ritmo**: 1 llamada a Odesli por disco y `--pausa` de 6,5 s entre discos, que
+  es lo que admite su API sin clave (~10/min). Para los ~430 discos del catálogo
+  son unos 50 min; la caché de `php/data/odesli_cache/` hace que la segunda
+  pasada vuele.
+- Escribe un CSV por ejecución en `php/data/cascada-<fecha>.csv` (gitignored).
+- Exige `env => local`, como toda escritura: aborta si no.
+
+Complementa a `fill_enlaces_odesli.php` en vez de sustituirlo: aquel parte
+siempre de Spotify y baja a Amazon/Tidal/YouTube **pista a pista** (1 llamada a
+Odesli por pista, caro pero cubre servicios sin tracklist público). Lo normal es
+pasar este primero, que cubre casi todo barato, y dejar aquel para el repaso.
+
 ### `fill_enlaces_streaming.php` — Completar enlaces Spotify de discos y marchas
 
 Obtiene los álbumes/pistas del artista en Spotify y los cruza (fuzzy) con los discos y
@@ -547,14 +589,128 @@ su volumen (`PISTA_OCUPADA`) y que la marcha no esté ya en el disco
 > además podría contradecir a las pistas reales. El volumen se fija pista a
 > pista y el recuento sale solo.
 
+### Importar las pistas desde el enlace del álbum
+
+`/dashboard/disco/{id}/importar`. Es **lo primero que se ofrece tras crear un
+disco** (`discoAddPost` redirige aquí, no a la ficha): a partir del enlace que la
+banda publica en sus redes salen de una vez las pistas, su orden y su duración.
+El alta manual de arriba no cambia y sigue a un clic desde esta pantalla.
+
+Tres pasos, sin estado en servidor — el plan viaja en el propio formulario, que
+es lo que permite que funcione en un hosting compartido sin sesiones de trabajo
+ni tablas temporales:
+
+| Paso | Ruta | Qué hace |
+|------|------|----------|
+| 1 | GET `…/importar` | Pide el enlace (precargado con el de `enlace_streaming` si ya lo hay) |
+| 2 | POST `…/importar` | Lee el tracklist (`App\Tracklist`) y propone el plan (`App\ImportadorPistas::analizar`) |
+| 3 | POST `…/importar/confirmar` | Escribe lo aprobado (`ImportadorPistas::aplicar` → `AdminRepo::addPista`) |
+
+- **Servicios**: Spotify, Apple Music y Deezer, que son los que devuelven
+  tracklist con duración. Apple y Deezer no necesitan credenciales; Spotify sí, y
+  sin ellas la pantalla lo dice en vez de fallar. Salen del **`.env` de la raíz
+  del repo** (`SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`), el mismo que ya usan
+  los scripts de `app/tools/`, así que no hay que duplicarlas; en el hosting, que
+  no tiene `.env`, se ponen como `spotify_client_id`/`spotify_client_secret` en
+  `config.local.php`. Precedencia: `config.local.php` > entorno > `.env`. **Instagram/Facebook/X quedan fuera a
+  propósito**: un post no publica el listado en ningún formato estable (suele ser
+  una foto de la contraportada) y su HTML público está tras un muro de sesión.
+- **Nada de red nueva**: las llamadas y el parseo por servicio son los de
+  `app/tools/lib/music_match.php`, el mismo código que usan `fill_duraciones.php`
+  y `fill_enlaces_odesli.php`. Un solo criterio de similitud para todo el
+  catálogo, que es justo para lo que se extrajo esa librería.
+- **Umbral 80 %** (`ImportadorPistas::UMBRAL`): por encima la pista llega
+  emparejada y marcada; por debajo se avisa (con la marcha más parecida y su
+  porcentaje) y se ofrece **crear la marcha que falta**, precargando título, año
+  y banda del disco — el autor lo pone el usuario, porque ninguna API de
+  streaming lo devuelve. Al guardarla se vuelve a esta pantalla (`volver`, que
+  solo admite rutas `/dashboard/…`).
+- **Asignación 1:1 y greedy** por puntuación: ni dos cortes se llevan la misma
+  marcha (los discos repiten tomas: «… (En Directo)») ni una marcha va a dos
+  cortes. El segundo corte se marca como *repetido*, no como *no reconocido*.
+- **Nada se escribe sin revisar**: la propuesta se enseña en una tabla editable
+  (marcha, número, volumen, duración y la excepción de 🥁 por pista) y la
+  escritura pasa por `AdminRepo::addPista`, con sus mismas validaciones —
+  `MARCHA_YA_EN_DISCO` y `PISTA_OCUPADA` se informan pista a pista y el resto se
+  añade igual.
+
+### Cascada automática de enlaces (`App\EnlacesAuto`)
+
+Guardar el enlace de un álbum —en la pestaña «Streaming» o al importar pistas—
+dispara la búsqueda del resto. **Solo rellena huecos**, en tres niveles:
+
+| Nivel | De dónde sale | Servicios |
+|-------|---------------|-----------|
+| Disco | 1 llamada a Odesli sobre el enlace guardado + repesque por UPC | los 6 |
+| Marchas del disco | tracklist del álbum, emparejado con `disco_marcha` (≥ 85 %) | spotify, apple, deezer |
+| Banda propietaria | el artista **de ese álbum** en cada servicio | spotify, apple, deezer |
+
+Tres reglas que explican todo lo demás:
+
+- **Identidad, no búsqueda.** Odesli resuelve la misma publicación, el UPC es el
+  código de barras de la edición y el artista se lee del propio álbum. Nunca se
+  busca «una banda que se llame así», que es de donde salían los falsos
+  positivos del pipeline offline («Los Angeles» ≠ BCT Ángeles).
+- **Nunca se pisa nada** (`AdminRepo::addEnlaceStreamingSiFalta`): un enlace
+  curado a mano sobrevive y repetir la cascada es idempotente. Por eso «Guardar
+  enlaces» la lanza siempre y sirve también de reintento. La unicidad se
+  comprueba **en PHP**, no delegando en la restricción de la tabla: hay bases
+  cuyas `enlace_streaming`/`enlace_candidato` ya existían cuando se aplicó
+  `004_enlace_streaming.sql`, así que su `CREATE TABLE IF NOT EXISTS` no hizo
+  nada y la UNIQUE nunca llegó. Ahí un UPSERT muere con «ON CONFLICT clause does
+  not match any PRIMARY KEY or UNIQUE constraint» y un INSERT OR IGNORE acumula
+  duplicados en silencio. La migración `010_enlace_unicos.sql` añade esa
+  unicidad como índice (se puede crear sobre una tabla existente); si la base
+  arrastra duplicados, `migrate_ingest.php` los **lista y no borra nada** —
+  cuál sobra es decisión editorial— y el panel sigue funcionando igual.
+- **Lo dudoso no se publica**: por debajo del umbral va a `enlace_candidato`
+  (pendiente, con su score) y se cura en `/dashboard/enlaces`. Umbrales:
+  disco 0,55 · pista 0,85 (candidato desde 0,60) · banda 0,55. Un recopilatorio
+  acreditado a «Various Artists» o un álbum que Odesli agrupa mal acaban ahí, no
+  en la ficha pública.
+
+De paso rellena `disco_marcha.DURACION_SEG` cuando está vacía (R-02): el
+tracklist ya está delante y es el mismo dato que escribe `fill_duraciones.php`.
+Una duración medida a mano no se toca.
+
+Lo que **no** hace, a propósito: Amazon, Tidal y YouTube *a nivel de pista*. No
+tienen tracklist pública, así que cada pista costaría una llamada a Odesli (~7 s
+por su rate-limit) y un disco de 12 cortes dejaría la petición web colgada más de
+un minuto. Eso sigue siendo trabajo de `fill_enlaces_odesli.php`, que va en
+batch, con caché y sin usuario esperando. La cascada del panel tiene además un
+presupuesto de 25 s (`EnlacesAuto::PRESUPUESTO_SEG`): al agotarse deja el resto
+para el batch en vez de arriesgar un timeout a mitad de escritura.
+
+El parser de Odesli (`PLATAFORMAS`, `odesliParse`) y las fichas de álbum por
+servicio viven en `app/tools/lib/music_match.php`, compartidos con el batch: dos
+copias acabarían interpretando distinto la misma respuesta. La caché de Odesli en
+`php/data/odesli_cache/` también es común, y eso importa porque la API sin clave
+admite del orden de 10 peticiones por minuto y por IP.
+
 ### Cobertura
 
 Los smoke tests de CI no pueden autenticarse, así que comprueban lo que sí se
 puede sin sesión: que las rutas existen (un 404 significaría que `routes.php` no
-las registró) y que el guard redirige al login. El flujo completo —alta con
-portada, búsqueda por nombre y por ID, pistas no consecutivas, rechazo de
-duplicados— se verificó de punta a punta con un navegador contra una BD de
-pruebas con un usuario administrador.
+las registró) y que el guard redirige al login — incluidos los dos POST del
+importador. El flujo completo —alta con portada, búsqueda por nombre y por ID,
+pistas no consecutivas, rechazo de duplicados— se verificó de punta a punta con
+un navegador contra una BD de pruebas con un usuario administrador.
+
+La lógica sí está cubierta por pruebas automáticas, en dos runners que son pasos
+propios del workflow de CI y que **no tocan la red ni piden credenciales** (toda
+respuesta de servicio se inyecta desde `php/tools/fixtures/`):
+
+- `php/tools/ci_importar.php` — reconocimiento de enlaces, lectura de tracklists
+  (`Tracklist::$fetcher`), umbral y asignación 1:1, escritura en `disco_marcha`
+  con duración y percusión, y el HTML de la pantalla de revisión.
+- `php/tools/ci_enlaces_auto.php` — la cascada (`EnlacesAuto::$red`): que no pisa
+  enlaces existentes y es idempotente, que un álbum mal agrupado o un título que
+  no casa acaban en la cola y no en la ficha, el repesque por UPC cuando Odesli
+  calla, los enlaces e ISRC por marcha, el relleno de duraciones y el artista de
+  la banda (con «Various Artists» a curación).
+
+Ambos arrancan la app sin servidor con `php/tools/ci_boot.php`, sobre una copia
+desechable de la fixture de CI en modo local.
 
 ---
 

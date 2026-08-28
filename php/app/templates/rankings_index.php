@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Slug as S; use App\Pages as P;
+<?php use App\View as V; use App\Slug as S; use App\Pages as P; use App\Secciones;
 /** @var list<array<string,mixed>> $masAutor, $masDedica, $masEstreno, $masGrabada
  *  @var list<array{K:int,N:int}> $anios  más reciente primero */
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
@@ -19,7 +19,9 @@ krsort($decadas);
 <article class="record">
     <h1>Rankings de música procesional</h1>
     <p class="asiento">Los compositores con más marchas, las bandas con más estrenos y las marchas más grabadas
-        de siempre — y los récords de cada año.</p>
+        de siempre — y los récords de cada año.<?php if (Secciones::visible(Secciones::ESTADO_CATALOGO)): ?>
+        Para saber qué falta por documentar, en vez de qué ya destaca,
+        está el <a href="/estado-catalogo">estado del catálogo</a>.<?php endif; ?></p>
 
     <div class="stack">
         <details class="collapse">

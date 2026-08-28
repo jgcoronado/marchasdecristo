@@ -1,7 +1,8 @@
 <?php use App\View as V; use App\Html as H; use App\IngestaRepo; use App\Auth;
-/** @var array $session @var array{estado:string,banda:string,clasificacion:string} $filters
+/** @var array $session @var array{estado:string,banda:string,clasificacion:string,disco:string} $filters
  *  @var int $page @var array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>} $result
- *  @var list<array{ID_BANDA:int,NOMBRE_BREVE:string,LOCALIDAD:?string,N:int}> $bandas @var array<string,int> $counts @var string $backQs
+ *  @var list<array{ID_BANDA:int,NOMBRE_BREVE:string,LOCALIDAD:?string,N:int}> $bandas
+ *  @var list<array{FUENTE_ALBUM:string,N:int}> $discos @var array<string,int> $counts @var string $backQs
  *  @var array{N:int,CREATED_AT:string,USUARIO:?string,TITULO:?string}|null $ultimoDescarte
  *  @var array<string,true> $vetos */
 $limit = 30;
@@ -83,6 +84,19 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
 <?php endforeach; ?>
                 </select>
             </div>
+<?php if ($discos): ?>
+            <div class="field">
+                <label class="field-label" for="disco">Disco</label>
+                <select class="input" id="disco" name="disco" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+<?php foreach ($discos as $d): ?>
+                    <option value="<?= V::e($d['FUENTE_ALBUM']) ?>" <?= $filters['disco'] === $d['FUENTE_ALBUM'] ? 'selected' : '' ?>>
+                        <?= V::e($d['FUENTE_ALBUM']) ?> (<?= (int) $d['N'] ?>)
+                    </option>
+<?php endforeach; ?>
+                </select>
+            </div>
+<?php endif; ?>
         </div>
     </form>
 

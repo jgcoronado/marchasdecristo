@@ -1,0 +1,22 @@
+{
+  "//": "Detección de código duplicado (jscpd). Ver docs/code-quality.md.",
+  "//1": "Multi-lenguaje a propósito: el proyecto mezcla PHP, JS de assets, .mjs de ingesta y Python de music_links.",
+  "//2": "Umbral 4%: el estado tras resolver §6.2.1 (bootstrap CLI extraído a app/tools/_cli.php) es 3,2% de líneas duplicadas, 43 clones. Bajarlo a 3 cuando caigan §6.2.2 (helpers FTP) y §6.2.3 (plantillas de listado).",
+  "threshold": 4,
+  "minLines": 8,
+  "minTokens": 60,
+  "gitignore": true,
+  "absolute": false,
+  "format": ["php", "javascript", "python", "css", "sql", "markup"],
+  "ignore": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/.tools/**",
+    "docs/**",
+    "php/app/geo/municipios_es.php",
+    "php/app/fonts/**",
+    "**/*.min.js"
+  ],
+  "reporters": ["console", "html", "json"],
+  "output": "build/jscpd"
+}

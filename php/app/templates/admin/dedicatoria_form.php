@@ -1,5 +1,5 @@
 <?php use App\View as V; use App\Slug as S; use App\Auth; use App\Html as H;
-/** @var array{ID_DEDIC:int,NOMBRE:string,LOCALIDAD:string,PROVINCIA:?string,variantes:list<array<string,mixed>>} $dedic
+/** @var array{ID_DEDIC:int,NOMBRE:string,LOCALIDAD:string,PROVINCIA:?string,PERSONAL:int,variantes:list<array<string,mixed>>} $dedic
  *  @var array|null $notice @var string|null $error @var array $session */
 $csrf = Auth::csrfToken($session);
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');

@@ -16,28 +16,16 @@ final class Pages
         return rtrim((string) ($GLOBALS['config']['site_url'] ?? 'https://marchasdecristo.com'), '/');
     }
 
-    // Decisión 2026-07-29: /temporada se oculta en PRO mientras `contrato` no
-    // tenga datos de calidad suficiente (alta manual, aún vacía en prod), pero
-    // se mantiene visible en local (donde se rellena) y en PRE (para
-    // validarla visualmente antes de decidir publicarla). "Publicarla" es
-    // quitar este gate, no un flag de config nuevo — no hay nada que
-    // configurar por host aparte de lo que ya distingue PRE de PRO.
-    private static function temporadaVisible(): bool
+    /**
+     * Secciones aún no publicadas fuera de local (dedicatorias, estado del
+     * catálogo, mapa y temporada): ver App\Secciones, que es donde se lista el
+     * porqué de cada una y desde donde se republican. Aquí solo se consulta,
+     * en las cuatro superficies que hay que apagar a la vez: la ruta (404), el
+     * nav (layout.php), el sitemap y llms.txt.
+     */
+    private static function seccionVisible(string $seccion): bool
     {
-        $config = $GLOBALS['config'];
-        return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
-    }
-
-    // Decisión 2026-07-29: /mapa se oculta en PRO mientras se corrige el
-    // solape de dianas de clic entre municipios próximos (reportado en
-    // Castilleja de la Cuesta/Tomares). Se mantiene visible en local y en PRE
-    // para poder seguir iterando y validando el arreglo sin publicar el
-    // problema. Mismo mecanismo que temporadaVisible(): quitar el gate es
-    // "republicarlo", no hay flag de config nuevo.
-    private static function mapaVisible(): bool
-    {
-        $config = $GLOBALS['config'];
-        return ($config['env'] ?? 'production') !== 'production' || !empty($config['preproduccion']);
+        return Secciones::visible($seccion);
     }
 
     /** @return array{0:array<string,string>,1:bool,2:int,3:int} [criteria, hasQuery, page, limit] */
@@ -160,7 +148,9 @@ final class Pages
         foreach ($hubProvincias as $pr) {
             $add(self::provinciaHubPath((string) $pr['K']), 'Marchas de la provincia de ' . $pr['K'], (int) $pr['N']);
         }
-        $add('/dedicatorias', 'Dedicatorias — advocaciones y hermandades', null);
+        if (self::seccionVisible(Secciones::DEDICATORIAS)) {
+            $add('/dedicatorias', 'Dedicatorias — advocaciones y hermandades', null);
+        }
 
         return $out;
     }
@@ -492,7 +482,9 @@ final class Pages
         $base = self::base();
         $url = $base . $canonical;
         $autores = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR']));
-        $enlaces = EnlaceRepo::publicadosDe('marcha', (int) $m['ID_MARCHA']);
+        // La ficha de marcha separa versión original y actual (ver Html::escuchar),
+        // así que necesita los enlaces agrupados, no aplanados.
+        $enlaces = EnlaceRepo::publicadosPorVersionDe('marcha', (int) $m['ID_MARCHA']);
 
         Http::cachePublic(3600);
         View::render('marcha_detail', ['m' => $m, 'url' => $url, 'enlaces' => $enlaces], [
@@ -617,6 +609,9 @@ final class Pages
     /** N-02 · índice A–Z de advocaciones, filtrable por localidad/provincia. */
     public static function dedicatoriaList(): void
     {
+        if (!self::seccionVisible(Secciones::DEDICATORIAS)) {
+            Http::notFound();
+        }
         $localidad = trim((string) ($_GET['localidad'] ?? ''));
         $provincia = trim((string) ($_GET['provincia'] ?? ''));
         $hasQuery = $localidad !== '' || $provincia !== '';
@@ -644,6 +639,9 @@ final class Pages
     /** N-01 · hub de una advocación: todas sus marchas dedicadas. */
     public static function dedicatoriaDetail(array $p): void
     {
+        if (!self::seccionVisible(Secciones::DEDICATORIAS)) {
+            Http::notFound();
+        }
         $id = Slug::extractId($p['slugAndId']);
         if ($id === null) Http::notFound();
         $d = Repo::fetchDedicatoria($id);
@@ -709,6 +707,38 @@ final class Pages
                 Seo::breadcrumbs([
                     ['name' => 'Inicio', 'url' => $base],
                     ['name' => 'Rankings', 'url' => $base . '/rankings'],
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+     * R-07 del roadmap (issue #16): página pública con el KPI de cobertura de
+     * audio — % de marchas con alguna escucha enlazada, global/por año/por
+     * banda. Es el tablero honesto de "lo que falta" que la campaña de audio
+     * (P1 · M2) necesita para medirse antes/después, y de paso el mapa de
+     * curación (peor cobertura primero) para decidir por dónde seguir.
+     */
+    public static function estadoCatalogo(): void
+    {
+        if (!self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
+            Http::notFound();
+        }
+        $base = self::base();
+        Http::cachePublic(1800);
+        View::render('estado_catalogo', [
+            'global' => Repo::coberturaGlobal(),
+            'porAnio' => Repo::coberturaPorAnio(),
+            'porBanda' => Repo::coberturaPorBanda(),
+        ], [
+            'title' => 'Estado del catálogo — cobertura de audio — Marchas de Cristo',
+            'description' => 'Cuántas marchas del catálogo tienen ya una grabación enlazada para escuchar, '
+                . 'y cuántas faltan todavía: el KPI de cobertura, global, por año y por banda.',
+            'canonical' => $base . '/estado-catalogo',
+            'jsonld' => [
+                Seo::breadcrumbs([
+                    ['name' => 'Inicio', 'url' => $base],
+                    ['name' => 'Estado del catálogo', 'url' => $base . '/estado-catalogo'],
                 ]),
             ],
         ]);
@@ -856,7 +886,7 @@ final class Pages
     // ── Mapa (N-10) ──────────────────────────────────────────────────────────
     public static function mapa(): void
     {
-        if (!self::mapaVisible()) {
+        if (!self::seccionVisible(Secciones::MAPA)) {
             Http::notFound();
         }
         $porProvincia = Repo::hubProvincias();
@@ -888,7 +918,7 @@ final class Pages
     /** Mapa ampliado de una provincia: municipios clicables (self::mapaProvinciaPath). */
     public static function mapaProvincia(array $p): void
     {
-        if (!self::mapaVisible()) {
+        if (!self::seccionVisible(Secciones::MAPA)) {
             Http::notFound();
         }
         $raw = (string) $p['slug'];
@@ -941,7 +971,7 @@ final class Pages
     // ── Temporada (N-04): contratos banda↔hermandad, alta manual por ahora ──
     public static function temporadaIndex(): void
     {
-        if (!self::temporadaVisible()) {
+        if (!self::seccionVisible(Secciones::TEMPORADA)) {
             Http::notFound();
         }
         Http::redirect('/temporada/' . gmdate('Y'), 302);
@@ -949,7 +979,7 @@ final class Pages
 
     public static function temporada(array $p): void
     {
-        if (!self::temporadaVisible()) {
+        if (!self::seccionVisible(Secciones::TEMPORADA)) {
             Http::notFound();
         }
         $anio = (string) $p['anio'];
@@ -1080,7 +1110,6 @@ final class Pages
             [$base . '/autor', 'weekly', '0.8'],
             [$base . '/banda', 'weekly', '0.8'],
             [$base . '/disco', 'weekly', '0.8'],
-            [$base . '/dedicatorias', 'weekly', '0.8'],
             [$base . '/rankings', 'weekly', '0.7'],
             // Solo el año en curso (N-09): a diferencia de los hubs de año, no
             // hay un universo cerrado de "años válidos" para aniversarios —
@@ -1089,9 +1118,15 @@ final class Pages
             [$base . self::aniversariosAnioPath(gmdate('Y')), 'monthly', '0.6'],
             [$base . '/datos', 'monthly', '0.5'],
         ];
-        // Oculto en PRO (ver Pages::mapaVisible): no anunciar una URL que la
-        // propia web responde con 404.
-        if (self::mapaVisible()) {
+        // Secciones aún no publicadas en este entorno (App\Secciones): no
+        // anunciar una URL que la propia web responde con 404.
+        if (self::seccionVisible(Secciones::DEDICATORIAS)) {
+            $urls[] = [$base . '/dedicatorias', 'weekly', '0.8'];
+        }
+        if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
+            $urls[] = [$base . '/estado-catalogo', 'weekly', '0.6'];
+        }
+        if (self::seccionVisible(Secciones::MAPA)) {
             $urls[] = [$base . '/mapa', 'monthly', '0.6'];
         }
 
@@ -1130,9 +1165,13 @@ final class Pages
                 $urls[] = [$base . Slug::buildDetailPath('disco', $r['id'], (string) $r['label']), 'monthly', '0.6'];
             }
             // Hubs de dedicatoria con sustancia (≥ DEDIC_MIN_MARCHAS marchas).
-            foreach (Repo::dedicatoriaIndex() as $r) {
-                $label = $r['NOMBRE'] . ($r['LOCALIDAD'] !== '' ? ' ' . $r['LOCALIDAD'] : '');
-                $urls[] = [$base . Slug::buildDetailPath('dedicatoria', $r['ID_DEDIC'], $label), 'monthly', '0.6'];
+            // Van con el índice: si la sección no está publicada aquí, sus
+            // fichas también responden 404.
+            if (self::seccionVisible(Secciones::DEDICATORIAS)) {
+                foreach (Repo::dedicatoriaIndex() as $r) {
+                    $label = $r['NOMBRE'] . ($r['LOCALIDAD'] !== '' ? ' ' . $r['LOCALIDAD'] : '');
+                    $urls[] = [$base . Slug::buildDetailPath('dedicatoria', $r['ID_DEDIC'], $label), 'monthly', '0.6'];
+                }
             }
         } catch (Throwable $e) {
             error_log('[sitemap] ' . $e->getMessage());
@@ -1143,10 +1182,10 @@ final class Pages
         // — si aún no se ha aplicado, esto no debe tumbar el resto del sitemap
         // (ya pasó: el primer deploy de N-04 dejó el sitemap sin fichas de marcha
         // porque la consulta vivía dentro del try principal, más arriba).
-        // Oculta en PRO (ver Pages::temporadaVisible): listar aquí una URL que
-        // el propio sitio responde con 404 sería peor para el sitemap que
+        // Sin publicar fuera de local (ver App\Secciones): listar aquí una URL
+        // que el propio sitio responde con 404 sería peor para el sitemap que
         // omitirla.
-        if (self::temporadaVisible()) {
+        if (self::seccionVisible(Secciones::TEMPORADA)) {
             try {
                 foreach (Repo::aniosConTemporada() as $r) {
                     if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
@@ -1391,20 +1430,21 @@ final class Pages
             '- [Compositores](' . $base . '/autor)',
             '- [Bandas](' . $base . '/banda)',
             '- [Discos](' . $base . '/disco)',
-            '- [Dedicatorias](' . $base . '/dedicatorias)',
             '- [Rankings](' . $base . '/rankings)',
             '- [Aniversarios](' . $base . '/aniversarios)',
         ];
-        // Mapa oculto en PRO mientras se corrige el solape de dianas (ver
-        // Pages::mapaVisible) — no listar aquí una URL que la propia web
-        // responde con 404.
-        if (self::mapaVisible()) {
+        // Secciones aún no publicadas en este entorno (ver App\Secciones): no
+        // listar aquí una URL que la propia web responde con 404.
+        if (self::seccionVisible(Secciones::DEDICATORIAS)) {
+            $lines[] = '- [Dedicatorias](' . $base . '/dedicatorias)';
+        }
+        if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
+            $lines[] = '- [Estado del catálogo](' . $base . '/estado-catalogo)';
+        }
+        if (self::seccionVisible(Secciones::MAPA)) {
             $lines[] = '- [Mapa](' . $base . '/mapa)';
         }
-        // Temporada oculta en PRO hasta que haya datos de calidad (ver
-        // Pages::temporadaVisible) — no listar aquí una URL que la propia web
-        // responde con 404.
-        if (self::temporadaVisible()) {
+        if (self::seccionVisible(Secciones::TEMPORADA)) {
             $lines[] = '- [Temporada](' . $base . '/temporada)';
         }
         $lines[] = '- [Mapa del sitio](' . $base . '/sitemap.xml)';

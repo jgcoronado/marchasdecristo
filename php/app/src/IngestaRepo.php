@@ -103,6 +103,40 @@ final class IngestaRepo
     }
 
     /**
+     * Candidatos aún pendientes con el mismo título que $titulo y la misma
+     * banda que $idBanda, pero de una fuente distinta a $fuente: el mismo
+     * estreno visto a la vez en dos catálogos (p.ej. YouTube y Spotify).
+     * Usado para descartarlos en cascada al resolver $idCand — ver
+     * AdminRepo::descartarHermanosMismoTitulo().
+     *
+     * "Mismo título" es iguales tras normalizar (Similarity::ratio === 1:
+     * minúsculas, sin acentos ni signos, espacios colapsados) — no similitud
+     * aproximada, para no descartar por error dos marchas distintas que solo
+     * se parecen.
+     *
+     * @return list<int>
+     */
+    public static function hermanosMismoTitulo(int $idCand, ?int $idBanda, string $titulo, string $fuente): array
+    {
+        $titulo = trim($titulo);
+        if ($titulo === '' || $idBanda === null) return [];
+
+        $rows = Db::all(
+            "SELECT ID_CAND, P_TITULO, VIDEO_TITULO
+             FROM ingest_candidato
+             WHERE ESTADO = 'pendiente' AND ID_BANDA = ? AND ID_CAND != ? AND FUENTE != ?",
+            [$idBanda, $idCand, $fuente]
+        );
+
+        $out = [];
+        foreach ($rows as $r) {
+            $tituloC = (string) ($r['P_TITULO'] ?: $r['VIDEO_TITULO']);
+            if (Similarity::ratio($titulo, $tituloC) >= 1.0) $out[] = (int) $r['ID_CAND'];
+        }
+        return $out;
+    }
+
+    /**
      * Último descarte deshacible, o null si no hay ninguno (nunca se descartó,
      * o el último descarte ya se deshizo). Trae el título del candidato cuando
      * el descarte fue de uno solo, para poder nombrarlo en el botón.
@@ -187,7 +221,7 @@ final class IngestaRepo
     }
 
     /**
-     * @param array{estado?:string,banda?:string,clasificacion?:string} $filters
+     * @param array{estado?:string,banda?:string,clasificacion?:string,disco?:string} $filters
      * @return array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>}
      */
     public static function listCandidatos(array $filters, int $page = 1, int $limit = 30): array
@@ -207,6 +241,10 @@ final class IngestaRepo
         if (!empty($filters['clasificacion']) && in_array($filters['clasificacion'], self::CLASIFICACIONES, true)) {
             $conditions[] = 'c.CLASIFICACION = ?';
             $values[] = $filters['clasificacion'];
+        }
+        if (!empty($filters['disco'])) {
+            $conditions[] = 'c.FUENTE_ALBUM = ?';
+            $values[] = (string) $filters['disco'];
         }
         $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
 
@@ -269,5 +307,46 @@ final class IngestaRepo
              ORDER BY b.NOMBRE_BREVE",
             $values
         );
+    }
+
+    /**
+     * Discos (FUENTE_ALBUM) con al menos un candidato, para el <select> de
+     * filtro — mismo patrón que bandasConCandidatos(). Solo lo rellenan los
+     * candidatos de streaming (tools/music_links/descubrir_marchas.py); los
+     * de YouTube no tienen disco de origen, así que quedan fuera.
+     *
+     * Si se pasa $banda, solo lista los discos de esa banda (así el
+     * desplegable no mezcla discos de bandas distintas cuando ya se ha
+     * filtrado por una); sin banda seleccionada, lista todos.
+     *
+     * @return list<array{FUENTE_ALBUM:string,N:int}>
+     */
+    public static function discosConCandidatos(?string $estado = null, ?string $banda = null): array
+    {
+        $where = "c.FUENTE_ALBUM IS NOT NULL AND c.FUENTE_ALBUM != ''";
+        $values = [];
+        if ($estado !== null && $estado !== '' && $estado !== 'todos' && in_array($estado, self::ESTADOS, true)) {
+            $where .= ' AND c.ESTADO = ?';
+            $values[] = $estado;
+        }
+        if ($banda !== null && $banda !== '') {
+            $where .= ' AND c.ID_BANDA = ?';
+            $values[] = (int) $banda;
+        }
+        try {
+            return Db::all(
+                "SELECT c.FUENTE_ALBUM, COUNT(*) AS N
+                 FROM ingest_candidato c
+                 WHERE $where
+                 GROUP BY c.FUENTE_ALBUM
+                 ORDER BY c.FUENTE_ALBUM",
+                $values
+            );
+        } catch (\Throwable) {
+            // Columna de 008_ingest_streaming.sql/migrate_ingest.php: si el
+            // host todavía no la tiene, "sin discos que filtrar" es la
+            // degradación correcta — mismo patrón que vetosDe()/ultimoDescarte().
+            return [];
+        }
     }
 }

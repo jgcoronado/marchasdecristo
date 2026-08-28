@@ -328,7 +328,8 @@ if ($propuestas !== [] && !$args['force']) {
     fwrite(STDERR, "   (o repite con --force si ya sabes que no importan).\n");
     exit(1);
 }
-if ($propuestas !== [] && $args['force']) {
+// Si hay propuestas y hemos pasado el bloque anterior, es que venimos con --force.
+if ($propuestas !== []) {
     echo '⚠ ' . count($propuestas) . " propuesta(s) pendiente(s) en producción — continuando por --force.\n";
 } else {
     echo "✓ Sin propuestas pendientes sin bajar.\n";

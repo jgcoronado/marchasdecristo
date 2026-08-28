@@ -34,6 +34,17 @@ jobs:
       - name: Build fixture database
         run: php php/tools/ci_fixture.php /tmp/ci-mdc.db
 
+      # Importador de pistas (disco → «Importar pistas»): lógica de emparejado
+      # y escritura, sin red ni servidor. Va antes de levantar el servidor
+      # porque escribe en su propia copia de la fixture.
+      - name: Unit tests (importador de pistas)
+        run: php php/tools/ci_importar.php
+
+      # Cascada automática de enlaces (disco → resto de servicios, marchas y
+      # banda). Toda la red va inyectada desde fixtures/enlaces_auto.json.
+      - name: Unit tests (cascada de enlaces)
+        run: php php/tools/ci_enlaces_auto.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db
@@ -51,13 +62,54 @@ jobs:
           cat /tmp/server.log
           exit 1
 
-      - name: Smoke tests
-        run: php php/tools/ci_smoke.php http://127.0.0.1:8000
+      - name: Smoke tests (entorno PRO)
+        run: php php/tools/ci_smoke.php http://127.0.0.1:8000 pro
 
-      - name: Server log (siempre, para depurar fallos)
-        if: always()
-        run: cat /tmp/server.log || true
-
-      - name: Stop server
-        if: always()
+      - name: Stop server (PRO)
         run: kill "$(cat /tmp/server.pid)" 2>/dev/null || true
+
+      # Segunda pasada como entorno local. Sin ella, las secciones que aún no se
+      # publican fuera de local (App\Secciones: dedicatorias, estado del
+      # catálogo, mapa y temporada) se quedarían sin ninguna prueba de
+      # contenido: la pasada de arriba solo puede comprobar que dan 404. El
+      # config.local.php es el mismo mecanismo que usa un portátil de
+      # desarrollo, y está gitignored, así que se escribe aquí y muere con el
+      # runner.
+      - name: Configure local environment
+        run: |
+          cat > php/app/config.local.php <<'PHP'
+          <?php
+          return ['env' => 'local'];
+          PHP
+
+      - name: Start built-in server (entorno local)
+        env:
+          DB_PATH: /tmp/ci-mdc.db
+        run: |
+          php -S 127.0.0.1:8001 -t php/public php/public/index.php > /tmp/server-local.log 2>&1 &
+          echo $! > /tmp/server-local.pid
+          for i in $(seq 1 20); do
+            if curl -fs -o /dev/null http://127.0.0.1:8001/health; then
+              echo "Servidor listo."
+              exit 0
+            fi
+            sleep 0.5
+          done
+          echo "El servidor no respondió a tiempo."
+          cat /tmp/server-local.log
+          exit 1
+
+      - name: Smoke tests (entorno local)
+        run: php php/tools/ci_smoke.php http://127.0.0.1:8001 local
+
+      - name: Server logs (siempre, para depurar fallos)
+        if: always()
+        run: |
+          cat /tmp/server.log || true
+          cat /tmp/server-local.log || true
+
+      - name: Stop servers
+        if: always()
+        run: |
+          kill "$(cat /tmp/server.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/server-local.pid)" 2>/dev/null || true

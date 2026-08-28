@@ -115,10 +115,10 @@ final class Og
 
         // Título: 1–2 líneas, reduce el tamaño si son 2.
         $titSize = 62;
-        $lines = self::wrap($img, $serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
+        $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
         if (count($lines) > 1) {
             $titSize = 52;
-            $lines = self::wrap($img, $serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
+            $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
         }
         $lineH = (int) round($titSize * 1.16);
 
@@ -149,7 +149,7 @@ final class Og
         // Subtítulo (serif itálico).
         if ($sub !== '') {
             $y += $gSub;
-            $sub = self::ellipsize($img, $serifItalic, $subSize, $sub, $maxW);
+            $sub = self::ellipsize($serifItalic, $subSize, $sub, $maxW);
             self::centered($img, $serifItalic, $subSize, $sub, $cx, $y, $muted);
         }
 
@@ -199,9 +199,11 @@ final class Og
      * Parte $text en como mucho $maxLines líneas que quepan en $maxW. Si sobra,
      * la última línea se recorta con «…».
      *
+     * Solo mide (imagettfbbox), no dibuja: no necesita el lienzo.
+     *
      * @return list<string>
      */
-    private static function wrap($img, string $font, int $size, string $text, int $maxW, int $maxLines): array
+    private static function wrap(string $font, int $size, string $text, int $maxW, int $maxLines): array
     {
         $words = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $lines = [];
@@ -230,13 +232,13 @@ final class Og
         $consumed = implode(' ', $lines);
         if (mb_strlen($consumed) < mb_strlen(trim($text))) {
             $last = array_pop($lines);
-            $lines[] = self::ellipsize($img, $font, $size, $last . '…', $maxW);
+            $lines[] = self::ellipsize($font, $size, $last . '…', $maxW);
         }
         return $lines === [] ? [''] : $lines;
     }
 
     /** Recorta $text con «…» hasta que quepa en $maxW. */
-    private static function ellipsize($img, string $font, int $size, string $text, int $maxW): string
+    private static function ellipsize(string $font, int $size, string $text, int $maxW): string
     {
         $bb = imagettfbbox($size, 0, $font, $text);
         if (($bb[2] - $bb[0]) <= $maxW) {

@@ -16,32 +16,130 @@
 
    El índigo se reserva para lo consultable (enlaces y acciones). */
 
-/* ── Tokens ─────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   PALETA — cómo probar colores nuevos
+
+   Solo hay que tocar el BLOQUE 1 (tema claro) y el BLOQUE 1-bis (tema
+   oscuro). Son ~14 colores cada uno. Todo lo demás de la hoja —superficies
+   secundarias, filetes, texto atenuado, tintes de badge, la rampa del mapa,
+   las sombras— se calcula a partir de ellos con color-mix() en el BLOQUE 3,
+   así que se mueve solo. No hay ni un color escrito a mano fuera de estos
+   bloques, salvo los del BLOQUE 4 (marcas de terceros e impresión), que a
+   propósito NO siguen la paleta.
+
+   Regla práctica: cambia --acc y comprueba enlaces, mapa y botones. Cambia
+   --ink y comprueba que el texto atenuado sigue legible. Si un tono derivado
+   te queda flojo o cargado, ajusta su porcentaje en el BLOQUE 2 antes de
+   volver a escribir un hex suelto.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── BLOQUE 1 · Colores base, tema claro ─────────────────────────────────── */
 :root {
-    /* Paleta clara */
     --bg: #f4f5f8;          /* fondo de la app (apenas separado de la tarjeta) */
     --card: #ffffff;        /* superficie del registro / tarjetas */
-    --s2: #f2f4fa;          /* superficie secundaria */
-    --zebra: #f7f8fb;       /* fila alterna de datos y tablas */
-    --line: #e2e5ee;        /* filete */
     --ink: #22262f;         /* tinta (no negro puro: cansa menos) */
-    --muted-c: #5b6273;
-    --faint: #868da0;
     --acc: #2c3a77;         /* índigo: enlaces y acciones (oscurecido 2026-07-29, ~75% del valor anterior #3a4d9e, mismo tono — de 7.7:1 a 10.6:1 de contraste sobre --card) */
-    --acc-tint: #e9ecf9;
-    /* Semánticos (estreno / novedad / recuperación / error) */
-    --est: #1c6b3c;  --est-bg: #e6f3ea;
-    --nov: #0f6e78;  --nov-bg: #e2f2f3;
-    --rec: #8a5a1f;  --rec-bg: #f6ecd9;
-    --err: #8a1f1f;  --err-bg: #fdecec; --err-line: #f5c2c2;
-    --juv: #5b3ea3;  --juv-bg: #f1ecfb;
-    /* Coropleta del mapa (N-10): rampa de --s2 a --acc, 4 pasos intermedios */
-    --map-1: #d8dbec; --map-2: #b0b8d8; --map-3: #8994c5; --map-4: #6171b1;
-    /* Puntos por municipio en el mapa de provincia: rampa cálida (ámbar), a
-       propósito distinta de --map-1..4 (fría, índigo) — el contorno de la
-       provincia ya usa --acc de fondo, así que los puntos necesitan un color
-       de otra familia para no fundirse con él en ningún nivel. */
-    --pt-1: #ffffff; --pt-2: #ffd9a3; --pt-3: #f5a623; --pt-4: #c9720a;
+    --acc-fg: #ffffff;      /* texto sobre un fondo --acc macizo (.btn-neutral) */
+    /* Semánticos (estreno / novedad / recuperación / error / juvenil).
+       Su fondo tenue (--est-bg y compañía) se deriva de cada uno. */
+    --est: #1c6b3c;
+    --nov: #0f6e78;
+    --rec: #8a5a1f;
+    --err: #8a1f1f;
+    --juv: #5b3ea3;
+    /* Puntos por municipio en el mapa de provincia: familia cálida (ámbar), a
+       propósito distinta de la rampa del mapa (fría, --acc) — el contorno de
+       la provincia ya usa --acc de fondo, así que los puntos necesitan otra
+       familia para no fundirse con él en ningún nivel. --pt es el tono medio
+       y --pt-fuerte el extremo más legible sobre el fondo del tema. */
+    --pt: #f5a623;
+    --pt-fuerte: #c9720a;
+    /* Color del que se tiñen sombras y velo del diálogo. */
+    --sombra-base: #141c3c;
+    /* Hacia dónde se aclara u oscurece el fondo tenue de badges y avisos. En
+       tema claro es la propia tarjeta; en oscuro, negro (ver BLOQUE 1-bis). */
+    --tinte-base: var(--card);
+}
+
+/* ── BLOQUE 2 · Proporciones de mezcla ───────────────────────────────────── */
+/* Cuánto de un color base se mezcla con su fondo para obtener el tono
+   derivado. Se separan por tema porque una misma proporción no rinde igual
+   aclarando sobre blanco que oscureciendo sobre negro. */
+:root {
+    --mz-muted: 78%;   /* --muted-c: tinta atenuada (etiquetas, texto de apoyo) */
+    --mz-faint: 75%;   /* --faint: tinta muy atenuada (recuentos, migas) */
+    --mz-tint: 11%;    /* fondo tenue de badges y avisos */
+    --mz-borde: 27%;   /* --err-line: filete del aviso de error */
+}
+
+/* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #12151c;
+        --card: #171b25;
+        --ink: #e7eaf4;
+        --acc: #8ea0ec;
+        --acc-fg: #12151c;  /* el acento claro pide tinta oscura encima, no blanca */
+        --est: #7cc39a;
+        --nov: #5fc3cd;
+        --rec: #d7a866;
+        --err: #e09a9a;
+        --juv: #b9a3e8;
+        --pt: #8a5a1f;
+        --pt-fuerte: #d7a866;
+        --sombra-base: #000000;
+        /* El tinte se oscurece hacia negro, NO hacia la tarjeta: la tarjeta ya
+           es azulada y mezclar contra ella volvía gris-azul cualquier aviso,
+           daba igual que fuera verde, ámbar o rojo. */
+        --tinte-base: #000000;
+        /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar y
+           más color para que el tinte del badge se distinga del negro. */
+        --mz-faint: 61%;
+        --mz-tint: 20%;
+        --mz-borde: 30%;
+    }
+}
+
+/* ── BLOQUE 3 · Tonos derivados — no editar, se calculan solos ───────────── */
+:root {
+    /* Superficies y filete: el acento tiñe ligerísimamente la tarjeta, que es
+       lo que da al gris del sitio su temperatura. */
+    --s2: color-mix(in srgb, var(--acc) 6%, var(--card));      /* superficie secundaria */
+    --zebra: color-mix(in srgb, var(--acc) 3.5%, var(--card)); /* fila alterna */
+    --line: color-mix(in srgb, var(--acc) 13%, var(--card));   /* filete */
+    /* Tinta atenuada. Se parte de la tinta teñida a medias con el acento: una
+       mezcla directa de --ink con la tarjeta sale gris neutro y el texto de
+       apoyo pierde el matiz frío que tiene el resto de la página. Desde ahí se
+       aclara hacia la superficie, que en tema oscuro es oscurecer — la misma
+       fórmula sirve para los dos temas. */
+    --tinta-suave: color-mix(in srgb, var(--ink) 50%, var(--acc));
+    --muted-c: color-mix(in srgb, var(--tinta-suave) var(--mz-muted), var(--card));
+    --faint: color-mix(in srgb, var(--tinta-suave) var(--mz-faint), var(--card));
+    /* Fondos tenues (ver --tinte-base) */
+    --acc-tint: color-mix(in srgb, var(--acc) var(--mz-tint), var(--tinte-base));
+    --est-bg: color-mix(in srgb, var(--est) var(--mz-tint), var(--tinte-base));
+    --nov-bg: color-mix(in srgb, var(--nov) var(--mz-tint), var(--tinte-base));
+    --rec-bg: color-mix(in srgb, var(--rec) var(--mz-tint), var(--tinte-base));
+    --err-bg: color-mix(in srgb, var(--err) var(--mz-tint), var(--tinte-base));
+    --err-line: color-mix(in srgb, var(--err) var(--mz-borde), var(--tinte-base));
+    --juv-bg: color-mix(in srgb, var(--juv) var(--mz-tint), var(--tinte-base));
+    /* Coropleta del mapa (N-10): rampa regular de la tarjeta a --acc.
+       --prov-0 (sin marchas) es --s2 y --prov-5 es --acc a pelo. */
+    --map-1: color-mix(in srgb, var(--acc) 20%, var(--card));
+    --map-2: color-mix(in srgb, var(--acc) 40%, var(--card));
+    --map-3: color-mix(in srgb, var(--acc) 60%, var(--card));
+    --map-4: color-mix(in srgb, var(--acc) 80%, var(--card));
+    /* Rampa de puntos por municipio (ver --pt en el bloque 1) */
+    --pt-1: var(--card);
+    --pt-2: color-mix(in srgb, var(--pt) 45%, var(--card));
+    --pt-3: var(--pt);
+    --pt-4: var(--pt-fuerte);
+    /* Sombras y velo: el box-shadow entero es el token, para que las reglas
+       no tengan que repetir desenfoques ni opacidades. */
+    --sombra-suave: 0 1px 3px color-mix(in srgb, var(--sombra-base) 14%, transparent);
+    --sombra-media: 0 4px 16px color-mix(in srgb, var(--sombra-base) 18%, transparent);
+    --sombra-panel: 0 6px 20px color-mix(in srgb, var(--sombra-base) 16%, transparent);
+    --velo: color-mix(in srgb, var(--sombra-base) 55%, transparent);
     /* Alias legacy (plantillas y JS existentes) */
     --surface: var(--s2);
     --surface2: var(--acc-tint);
@@ -50,34 +148,43 @@
     --muted: var(--muted-c);
     --neutral: var(--ink);
     --neutral-fg: var(--card);
-    /* Tipografía y métricas */
+}
+
+/* ── BLOQUE 4 · Colores que NO siguen la paleta ──────────────────────────── */
+/* Identidad de terceros y tinta de impresión. Cambiar la paleta del sitio no
+   debe tocarlos: el verde de Spotify tiene que seguir siendo el de Spotify, y
+   una hoja impresa es negro sobre papel blanco venga la pantalla de donde
+   venga. Editables, pero a sabiendas. */
+:root {
+    --marca-spotify: #1db954;
+    --marca-apple: #fa2d48;
+    --marca-deezer: #a238ff;
+    --marca-youtube: #ff0000;
+    --marca-tidal: #00ffff;
+    --marca-amazon: #00a8e1;
+    /* Fachada del vídeo embebido: el marco negro es el del propio reproductor */
+    --video-fondo: #000000;
+    --video-play-fondo: rgba(20, 20, 25, 0.72);
+    --video-play-icono: #ffffff;
+    --video-play-hover: #cc1f1f;
+    /* Impresión */
+    --pr-papel: #ffffff;
+    --pr-tinta: #000000;
+    --pr-tinta-2: #333333;
+    --pr-tinta-3: #444444;
+    --pr-tinta-4: #555555;
+    --pr-linea: #cccccc;
+    --pr-linea-2: #dddddd;
+}
+
+/* ── Tipografía y métricas ──────────────────────────────────────────────── */
+:root {
     --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
     --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
     --radius: 4px;
     --radius-sm: 3px;
     --wrap: 54rem;
     font-synthesis-weight: none;
-}
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #12151c;
-        --card: #171b25;
-        --s2: #1c2130;
-        --zebra: #1b1f2a;
-        --line: #262d3f;
-        --ink: #e7eaf4;
-        --muted-c: #9aa3b8;
-        --faint: #78819a;
-        --acc: #8ea0ec;
-        --acc-tint: #1e2540;
-        --est: #7cc39a;  --est-bg: #16281d;
-        --nov: #5fc3cd;  --nov-bg: #12292c;
-        --rec: #d7a866;  --rec-bg: #2c2416;
-        --err: #e09a9a;  --err-bg: #2e1717; --err-line: #4d2626;
-        --juv: #b9a3e8;  --juv-bg: #241d33;
-        --map-1: #2e3550; --map-2: #465074; --map-3: #5e6a9c; --map-4: #7685c4;
-        --pt-1: #161a24; --pt-2: #4a3a1f; --pt-3: #8a5a1f; --pt-4: #d7a866;
-    }
 }
 
 * { box-sizing: border-box; }
@@ -145,7 +252,7 @@ header nav {
 .site-search .kbd { font-size: 0.7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
 
 /* Autocompletado global (M3): desplegable bajo la caja de búsqueda. */
-.ac-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; max-height: 22rem; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 6px 20px rgba(20, 28, 60, 0.14); padding: 0.25rem; }
+.ac-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; max-height: 22rem; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--sombra-panel); padding: 0.25rem; }
 .ac-group { font-size: 0.78rem; font-weight: 600; color: var(--faint); padding: 0.45rem 0.5rem 0.2rem; }
 .ac-item { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.4rem 0.5rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink); }
 .ac-item:hover, .ac-item.on { background: var(--s2); }
@@ -169,7 +276,7 @@ header nav {
 .nav-mobile ul {
     position: absolute; right: 0; top: 100%; margin-top: 0.25rem;
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    box-shadow: 0 4px 16px rgba(10, 14, 30, 0.18); width: 12rem; padding: 0.4rem; list-style: none;
+    box-shadow: var(--sombra-media); width: 12rem; padding: 0.4rem; list-style: none;
     display: flex; flex-direction: column; gap: 0.1rem; z-index: 30;
 }
 .nav-mobile ul a { display: block; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink); font-size: 0.9rem; }
@@ -177,12 +284,21 @@ header nav {
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
 main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.1rem 1rem 2rem; }
+/* Pantallas del panel que son tabla de trabajo (revisión de la importación de
+   pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
+   ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
+main.main-ancho { max-width: min(90vw, 90rem); }
+main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
 
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
    las páginas del host de pruebas para no confundir nunca PRE con PRO. */
 .pre-ribbon { background: var(--rec-bg); color: var(--rec); font-size: 0.8rem; font-weight: 600; text-align: center; padding: 0.4rem 1rem; border-bottom: 1px solid var(--line); }
+/* Panel de admin en PRE/PRO: la BD maestra es la local y lo que se escriba
+   aquí se pierde en el siguiente sync (ver layout.php). Deliberadamente más
+   fuerte que .pre-ribbon: es una advertencia, no un rótulo de entorno. */
+.danger-ribbon { background: var(--err-bg); color: var(--err); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.01em; text-align: center; padding: 0.55rem 1rem; border-bottom: 2px solid var(--err); }
 
 footer { border-top: 1px solid var(--line); background: var(--card); }
 footer .inner { max-width: var(--wrap); margin: 0 auto; padding: 0.9rem 1rem; text-align: center; font-size: 0.84rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
@@ -222,7 +338,7 @@ h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; mar
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; max-width: 44rem; }
+.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; }
 .asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
@@ -270,33 +386,40 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 a.svc:hover { border-color: var(--acc); }
 .svc.off { color: var(--faint); }
 
+/* Versión original / versión actual (ficha de marcha, ver Html::escuchar).
+   Una marcha con muchos años no se toca hoy como el día que se estrenó, así
+   que a partir de cierta antigüedad sus escuchas se separan en dos pestañas.
+   Radios + selector de hermano: funciona sin JS y las flechas del teclado
+   cambian de pestaña sin código nuestro. */
+.vtabs { position: relative; }
+.vtab-in { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.vtab-bar { display: flex; flex-wrap: wrap; gap: 0 1.2rem; border-bottom: 1px solid var(--line); }
+.vtab { font-size: 0.9rem; color: var(--muted-c); cursor: pointer; padding: 0.3rem 0; margin-bottom: -1px; border-bottom: 2px solid transparent; }
+.vtab:hover { color: var(--acc); }
+.vtab-in-o:checked ~ .vtab-bar .vtab-o,
+.vtab-in-a:checked ~ .vtab-bar .vtab-a { color: var(--ink); border-bottom-color: var(--acc); font-weight: 600; }
+.vtab-in-o:focus-visible ~ .vtab-bar .vtab-o,
+.vtab-in-a:focus-visible ~ .vtab-bar .vtab-a { outline: 2px solid var(--acc); outline-offset: 2px; }
+.vtab-panel { display: none; }
+.vtab-in-o:checked ~ .vtab-panel-o,
+.vtab-in-a:checked ~ .vtab-panel-a { display: block; }
+.vtab-vacio { font-size: 0.9rem; color: var(--faint); margin: 0.7rem 0 0.2rem; }
+
 /* Vídeo embebido: fachada sin cookies (no carga YouTube hasta pulsar).
    max-width limita la altura en pantallas anchas (16:9 a ancho completo del
    .record llegaba a invadir la pantalla); se mantiene centrado. */
-.ytembed { position: relative; aspect-ratio: 16 / 9; max-width: 30rem; margin: 0 auto 0.6rem; border-radius: var(--radius-sm); overflow: hidden; background: #000; border: 1px solid var(--line); }
-.ytembed .ytfacade { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; background: #000; display: block; }
+.ytembed { position: relative; aspect-ratio: 16 / 9; max-width: 30rem; margin: 0 auto 0.6rem; border-radius: var(--radius-sm); overflow: hidden; background: var(--video-fondo); border: 1px solid var(--line); }
+.ytembed .ytfacade { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; background: var(--video-fondo); display: block; }
 .ytfacade-img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.92; transition: opacity 0.15s ease; }
 .ytfacade:hover .ytfacade-img, .ytfacade:focus-visible .ytfacade-img { opacity: 1; }
-.ytfacade-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4.2rem; height: 2.9rem; border-radius: 0.7rem; background: rgba(20, 20, 25, 0.72); transition: background 0.15s ease; }
-.ytfacade:hover .ytfacade-play, .ytfacade:focus-visible .ytfacade-play { background: #cc1f1f; }
-.ytfacade-play::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-42%, -50%); border-style: solid; border-width: 0.62rem 0 0.62rem 1.05rem; border-color: transparent transparent transparent #fff; }
+.ytfacade-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4.2rem; height: 2.9rem; border-radius: 0.7rem; background: var(--video-play-fondo); transition: background 0.15s ease; }
+.ytfacade:hover .ytfacade-play, .ytfacade:focus-visible .ytfacade-play { background: var(--video-play-hover); }
+.ytfacade-play::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-42%, -50%); border-style: solid; border-width: 0.62rem 0 0.62rem 1.05rem; border-color: transparent transparent transparent var(--video-play-icono); }
 .ytfacade:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
-/* Reproductor de audio (Spotify / Deezer / Apple Music): misma idea de fachada
-   que el vídeo —no se carga nada de terceros hasta pulsar— pero sin miniatura,
-   porque esos servicios no la sirven abierta. La altura la fija el servicio
-   (--md-alto, ver Media::embedDeUrl), no una proporción. */
-.mdembed { position: relative; max-width: 30rem; height: var(--md-alto, 152px); margin: 0 auto 0.6rem; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); background: var(--bg-2, #f4f4f5); }
-.mdembed .mdfacade { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0 1rem; border: 0; cursor: pointer; background: transparent; display: flex; align-items: center; justify-content: center; gap: 0.6rem; font: inherit; font-size: 0.95rem; color: var(--ink, inherit); }
-.mdfacade:hover, .mdfacade:focus-visible { background: rgba(120, 120, 130, 0.09); }
-.mdfacade:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
-.mdfacade-play { flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%; background: rgba(20, 20, 25, 0.78); position: relative; }
-.mdfacade-play::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-38%, -50%); border-style: solid; border-width: 0.5rem 0 0.5rem 0.85rem; border-color: transparent transparent transparent #fff; }
-.mdembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-
 /* Notas del registro */
-.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; max-width: 44rem; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
@@ -319,6 +442,9 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real,
+   el icono explica por qué esa toma es ~40 s más larga que las demás. */
+.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
 /* Véase también */
 ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
@@ -392,8 +518,8 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 }
 .btn:hover { border-color: var(--acc); color: var(--acc); }
 .btn-sm { padding: 0.35rem 0.65rem; font-size: 0.85rem; }
-.btn-neutral { background: var(--acc); color: #ffffff; border-color: var(--acc); }
-.btn-neutral:hover { opacity: 0.9; background: var(--acc); color: #ffffff; }
+.btn-neutral { background: var(--acc); color: var(--acc-fg); border-color: var(--acc); }
+.btn-neutral:hover { opacity: 0.9; background: var(--acc); color: var(--acc-fg); }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-ghost:hover { background: var(--s2); color: var(--ink); }
 
@@ -531,11 +657,11 @@ a.ln-name:hover { text-decoration: underline; }
 .disco-detail { display: flex; flex-direction: column; align-items: center; }
 .disco-head { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .disco-cover { margin: 0.25rem; }
-.cover-large { max-width: 16rem; width: 100%; height: auto; border-radius: var(--radius-sm); box-shadow: 0 1px 4px rgba(10, 14, 30, 0.2); display: block; }
+.cover-large { max-width: 16rem; width: 100%; height: auto; border-radius: var(--radius-sm); box-shadow: var(--sombra-suave); display: block; }
 .disco-meta { display: flex; flex-direction: column; align-items: center; }
 
 /* ── Admin ──────────────────────────────────────────────────────────────── */
-.admin-narrow { max-width: 22rem; margin: 0 auto; }
+.admin-narrow { margin: 0 auto; }
 .admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .admin-bar h1 { margin: 0; }
 .inline-form { display: inline; }
@@ -549,10 +675,10 @@ a.ln-name:hover { text-decoration: underline; }
 .btn-danger { background: var(--err-bg); color: var(--err); border-color: var(--err-line); }
 .btn-danger:hover { background: var(--err-bg); border-color: var(--err); color: var(--err); }
 
-dialog.panel { max-width: 32rem; width: calc(100% - 2rem); }
+dialog.panel { width: calc(100% - 2rem); }
 dialog.panel:not([open]) { display: none; }
 dialog.panel[open] { display: flex; }
-dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
+dialog.panel::backdrop { background: var(--velo); }
 
 .badge { display: inline-block; border-radius: 3px; padding: 0.12rem 0.5rem; font-size: 0.8rem; font-weight: 600; background: var(--s2); color: var(--muted-c); }
 .badge-estreno { background: var(--est-bg); color: var(--est); }
@@ -566,7 +692,7 @@ dialog.panel::backdrop { background: rgba(0, 0, 0, 0.5); }
 .chip-x:hover { color: var(--ink); }
 
 .autocomplete { position: relative; }
-.suggest { position: absolute; z-index: 25; left: 0; right: 0; margin-top: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 4px 16px rgba(10, 14, 30, 0.18); max-height: 16rem; overflow-y: auto; }
+.suggest { position: absolute; z-index: 25; left: 0; right: 0; margin-top: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--sombra-media); max-height: 16rem; overflow-y: auto; }
 .suggest-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0.5rem 0.7rem; cursor: pointer; font: inherit; font-size: 0.9rem; color: var(--ink); }
 .suggest-item:hover { background: var(--s2); }
 .suggest-item-add { color: var(--acc); font-weight: 600; border-top: 1px solid var(--line); }
@@ -616,14 +742,19 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
     transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .stream-btn:hover { border-color: currentColor; }
-.stream-spotify:hover { color: #1db954; }
-.stream-apple:hover   { color: #fa2d48; }
-.stream-deezer:hover  { color: #a238ff; }
-.stream-youtube:hover { color: #ff0000; }
-.stream-tidal:hover   { color: #00ffff; }
-.stream-amazon:hover  { color: #00a8e1; }
+.stream-spotify:hover { color: var(--marca-spotify); }
+.stream-apple:hover   { color: var(--marca-apple); }
+.stream-deezer:hover  { color: var(--marca-deezer); }
+.stream-youtube:hover { color: var(--marca-youtube); }
+.stream-tidal:hover   { color: var(--marca-tidal); }
+.stream-amazon:hover  { color: var(--marca-amazon); }
 .stream-btn::before { content: "▸"; font-size: 0.7em; color: var(--muted-c); }
 .stream-btn:hover::before { color: currentColor; }
+
+/* Columna "Escuchar" del listado de discos: marca de un vistazo qué discos
+   tienen algún enlace en enlace_streaming. Ancho fijo para que no baile. */
+.col-escucha { width: 1%; text-align: center; white-space: nowrap; }
+.ico-escucha { display: inline-flex; color: var(--acc); vertical-align: middle; }
 
 /* aria-sort: resalta la columna activa en tablas con orden de servidor */
 table.reg thead th[aria-sort="ascending"] .ar,
@@ -642,7 +773,7 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 .previa-ficha { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.6rem; background: var(--bg); }
 .cover-vacia { width: 12rem; height: 12rem; display: grid; place-items: center; background: var(--s2); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--faint); font-size: 0.85rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
-.link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
 
 /* ── Mapa de provincias, coropleta (N-10) ────────────────────────────────── */
 .mapa-wrap { margin: 0.4rem 0 0; }
@@ -662,7 +793,7 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 .mapa-zoom-ctrl button {
     width: 1.9rem; height: 1.9rem; border-radius: var(--radius-sm); border: 1px solid var(--line);
     background: var(--card); color: var(--ink); font-size: 1rem; line-height: 1; cursor: pointer;
-    box-shadow: 0 1px 3px rgba(20, 28, 60, 0.12);
+    box-shadow: var(--sombra-suave);
 }
 .mapa-zoom-ctrl button:hover { background: var(--acc-tint); color: var(--acc); }
 .mapa-zoom-ctrl button:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
@@ -751,33 +882,33 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 
 /* ── Impresión (ficha de marcha y demás fichas de catálogo) ──────────────── */
 @media print {
-    .skip-link, .pre-ribbon, .nav-links, .nav-mobile,
+    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile,
     .site-search-row, footer, .crumbs, .rectabs,
     .listen, .svcs, .ids, .filter, .pagination { display: none !important; }
 
-    body { background: #fff; color: #000; font-size: 11pt; line-height: 1.5; }
+    body { background: var(--pr-papel); color: var(--pr-tinta); font-size: 11pt; line-height: 1.5; }
     main { max-width: 100%; padding: 0.4rem 0 0; }
-    header { background: #fff; border-bottom: 1px solid #000; padding: 0.4rem 0; }
+    header { background: var(--pr-papel); border-bottom: 1px solid var(--pr-tinta); padding: 0.4rem 0; }
     header nav { padding: 0.4rem 1rem; }
 
-    .record { background: #fff; border: none; border-top: 2px solid #000; box-shadow: none; padding: 0.5rem 0 0; }
-    .asiento { color: #444; }
+    .record { background: var(--pr-papel); border: none; border-top: 2px solid var(--pr-tinta); box-shadow: none; padding: 0.5rem 0 0; }
+    .asiento { color: var(--pr-tinta-3); }
 
-    dl.desc { border-top-color: #000; }
-    dl.desc .f { border-bottom-color: #ccc; }
-    dl.desc dt { color: #555; }
+    dl.desc { border-top-color: var(--pr-tinta); }
+    dl.desc .f { border-bottom-color: var(--pr-linea); }
+    dl.desc dt { color: var(--pr-tinta-4); }
 
-    .shead { border-bottom-color: #000; page-break-after: avoid; }
+    .shead { border-bottom-color: var(--pr-tinta); page-break-after: avoid; }
 
     .scrollx { overflow: visible; }
     table.reg { font-size: 9pt; page-break-inside: auto; }
     table.reg thead { display: table-header-group; }
-    table.reg thead th { color: #333; border-bottom-color: #000; }
-    table.reg tbody td { border-bottom-color: #ddd; }
+    table.reg thead th { color: var(--pr-tinta-2); border-bottom-color: var(--pr-tinta); }
+    table.reg tbody td { border-bottom-color: var(--pr-linea-2); }
     table.reg tbody tr:hover td { background: none; }
     table.reg tbody tr { page-break-inside: avoid; }
 
-    .notas { color: #000; }
-    a { color: #000; text-decoration: underline; }
+    .notas { color: var(--pr-tinta); }
+    a { color: var(--pr-tinta); text-decoration: underline; }
     .record h1 { font-size: 1.5rem; }
 }

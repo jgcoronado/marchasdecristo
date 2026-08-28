@@ -8,3 +8,11 @@ mdc.db-shm
 backups/
 # Propuestas de editores (runtime; se bajan de prod con scripts/sync_propuestas_from_prod.php)
 propuestas/
+# Caché de respuestas de Odesli (fill_enlaces_odesli.php); regenerable, solo evita repetir llamadas
+odesli_cache/
+# Informes de cada ejecución (fill_duraciones.php, fill_enlaces_odesli.php).
+# Son fotos de un run concreto, se regeneran y pesan; lo que importa se resume
+# en docs/. Si alguno merece guardarse, muévelo a docs/ con nombre propio.
+duraciones_*.csv
+cascada-*.csv
+enlaces_*.csv

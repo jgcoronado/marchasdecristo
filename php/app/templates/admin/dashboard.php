@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Auth; use App\Roles;
+<?php use App\View as V; use App\Auth; use App\Entorno; use App\Roles;
 /** @var string $q @var string $qb @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var array $session @var array|null $notice @var int $pendientes */
 $csrf = Auth::csrfToken($session);
 $rol = $session['rol'] ?? Roles::EDITOR;
@@ -42,6 +42,19 @@ $isAdmin = Roles::isAdmin($rol);
 <?php endif; ?>
 <?php if (!$isAdmin): ?>
     <div class="alert alert-info">Trabajas como <strong>Editor</strong>. Tus altas y cambios se envían como <strong>propuestas</strong>; un administrador las revisa antes de aplicarlas.</div>
+<?php endif; ?>
+<?php if ($isAdmin && !Entorno::permiteEscrituraDirecta()): ?>
+    <?php /* Qué se puede hacer de verdad aquí: la cinta de peligro (layout.php)
+             avisa del riesgo, esto concreta el alcance. Las secciones que no
+             tienen propuesta escriben directo y chocan con el fail-safe de
+             Db::assertWritable(): mejor decirlo antes que tras rellenar un
+             formulario. Ver Admin::proposalMode() y docs/entornos.md. */ ?>
+    <div class="alert alert-error">
+        Entorno <strong><?= V::e(Entorno::nombre()) ?></strong>: aquí <strong>nadie escribe en la base de datos</strong>, tampoco tú.
+        Las altas y ediciones de <strong>marcha, compositor y banda</strong> se guardan como <strong>propuestas</strong>
+        y se aplican al revisarlas en local. El resto del panel (discos, dedicatorias, estilos, ingesta, enlaces,
+        usuarios y temporada) está en <strong>solo lectura</strong>: si intentas guardar, responderá con un error 503.
+    </div>
 <?php endif; ?>
 
     <form class="panel" action="/dashboard" method="GET">

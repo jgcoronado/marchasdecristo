@@ -25,7 +25,8 @@ ver [context.md](context.md) §7 y [archive/](archive/).
 14. **[archive/](archive/)** — Documentos históricos del stack Next.js/VPS/MySQL, ya desmantelado. Conservados por su razonamiento, no como referencia vigente: [redesign-options.md](archive/redesign-options.md), [vps-migration-3b.md](archive/vps-migration-3b.md).
 15. **[ux-analysis-estado.md](ux-analysis-estado.md)** — Estado y memoria del análisis UX comparativo con patrimoniomusical.com: plan de 6 prioridades, **las 6 completadas**, y las decisiones de arquitectura clave por si se retoma esta zona. El log narrativo completo vive en `../ANALISIS_UX.md`.
 16. **[pendientes-manuales-2026-07-29.md](pendientes-manuales-2026-07-29.md)** — Documento de corta vida: qué puedes avanzar tú a mano ahora mismo y qué necesita tu confirmación explícita antes de seguir, al arrancar la tarea B-01 del roadmap. Se archiva en cuanto se resuelva; no es un tracker paralelo a `roadmap.md`.
-17. **[pendientes-manuales-2026-07-30.md](pendientes-manuales-2026-07-30.md)** — Documento de corta vida, hecho para retomar en una sesión local con credenciales: validación visual de PRE, fusión del PR [#27](https://github.com/jgcoronado/mdc-back/pull/27), borrado de ramas ya fusionadas, y los pasos exactos de OPS-01/OPS-02/M7 que una sesión en la nube no puede ejecutar. Se archiva en cuanto se resuelva.
+17. **[code-quality.md](code-quality.md)** — Calidad y duplicidad de código: el análisis de alternativas (SonarQube Cloud/Community, toolchain nativa PHP, SaaS, CodeQL, Claude Code) con el criterio que impone el proyecto, la toolchain implantada (PHPStan + jscpd + PHPMD por PHAR, sin composer), la primera auditoría medida y el **burn-down priorizado** de lo que señala.
+18. **[pendientes-manuales-2026-07-30.md](pendientes-manuales-2026-07-30.md)** — Documento de corta vida, hecho para retomar en una sesión local con credenciales: validación visual de PRE, fusión del PR [#27](https://github.com/jgcoronado/mdc-back/pull/27), borrado de ramas ya fusionadas, y los pasos exactos de OPS-01/OPS-02/M7 que una sesión en la nube no puede ejecutar. Se archiva en cuanto se resuelva.
 
 Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP con más detalle operativo del día a día que `context.md`.
 
@@ -33,6 +34,7 @@ Además, `../php/README.md` documenta el desarrollo local y el deploy por FTP co
 
 - Si cambias arquitectura → actualiza `architecture.md` (sección de ADRs si es una decisión nueva).
 - Si encuentras un bug, riesgo u obsolescencia → añádelo a `technical-debt.md`.
+- Si resuelves un hallazgo de la auditoría de calidad, subes el nivel de PHPStan o aprietas un umbral → actualiza `code-quality.md` (§5 y §6).
 - Si avanzas cualquier tarea (venga de donde venga: C/M/L del consejo, N/P/T de las palancas, R de una revisión) → actualiza su estado en `roadmap.md` §2, que es la fuente única. No reescribas `consejo-de-sabios-2026-07.md`: es una fotografía puntual, no un tracker.
 - Si empujas una rama con trabajo terminado → regístrala en `roadmap.md` §4 **el mismo día**, aunque no abras PR.
 - Si añades o cambias funcionalidad del panel admin → actualiza `admin-panel.md`.

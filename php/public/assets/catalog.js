@@ -14,6 +14,14 @@
             th.setAttribute('tabindex', '0');
         });
 
+        // "3:45" o "1:03:45" (duración, R-02) -> segundos; si no tiene forma
+        // de reloj, cae en parseFloat como antes.
+        function numDeCelda(s) {
+            var m = /^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/.exec(s);
+            if (m) return (m[1] ? parseInt(m[1], 10) * 3600 : 0) + parseInt(m[2], 10) * 60 + parseInt(m[3], 10);
+            return parseFloat(s) || 0;
+        }
+
         function sortByCol(th, i) {
             var type = th.getAttribute('data-type');
             var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
@@ -22,7 +30,7 @@
                 var x = (a.children[i] ? a.children[i].textContent : '').trim();
                 var y = (b.children[i] ? b.children[i].textContent : '').trim();
                 if (type === 'num') {
-                    x = parseFloat(x) || 0; y = parseFloat(y) || 0;
+                    x = numDeCelda(x); y = numDeCelda(y);
                     return dir[i] ? x - y : y - x;
                 }
                 return dir[i] ? x.localeCompare(y, 'es') : y.localeCompare(x, 'es');
@@ -86,30 +94,14 @@
         });
     }
 
-    // Fachada genérica para el resto de servicios (Spotify, Deezer, Apple):
-    // no tienen miniatura pública que enseñar, así que la fachada es un botón
-    // con el nombre del servicio y, al pulsarlo, se inserta su reproductor.
-    // Igual que con YouTube, hasta ese clic no se pide nada a terceros.
-    function initFacade(embed) {
-        var btn = embed.querySelector('.mdfacade');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-            var src = embed.getAttribute('data-embed');
-            if (!src) return;
-            var iframe = document.createElement('iframe');
-            iframe.src = src;
-            iframe.title = embed.getAttribute('data-embed-title') || 'Reproductor de audio';
-            iframe.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
-            iframe.setAttribute('loading', 'lazy');
-            embed.innerHTML = '';
-            embed.appendChild(iframe);
-        });
-    }
+    // (Hubo aquí una fachada equivalente para Spotify/Deezer/Apple en la ficha
+    // de marcha. Se retiró al unificar la sección "Escuchar" en una botonera:
+    // el reproductor incrustado de un servicio le daba un peso visual que solo
+    // reflejaba de qué columna de la BD venía el enlace.)
 
     Array.prototype.forEach.call(document.querySelectorAll('table[data-sortable]'), initSort);
     Array.prototype.forEach.call(document.querySelectorAll('input[data-filter]'), initFilter);
     Array.prototype.forEach.call(document.querySelectorAll('.ytembed[data-ytid]'), initYtFacade);
-    Array.prototype.forEach.call(document.querySelectorAll('.mdembed[data-embed]'), initFacade);
 
     // Autocompletado global (M3): desplegable en vivo contra /api/buscar.
     // Mejora progresiva — sin JS, el formulario envía a /buscar igualmente.

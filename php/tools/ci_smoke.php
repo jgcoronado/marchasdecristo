@@ -12,10 +12,29 @@ declare(strict_types=1);
  * No usa ningún framework de test (cero dependencias de Composer): un fallo
  * de aserción es una excepción capturada por el runner.
  *
- * Uso: php ci_smoke.php <base_url, p.ej. http://127.0.0.1:8000>
+ * Uso: php ci_smoke.php <base_url, p.ej. http://127.0.0.1:8000> [pro|local]
+ *
+ * El segundo argumento es el entorno que simula el servidor bajo prueba, porque
+ * hay secciones que solo se publican en algunos (App\Secciones):
+ *
+ *   pro (por defecto) → sin config.local.php: env=production y sin
+ *                       preproduccion, o sea producción. Las secciones en
+ *                       maduración deben responder 404 y no asomar por el nav,
+ *                       el sitemap ni llms.txt.
+ *   local             → con un config.local.php de env=local. Ahí se ven todas,
+ *                       y es la única pasada que puede probar su contenido.
+ *
+ * Ambas pasadas corren en CI (ver .github/workflows/ci.yml); el modo se
+ * verifica contra /health para no dar por buena una suite que en realidad
+ * corrió contra el entorno equivocado.
  */
 
 $base = rtrim((string) ($argv[1] ?? 'http://127.0.0.1:8000'), '/');
+$modo = strtolower((string) ($argv[2] ?? 'pro'));
+if (!in_array($modo, ['pro', 'local'], true)) {
+    fwrite(STDERR, "Modo no reconocido: '$modo' (esperado 'pro' o 'local')\n");
+    exit(2);
+}
 
 /** @return array{status:int,headers:array<string,string>,body:string} */
 function httpGet(string $url): array
@@ -33,7 +52,6 @@ function httpGet(string $url): array
     }
     $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    curl_close($ch);
 
     $rawHeaders = substr($raw, 0, $headerSize);
     $body = substr($raw, $headerSize);
@@ -45,6 +63,41 @@ function httpGet(string $url): array
         }
     }
     return ['status' => $status, 'headers' => $headers, 'body' => (string) $body];
+}
+
+/**
+ * POST sin cuerpo útil: sirve para comprobar que una ruta POST existe y está
+ * protegida. No se puede ir más allá sin sesión (y sin CSRF), que es
+ * precisamente lo que se quiere verificar.
+ *
+ * @return array{status:int,headers:array<string,string>,body:string}
+ */
+function httpPost(string $url, array $campos = []): array
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($campos),
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $raw = curl_exec($ch);
+    if ($raw === false) {
+        throw new RuntimeException("curl error en $url: " . curl_error($ch));
+    }
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+
+    $headers = [];
+    foreach (explode("\r\n", substr($raw, 0, $headerSize)) as $line) {
+        if (str_contains($line, ':')) {
+            [$k, $v] = explode(':', $line, 2);
+            $headers[strtolower(trim($k))] = trim($v);
+        }
+    }
+    return ['status' => $status, 'headers' => $headers, 'body' => (string) substr($raw, $headerSize)];
 }
 
 function assertStatus(string $path, int $expected, string $base): array
@@ -143,6 +196,53 @@ function assertJsonLdUrlsCanonical(string $path, string $base): void
             throw new RuntimeException("$path → URL de JSON-LD '$p' no resuelve en 200 directo (status=$status) — no es la canónica real");
         }
     }
+}
+
+/**
+ * Paths (sin host) de todos los <loc> del sitemap.
+ *
+ * Por path y no por URL completa a propósito: el sitemap se construye siempre
+ * con 'site_url' (producción), no con el $base del servidor de pruebas, así que
+ * una aserción sobre la URL entera no casaría nunca — y una comprobación "no
+ * contiene" pasaría en vacío sin comprobar nada.
+ *
+ * @return list<string>
+ */
+function sitemapPaths(string $base): array
+{
+    $r = assertStatus('/sitemap.xml', 200, $base);
+    preg_match_all('#<loc>(.*?)</loc>#', $r['body'], $m);
+    return array_map(
+        static fn(string $u): string => (string) parse_url(html_entity_decode($u), PHP_URL_PATH),
+        $m[1]
+    );
+}
+
+/**
+ * Paths enlazados en llms.txt (markdown: "- [Etiqueta](url)"). Mismo motivo que
+ * sitemapPaths() para quedarse con el path.
+ *
+ * @return list<string>
+ */
+function llmsPaths(string $base): array
+{
+    $r = assertStatus('/llms.txt', 200, $base);
+    preg_match_all('#\]\((.*?)\)#', $r['body'], $m);
+    return array_map(
+        static fn(string $u): string => (string) parse_url($u, PHP_URL_PATH),
+        $m[1]
+    );
+}
+
+/** ¿Hay algún path que sea $indice o cuelgue de él (/mapa → /mapa/provincia/x)? */
+function anyUnder(array $paths, string $indice): bool
+{
+    foreach ($paths as $p) {
+        if ($p === $indice || str_starts_with($p, $indice . '/')) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function assertContains(string $path, string $needle, string $base): void
@@ -250,7 +350,7 @@ function assertSitemap(string $base): void
     if ($lastmods->length !== count($locs)) {
         throw new RuntimeException('/sitemap.xml → cada <url> debería llevar su <lastmod> (C2)');
     }
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmods->item(0)?->textContent ?? '')) {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmods->item(0)->textContent ?? '')) {
         throw new RuntimeException('/sitemap.xml → <lastmod> no tiene forma YYYY-MM-DD');
     }
     // Muestra: home + primeras 4 URLs de detalle/hub, comprobadas con GET real.
@@ -296,6 +396,37 @@ $tests = [
     'marcha inexistente 404' => static fn() => assertStatus('/marcha/nada-999999', 404, $base),
     'marcha coherencia canónica ↔ JSON-LD (M8)' => static fn() => assertJsonLdUrlsCanonical('/marcha/costalero-bueno-3', $base),
 
+    // ── Escuchar: botonera única y pestañas por versión ─────────────────────
+    // La marcha 1 es de 1995 (más de 25 años) y tiene enlaces de las dos
+    // versiones en la fixture, así que su ficha debe partirlas en pestañas.
+    'marcha antigua separa versión original y actual' => static function () use ($base): void {
+        assertContains('/marcha/consuelo-gitano-1', 'Versión original', $base);
+        assertContains('/marcha/consuelo-gitano-1', 'Versión actual', $base);
+    },
+    // El enlace de AUDIO es un botón más, no una miniatura de YouTube: la ficha
+    // de marcha ya no incrusta reproductores de terceros.
+    'marcha no incrusta reproductores' => static function () use ($base): void {
+        $r = assertStatus('/marcha/consuelo-gitano-1', 200, $base);
+        foreach (['ytembed', 'mdembed'] as $muerto) {
+            if (str_contains($r['body'], $muerto)) {
+                throw new RuntimeException("/marcha/consuelo-gitano-1 → sigue incrustando '$muerto'");
+            }
+        }
+        if (!str_contains($r['body'], 'stream-youtube')) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → el enlace de AUDIO no sale como botón');
+        }
+    },
+    // Sin año de composición no hay "época" que distinguir: botonera única.
+    'marcha sin año no separa versiones' => static function () use ($base): void {
+        $r = assertStatus('/marcha/reina-de-san-roman-5', 200, $base);
+        if (str_contains($r['body'], 'Versión original')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → sin año de composición no debería haber pestañas de versión');
+        }
+        if (!str_contains($r['body'], 'stream-spotify')) {
+            throw new RuntimeException('/marcha/reina-de-san-roman-5 → falta el botón de Spotify');
+        }
+    },
+
     // ── Autor / Banda / Disco / Dedicatoria ─────────────────────────────────
     'autor listado 200' => static fn() => assertStatus('/autor', 200, $base),
     'autor ficha 200 + JSON-LD Person' => static fn() => assertJsonLd('/autor/jose-garcia-perez-1', $base, 'Person'),
@@ -303,9 +434,9 @@ $tests = [
     'banda ficha 200 + JSON-LD MusicGroup' => static fn() => assertJsonLd('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', $base, 'MusicGroup'),
     'disco listado 200' => static fn() => assertStatus('/disco', 200, $base),
     'disco ficha 200 + JSON-LD MusicAlbum' => static fn() => assertJsonLd('/disco/sevilla-cofrade-vol-1-1', $base, 'MusicAlbum'),
-    'dedicatorias índice 200' => static fn() => assertStatus('/dedicatorias', 200, $base),
-    'dedicatoria ficha 200 + JSON-LD CollectionPage' => static fn() => assertJsonLd('/dedicatoria/hdad-de-los-gitanos-sevilla-1', $base, 'CollectionPage'),
-    'dedicatoria inexistente 404' => static fn() => assertStatus('/dedicatoria/nada-999999', 404, $base),
+    // Dedicatorias, estado del catálogo, mapa y temporada no se prueban aquí:
+    // solo se publican en algunos entornos, así que van al bloque por modo del
+    // final del fichero.
 
     'estadisticas → 301 rankings' => static fn() => assertRedirect('/estadisticas', '/rankings', $base),
 
@@ -355,43 +486,13 @@ $tests = [
         }
     },
 
-    // ── Mapa (N-10): oculto en PRO desde el 2026-07-29 ──────────────────────
-    // Decisión: se oculta en producción real mientras se corrige el solape de
-    // dianas de clic entre municipios próximos (Castilleja de la Cuesta /
-    // Tomares), pero sigue visible en local y en PRE — ver
-    // App\Pages::mapaVisible(). Esta fixture simula PRO (env=production, sin
-    // preproduccion), que es justo el caso que debe dar 404; las pruebas de
-    // contenido (puntos, rótulos, color por recuento) que vivían aquí se
-    // retoman cuando se vuelva a publicar — CI no puede simular PRE con un
-    // único servidor.
-    'mapa oculto en PRO: índice → 404' => static fn() => assertStatus('/mapa', 404, $base),
-    'mapa oculto en PRO: provincia → 404' => static fn() => assertStatus('/mapa/provincia/sevilla', 404, $base),
-    'mapa oculto en PRO: fuera del nav' => static function () use ($base): void {
-        $r = assertStatus('/', 200, $base);
-        if (str_contains($r['body'], 'href="/mapa"')) {
-            throw new RuntimeException('home → el enlace a /mapa no debería aparecer en el nav mientras está oculto en PRO');
-        }
-    },
-    'mapa oculto en PRO: fuera del sitemap' => static function () use ($base): void {
-        $r = assertStatus('/sitemap.xml', 200, $base);
-        if (str_contains($r['body'], '<loc>' . rtrim($base, '/') . '/mapa</loc>')) {
-            throw new RuntimeException('sitemap.xml → no debería listar /mapa mientras está oculto en PRO');
-        }
-    },
-    'mapa oculto en PRO: fuera de llms.txt' => static function () use ($base): void {
-        $r = assertStatus('/llms.txt', 200, $base);
-        if (str_contains($r['body'], '](' . rtrim($base, '/') . '/mapa)')) {
-            throw new RuntimeException('llms.txt → no debería listar /mapa mientras está oculto en PRO');
-        }
-    },
-
     // ── Panel: discos (rutas registradas y protegidas) ──────────────────────
     // Sin sesión no se puede probar el alta entera, pero sí que las rutas
     // existen (un 404 aquí significaría que routes.php no las registró) y que
     // el guard de autenticación está puesto.
     'panel: las rutas de disco existen y exigen sesión' => static function () use ($base): void {
         // 302 al login (no el 308/301 canónico que comprueba assertRedirect).
-        foreach (['/dashboard/disco/add', '/dashboard/disco/1'] as $ruta) {
+        foreach (['/dashboard/disco/add', '/dashboard/disco/1', '/dashboard/disco/1/importar'] as $ruta) {
             $r = httpGet($base . $ruta);
             if ($r['status'] !== 302) {
                 throw new RuntimeException("$ruta → esperado 302 al login, obtenido {$r['status']}");
@@ -402,41 +503,25 @@ $tests = [
             }
         }
     },
+    // Importación de pistas desde el enlace del álbum: los dos POST del flujo
+    // (analizar y confirmar) tienen que existir y exigir sesión. Sin este caso,
+    // una ruta mal registrada solo se notaría al usarla a mano en local.
+    'panel: los POST del importador de pistas existen y exigen sesión' => static function () use ($base): void {
+        foreach (['/dashboard/disco/1/importar', '/dashboard/disco/1/importar/confirmar'] as $ruta) {
+            $r = httpPost($base . $ruta, ['url' => 'https://www.deezer.com/album/1']);
+            if ($r['status'] !== 302) {
+                throw new RuntimeException("POST $ruta → esperado 302 al login, obtenido {$r['status']}");
+            }
+            if (!str_ends_with($r['headers']['location'] ?? '', '/login')) {
+                throw new RuntimeException("POST $ruta → no redirige al login");
+            }
+        }
+    },
     'api: /api/marcha/fastSearch sin sesión → 401 JSON' => static function () use ($base): void {
         $r = assertStatus('/api/marcha/fastSearch?q=Consuelo', 401, $base);
         $j = json_decode($r['body'], true);
         if (!is_array($j) || ($j['code'] ?? '') !== 'AUTH_REQUIRED') {
             throw new RuntimeException('/api/marcha/fastSearch → esperado {"code":"AUTH_REQUIRED"}');
-        }
-    },
-
-    // ── Temporada (N-04): oculta en PRO desde el 2026-07-29 ─────────────────
-    // Decisión: /temporada se esconde en producción real hasta que `contrato`
-    // tenga datos de calidad suficiente, pero sigue visible en local (donde se
-    // rellena) y en PRE (para validarla antes de publicar) — ver
-    // App\Pages::temporadaVisible(). Esta fixture simula PRO (env=production,
-    // sin preproduccion), que es justo el caso que debe dar 404; la vista
-    // completa (agrupado por hermandad, JSON-LD, estado vacío) ya se verificó
-    // a mano en local antes de esta decisión y se revalida ahí cada vez que se
-    // toque esta pantalla — CI no puede simular PRE con un único servidor.
-    'temporada oculta en PRO: índice → 404' => static fn() => assertStatus('/temporada', 404, $base),
-    'temporada oculta en PRO: año concreto → 404' => static fn() => assertStatus('/temporada/2026', 404, $base),
-    'temporada oculta en PRO: fuera del nav' => static function () use ($base): void {
-        $r = assertStatus('/', 200, $base);
-        if (str_contains($r['body'], 'href="/temporada"')) {
-            throw new RuntimeException('home → el enlace a /temporada no debería aparecer en el nav mientras está oculta en PRO');
-        }
-    },
-    'temporada oculta en PRO: fuera del sitemap' => static function () use ($base): void {
-        $r = assertStatus('/sitemap.xml', 200, $base);
-        if (str_contains($r['body'], '/temporada/')) {
-            throw new RuntimeException('sitemap.xml → no debería listar URLs de /temporada mientras está oculta en PRO');
-        }
-    },
-    'temporada oculta en PRO: fuera de llms.txt' => static function () use ($base): void {
-        $r = assertStatus('/llms.txt', 200, $base);
-        if (str_contains($r['body'], '/temporada')) {
-            throw new RuntimeException('llms.txt → no debería listar /temporada mientras está oculta en PRO');
         }
     },
 
@@ -570,6 +655,119 @@ $tests = [
     'og tipo desconocido → 404' => static fn() => assertStatus('/og/nope/1.png', 404, $base),
     'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.png', $base),
 ];
+
+// ── Secciones en maduración (App\Secciones) ─────────────────────────────────
+// Dedicatorias, estado del catálogo, mapa y temporada están terminadas pero no
+// se publican fuera de local hasta que maduren. Lo que se prueba depende del
+// entorno que simule el servidor, así que primero se confirma cuál es: si la
+// pasada corriera contra el entorno equivocado, el grupo entero comprobaría lo
+// contrario de lo que debe y pasaría igual.
+$tests['health declara el entorno esperado por esta pasada'] = static function () use ($base, $modo): void {
+    $esperado = 'entorno: ' . ($modo === 'local' ? 'local' : 'prod');
+    $r = assertStatus('/health', 200, $base);
+    if (!str_contains($r['body'], $esperado)) {
+        throw new RuntimeException("/health → esta pasada es '$modo' y esperaba '$esperado' (¿config.local.php de más o de menos?)");
+    }
+};
+
+/** Cada sección con sus rutas: la del índice (la que anuncian nav/sitemap/llms) y las de dentro. */
+$secciones = [
+    'dedicatorias'    => ['indice' => '/dedicatorias',    'internas' => ['/dedicatoria/hdad-de-los-gitanos-sevilla-1']],
+    'estado-catalogo' => ['indice' => '/estado-catalogo', 'internas' => []],
+    'mapa'            => ['indice' => '/mapa',            'internas' => ['/mapa/provincia/sevilla']],
+    'temporada'       => ['indice' => '/temporada',       'internas' => ['/temporada/2026']],
+];
+
+if ($modo === 'pro') {
+    // Apagadas del todo: la ruta responde 404 y ninguna superficie las anuncia.
+    // Anunciar en el sitemap o en llms.txt una URL que el propio sitio responde
+    // con 404 es peor que no anunciarla.
+    foreach ($secciones as $slug => $s) {
+        $rutas = array_merge([$s['indice']], $s['internas']);
+        $tests["sección oculta en PRO: $slug → 404"] = static function () use ($base, $rutas): void {
+            foreach ($rutas as $ruta) {
+                assertStatus($ruta, 404, $base);
+            }
+        };
+        $tests["sección oculta en PRO: $slug fuera de nav, sitemap y llms.txt"] = static function () use ($base, $s): void {
+            $indice = $s['indice'];
+            $home = assertStatus('/', 200, $base)['body'];
+            if (str_contains($home, 'href="' . $indice . '"')) {
+                throw new RuntimeException("home → el nav no debería enlazar $indice mientras la sección está oculta");
+            }
+            // Ni el índice ni nada que cuelgue de él (fichas de dedicatoria,
+            // provincias del mapa, años de temporada).
+            if (anyUnder(sitemapPaths($base), $indice)) {
+                throw new RuntimeException("sitemap.xml → no debería listar $indice mientras la sección está oculta");
+            }
+            if (anyUnder(llmsPaths($base), $indice)) {
+                throw new RuntimeException("llms.txt → no debería listar $indice mientras la sección está oculta");
+            }
+        };
+    }
+    // Enlaces entrantes desde secciones que sí se publican: si el destino da
+    // 404, el enlace no puede quedarse puesto.
+    $tests['sección oculta en PRO: rankings no enlaza a estado-catalogo'] = static function () use ($base): void {
+        if (str_contains(assertStatus('/rankings', 200, $base)['body'], 'href="/estado-catalogo"')) {
+            throw new RuntimeException('/rankings → enlaza a /estado-catalogo, que está oculto (404)');
+        }
+    };
+    $tests['sección oculta en PRO: la home no sugiere dedicatorias'] = static function () use ($base): void {
+        if (str_contains(assertStatus('/', 200, $base)['body'], 'href="/dedicatorias"')) {
+            throw new RuntimeException('home → sugiere /dedicatorias, que está oculto (404)');
+        }
+    };
+} else {
+    // En local se ven enteras: es la única pasada donde se puede probar su
+    // contenido, así que aquí van las pruebas de verdad de cada una.
+    $tests['sección visible en local: todas responden 200'] = static function () use ($base, $secciones): void {
+        foreach ($secciones as $slug => $s) {
+            $rutas = $slug === 'temporada'
+                ? $s['internas']            // /temporada redirige 302 al año en curso
+                : array_merge([$s['indice']], $s['internas']);
+            foreach ($rutas as $ruta) {
+                assertStatus($ruta, 200, $base);
+            }
+        }
+    };
+    $tests['sección visible en local: nav, sitemap y llms.txt las anuncian'] = static function () use ($base): void {
+        $home = assertStatus('/', 200, $base)['body'];
+        foreach (['/dedicatorias', '/mapa', '/temporada'] as $indice) { // estado-catalogo no está en el nav
+            if (!str_contains($home, 'href="' . $indice . '"')) {
+                throw new RuntimeException("home → falta el enlace del nav a $indice");
+            }
+        }
+        $sitemap = sitemapPaths($base);
+        $llms = llmsPaths($base);
+        foreach (['/dedicatorias', '/estado-catalogo', '/mapa'] as $indice) {
+            if (!in_array($indice, $sitemap, true)) {
+                throw new RuntimeException("sitemap.xml → falta $indice");
+            }
+            if (!in_array($indice, $llms, true)) {
+                throw new RuntimeException("llms.txt → falta $indice");
+            }
+        }
+        // Las fichas de dedicatoria con sustancia van al sitemap con su índice.
+        if (!anyUnder($sitemap, '/dedicatoria')) {
+            throw new RuntimeException('sitemap.xml → faltan las fichas de dedicatoria');
+        }
+    };
+    $tests['dedicatorias: ficha con JSON-LD CollectionPage'] = static fn() => assertJsonLd('/dedicatoria/hdad-de-los-gitanos-sevilla-1', $base, 'CollectionPage');
+    $tests['dedicatorias: ficha inexistente 404'] = static fn() => assertStatus('/dedicatoria/nada-999999', 404, $base);
+    $tests['estado-catalogo: indexable'] = static fn() => assertNotNoIndex('/estado-catalogo', $base);
+    $tests['estado-catalogo: rankings enlaza a él'] = static fn() => assertContains('/rankings', 'href="/estado-catalogo"', $base);
+    $tests['mapa: la provincia se enlaza desde el índice'] = static fn() => assertContains('/mapa', 'href="/mapa/provincia/sevilla"', $base);
+    $tests['temporada: índice → 302 al año en curso'] = static function () use ($base): void {
+        $r = httpGet($base . '/temporada');
+        if ($r['status'] !== 302) {
+            throw new RuntimeException("/temporada → esperado 302, obtenido {$r['status']}");
+        }
+        if (!preg_match('#/temporada/\d{4}$#', $r['headers']['location'] ?? '')) {
+            throw new RuntimeException('/temporada → Location no apunta a /temporada/<año>');
+        }
+    };
+    $tests['temporada: el año de la fixture agrupa por hermandad'] = static fn() => assertContains('/temporada/2026', 'Hdad de los Gitanos', $base);
+}
 
 $failed = [];
 foreach ($tests as $name => $test) {

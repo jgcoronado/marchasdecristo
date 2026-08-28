@@ -124,11 +124,43 @@ Al **aceptar**, además de crear la marcha:
   como enlace **verificado** de la marcha, que es lo que pinta la botonera de la
   ficha pública.
 
-Y la ficha pública ya no presupone YouTube: si la marcha no tiene vídeo en
-`AUDIO`, `Media::reproductor()` usa el primer enlace de streaming publicado, de
-modo que una marcha nacida de esta ingesta se escucha desde su propia ficha.
-Como con el vídeo, el reproductor no se carga hasta que se pulsa: hasta ese
-clic no se pide nada a terceros.
+Y la ficha pública ya no presupone YouTube ni incrusta reproductores: la sección
+«Escuchar» de la marcha es una botonera homogénea donde el enlace de `AUDIO` y
+los de `enlace_streaming` se ven exactamente igual (ver `Html::escuchar`). Antes
+el vídeo salía como miniatura grande y el resto como botoncitos, una jerarquía
+entre servicios que solo reflejaba de qué columna de la BD venía cada enlace. Al
+no incrustar nada, no se pide nada a terceros hasta que el visitante pulsa.
+
+### Versión original y versión actual
+
+Una marcha con muchos años no se toca hoy como el día que se estrenó: cambian
+tempos, plantillas y arreglos. Por eso, cuando la marcha pasa de
+`EnlaceRepo::ANTIGUEDAD_VERSIONES` años (25) y se le conoce el año de
+composición, la ficha separa sus escuchas en dos pestañas —**versión original**
+y **versión actual**— en vez de mezclarlas en una lista plana que engaña sobre
+lo que se va a oír. Las pestañas son radios + CSS: funcionan sin JS.
+
+El reparto lo lleva `enlace_streaming.VERSION`, y la unicidad pasa a ser
+`(TIPO_ENT, ID_ENT, SERVICIO, VERSION)` — la misma marcha puede tener dos
+enlaces de Spotify, uno por versión. Sigue siendo un índice, no una restricción
+de tabla, por el motivo que explica `010_enlace_unicos.sql`. Para banda y disco
+el concepto no aplica y todas sus filas se quedan en el `DEFAULT 'actual'`.
+
+La versión se **deriva** del año de la grabación (`ANIO`) frente al año de la
+marcha: grabada dentro de los `VENTANA_ORIGINAL` (15) años siguientes al estreno
+→ `original`; más tarde, o sin año conocido, → `actual`. Ese defecto de «actual»
+sin año acierta muchas más veces que el contrario, porque el catálogo de
+streaming es abrumadoramente moderno. El año sale del `ANIO_ENC` que devolvió el
+servicio al aprobar un candidato, y del `FECHA_CD` del disco en la cascada
+automática, que es exactamente el año de esa grabación.
+
+Un administrador puede corregir el reparto en `/dashboard/marcha/{id}` (un campo
+por servicio **y** versión). Lo que toque a mano queda con `VERSION_AUTO = 0`,
+que lo marca como intocable para cualquier recálculo automático posterior.
+
+`marcha.AUDIO` no tiene año de grabación asociado, así que su botón cae siempre
+en la versión actual; si ya hay un enlace curado del mismo servicio, gana
+`AUDIO`, que es el que puso una persona en la ficha.
 
 ## Descarte definitivo (veto) y deshacer
 

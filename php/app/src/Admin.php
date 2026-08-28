@@ -44,7 +44,14 @@ final class Admin
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
         if (isset($_GET['unified'])) return ['type' => 'ok', 'msg' => 'Variantes unificadas · ' . (int) $_GET['unified'] . ' marchas reescritas.'];
-        if (isset($_GET['propuesta'])) return ['type' => 'ok', 'msg' => 'Propuesta enviada. El administrador la revisará antes de aplicarla.'];
+        if (isset($_GET['propuesta'])) {
+            // Fuera de local hasta el admin propone (ver Admin::proposalMode), y
+            // conviene decirle dónde acaba eso: la propuesta se revisa y se
+            // aplica en local, que es la BD maestra.
+            return ['type' => 'ok', 'msg' => Entorno::permiteEscrituraDirecta()
+                ? 'Propuesta enviada. El administrador la revisará antes de aplicarla.'
+                : 'Propuesta enviada. Se revisa y se aplica en el entorno local, que es el que manda sobre la base de datos.'];
+        }
         if (isset($_GET['aplicada'])) return ['type' => 'ok', 'msg' => 'Propuesta aceptada y aplicada a la base de datos.'];
         if (isset($_GET['rechazada'])) return ['type' => 'info', 'msg' => 'Propuesta rechazada.'];
         if (isset($_GET['nochanges'])) return ['type' => 'info', 'msg' => 'No había cambios que guardar.'];
@@ -56,6 +63,30 @@ final class Admin
     private static function isAdmin(array $session): bool
     {
         return Roles::isAdmin($session['rol'] ?? null);
+    }
+
+    /**
+     * ¿Este envío se guarda como PROPUESTA en vez de escribir en la BD?
+     *
+     * Dos motivos independientes, y basta uno:
+     *
+     *   - el usuario es editor (siempre propone, en cualquier entorno);
+     *   - el entorno no es local (PRE y PRO), y ahí no escribe NADIE en directo,
+     *     tampoco el administrador: la BD maestra es la local y el .db remoto lo
+     *     reemplaza entero scripts/sync_db_to_prod.php, así que una escritura
+     *     hecha en PRE o PRO se perdería en el siguiente sync — o pisaría datos
+     *     buenos. Encolarla como propuesta la conserva: el admin la baja con
+     *     scripts/sync_propuestas_from_prod.php y la aplica en local, que es de
+     *     donde sale el .db bueno. Ver docs/entornos.md.
+     *
+     * Solo cubre las entidades con propuesta (marcha, banda, autor). El resto de
+     * pantallas del panel escriben directo y en PRE/PRO chocan con el fail-safe
+     * de Db::assertWritable() (503 solo-lectura); por eso el layout avisa al
+     * admin con la cinta de desincronización en todo el panel.
+     */
+    private static function proposalMode(array $session): bool
+    {
+        return !self::isAdmin($session) || !Entorno::permiteEscrituraDirecta();
     }
 
     /** Recoge del POST los campos de $editable presentes (para una propuesta). */
@@ -207,7 +238,8 @@ final class Admin
         View::render('admin/marcha_form', [
             'mode' => 'edit', 'session' => $session, 'action' => "/dashboard/marcha/$id",
             'marcha' => $marcha, 'authors' => Repo::currentAutoresForMarcha($id),
-            'proposalMode' => !self::isAdmin($session),
+            'proposalMode' => self::proposalMode($session),
+            'enlaces' => EnlaceRepo::detalleDe('marcha', (int) $id),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar marcha #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -221,8 +253,9 @@ final class Admin
         $current = Repo::fetchMarchaRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: no escribe en la BD, envía una propuesta con los campos del form.
-        if (!self::isAdmin($session)) {
+        // Propuesta (editor siempre; cualquiera fuera de local): no escribe en la
+        // BD, encola los campos del form. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             $ids = self::postAutoresIds();
             if ($ids === []) Http::redirect("/dashboard/marcha/$id?err=AUTHORS_REQUIRED", 302);
             self::editorSubmit($session, 'marcha', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_MARCHA), $ids, "/dashboard/marcha/$id");
@@ -265,9 +298,50 @@ final class Admin
         $session = Auth::requireCap('marcha.add');
         View::render('admin/marcha_form', [
             'mode' => 'add', 'session' => $session, 'action' => '/dashboard/marcha/add',
-            'marcha' => [], 'authors' => [], 'proposalMode' => !self::isAdmin($session),
+            'marcha' => self::marchaPrefillDesdeQuery(), 'authors' => [],
+            'proposalMode' => self::proposalMode($session),
+            'volver' => self::volverSeguro($_GET['volver'] ?? null),
             'notice' => null, 'error' => null,
         ], ['title' => 'Añadir marcha — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    /**
+     * Valores con los que llega precargado el alta de marcha cuando se entra
+     * desde otra pantalla del panel (hoy: una pista sin reconocer del
+     * importador de discos). Es solo un borrador: se validan igual al enviar,
+     * y el usuario los ve y los corrige antes de nada.
+     *
+     * @return array<string,mixed>
+     */
+    private static function marchaPrefillDesdeQuery(): array
+    {
+        $out = [];
+        foreach (['TITULO', 'FECHA', 'TIPO', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'ESTILO'] as $campo) {
+            $v = trim((string) ($_GET[$campo] ?? ''));
+            if ($v !== '') $out[$campo] = $v;
+        }
+        $banda = (int) ($_GET['BANDA_ESTRENO'] ?? 0);
+        if ($banda > 0) {
+            $fila = Db::one('SELECT NOMBRE_BREVE FROM banda WHERE ID_BANDA = ?', [$banda]);
+            if ($fila !== null) {
+                $out['BANDA_ESTRENO'] = $banda;
+                $out['BANDA_NOMBRE'] = (string) $fila['NOMBRE_BREVE'];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Ruta de vuelta tras crear algo desde otra pantalla del panel. Solo se
+     * admiten rutas internas del propio panel: un valor arbitrario aquí sería
+     * un redirect abierto a un dominio de fuera.
+     */
+    private static function volverSeguro(mixed $raw): ?string
+    {
+        $v = trim((string) ($raw ?? ''));
+        if ($v === '' || !str_starts_with($v, '/dashboard/')) return null;
+        if (str_contains($v, "\n") || str_contains($v, "\r")) return null;
+        return $v;
     }
 
     public static function marchaAddPost(): void
@@ -277,25 +351,35 @@ final class Admin
         foreach (AdminRepo::INSERTABLE_MARCHA as $f) $fields[$f] = $_POST[$f] ?? '';
         $ids = self::postAutoresIds();
 
-        $reRender = static function (string $err) use ($session, $fields, $ids): void {
+        $volver = self::volverSeguro($_POST['volver'] ?? null);
+        $reRender = static function (string $err) use ($session, $fields, $ids, $volver): void {
             http_response_code(400);
             View::render('admin/marcha_form', [
                 'mode' => 'add', 'session' => $session, 'action' => '/dashboard/marcha/add',
                 'marcha' => $fields, 'authors' => Repo::autoresByIds($ids),
-                'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'proposalMode' => self::proposalMode($session), 'volver' => $volver,
+                'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir marcha — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             if ($ids === []) { $reRender('AUTHORS_REQUIRED'); return; }
             self::editorSubmit($session, 'marcha', 'add', null, $fields, $ids, '/dashboard/marcha/add');
         }
 
         $r = AdminRepo::addMarcha($fields, $ids);
-        if (($r['code'] ?? '') === 'CREATED') Http::redirect('/dashboard/marcha/' . $r['marchaId'] . '?created=1', 302);
+        if (($r['code'] ?? '') === 'CREATED') {
+            // Si se venía de otra pantalla (importador de pistas), se vuelve
+            // allí en vez de a la ficha nueva: la tarea de origen sigue a medias.
+            $destino = $volver !== null
+                ? $volver . (str_contains($volver, '?') ? '&' : '?') . 'nueva=' . (int) $r['marchaId']
+                : '/dashboard/marcha/' . $r['marchaId'] . '?created=1';
+            Http::redirect($destino, 302);
+        }
         $reRender($r['code'] ?? 'ERROR');
     }
 
@@ -349,7 +433,7 @@ final class Admin
         if ($autor === null) Http::notFound();
         View::render('admin/autor_form', [
             'mode' => 'edit', 'session' => $session, 'action' => "/dashboard/autor/$id",
-            'autor' => $autor, 'proposalMode' => !self::isAdmin($session),
+            'autor' => $autor, 'proposalMode' => self::proposalMode($session),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar compositor #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -363,8 +447,9 @@ final class Admin
         $current = Repo::fetchAutorRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'autor', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_AUTOR), [], "/dashboard/autor/$id");
         }
 
@@ -400,7 +485,7 @@ final class Admin
         }
         View::render('admin/autor_form', [
             'mode' => 'add', 'session' => $session, 'action' => '/dashboard/autor/add',
-            'autor' => $autor, 'proposalMode' => !self::isAdmin($session),
+            'autor' => $autor, 'proposalMode' => self::proposalMode($session),
             'notice' => null, 'error' => null,
         ], ['title' => 'Añadir compositor — Marchas de Cristo', 'noindex' => true]);
     }
@@ -415,14 +500,15 @@ final class Admin
             http_response_code(400);
             View::render('admin/autor_form', [
                 'mode' => 'add', 'session' => $session, 'action' => '/dashboard/autor/add',
-                'autor' => $fields, 'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'autor' => $fields, 'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir compositor — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'autor', 'add', null, $fields, [], '/dashboard/autor/add');
         }
 
@@ -443,7 +529,7 @@ final class Admin
             'session' => $session, 'banda' => $banda, 'action' => "/dashboard/banda/$id",
             'relaciones' => $showLinaje ? Repo::bandaRelaciones($id) : [],
             'tipos' => AdminRepo::RELACION_TIPOS,
-            'showLinaje' => $showLinaje, 'proposalMode' => !self::isAdmin($session),
+            'showLinaje' => $showLinaje, 'proposalMode' => self::proposalMode($session),
             'enlaces' => $showLinaje ? EnlaceRepo::publicadosDe('banda', (int) $id) : [],
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar banda #$id — Marchas de Cristo", 'noindex' => true]);
@@ -458,8 +544,9 @@ final class Admin
         $current = Repo::fetchBandaRaw($id);
         if ($current === null) Http::notFound();
 
-        // Editor: propuesta en lugar de escritura directa (solo campos básicos).
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa (solo campos básicos): editor
+        // siempre, y cualquier usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             self::editorSubmit($session, 'banda', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_BANDA), [], "/dashboard/banda/$id");
         }
 
@@ -485,7 +572,7 @@ final class Admin
         $session = Auth::requireCap('banda.add');
         View::render('admin/banda_add', [
             'session' => $session, 'banda' => [], 'action' => '/dashboard/banda/add',
-            'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => null,
+            'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => null,
         ], ['title' => 'Añadir banda — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -499,14 +586,15 @@ final class Admin
             http_response_code(400);
             View::render('admin/banda_add', [
                 'session' => $session, 'banda' => $fields, 'action' => '/dashboard/banda/add',
-                'proposalMode' => !self::isAdmin($session), 'notice' => null, 'error' => $err,
+                'proposalMode' => self::proposalMode($session), 'notice' => null, 'error' => $err,
             ], ['title' => 'Añadir banda — Marchas de Cristo', 'noindex' => true]);
         };
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { $reRender('CSRF'); return; }
 
-        // Editor: propuesta en lugar de escritura directa.
-        if (!self::isAdmin($session)) {
+        // Propuesta en lugar de escritura directa: editor siempre, y cualquier
+        // usuario fuera de local. Ver self::proposalMode().
+        if (self::proposalMode($session)) {
             if (trim((string) ($fields['NOMBRE_BREVE'] ?? '')) === '') { $reRender('NOMBRE_REQUERIDO'); return; }
             self::editorSubmit($session, 'banda', 'add', null, $fields, [], '/dashboard/banda/add');
         }
@@ -747,6 +835,7 @@ final class Admin
             'estado' => (string) ($_GET['estado'] ?? 'pendiente'),
             'banda' => (string) ($_GET['banda'] ?? ''),
             'clasificacion' => (string) ($_GET['clasificacion'] ?? ''),
+            'disco' => (string) ($_GET['disco'] ?? ''),
         ];
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $result = IngestaRepo::listCandidatos($filters, $page);
@@ -755,6 +844,7 @@ final class Admin
         View::render('admin/ingesta_list', [
             'session' => $session, 'filters' => $filters, 'page' => $page,
             'result' => $result, 'bandas' => IngestaRepo::bandasConCandidatos($filters['estado']),
+            'discos' => IngestaRepo::discosConCandidatos($filters['estado'], $filters['banda']),
             'counts' => IngestaRepo::counts(), 'backQs' => http_build_query($backParams),
             'ultimoDescarte' => IngestaRepo::ultimoDescarte(),
             'vetos' => IngestaRepo::vetosDe($result['data']),
@@ -766,7 +856,7 @@ final class Admin
     private static function ingestaBackQuery(string $raw): string
     {
         parse_str($raw, $parsed);
-        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'page']));
+        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'disco', 'page']));
         return http_build_query($allowed);
     }
 
@@ -828,6 +918,26 @@ final class Admin
 
         $r = AdminRepo::aceptarCandidato($id, $fields, $ids, $guardarOrigen);
         if (($r['code'] ?? '') === 'CREATED') {
+            $sep = $back !== '' ? '&' : '';
+            Http::redirect("/dashboard/ingesta?$back{$sep}aceptado=" . $r['marchaId'], 302);
+        }
+        Http::redirect("/dashboard/ingesta/$id?err=" . ($r['code'] ?? 'ERROR') . $backSuffix, 302);
+    }
+
+    public static function ingestaAsociar(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        $back = self::ingestaBackQuery((string) ($_POST['ref'] ?? ''));
+        $backSuffix = $back !== '' ? "&ref=$back" : '';
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/ingesta/$id?err=CSRF$backSuffix", 302);
+
+        $marchaId = (int) ($_POST['marcha_id'] ?? 0);
+        if ($marchaId <= 0) Http::redirect("/dashboard/ingesta/$id?err=MARCHA_REQUIRED$backSuffix", 302);
+
+        $guardarOrigen = isset($_POST['guardar_origen']);
+        $r = AdminRepo::asociarCandidato($id, $marchaId, $guardarOrigen);
+        if (($r['code'] ?? '') === 'ASSOCIATED') {
             $sep = $back !== '' ? '&' : '';
             Http::redirect("/dashboard/ingesta?$back{$sep}aceptado=" . $r['marchaId'], 302);
         }
@@ -1350,7 +1460,11 @@ final class Admin
         if (($_FILES['portada']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
             $errPortada = Media::guardarPortada($_FILES['portada'], $discoId);
         }
-        Http::redirect("/dashboard/disco/$discoId?created=1" . ($errPortada !== null ? '&err=' . rawurlencode($errPortada) : ''), 302);
+        // Recién creado el disco, lo primero que se ofrece es importar el
+        // tracklist desde el enlace del álbum: es el camino que rellena de una
+        // vez las pistas, su orden y su duración. Desde ahí se puede seguir a
+        // mano con un clic (la ficha del disco no cambia).
+        Http::redirect("/dashboard/disco/$discoId/importar?created=1" . ($errPortada !== null ? '&err=' . rawurlencode($errPortada) : ''), 302);
     }
 
     public static function discoEditForm(array $p): void
@@ -1363,16 +1477,28 @@ final class Admin
     private static function renderDiscoForm(array $session, int $id, ?string $error = null): void
     {
         $data = AdminRepo::discoConPistas($id);
-        if ($data === null) { Http::notFound(); return; }
+        if ($data === null) Http::notFound();
         $err = $error ?? (isset($_GET['err']) ? (string) $_GET['err'] : null);
         if ($err !== null) http_response_code(400);
+        // Pestaña activa: los POST vuelven aquí (PRG) con ?tab=… para no
+        // devolver al usuario a "Datos" tras tocar pistas o enlaces.
+        $tab = (string) ($_GET['tab'] ?? 'datos');
+        if (!in_array($tab, ['datos', 'pistas', 'streaming'], true)) $tab = 'datos';
         View::render('admin/disco_form', [
             'session' => $session,
             'disco' => $data['disco'],
             'pistas' => $data['pistas'],
             'portada' => Media::portadaExiste($id),
+            'enlaces' => EnlaceRepo::publicadosDe('disco', $id),
+            'tab' => $tab,
             'error' => $err,
-            'notice' => isset($_GET['created']) ? 'Disco creado.' : (isset($_GET['ok']) ? (string) $_GET['ok'] : null),
+            // 'social' y 'ok' pueden venir juntos: al guardar los enlaces se
+            // dispara la cascada automática y su resumen viaja en 'ok'.
+            'notice' => isset($_GET['created'])
+                ? 'Disco creado.'
+                : (isset($_GET['social'])
+                    ? trim('Enlaces de streaming guardados. ' . (string) ($_GET['ok'] ?? ''))
+                    : (isset($_GET['ok']) ? (string) $_GET['ok'] : null)),
         ], ['title' => 'Disco #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -1402,27 +1528,279 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $id = (int) $p['id'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
         $r = AdminRepo::addPista(
             $id,
             (int) ($_POST['idMarcha'] ?? 0),
             (int) ($_POST['numero'] ?? 0),
-            (int) ($_POST['nDisco'] ?? 1)
+            (int) ($_POST['nDisco'] ?? 1),
+            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
+            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
         );
-        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
-        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista añadida.'), 302);
+        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista añadida.'), 302);
+    }
+
+    /**
+     * "mm:ss" o "h:mm:ss" -> segundos (R-02: duración por grabación, no por
+     * obra). Tolerante: vacío o formato irreconocible devuelve null en vez de
+     * fallar — el campo es opcional.
+     */
+    /**
+     * Excepción de percusión de una pista concreta. Tres estados:
+     *   ''  -> null : hereda el flag del disco (por defecto)
+     *   '1' -> 1    : esta pista lleva intro aunque el disco no
+     *   '0' -> 0    : esta pista NO lleva intro aunque el disco sí
+     */
+    private static function parsePercusionPista(string $s): ?int
+    {
+        $s = trim($s);
+        if ($s === '' || $s === 'heredar') return null;
+        return $s === '1' ? 1 : 0;
+    }
+
+    private static function parseDuracionMmSs(string $s): ?int
+    {
+        $s = trim($s);
+        if ($s === '') return null;
+        if (!preg_match('/^(?:(\d+):)?([0-5]?\d):([0-5]\d)$/', $s, $m)) return null;
+        $h = $m[1] !== '' ? (int) $m[1] : 0;
+        return $h * 3600 + (int) $m[2] * 60 + (int) $m[3];
+    }
+
+    public static function discoPistaEditPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
+
+        $r = AdminRepo::updatePista(
+            $id,
+            (int) $p['dm'],
+            (int) ($_POST['idMarcha'] ?? 0),
+            (int) ($_POST['numero'] ?? 0),
+            (int) ($_POST['nDisco'] ?? 1),
+            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
+            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
+        );
+        if (($r['code'] ?? '') !== 'UPDATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista actualizada.'), 302);
     }
 
     public static function discoPistaDeletePost(array $p): void
     {
         $session = Auth::requireAdmin();
         $id = (int) $p['id'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
         $r = AdminRepo::deletePista($id, (int) $p['dm']);
-        if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
-        Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('Pista eliminada.'), 302);
+        if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista eliminada.'), 302);
+    }
+
+    /**
+     * Alta/edición/baja manual de los enlaces de streaming de un disco (álbum).
+     * Mismo patrón que bandaSocialPost: un campo por servicio, vacío = borrar.
+     */
+    public static function discoSocialPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=streaming", 302);
+
+        foreach (EnlaceRepo::SERVICIOS as $servicio) {
+            $url = $_POST[$servicio] ?? null;
+            $r = AdminRepo::setEnlaceStreaming('disco', $id, $servicio, is_string($url) ? $url : null);
+            if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/disco/$id?err=BAD_REQUEST&tab=streaming", 302);
+        }
+
+        // Guardar dispara la cascada: el resto de servicios del disco, los de sus
+        // marchas y los de la banda. Se lanza SIEMPRE, no solo cuando cambia algo,
+        // para que «Guardar enlaces» signifique siempre lo mismo — «busca lo que
+        // falte» — y volver a pulsarlo sirva de reintento. Es idempotente (solo
+        // escribe huecos) y Odesli va cacheado en disco. Ver EnlacesAuto.
+        $resumen = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
+        Http::redirect("/dashboard/disco/$id?social=1&tab=streaming"
+            . ($resumen !== null ? '&ok=' . rawurlencode($resumen) : ''), 302);
+    }
+
+    // ── Disco: alta asistida de pistas desde el enlace del álbum ────────────
+    //
+    // Flujo en tres pasos, sin estado en servidor (el plan viaja en el propio
+    // formulario, que es lo que permite que funcione en un hosting compartido
+    // sin sesiones de trabajo ni tablas temporales):
+    //
+    //   1. GET  …/importar            → pedir el enlace del álbum.
+    //   2. POST …/importar            → leer el tracklist y proponer el plan.
+    //   3. POST …/importar/confirmar  → escribir las pistas aprobadas.
+    //
+    // El alta manual (pestaña «Pistas») sigue intacta y es siempre alcanzable:
+    // esto es un atajo, no un sustituto.
+
+    public static function discoImportarForm(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        $data = AdminRepo::discoConPistas($id);
+        if ($data === null) { Http::notFound(); return; }
+
+        // Si el disco ya tiene enlace de álbum guardado, se propone ese: lo
+        // normal es que sea justo el que se quiere importar.
+        $enlaces = EnlaceRepo::publicadosDe('disco', $id);
+        $url = '';
+        foreach (Tracklist::SERVICIOS as $servicio) {
+            if (!empty($enlaces[$servicio])) { $url = (string) $enlaces[$servicio]; break; }
+        }
+
+        self::renderDiscoImportar($session, $data, 'url', [
+            'url' => $url,
+            'error' => isset($_GET['err']) ? (string) $_GET['err'] : null,
+            'creado' => isset($_GET['created']),
+        ]);
+    }
+
+    public static function discoImportarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        $data = AdminRepo::discoConPistas($id);
+        if ($data === null) { Http::notFound(); return; }
+
+        $url = trim((string) ($_POST['url'] ?? ''));
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) {
+            self::renderDiscoImportar($session, $data, 'url', ['url' => $url, 'error' => 'CSRF']);
+            return;
+        }
+
+        $r = Tracklist::de($url);
+        if ($r['error'] !== null) {
+            self::renderDiscoImportar($session, $data, 'url', ['url' => $url, 'error' => $r['error']]);
+            return;
+        }
+
+        self::renderDiscoImportar($session, $data, 'revision', [
+            'url' => $url,
+            'servicio' => $r['servicio'],
+            'filas' => ImportadorPistas::analizar($id, $r['tracks']),
+        ]);
+    }
+
+    public static function discoImportarConfirmar(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id/importar?err=CSRF", 302);
+
+        $filas = [];
+        $crudas = $_POST['p'] ?? [];
+        if (!is_array($crudas)) $crudas = [];
+        foreach ($crudas as $fila) {
+            if (!is_array($fila)) continue;
+            if (empty($fila['add'])) continue;                 // desmarcada: no se añade
+            $idMarcha = (int) ($fila['idMarcha'] ?? 0);
+            if ($idMarcha <= 0) continue;                       // sin marcha: nada que enlazar
+            $seg = (int) ($fila['seg'] ?? 0);
+            $filas[] = [
+                'idMarcha' => $idMarcha,
+                'numero' => (int) ($fila['numero'] ?? 0),
+                'volumen' => (int) ($fila['volumen'] ?? 1),
+                'seg' => $seg > 0 ? $seg : null,
+                'percusion' => self::parsePercusionPista((string) ($fila['percusion'] ?? '')),
+                'titulo' => (string) ($fila['titulo'] ?? ''),
+            ];
+        }
+
+        if ($filas === []) Http::redirect("/dashboard/disco/$id?tab=pistas&err=SIN_PISTAS_MARCADAS", 302);
+
+        $r = ImportadorPistas::aplicar($id, $filas);
+
+        // El enlace del álbum se guarda como enlace de streaming del disco: es
+        // el mismo dato que pide la pestaña «Streaming» y de él viven después
+        // fill_duraciones.php y la ficha pública. Solo si el usuario lo pidió.
+        // Guardarlo dispara la misma cascada que la pestaña «Streaming», y aquí
+        // rinde más que en ningún sitio: las pistas se acaban de crear, así que
+        // sus marchas se llevan también su enlace en cada servicio.
+        $resumenAuto = null;
+        if (!empty($_POST['guardarEnlace'])) {
+            $ref = Tracklist::parseUrl((string) ($_POST['url'] ?? ''));
+            if ($ref !== null) {
+                AdminRepo::setEnlaceStreaming('disco', $id, $ref['servicio'], (string) $_POST['url']);
+                $resumenAuto = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
+            }
+        }
+
+        $msg = $r['anadidas'] === 1 ? '1 pista añadida.' : $r['anadidas'] . ' pistas añadidas.';
+        if ($r['errores'] !== []) {
+            $detalle = array_map(static fn(array $e): string => $e['titulo'] . ' (' . $e['code'] . ')', $r['errores']);
+            $msg .= ' No se pudieron añadir: ' . implode('; ', array_slice($detalle, 0, 5));
+            if (count($detalle) > 5) $msg .= ' y ' . (count($detalle) - 5) . ' más';
+            $msg .= '.';
+        }
+        if ($resumenAuto !== null) $msg .= ' ' . $resumenAuto;
+        Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode($msg), 302);
+    }
+
+    /**
+     * @param array<string,mixed> $session
+     * @param array{disco:array<string,mixed>,pistas:list<array<string,mixed>>} $data
+     * @param array<string,mixed> $extra
+     */
+    private static function renderDiscoImportar(array $session, array $data, string $fase, array $extra): void
+    {
+        if (!empty($extra['error'])) http_response_code(400);
+        View::render('admin/disco_importar', array_merge([
+            'session' => $session,
+            'disco' => $data['disco'],
+            'pistas' => $data['pistas'],
+            'fase' => $fase,
+            'url' => '',
+            'servicio' => null,
+            'filas' => [],
+            'error' => null,
+            'creado' => false,
+        ], $extra), [
+            'title' => 'Importar pistas · disco #' . (int) $data['disco']['ID_DISCO'] . ' — Marchas de Cristo',
+            'noindex' => true,
+            // La revisión es una tabla de trabajo con siete columnas: con el
+            // ancho de lectura se recortan el buscador de marcha y el selector
+            // de percusión.
+            'ancho' => true,
+        ]);
+    }
+
+    /**
+     * Enlaces de escucha de una marcha, separados por versión.
+     *
+     * A diferencia de banda y disco, aquí hay DOS campos por servicio: una
+     * marcha con años se interpreta hoy de forma muy distinta a como se
+     * estrenó, y la ficha pública separa esas escuchas en dos pestañas (ver
+     * Html::escuchar). Lo que se guarde aquí queda marcado como clasificado a
+     * mano ($manual = true), para que la derivación automática por año que
+     * hacen la ingesta y la cascada no lo sobrescriba después.
+     *
+     * Vacío = borrar ese (servicio, versión), igual que en disco y banda.
+     */
+    public static function marchaSocialPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/marcha/$id?err=CSRF", 302);
+
+        foreach (EnlaceRepo::VERSIONES as $version) {
+            foreach (EnlaceRepo::SERVICIOS as $servicio) {
+                $campo = $version . '_' . $servicio;
+                $url = $_POST[$campo] ?? null;
+                $anioRaw = trim((string) ($_POST[$campo . '_anio'] ?? ''));
+                $anio = ctype_digit($anioRaw) ? (int) $anioRaw : null;
+                $r = AdminRepo::setEnlaceStreaming(
+                    'marcha', $id, $servicio, is_string($url) ? $url : null,
+                    null, $version, $anio, true
+                );
+                if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/marcha/$id?err=BAD_REQUEST", 302);
+            }
+        }
+        Http::redirect("/dashboard/marcha/$id?ok=" . rawurlencode('Enlaces de escucha guardados.'), 302);
     }
 
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */
