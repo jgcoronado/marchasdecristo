@@ -95,8 +95,9 @@ $jsonObject = static function (array $cols, string $prefix): string {
 };
 
 foreach ($alcance as $tabla => $def) {
-    $cols = $pdo->query("PRAGMA table_info({$tabla})")->fetchAll(PDO::FETCH_ASSOC);
-    if ($cols === false || $cols === []) {
+    $stTableInfo = $pdo->query("PRAGMA table_info({$tabla})");
+    $cols = $stTableInfo !== false ? $stTableInfo->fetchAll(PDO::FETCH_ASSOC) : [];
+    if ($cols === []) {
         fwrite(STDERR, "Aviso: tabla '{$tabla}' no encontrada en la BD, se omite.\n");
         continue;
     }

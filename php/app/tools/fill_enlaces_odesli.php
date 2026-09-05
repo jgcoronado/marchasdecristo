@@ -347,7 +347,7 @@ if (!$sinTidal && $FIXTURE === null) {
     }
 } elseif ($sinTidal) {
     // ya se informó arriba
-} elseif ($FIXTURE !== null && isset($FIXTURE['token'])) {
+} elseif (isset($FIXTURE['token'])) {
     $tidalToken = $FIXTURE['token'];
 }
 
