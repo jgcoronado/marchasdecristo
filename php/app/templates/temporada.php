@@ -29,7 +29,7 @@ $anioInt = (int) $anio;
         <div class="shead"><h3><?= V::e($g['nombre']) ?></h3></div>
         <ul class="vease">
 <?php foreach ($g['items'] as $it): ?>
-            <li>→
+            <li>
 <?php if (!empty($it['TITULAR'])): ?>
                 <strong><?= V::e($it['TITULAR']) ?></strong> —
 <?php endif; ?>

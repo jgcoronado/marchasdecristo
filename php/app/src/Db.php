@@ -27,9 +27,29 @@ final class Db
     /** Usuario que se registra en admin_log; lo fija Auth::requireAuth por petición. */
     private static string $auditUser = 'system';
 
+    /** Si `self::$auditUser` ya se ha publicado en `log_actor` para los triggers de cambio_log. */
+    private static bool $actorSynced = false;
+
     public static function setAuditUser(string $user): void
     {
         self::$auditUser = $user !== '' ? $user : 'system';
+        self::$actorSynced = false;
+    }
+
+    /**
+     * Publica el actor actual en `log_actor` para que lo lean los triggers de
+     * cambio_log (SQLite no tiene variables de sesión). Una vez por petición
+     * o script, justo antes de la primera escritura: las peticiones de solo
+     * lectura no ejecutan ningún UPDATE extra. Ver docs/plan-log-cambios.md.
+     */
+    private static function syncActor(): void
+    {
+        if (self::$actorSynced) {
+            return;
+        }
+        self::$actorSynced = true;
+        self::pdo()->prepare('UPDATE log_actor SET ACTOR = ? WHERE ID = 1')
+                    ->execute([self::$auditUser]);
     }
 
     /** Usuario de la petición actual, para guardarlo en tablas propias (no solo en admin_log). */
@@ -149,6 +169,7 @@ final class Db
     public static function run(string $sql, array $params = []): int
     {
         self::assertWritable();
+        self::syncActor();
         $stmt = self::pdo()->prepare($sql);
         $stmt->execute($params);
         return $stmt->rowCount();
@@ -163,6 +184,7 @@ final class Db
     public static function transaction(callable $fn): mixed
     {
         self::assertWritable();
+        self::syncActor();
         $pdo = self::pdo();
         $pdo->beginTransaction();
         try {

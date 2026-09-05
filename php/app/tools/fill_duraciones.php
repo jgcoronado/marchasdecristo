@@ -100,6 +100,7 @@ $spotifySecret = $dotenv['SPOTIFY_CLIENT_SECRET'] ?? '';
 
 $db = new PDO("sqlite:$dbPath");
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$db->exec("UPDATE log_actor SET ACTOR = 'cli:fill_duraciones' WHERE ID = 1");
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Normalización, similitud, HTTP, tracklists y emparejado

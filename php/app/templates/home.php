@@ -34,7 +34,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                     <span class="ultima-title"><?= V::e($mdd['TITULO']) ?></span>
                     <span class="ultima-authors"><?= V::e($mddAutores) ?></span>
 <?php if (!empty($mdd['BANDA_NOMBRE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?><?php if (!empty($mdd['BANDA_LOC'])): ?>, <?= V::e($mdd['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
 <?php if ($mddFecha !== '' && $mddFecha !== 's/f'): ?>
@@ -57,7 +57,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             <h2 class="section-title">Explorar el catálogo</h2>
             <ul class="vease">
 <?php foreach ($sugerencias as $s): ?>
-                <li>→ <a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt">(<?= $num($s['cnt']) ?> registros)</span><?php elseif ($s['note'] !== null): ?> <span class="cnt">— <?= V::e($s['note']) ?></span><?php endif; ?></li>
+                <li><a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt"><?= $num($s['cnt']) ?> registros</span><?php elseif ($s['note'] !== null): ?> <span class="cnt"><?= V::e($s['note']) ?></span><?php endif; ?></li>
 <?php endforeach; ?>
             </ul>
         </section>
@@ -75,7 +75,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                     <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
                     <span class="ultima-authors"><?= V::e($authors) ?></span>
 <?php if (!empty($m['BANDA_BREVE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
                 <span class="ultima-date"><?= V::e($m['FECHA']) ?></span>

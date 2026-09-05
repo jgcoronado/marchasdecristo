@@ -1803,6 +1803,76 @@ final class Admin
         Http::redirect("/dashboard/marcha/$id?ok=" . rawurlencode('Enlaces de escucha guardados.'), 302);
     }
 
+    /** Predictivo unificado del panel: ?tipo=marcha|autor|banda|disco &q=… → { id, label, meta, url } */
+    public static function dashboardFastSearch(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (Auth::currentSession() === null) {
+            http_response_code(401);
+            echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
+            return;
+        }
+        $tipo = trim((string) ($_GET['tipo'] ?? ''));
+        $q    = trim((string) ($_GET['q'] ?? ''));
+        if ($q === '' || (mb_strlen($q) < 3 && !ctype_digit($q))) {
+            echo json_encode(['rowsReturned' => 0, 'data' => []]);
+            return;
+        }
+        $normalize = static fn(string $tipo, array $rows): array => array_map(static function (array $r) use ($tipo): array {
+            return match ($tipo) {
+                'marcha' => ['id' => (int)$r['ID_MARCHA'], 'label' => (string)$r['TITULO'],
+                             'meta' => implode(' · ', array_filter([(string)($r['FECHA'] ?? ''), (string)($r['AUTORES'] ?? '')])),
+                             'url' => '/dashboard/marcha/' . (int)$r['ID_MARCHA']],
+                'autor'  => ['id' => (int)$r['ID_AUTOR'], 'label' => (string)$r['NOMBRE_COMPLETO'],
+                             'meta' => null, 'url' => '/dashboard/autor/' . (int)$r['ID_AUTOR']],
+                'banda'  => ['id' => (int)$r['ID_BANDA'], 'label' => (string)$r['NOMBRE_BREVE'],
+                             'meta' => (string)($r['LOCALIDAD'] ?? ''), 'url' => '/dashboard/banda/' . (int)$r['ID_BANDA']],
+                'disco'  => ['id' => (int)$r['ID_DISCO'], 'label' => (string)$r['NOMBRE_CD'],
+                             'meta' => implode(' · ', array_filter([(string)($r['FECHA_CD'] ?? ''), (int)$r['PISTAS'] > 0 ? (int)$r['PISTAS'] . ' pistas' : ''])),
+                             'url' => '/dashboard/disco/' . (int)$r['ID_DISCO']],
+                default  => [],
+            };
+        }, $rows);
+
+        // Para autor y banda añadimos búsqueda por ID exacto antes del texto,
+        // igual que ya hacen marchaCandidatosPorTexto y discoCandidatosPorTexto.
+        $data = match ($tipo) {
+            'marcha' => $normalize('marcha', AdminRepo::marchaCandidatosPorTexto($q, 15)),
+            'autor'  => (static function () use ($q, $normalize): array {
+                $out = [];
+                if (ctype_digit($q)) {
+                    $r = Db::one('SELECT ID_AUTOR, (NOMBRE || \' \' || APELLIDOS) AS NOMBRE_COMPLETO FROM autor WHERE ID_AUTOR = ?', [(int)$q]);
+                    if ($r !== null) $out[] = $r;
+                }
+                $vistos = array_column($out, 'ID_AUTOR');
+                foreach (Repo::autorCandidatosPorTexto($q, 15) as $r) {
+                    if (!in_array($r['ID_AUTOR'], $vistos, true)) $out[] = $r;
+                }
+                return $normalize('autor', array_slice($out, 0, 15));
+            })(),
+            'banda'  => (static function () use ($q, $normalize): array {
+                $out = [];
+                if (ctype_digit($q)) {
+                    $r = Db::one('SELECT ID_BANDA, NOMBRE_BREVE, LOCALIDAD FROM banda WHERE ID_BANDA = ?', [(int)$q]);
+                    if ($r !== null) $out[] = $r;
+                }
+                $vistos = array_column($out, 'ID_BANDA');
+                foreach (Repo::bandaCandidatosPorTexto($q, 15) as $r) {
+                    if (!in_array($r['ID_BANDA'], $vistos, true)) $out[] = $r;
+                }
+                return $normalize('banda', array_slice($out, 0, 15));
+            })(),
+            'disco'  => (static function () use ($q, $normalize): array {
+                $session = Auth::currentSession();
+                if ($session === null || !Roles::isAdmin($session['rol'] ?? '')) return [];
+                return $normalize('disco', AdminRepo::discoCandidatosPorTexto($q, 15));
+            })(),
+            default  => [],
+        };
+        echo json_encode(['rowsReturned' => count($data), 'data' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */
     public static function marchaFastSearch(): void
     {

@@ -74,9 +74,9 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
 
     <div class="shead"><h2>Véase también</h2></div>
     <ul class="vease">
-        <li>→ <a href="/dedicatorias">Índice de dedicatorias</a> — todas las advocaciones del catálogo</li>
+        <li><a href="/dedicatorias">Índice de dedicatorias</a> — todas las advocaciones del catálogo</li>
 <?php if ($prov !== ''): ?>
-        <li>→ <a href="/marcha?provincia=<?= V::e(rawurlencode($prov)) ?>">Marchas de <?= V::e($prov) ?></a> — explorar por provincia</li>
+        <li><a href="/marcha?provincia=<?= V::e(rawurlencode($prov)) ?>">Marchas de <?= V::e($prov) ?></a> — explorar por provincia</li>
 <?php endif; ?>
     </ul>
 

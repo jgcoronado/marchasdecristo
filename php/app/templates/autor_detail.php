@@ -93,7 +93,7 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 <?php if ($ppal && (int) $ppal['N'] > 1): ?>
     <div class="shead"><h2>Véase también</h2></div>
     <ul class="vease">
-        <li>→ <a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a> — banda que estrenó <?= $num($ppal['N']) ?> de sus marchas <span class="cnt">(B-<?= (int) $ppal['ID_BANDA'] ?>)</span></li>
+        <li><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a> — banda que estrenó <?= $num($ppal['N']) ?> de sus marchas <span class="cnt">B-<?= (int) $ppal['ID_BANDA'] ?></span></li>
     </ul>
 <?php endif; ?>
 

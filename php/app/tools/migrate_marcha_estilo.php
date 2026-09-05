@@ -66,6 +66,7 @@ function estiloPorNombre(?string $nombreCompleto, ?string $nombreBreve): ?string
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:migrate_marcha_estilo' WHERE ID = 1");
 
     // 1) ¿Ya migrado? La columna ESTILO no existe todavía si no.
     $cols = $pdo->query('PRAGMA table_info(marcha)')->fetchAll(PDO::FETCH_COLUMN, 1);

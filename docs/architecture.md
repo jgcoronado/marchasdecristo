@@ -97,7 +97,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 ### 2.5 Edición de marcha (admin, en local)
 1. `Admin::marchaEditForm` (GET) muestra el formulario con los valores actuales.
 2. `Admin::marchaEditPost` (POST): valida CSRF, llama a `AdminRepo::updateMarcha($id, $payload)`.
-3. `AdminRepo` filtra el payload contra una allowlist de campos editables, arma el `UPDATE` con prepared statement, escribe en `admin_log` (audit log).
+3. `AdminRepo` filtra el payload contra una allowlist de campos editables, arma el `UPDATE` con prepared statement, escribe en `admin_log` (audit log de eventos de negocio). Los triggers `trg_log_*` (`sql/011_cambio_log.sql`) registran además el diff campo a campo en `cambio_log`, sin que `AdminRepo` tenga que hacer nada — ver §7.
 4. **Antes de cualquier escritura real**, `Db::assertWritable()` comprueba `config['env'] === 'local'`. Si el host es producción, lanza `ReadOnlyModeException`, que `Router::dispatch()` captura y muestra `templates/readonly.php` en vez de un error crudo.
 5. PRG: redirect a la misma edición con un flash de éxito.
 
@@ -221,3 +221,12 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 ## 6. Deuda técnica pendiente
 
 Detallada y priorizada en [technical-debt.md](technical-debt.md). El resumen ejecutivo vive ahí; este documento no la duplica para no desincronizarse.
+
+## 7. Log interno de cambios (`cambio_log`)
+
+Trazabilidad interna de quién cambió qué, cuándo y con qué valores — no se expone en ninguna pantalla, se consulta con `sqlite3` directamente sobre `mdc.db`. Diseño completo en [plan-log-cambios.md](plan-log-cambios.md); consultas de referencia en [admin-panel.md](admin-panel.md).
+
+- Mecanismo: **triggers SQLite** (`trg_log_<tabla>_i/u/d`) sobre las tablas de catálogo + `usuarios`, generados por `php/app/tools/gen_log_triggers.php` en `php/app/tools/sql/011_cambio_log.sql` (commiteado, no editar a mano).
+- El actor de la petición/script se propaga a `log_actor` (tabla de una fila) vía `Db::syncActor()`, llamado justo después de `Db::assertWritable()` en `Db::run()`/`Db::transaction()`. Los scripts CLI que escriben en tablas del alcance fijan su propio actor con `$pdo->exec("UPDATE log_actor SET ACTOR = 'cli:<script>' WHERE ID = 1")` nada más abrir la conexión.
+- **Gotcha**: cualquier migrador que reconstruya una tabla del alcance (`ALTER TABLE ... DROP COLUMN` con reconstrucción, `CREATE TABLE` + copia) **borra sus triggers** — SQLite los asocia a la tabla, no sobreviven al drop. Tras una reconstrucción de este tipo hay que reaplicar la sección correspondiente de `011_cambio_log.sql` (o regenerar con `gen_log_triggers.php` y reejecutar `migrate_ingest.php`).
+- `admin_log` (eventos de negocio: `ACCEPT`/`DISCARD`/`REJECT`/`REOPEN`…) y `cambio_log` (diffs de datos campo a campo) son complementarios; ningún código de `src/` los cruza automáticamente.

@@ -98,6 +98,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
     $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:seed_dedicatorias' WHERE ID = 1");
 
     if (!$dryRun) {
         $backupDir = dirname($db) . '/backups';

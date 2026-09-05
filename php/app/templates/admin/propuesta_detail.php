@@ -15,14 +15,15 @@ $fieldLabels = [
     'TITULO' => 'Título', 'FECHA' => 'Fecha (año)', 'DEDICATORIA' => 'Dedicatoria',
     'LOCALIDAD' => 'Localidad', 'PROVINCIA' => 'Provincia', 'AUDIO' => 'Audio (URL)',
     'BANDA_ESTRENO' => 'ID banda de estreno', 'ESTILO' => 'Estilo', 'DETALLES_MARCHA' => 'Detalles',
+    'DATOS_INT' => 'Datos internos',
     'NOMBRE' => 'Nombre', 'APELLIDOS' => 'Apellidos', 'NOMBRE_ART' => 'Nombre artístico',
     'F_NAC' => 'Fecha nacimiento', 'LUGAR_NAC' => 'Lugar nacimiento', 'F_DEF' => 'Fecha defunción', 'BIO' => 'Biografía',
     'NOMBRE_BREVE' => 'Nombre breve', 'NOMBRE_COMPLETO' => 'Nombre completo',
     'FECHA_FUND' => 'Fecha fundación', 'FECHA_EXT' => 'Fecha extinción',
     'DIRECTOR_ACTUAL' => 'Director actual', 'DIR_MUS_ACTUAL' => 'Director musical actual',
-    'WEB' => 'Web', 'LINK_FORO' => 'Enlace al foro',
+    'WEB' => 'Web',
 ];
-$textareas = ['BIO', 'DETALLES_MARCHA'];
+$textareas = ['BIO', 'DETALLES_MARCHA', 'DATOS_INT'];
 ?>
 <div class="stack admin-form">
     <div class="admin-bar">

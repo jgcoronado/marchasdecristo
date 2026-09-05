@@ -350,7 +350,10 @@ dl.desc .f { display: grid; grid-template-columns: 10.5rem 1fr; gap: 0.9rem; pad
 dl.desc .f:nth-child(odd) { background: var(--zebra); }
 dl.desc dt { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--muted-c); }
 dl.desc dd { margin: 0; font-size: 0.98rem; }
-.cnt { font-size: 0.84rem; color: var(--faint); }
+/* Cifras y códigos accesorios (recuentos, IDs). Sin paréntesis, el tamaño
+   reducido y el color tenue son lo que los separa visualmente del texto
+   principal — actúan como subíndice sin desplazarse de la línea base. */
+.cnt { font-size: 0.76rem; color: var(--faint); }
 
 /* Anclas de la ficha (Datos / Escuchar / Grabaciones): enlaces #ancla
    normales, sin JS. Solo se pintan cuando la página es larga de verdad (ver
@@ -446,9 +449,11 @@ table.reg td.num, table.reg th.num { text-align: right; }
    el icono explica por qué esa toma es ~40 s más larga que las demás. */
 .perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
-/* Véase también */
-ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+/* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
+   porque son enlaces y ya se ve que lo son. */
+ul.vease { list-style: disc; margin: 0.5rem 0 0; padding: 0 0 0 1.15rem; }
 ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
+ul.vease li::marker { color: var(--faint); }
 
 /* Permalink del registro */
 .ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
@@ -694,8 +699,14 @@ dialog.panel::backdrop { background: var(--velo); }
 .autocomplete { position: relative; }
 .suggest { position: absolute; z-index: 25; left: 0; right: 0; margin-top: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--sombra-media); max-height: 16rem; overflow-y: auto; }
 .suggest-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0.5rem 0.7rem; cursor: pointer; font: inherit; font-size: 0.9rem; color: var(--ink); }
-.suggest-item:hover { background: var(--s2); }
+.suggest-item:hover, .suggest-item.is-on { background: var(--s2); }
 .suggest-item-add { color: var(--acc); font-weight: 600; border-top: 1px solid var(--line); }
+.suggest-id { color: var(--muted-c); font-size: 0.8em; margin-right: 0.4em; }
+.suggest-meta { display: block; font-size: 0.8em; color: var(--muted-c); margin-top: 0.1em; }
+
+/* ── Buscador del panel (predictivo por caja) ───────────────────────────── */
+.dash-ac { flex: 1; min-width: 0; position: relative; }
+.dash-ac .input { width: 100%; }
 
 /* ── Índice de dedicatorias (N-02) ──────────────────────────────────────── */
 .aznav { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.1rem 0 0.4rem; }

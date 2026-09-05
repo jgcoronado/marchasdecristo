@@ -36,6 +36,7 @@ if (!is_file($db)) {
 }
 
 $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$pdo->exec("UPDATE log_actor SET ACTOR = 'cli:fill_estilo_por_banda' WHERE ID = 1");
 
 // Backup antes de escribir.
 if (!$dryRun) {

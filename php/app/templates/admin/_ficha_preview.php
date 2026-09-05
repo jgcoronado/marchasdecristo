@@ -60,7 +60,6 @@ $anios = static fn(string $a, string $b): string => trim(($a !== '' ? $a : '') .
 <?php if ($has('DIRECTOR_ACTUAL')): ?>        <div class="f"><dt>Director</dt><dd><?= V::e($v('DIRECTOR_ACTUAL')) ?></dd></div><?php endif; ?>
 <?php if ($has('DIR_MUS_ACTUAL')): ?>        <div class="f"><dt>Director musical</dt><dd><?= V::e($v('DIR_MUS_ACTUAL')) ?></dd></div><?php endif; ?>
 <?php if ($has('WEB')): ?>        <div class="f"><dt>Web</dt><dd><?= V::e($v('WEB')) ?></dd></div><?php endif; ?>
-<?php if ($has('LINK_FORO')): ?>        <div class="f"><dt>Foro</dt><dd><?= V::e($v('LINK_FORO')) ?></dd></div><?php endif; ?>
 
 <?php elseif ($entidad === 'autor'): ?>
 <?php if ($has('NOMBRE_ART')): ?>        <div class="f"><dt>Nombre artístico</dt><dd><?= V::e($v('NOMBRE_ART')) ?></dd></div><?php endif; ?>

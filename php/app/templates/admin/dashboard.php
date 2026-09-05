@@ -1,5 +1,5 @@
 <?php use App\View as V; use App\Auth; use App\Entorno; use App\Roles;
-/** @var string $q @var string $qb @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var array $session @var array|null $notice @var int $pendientes */
+/** @var string $q @var string $qb @var string $qd @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var list<array<string,mixed>> $discos @var array $session @var array|null $notice @var int $pendientes */
 $csrf = Auth::csrfToken($session);
 $rol = $session['rol'] ?? Roles::EDITOR;
 $isAdmin = Roles::isAdmin($rol);
@@ -57,112 +57,54 @@ $isAdmin = Roles::isAdmin($rol);
     </div>
 <?php endif; ?>
 
-    <form class="panel" action="/dashboard" method="GET">
-        <input type="hidden" name="qb" value="<?= V::e($qb) ?>">
-        <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
+    <div class="panel">
         <div class="field">
-            <label class="field-label" for="q">Buscar marcha o compositor</label>
-            <div class="row">
-                <input class="input" id="q" name="q" type="text" value="<?= V::e($q) ?>" placeholder="Título o nombre…" autofocus>
-                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+            <label class="field-label" for="q">Buscar marcha</label>
+            <div data-dash-box="marcha" class="autocomplete dash-ac">
+                <input class="input" id="q" type="text" placeholder="Título o ID…"
+                       autocomplete="off" aria-autocomplete="list" aria-expanded="false" autofocus
+                       data-dash-input>
+                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
             </div>
         </div>
-    </form>
+    </div>
 
-    <form class="panel" action="/dashboard" method="GET">
-        <input type="hidden" name="q" value="<?= V::e($q) ?>">
-        <input type="hidden" name="qd" value="<?= V::e($qd) ?>">
+    <div class="panel">
+        <div class="field">
+            <label class="field-label" for="qa">Buscar compositor</label>
+            <div data-dash-box="autor" class="autocomplete dash-ac">
+                <input class="input" id="qa" type="text" placeholder="Nombre o ID…"
+                       autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                       data-dash-input>
+                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
         <div class="field">
             <label class="field-label" for="qb">Buscar banda <span class="muted small">· para editar sus datos y su linaje</span></label>
-            <div class="row">
-                <input class="input" id="qb" name="qb" type="text" value="<?= V::e($qb) ?>" placeholder="Nombre de la banda…">
-                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+            <div data-dash-box="banda" class="autocomplete dash-ac">
+                <input class="input" id="qb" type="text" placeholder="Nombre o ID…"
+                       autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                       data-dash-input>
+                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
             </div>
         </div>
-    </form>
+    </div>
 
 <?php if ($isAdmin): ?>
-    <form class="panel" action="/dashboard" method="GET">
-        <input type="hidden" name="q" value="<?= V::e($q) ?>">
-        <input type="hidden" name="qb" value="<?= V::e($qb) ?>">
+    <div class="panel">
         <div class="field">
             <label class="field-label" for="qd">Buscar disco <span class="muted small">· para editar sus datos, su portada y sus pistas</span></label>
-            <div class="row">
-                <input class="input" id="qd" name="qd" type="text" value="<?= V::e($qd) ?>" placeholder="Nombre del disco…">
-                <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
+            <div data-dash-box="disco" class="autocomplete dash-ac">
+                <input class="input" id="qd" type="text" placeholder="Nombre o ID…"
+                       autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+                       data-dash-input>
+                <div class="suggest" data-dash-suggest hidden role="listbox"></div>
             </div>
         </div>
-    </form>
-<?php endif; ?>
-
-<?php if ($qd !== ''): ?>
-    <section>
-        <h2 class="section-title">Discos <span class="muted small">· datos, portada y contenido</span></h2>
-<?php if ($discos): ?>
-        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
-<?php foreach ($discos as $d): ?>
-            <tr>
-                <td><a href="/dashboard/disco/<?= (int) $d['ID_DISCO'] ?>">#<?= (int) $d['ID_DISCO'] ?> · <?= V::e($d['NOMBRE_CD']) ?></a></td>
-                <td class="small muted"><?= V::e((string) ($d['FECHA_CD'] ?? '')) ?></td>
-                <td class="small muted"><?= (int) $d['PISTAS'] ?> pistas</td>
-            </tr>
-<?php endforeach; ?>
-        </tbody></table></div>
-<?php else: ?>
-        <p class="muted">Sin resultados.</p>
-<?php endif; ?>
-    </section>
-<?php endif; ?>
-
-<?php if ($qb !== ''): ?>
-    <section>
-        <h2 class="section-title">Bandas <span class="muted small">· edición y linaje (predecesoras, sucesoras, juveniles)</span></h2>
-<?php if ($bandas): ?>
-        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
-<?php foreach ($bandas as $b): ?>
-            <tr>
-                <td><a href="/dashboard/banda/<?= (int) $b['ID_BANDA'] ?>">#<?= (int) $b['ID_BANDA'] ?> · <?= V::e($b['NOMBRE_BREVE']) ?></a></td>
-                <td class="small muted"><?= V::e($b['LOCALIDAD'] ?? '') ?></td>
-            </tr>
-<?php endforeach; ?>
-        </tbody></table></div>
-<?php else: ?>
-        <p class="muted">Sin resultados.</p>
-<?php endif; ?>
-    </section>
-<?php endif; ?>
-
-<?php if ($q !== ''): ?>
-    <section>
-        <h2 class="section-title">Marchas</h2>
-<?php if ($marchas): ?>
-        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
-<?php foreach ($marchas as $m): ?>
-            <tr>
-                <td><a href="/dashboard/marcha/<?= (int) $m['ID_MARCHA'] ?>">#<?= (int) $m['ID_MARCHA'] ?> · <?= V::e($m['TITULO']) ?></a></td>
-                <td class="small nums"><?= V::e($m['FECHA']) ?></td>
-            </tr>
-<?php endforeach; ?>
-        </tbody></table></div>
-<?php else: ?>
-        <p class="muted">Sin resultados.</p>
-<?php endif; ?>
-    </section>
-
-    <section>
-        <h2 class="section-title">Compositores</h2>
-<?php if ($autores): ?>
-        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
-<?php foreach ($autores as $a): ?>
-            <tr>
-                <td><a href="/dashboard/autor/<?= (int) $a['ID_AUTOR'] ?>">#<?= (int) $a['ID_AUTOR'] ?> · <?= V::e($a['NOMBRE_COMPLETO']) ?></a></td>
-                <td class="small nums"><?= V::e($a['MARCHAS']) ?></td>
-            </tr>
-<?php endforeach; ?>
-        </tbody></table></div>
-<?php else: ?>
-        <p class="muted">Sin resultados.</p>
-<?php endif; ?>
-    </section>
+    </div>
 <?php endif; ?>
 </div>
+<script src="/assets/dashboard-search.js" defer></script>
