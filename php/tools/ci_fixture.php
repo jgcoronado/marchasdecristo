@@ -128,6 +128,13 @@ CREATE TABLE municipio (
     CREATED_AT   TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX idx_municipio_provincia ON municipio (PROVINCIA, NOMBRE);
+-- Espejo de 011_cambio_log.sql: Db::syncActor() escribe aquí antes de la
+-- primera escritura de cada script, así que hace falta incluso sin triggers.
+CREATE TABLE log_actor (
+  ID    INTEGER PRIMARY KEY CHECK (ID = 1),
+  ACTOR TEXT NOT NULL
+);
+INSERT OR IGNORE INTO log_actor (ID, ACTOR) VALUES (1, 'desconocido');
 SQL);
 
 $ins = static function (string $sql, array $rows) use ($pdo): void {
