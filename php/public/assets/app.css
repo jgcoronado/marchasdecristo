@@ -67,7 +67,12 @@
    aclarando sobre blanco que oscureciendo sobre negro. */
 :root {
     --mz-muted: 78%;   /* --muted-c: tinta atenuada (etiquetas, texto de apoyo) */
-    --mz-faint: 75%;   /* --faint: tinta muy atenuada (recuentos, migas) */
+    /* 2026-09: era 75%, a tres puntos de --mz-muted. Sobre blanco los dos
+       tonos salían #575E79 y #5D6480 —indistinguibles—, así que el sitio decía
+       tener dos niveles de texto de apoyo y en la práctica tenía uno. A 68% el
+       escalón se ve y --faint sigue en 4,8:1 sobre --card (medido), por encima
+       del 4,5:1 de AA. En tema oscuro ya había escalón (61%) y no se toca. */
+    --mz-faint: 68%;   /* --faint: tinta muy atenuada (recuentos, migas) */
     --mz-tint: 11%;    /* fondo tenue de badges y avisos */
     --mz-borde: 27%;   /* --err-line: filete del aviso de error */
 }
@@ -183,7 +188,25 @@
     --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
     --radius: 4px;
     --radius-sm: 3px;
+    /* Dos anchos, no uno. --wrap es el ancho de LECTURA: fichas, home, prosa;
+       54rem son ~85 caracteres, que es donde se lee cómodo y no tiene sentido
+       ensanchar. --wrap-ancho es el ancho de CATÁLOGO: el explorador es una
+       barra de facetas más una tabla de cinco columnas, y a 54rem la columna
+       de compositor partía los nombres en tres líneas mientras sobraba medio
+       monitor a los lados. La cabecera y el pie usan siempre --wrap-ancho para
+       que la barra de navegación no cambie de sitio al pasar de una ficha a un
+       listado. Ver .main-catalogo y la lista de rutas en layout.php. */
     --wrap: 54rem;
+    --wrap-ancho: 76rem;
+    /* Escala de espaciado. Antes cada regla elegía su propio valor (0.35, 0.45,
+       0.7, 0.9, 1.1, 1.6, 1.8rem…) y no había forma de apretar o airear el
+       sitio entero sin repasar la hoja línea a línea. Progresión ×1.5 redondeada. */
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1.1rem;
+    --sp-5: 1.6rem;
+    --sp-6: 2.4rem;
     font-synthesis-weight: none;
 }
 
@@ -228,25 +251,40 @@ header {
     background: var(--card);
     border-bottom: 1px solid var(--line);
 }
-header nav {
-    max-width: var(--wrap);
-    margin: 0 auto;
-    padding: 0.7rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1.1rem;
-    flex-wrap: wrap;
+/* La cabecera llevaba tres piezas en dos filas mal repartidas: marca y menú
+   juntos arriba y, debajo, el buscador centrado con un ancho propio (34rem)
+   que no coincidía con ninguna columna de la página. Ahora el reparto sigue a
+   las piezas: arriba la identidad y la herramienta (marca a la izquierda,
+   buscador a la derecha, que es donde se busca en todas partes) y debajo la
+   navegación, alineada con el contenido. El buscador gana presencia sin robarle
+   sitio al menú, que era lo que pasaba al meterlo todo en una línea.
+   .header-inner comparte ancho con <main> (ver body.p-catalogo), así que la
+   marca y el menú caen siempre sobre el borde de la primera tarjeta. */
+.header-inner { max-width: var(--wrap); margin: 0 auto; }
+.header-top {
+    display: flex; align-items: center; gap: 0.75rem 1.25rem;
+    padding: 0.7rem 1rem 0.45rem;
 }
+.header-top .brand { margin-right: auto; }
+header nav { margin: 0; padding: 0 1rem 0.55rem; }
 .brand { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
 .brand .brand-sub { display: block; font-size: 0.76rem; color: var(--faint); font-weight: 400; margin-top: 0.05rem; }
-.nav-links { list-style: none; display: flex; gap: 0.1rem; margin: 0; padding: 0; font-size: 0.92rem; }
-.nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.55rem; border-bottom: 2px solid transparent; display: inline-block; }
+/* Nueve secciones a 0.92rem con 0.55rem de padding pedían 871px dentro de una
+   columna de 832: el <ul> se salía por la derecha del contenido (se veía:
+   "Acompañamientos" rebasaba el borde de la primera tarjeta). Se aprieta el
+   padding y se baja un punto el cuerpo —siguen por encima del suelo de 0.8rem—
+   para que quepan de verdad, y se deja flex-wrap con row-gap como red: cuando
+   se publique una sección más, la fila se parte limpia en vez de desbordar. */
+.nav-links { list-style: none; display: flex; flex-wrap: wrap; gap: 0 0.05rem; row-gap: 0.15rem; margin: 0; padding: 0; font-size: 0.9rem; }
+.nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.4rem; border-bottom: 2px solid transparent; display: inline-block; }
 .nav-links a:hover { color: var(--acc); }
 .nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--acc); }
 
-.site-search-row { max-width: var(--wrap); margin: 0 auto; padding: 0 1rem 0.7rem; display: flex; justify-content: center; }
-.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.4rem 0.7rem; width: 100%; max-width: 34rem; }
-.site-search input { border: 0; background: none; font: inherit; font-size: 0.92rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+.site-search-row { margin: 0; padding: 0; display: flex; flex: 1 1 18rem; min-width: 0; justify-content: flex-end; }
+.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.45rem 0.75rem; width: 100%; max-width: 28rem; }
+.site-search input { border: 0; background: none; font: inherit; font-size: 0.98rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+
+
 .site-search:focus-within { outline: 2px solid var(--acc); outline-offset: 1px; border-radius: var(--radius-sm); }
 .site-search input::placeholder { color: var(--faint); }
 .site-search .kbd { font-size: 0.7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
@@ -283,11 +321,23 @@ header nav {
 .nav-mobile ul a:hover { background: var(--s2); }
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
-main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.1rem 1rem 2rem; }
+main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: var(--sp-4) 1rem var(--sp-6); }
+/* Páginas de catálogo (explorador de marchas, bandas, discos, dedicatorias,
+   rankings, mapa…): tabla + facetas, no prosa. La clase la pone layout.php en
+   <body> según la ruta, y ensancha a la vez contenido, cabecera y pie — si solo
+   se ensanchara <main>, la marca y el menú dejarían de caer sobre el borde de
+   la primera tarjeta. */
+body.p-catalogo main,
+body.p-catalogo .header-inner,
+body.p-catalogo footer .inner { max-width: var(--wrap-ancho); }
+/* Pantallas-tabla del panel: ver .main-ancho. */
+body.p-ancho main,
+body.p-ancho .header-inner,
+body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
 /* Pantallas del panel que son tabla de trabajo (revisión de la importación de
    pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
    ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
-main.main-ancho { max-width: min(90vw, 90rem); }
+main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
 main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
@@ -352,8 +402,11 @@ dl.desc dt { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--muted
 dl.desc dd { margin: 0; font-size: 0.98rem; }
 /* Cifras y códigos accesorios (recuentos, IDs). Sin paréntesis, el tamaño
    reducido y el color tenue son lo que los separa visualmente del texto
-   principal — actúan como subíndice sin desplazarse de la línea base. */
-.cnt { font-size: 0.76rem; color: var(--faint); }
+   principal — actúan como subíndice sin desplazarse de la línea base.
+   0.82rem, no 0.76: la regla 3 de la cabecera de esta hoja dice "nada por
+   debajo de 0.8rem en texto que el visitante deba leer", y .cnt no lleva
+   adorno sino contenido ("5.024 registros", "58 marchas compuestas"). */
+.cnt { font-size: 0.82rem; color: var(--faint); }
 
 /* Anclas de la ficha (Datos / Escuchar / Grabaciones): enlaces #ancla
    normales, sin JS. Solo se pintan cuando la página es larga de verdad (ver
@@ -473,13 +526,36 @@ ul.acomp-rangos li.acomp-actual .anio { color: var(--muted-c); }
 .ids a:hover { color: var(--acc); text-decoration: underline; }
 
 /* ── Explorador (listado con facetas) ───────────────────────────────────── */
-.toolbar { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
-.toolbar .rescount { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+/* Los controles de orden y de tamaño de página eran enlaces sueltos separados
+   por puntos medios ("orden: título · año · grabaciones"): se leían como texto
+   corrido, no como algo pulsable, y no se veía cuál estaba activo hasta
+   comparar colores. Pasan a control segmentado —una caja, opciones separadas
+   por filete, la activa con fondo--, que es lo que la gente reconoce como
+   selector. Mismo marcado: sigue siendo <span class="sortby"> con <a>. */
+.toolbar { display: flex; align-items: center; gap: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
+.toolbar .rescount { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; margin-right: auto; }
 .toolbar .rescount b { color: var(--acc); font-variant-numeric: tabular-nums; }
-.toolbar .sortby { font-size: 0.88rem; color: var(--muted-c); }
-.toolbar .sortby a { color: var(--muted-c); text-decoration: none; }
-.toolbar .sortby a:hover { color: var(--acc); }
-.toolbar .sortby a.on { color: var(--acc); font-weight: 600; }
+.toolbar .sortby {
+    font-size: 0.86rem;
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--card); overflow: hidden;
+}
+/* La etiqueta ("orden:", "por página:") deja de ser texto suelto y pasa a ser
+   la primera celda del control, con su propio fondo. */
+.toolbar .sortby .lbl {
+    color: var(--faint); padding: 0.3rem 0.6rem;
+    background: var(--s2); border-right: 1px solid var(--line);
+    display: inline-flex; align-items: center; white-space: nowrap;
+}
+.toolbar .sortby a {
+    color: var(--muted-c); text-decoration: none;
+    padding: 0.3rem 0.65rem; border-left: 1px solid var(--line);
+    display: inline-flex; align-items: center; white-space: nowrap;
+}
+.toolbar .sortby a:first-of-type { border-left: 0; }
+.toolbar .sortby a:hover { color: var(--acc); background: var(--s2); }
+.toolbar .sortby a.on { color: var(--acc); font-weight: 600; background: var(--acc-tint); }
 .toolbar .clearall { margin-left: auto; font-size: 0.88rem; color: var(--muted-c); text-decoration: none; }
 .toolbar .clearall:hover { color: var(--acc); }
 /* Búsqueda avanzada: desplegable en línea, sin tarjeta. Complementa a las
@@ -500,9 +576,40 @@ details.adv[open] > summary::before { content: "▾"; }
 .adv-rango span { color: var(--faint); }
 .adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
 .adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
-.results-layout { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: start; }
+.results-layout { display: grid; grid-template-columns: 1fr; gap: var(--sp-4); align-items: start; }
 @media (min-width: 720px) { .results-layout { grid-template-columns: 12.5rem 1fr; } }
-.facet-rail { display: flex; flex-direction: column; gap: 1.1rem; }
+/* Con --wrap-ancho la barra de facetas puede respirar sin comerse la tabla:
+   los nombres de provincia ("Santa Cruz de Tenerife") dejan de partirse. */
+@media (min-width: 1080px) { .results-layout { grid-template-columns: 14.5rem 1fr; gap: var(--sp-5); } }
+/* Varios bloques llevan su propio tope de --wrap porque se usan sueltos en
+   vistas estrechas (.tableList, .cdlist, .divider, .headDetail). En una página
+   de catálogo ese tope sobra: deja la tabla centrada con dos franjas vacías a
+   los lados y el ensanchado no se nota. El contenedor ya manda. */
+body.p-catalogo .tableList,
+body.p-catalogo .cdlist,
+body.p-catalogo .divider,
+body.p-catalogo .headDetail { max-width: 100%; }
+/* Lo que sí conserva tope es la PROSA: la longitud de línea cómoda no depende
+   del ancho del contenedor. A 76rem, el párrafo de entradilla de /rankings se
+   iba a 120 caracteres por línea. */
+body.p-catalogo .asiento,
+body.p-catalogo .notas,
+body.p-catalogo .welcome-text,
+body.p-catalogo .search-info { max-width: 46rem; }
+/* min-width: 0 en las dos columnas. Sin esto, un ítem de grid conserva su
+   min-width:auto (= ancho mínimo del contenido) y una faceta larga
+   ("Adaptación marcha de banda de música" + su recuento empujado con
+   margin-left:auto) hace la barra más ancha que la columna: medido en un
+   viewport de 390px, .facet-rail ocupaba 469px y la página tenía 485px de
+   scroll horizontal con los recuentos fuera de pantalla. Pasaba igual en
+   /disco (414px) y /banda (402px). */
+.results-layout > * { min-width: 0; }
+.facet-rail { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+/* Red de seguridad solo en una columna (móvil), donde la etiqueta ocupa el
+   ancho entero: el recuento baja de línea antes que salirse. En escritorio la
+   barra tiene 14,5rem y el texto ya parte solo dentro de su línea, así que el
+   recuento se queda arriba a la derecha, que es donde se compara mejor. */
+@media (max-width: 719px) { a.fopt { flex-wrap: wrap; } }
 .rail-title { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); margin-bottom: 0.15rem; }
 .fgroup .ftitle { font-size: 0.88rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
 a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.92rem; padding: 0.22rem 0; color: var(--ink); text-decoration: none; }
@@ -569,8 +676,22 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .explora-col ul.vease li { border-bottom: 0; padding: 0.15rem 0; }
 
 /* ── Home: últimas incorporaciones ──────────────────────────────────────── */
-.welcome-text { margin: 0; font-size: 1rem; line-height: 1.65; }
-.welcome-counts { margin-top: 0.75rem; font-size: 0.88rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
+.welcome-text { margin: 0; font-size: 1.05rem; line-height: 1.65; max-width: 46rem; }
+/* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
+   párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
+   pasan a fila de cifras, con el número en serif al tamaño de un titular y la
+   etiqueta debajo. Sigue siendo el mismo bloque .welcome-counts; los números
+   van en <b> y la etiqueta en <span> (ver home.php). */
+.welcome-counts {
+    margin-top: var(--sp-4); padding-top: var(--sp-3);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3) var(--sp-4);
+    font-variant-numeric: tabular-nums;
+}
+@media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
+.welcome-counts .cifra { display: flex; flex-direction: column; gap: 0.1rem; }
+.welcome-counts .cifra b { font-family: var(--serif); font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--ink); letter-spacing: -0.01em; }
+.welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }
 .section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); margin: 0 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
 .ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
 .ultima-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 1rem; text-decoration: none; color: inherit; }
@@ -663,8 +784,15 @@ a.ln-name:hover { text-decoration: underline; }
 .ln-card.is-youth { width: 150px; border-color: var(--juv); background: var(--juv-bg); }
 
 /* ── Collapse (estadísticas) ────────────────────────────────────────────── */
+/* /rankings se abría con cuatro barras cerradas y ni un dato a la vista: en la
+   página que enseña lo que tiene el catálogo, el contenido no puede estar
+   entero detrás de un clic. El primer bloque va abierto (ver
+   rankings_index.php) y la barra se marca como pulsable, con fondo propio y
+   el cursor sobre toda la fila. */
 .collapse { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); overflow: hidden; }
 .collapse-title { cursor: pointer; padding: 0.8rem 1rem; font-family: var(--serif); font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.collapse-title:hover { background: var(--s2); color: var(--acc); }
+.collapse[open] > .collapse-title { border-bottom: 1px solid var(--line); }
 .collapse-title::-webkit-details-marker { display: none; }
 .collapse-title::after { content: "▾"; color: var(--faint); transition: transform 0.15s; }
 .collapse[open] .collapse-title::after { transform: rotate(180deg); }
@@ -754,7 +882,11 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 @media (max-width: 639px) {
     .nav-links { display: none; }
     .nav-mobile { display: block; }
-    .site-search-row { padding: 0 1rem 0.6rem; }
+    .header-top { flex-wrap: wrap; gap: 0.5rem 0.75rem; padding-bottom: 0.7rem; }
+    .site-search-row { flex: 1 1 100%; order: 3; }
+    /* La barra de orden/página no cabe al lado del recuento: pasa a línea
+       propia y el recuento deja de reservarle el hueco con margin-right. */
+    .toolbar .rescount { margin-right: 0; flex: 1 0 100%; font-size: 1.2rem; }
     /* En móvil la etiqueta no cabe al lado del valor sin partir palabras:
        pasa a ir encima, con la misma fila alterna de fondo. */
     dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }

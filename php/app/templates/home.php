@@ -12,9 +12,15 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             bandas de cornetas y tambores, agrupaciones musicales y discos.
             Usa el menú para explorar o buscar por cualquier criterio.
         </p>
+<?php /* Las cuatro cifras son el activo del sitio, no un pie de página: van en
+         fila, con el número al tamaño de un titular. $num aplica separador de
+         millares, que la línea anterior no tenía ("5024 marchas"). */ ?>
 <?php if ($estado): ?>
         <div class="welcome-counts">
-            <?= $estado['MARCHAS'] ?> marchas · <?= $estado['AUTORES'] ?> compositores · <?= $estado['BANDAS'] ?> bandas · <?= $estado['DISCOS'] ?> discos
+            <span class="cifra"><b><?= $num($estado['MARCHAS']) ?></b><span>marchas</span></span>
+            <span class="cifra"><b><?= $num($estado['AUTORES']) ?></b><span>compositores</span></span>
+            <span class="cifra"><b><?= $num($estado['BANDAS']) ?></b><span>bandas</span></span>
+            <span class="cifra"><b><?= $num($estado['DISCOS']) ?></b><span>discos</span></span>
         </div>
 <?php endif; ?>
     </section>

@@ -244,12 +244,14 @@ final class Html
      */
     public static function porPagina(int $limit, string $basePath, array $criteria, array $opciones = [10, 20, 50]): string
     {
-        $out = '<span class="sortby">por página:';
-        foreach ($opciones as $i => $opt) {
+        // Control segmentado (ver .toolbar .sortby en app.css): la etiqueta es
+        // una celda propia y el filete entre celdas sustituye al separador "·".
+        $out = '<span class="sortby"><span class="lbl">por página</span>';
+        foreach ($opciones as $opt) {
             $params = array_merge(array_filter($criteria, static fn($v) => (string) $v !== ''), ['limit' => (string) $opt]);
             $href = $basePath . '?' . http_build_query($params);
             $cls = $opt === $limit ? ' class="on"' : '';
-            $out .= ($i > 0 ? ' ·' : '') . ' <a href="' . self::e($href) . '"' . $cls . '>' . (int) $opt . '</a>';
+            $out .= '<a href="' . self::e($href) . '"' . $cls . '>' . (int) $opt . '</a>';
         }
         return $out . '</span>';
     }
