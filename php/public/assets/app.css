@@ -35,10 +35,21 @@
 
 /* ── BLOQUE 1 · Colores base, tema claro ─────────────────────────────────── */
 :root {
-    --bg: #f4f5f8;          /* fondo de la app (apenas separado de la tarjeta) */
-    --card: #ffffff;        /* superficie del registro / tarjetas */
-    --ink: #22262f;         /* tinta (no negro puro: cansa menos) */
-    --acc: #2c3a77;         /* índigo: enlaces y acciones (oscurecido 2026-07-29, ~75% del valor anterior #3a4d9e, mismo tono — de 7.7:1 a 10.6:1 de contraste sobre --card) */
+    /* Los dos temas están definidos abajo con prefers-color-scheme; esto es lo
+       que hace que el navegador pinte con el mismo criterio lo que no es
+       nuestro: barra de scroll, controles nativos, autocompletado del
+       formulario. Sin esta línea el sitio salía oscuro con la barra en claro. */
+    color-scheme: light dark;
+    /* 2026-09-15: los neutros dejan de ser gris azulado. El azul frío en el
+       fondo, la tarjeta y los filetes es lo que hacía que el sitio pareciera un
+       panel de administración recién generado y no un catálogo. Ahora el fondo
+       es papel templado y la tinta tiene temperatura; el único color frío es el
+       acento, que es tinta de imprenta sobre papel cálido, un contraste que
+       viene de la edición en papel y no de una plantilla. */
+    --bg: #f2f0ea;          /* papel de la página */
+    --card: #fffefb;        /* superficie del registro / tarjetas (papel, no blanco puro) */
+    --ink: #232019;         /* tinta (negro cálido, no negro puro: cansa menos) */
+    --acc: #2e3a6e;         /* índigo: enlaces y acciones (10,7:1 sobre --card, medido) */
     --acc-fg: #ffffff;      /* texto sobre un fondo --acc macizo (.btn-neutral) */
     /* Semánticos (estreno / novedad / recuperación / error / juvenil).
        Su fondo tenue (--est-bg y compañía) se deriva de cada uno. */
@@ -54,8 +65,9 @@
        y --pt-fuerte el extremo más legible sobre el fondo del tema. */
     --pt: #f5a623;
     --pt-fuerte: #c9720a;
-    /* Color del que se tiñen sombras y velo del diálogo. */
-    --sombra-base: #141c3c;
+    /* Color del que se tiñen sombras y velo del diálogo. Cálido, como el resto
+       de los neutros: una sombra azul sobre papel se ve enseguida. */
+    --sombra-base: #2a2118;
     /* Hacia dónde se aclara u oscurece el fondo tenue de badges y avisos. En
        tema claro es la propia tarjeta; en oscuro, negro (ver BLOQUE 1-bis). */
     --tinte-base: var(--card);
@@ -69,22 +81,33 @@
     --mz-muted: 78%;   /* --muted-c: tinta atenuada (etiquetas, texto de apoyo) */
     /* 2026-09: era 75%, a tres puntos de --mz-muted. Sobre blanco los dos
        tonos salían #575E79 y #5D6480 —indistinguibles—, así que el sitio decía
-       tener dos niveles de texto de apoyo y en la práctica tenía uno. A 68% el
-       escalón se ve y --faint sigue en 4,8:1 sobre --card (medido), por encima
-       del 4,5:1 de AA. En tema oscuro ya había escalón (61%) y no se toca. */
-    --mz-faint: 68%;   /* --faint: tinta muy atenuada (recuentos, migas) */
+       tener dos niveles de texto de apoyo y en la práctica tenía uno.
+       2026-09-15: de 68% a 72%. A 68% --faint daba 4,75:1 sobre --card, pero
+       casi nunca se pinta ahí: sobre la fila alterna salía 4,48, sobre el fondo
+       de página 4,35 y sobre --s2 4,29, todos por debajo del 4,5:1 de AA, y es
+       el color de los recuentos, las migas y el pie. A 72% pasa de 4,5 en las
+       cuatro superficies y sigue habiendo escalón contra --muted (6,4). */
+    --mz-faint: 72%;   /* --faint: tinta muy atenuada (recuentos, migas) */
     --mz-tint: 11%;    /* fondo tenue de badges y avisos */
     --mz-borde: 27%;   /* --err-line: filete del aviso de error */
+    /* Superficies y filetes. Se mezclan desde --ink, no desde --acc: mezclarlos
+       desde el acento teñía de azul la fila alterna y los filetes, y con el
+       papel cálido eso es justo la mezcla de grises fríos y cálidos que hay que
+       evitar. Desde la tinta salen grises de la misma familia que el papel. */
+    --mz-s2: 5.5%;     /* --s2: superficie secundaria */
+    --mz-zebra: 3%;    /* --zebra: fila alterna */
+    --mz-line: 12%;    /* --line: filete que solo separa */
+    --mz-ctrl: 55%;    /* --line-ctrl: filete de lo que se pulsa o se escribe */
 }
 
 /* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #12151c;
-        --card: #171b25;
-        --ink: #e7eaf4;
-        --acc: #8ea0ec;
-        --acc-fg: #12151c;  /* el acento claro pide tinta oscura encima, no blanca */
+        --bg: #181614;
+        --card: #211e1b;
+        --ink: #ebe7e0;
+        --acc: #9aacee;
+        --acc-fg: #181614;  /* el acento claro pide tinta oscura encima, no blanca */
         --est: #7cc39a;
         --nov: #5fc3cd;
         --rec: #d7a866;
@@ -98,20 +121,37 @@
            daba igual que fuera verde, ámbar o rojo. */
         --tinte-base: #000000;
         /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar y
-           más color para que el tinte del badge se distinga del negro. */
-        --mz-faint: 61%;
+           más color para que el tinte del badge se distinga del negro.
+           2026-09-15: --mz-faint de 61% a 65%, por lo mismo que en claro (a 61%
+           daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). Con el papel
+           cálido de 2026-09-15 sube a 70% para mantener el margen. */
+        --mz-faint: 70%;
         --mz-tint: 20%;
         --mz-borde: 30%;
+        /* Sobre fondo oscuro hace falta más tinta —aquí, más papel— para que la
+           superficie se despegue del fondo. */
+        --mz-s2: 7%;
+        --mz-zebra: 4%;
+        --mz-line: 16%;
+        --mz-ctrl: 45%;
     }
 }
 
 /* ── BLOQUE 3 · Tonos derivados — no editar, se calculan solos ───────────── */
 :root {
-    /* Superficies y filete: el acento tiñe ligerísimamente la tarjeta, que es
-       lo que da al gris del sitio su temperatura. */
-    --s2: color-mix(in srgb, var(--acc) 6%, var(--card));      /* superficie secundaria */
-    --zebra: color-mix(in srgb, var(--acc) 3.5%, var(--card)); /* fila alterna */
-    --line: color-mix(in srgb, var(--acc) 13%, var(--card));   /* filete */
+    /* Superficies y filetes: la tinta tiñe la tarjeta (ver --mz-s2 y compañía
+       en el BLOQUE 2), así que todos los grises del sitio son de la misma
+       familia que el papel. */
+    --s2: color-mix(in srgb, var(--ink) var(--mz-s2), var(--card));      /* superficie secundaria */
+    --zebra: color-mix(in srgb, var(--ink) var(--mz-zebra), var(--card)); /* fila alterna */
+    --line: color-mix(in srgb, var(--ink) var(--mz-line), var(--card));   /* filete */
+    /* Filete de CONTROL (campos, botones, la caja de búsqueda, el segmentado de
+       orden). --line se queda en 1,27:1 sobre la tarjeta, que es lo correcto
+       para una raya que solo separa, pero el límite de algo que se pulsa o se
+       escribe pide 3:1 (WCAG 1.4.11). Con --mz-ctrl da 3,71:1 sobre --card,
+       3,28 sobre --bg y 3,34 sobre --s2 en claro, y 3,80 / 4,14 / 3,18 en
+       oscuro (medido). Si se cambia --ink hay que volver a mirar el número. */
+    --line-ctrl: color-mix(in srgb, var(--ink) var(--mz-ctrl), var(--card));
     /* Tinta atenuada. Se parte de la tinta teñida a medias con el acento: una
        mezcla directa de --ink con la tarjeta sale gris neutro y el texto de
        apoyo pierde el matiz frío que tiene el resto de la página. Desde ahí se
@@ -183,8 +223,35 @@
 }
 
 /* ── Tipografía y métricas ──────────────────────────────────────────────── */
+/* IBM Plex, servido desde /assets/fonts. No es decoración: las tarjetas de
+   Open Graph que genera Og.php ya se dibujan con IBM Plex Serif (ver
+   app/fonts/), así que hasta ahora el enlace compartido y la página a la que
+   llevaba parecían de dos sitios distintos. La pareja Serif + Sans es del mismo
+   diseño, que es lo que no daba Georgia con la fuente de sistema: esa
+   combinación es la que sale por defecto cuando nadie ha elegido nada.
+   Solo dos pesos por familia (400 y 600) y solo el subconjunto latino: 92 KB en
+   total, con Cache-Control de 30 días (.htaccess). font-display: swap para que
+   el texto se lea desde el primer pintado; la cadena de respaldo mantiene las
+   métricas parecidas y absorbe los glifos que el subconjunto no trae (→ ▾ ↕). */
+@font-face {
+    font-family: "IBM Plex Serif"; font-style: normal; font-weight: 400;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-serif-400.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Serif"; font-style: normal; font-weight: 600;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-serif-600.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-sans-400.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-sans-600.woff2) format("woff2");
+}
 :root {
-    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --serif: "IBM Plex Serif", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
     --radius: 4px;
     --radius-sm: 3px;
@@ -216,10 +283,10 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--sans);
     color: var(--ink);
     background: var(--bg);
-    line-height: 1.55;
+    line-height: 1.6;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -247,7 +314,10 @@ body {
 .mono { font-family: var(--mono); }
 
 /* ── Cabecera del sitio ─────────────────────────────────────────────────── */
-header {
+/* Acotado a la cabecera del sitio (hija directa de <body>): desde que la
+   portada tiene su propia <header class="masthead">, un selector de elemento a
+   secas le pintaba encima el fondo y el filete de la barra de navegación. */
+body > header {
     background: var(--card);
     border-bottom: 1px solid var(--line);
 }
@@ -266,8 +336,8 @@ header {
     padding: 0.7rem 1rem 0.45rem;
 }
 .header-top .brand { margin-right: auto; }
-header nav { margin: 0; padding: 0 1rem 0.55rem; }
-.brand { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
+body > header nav { margin: 0; padding: 0 1rem 0.55rem; }
+.brand { font-family: var(--serif); font-weight: 600; font-size: 1.28rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
 .brand .brand-sub { display: block; font-size: 0.76rem; color: var(--faint); font-weight: 400; margin-top: 0.05rem; }
 /* Nueve secciones a 0.92rem con 0.55rem de padding pedían 871px dentro de una
    columna de 832: el <ul> se salía por la derecha del contenido (se veía:
@@ -278,10 +348,14 @@ header nav { margin: 0; padding: 0 1rem 0.55rem; }
 .nav-links { list-style: none; display: flex; flex-wrap: wrap; gap: 0 0.05rem; row-gap: 0.15rem; margin: 0; padding: 0; font-size: 0.9rem; }
 .nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.4rem; border-bottom: 2px solid transparent; display: inline-block; }
 .nav-links a:hover { color: var(--acc); }
-.nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--acc); }
+/* La sección activa se marca con tinta plena y filete, NO con negrita: la
+   negrita ensancha esa única etiqueta y, con nueve secciones en 832px, basta
+   para que "Acompañamientos" se caiga a una segunda fila en su propia página y
+   no en las demás. El menú tiene que medir lo mismo en todas. */
+.nav-links a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--acc); }
 
 .site-search-row { margin: 0; padding: 0; display: flex; flex: 1 1 18rem; min-width: 0; justify-content: flex-end; }
-.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.45rem 0.75rem; width: 100%; max-width: 28rem; }
+.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm); background: var(--bg); padding: 0.45rem 0.75rem; width: 100%; max-width: 28rem; }
 .site-search input { border: 0; background: none; font: inherit; font-size: 0.98rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
 
 
@@ -365,10 +439,17 @@ footer .inner a:hover { color: var(--acc); text-decoration: underline; }
 .nums { font-variant-numeric: tabular-nums; }
 .hidden { display: none; }
 
-h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; margin: 0 0 0.5rem; text-wrap: balance; }
+/* 2026-09-15: el h1 medía 1,55rem, apenas medio paso por encima del cuerpo, y
+   ninguna página tenía un punto de entrada claro. Sube a 2,4rem en pantalla
+   grande con el interletrado apretado, que es lo que hace que un título pese. */
+h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 0.6rem; text-wrap: balance; }
 
 /* ── Cards / panels ─────────────────────────────────────────────────────── */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem; }
+/* La tarjeta se despega del papel con sombra, no con filete. Con el fondo y la
+   tarjeta a dos tonos de distancia, un borde de 1px alrededor de cada bloque es
+   lo que hacía que la página se leyera como una rejilla de cajas; la sombra
+   cálida dice lo mismo (esto está encima de aquello) sin dibujar la caja. */
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave); padding: 1.35rem 1.5rem; }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 
 /* Cabecera de detalle (vistas aún no migradas a .record) */
@@ -383,12 +464,12 @@ h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; mar
 .crumbs a { color: var(--muted-c); text-decoration: none; }
 .crumbs a:hover { color: var(--acc); text-decoration: none; }
 
-.record { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem 1.8rem 1.8rem; }
-.record h1 { font-size: clamp(1.5rem, 4.5vw, 2.05rem); margin: 0 0 0.2rem; line-height: 1.15; }
+.record { background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave); padding: 1.7rem 1.9rem 2rem; }
+.record h1 { font-size: clamp(1.7rem, 5vw, 2.4rem); margin: 0 0 0.3rem; line-height: 1.1; }
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; }
+.asiento { font-size: 1.05rem; color: var(--muted-c); margin: 0.5rem 0 0; line-height: 1.65; max-width: 46rem; text-wrap: pretty; }
 .asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
@@ -421,7 +502,7 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 /* Sin hueco superior cuando abre el bloque (p. ej. "Marcha del día" en la home,
    que es lo primero dentro de su tarjeta). */
 .shead:first-child { margin-top: 0; }
-.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; margin: 0; }
+.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.28rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .shead .n { font-size: 0.86rem; color: var(--faint); }
 .shead .filter { margin-left: auto; }
 /* /temporada/{año}: agrupado por ciudad (heurístico, ver docs/n03-hermandad.md)
@@ -475,7 +556,7 @@ a.svc:hover { border-color: var(--acc); }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
-.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.8rem 0 0; max-width: 46rem; text-wrap: pretty; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
@@ -498,9 +579,13 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
-/* Grabación que abre con intro de percusión: la duración mostrada es la real,
-   el icono explica por qué esa toma es ~40 s más larga que las demás. */
-.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real y
+   la marca explica por qué esa toma es ~40 s más larga que las demás.
+   2026-09-15: era un emoji de tambor —el único glifo en color de todo el sitio,
+   dibujado distinto por cada sistema operativo, y dentro de una columna de
+   duraciones—. Pasa a badge, que es la gramática que la hoja ya usa para marcar
+   una fila (ver .badge-1a, mismo cuerpo y mismo radio). */
+.perc { margin-left: 0.4rem; font-size: 0.76rem; font-weight: 600; cursor: help; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.08rem 0.4rem; white-space: nowrap; }
 
 /* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
    porque son enlaces y ya se ve que lo son. */
@@ -533,12 +618,16 @@ ul.acomp-rangos li.acomp-actual .anio { color: var(--muted-c); }
    por filete, la activa con fondo--, que es lo que la gente reconoce como
    selector. Mismo marcado: sigue siendo <span class="sortby"> con <a>. */
 .toolbar { display: flex; align-items: center; gap: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
-.toolbar .rescount { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; margin-right: auto; }
+/* 2026-09-15: era un <span>. Los exploradores (/marcha, /banda, /disco,
+   /autor) y los hubs no tenían encabezado de primer nivel: el recuento ES el
+   título de la página, así que ahora es el <h1> y conserva su cuerpo, que es
+   menor que el de un título de ficha a propósito —aquí el dato manda. */
+.toolbar .rescount { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin: 0 auto 0 0; }
 .toolbar .rescount b { color: var(--acc); font-variant-numeric: tabular-nums; }
 .toolbar .sortby {
     font-size: 0.86rem;
     display: inline-flex; align-items: stretch;
-    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm);
     background: var(--card); overflow: hidden;
 }
 /* La etiqueta ("orden:", "por página:") deja de ser texto suelto y pasa a ser
@@ -589,6 +678,11 @@ body.p-catalogo .tableList,
 body.p-catalogo .cdlist,
 body.p-catalogo .divider,
 body.p-catalogo .headDetail { max-width: 100%; }
+/* Una tabla de dos columnas no mejora por estirarse: el número acaba a media
+   pantalla del nombre al que pertenece. Donde la página entera puede estrecharse
+   se estrecha (ver $rutasCatalogo en layout.php); donde no —en /mapa manda el
+   ancho del SVG— se le pone tope a la tabla sola. */
+body.p-catalogo .tableList[data-cols="2"] { max-width: 48rem; margin: 0; }
 /* Lo que sí conserva tope es la PROSA: la longitud de línea cómoda no depende
    del ancho del contenedor. A 76rem, el párrafo de entradilla de /rankings se
    iba a 120 caracteres por línea. */
@@ -610,6 +704,12 @@ body.p-catalogo .search-info { max-width: 46rem; }
    barra tiene 14,5rem y el texto ya parte solo dentro de su línea, así que el
    recuento se queda arriba a la derecha, que es donde se compara mejor. */
 @media (max-width: 719px) { a.fopt { flex-wrap: wrap; } }
+/* En una sola columna la barra de facetas va DESPUÉS de los resultados. Medido
+   a 390x844 antes de esto: en /marcha la barra ocupaba 888px de alto y la
+   primera marcha no aparecía hasta el píxel 1.238, casi pantalla y media de
+   scroll para ver un solo dato (/banda 747, /disco 598). El explorador se abre
+   enseñando lo que hay; refinar es el segundo paso, no el primero. */
+@media (max-width: 719px) { .facet-rail { order: 2; } }
 .rail-title { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); margin-bottom: 0.15rem; }
 .fgroup .ftitle { font-size: 0.88rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
 a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.92rem; padding: 0.22rem 0; color: var(--ink); text-decoration: none; }
@@ -636,7 +736,7 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 /* ── Botones ────────────────────────────────────────────────────────────── */
 .btn {
     display: inline-flex; align-items: center; justify-content: center;
-    padding: 0.5rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--line);
+    padding: 0.5rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--line-ctrl);
     background: var(--card); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer;
     text-decoration: none; line-height: 1; white-space: nowrap;
 }
@@ -653,7 +753,7 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .field-label { font-size: 0.8rem; font-weight: 600; color: var(--muted-c); }
 .input, .select {
     width: 100%; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.9rem;
-    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
+    border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
 }
 .input:focus, .select:focus { outline: 2px solid var(--acc); outline-offset: -1px; }
 .select { width: auto; }
@@ -672,11 +772,23 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .home-top { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: stretch; }
 @media (min-width: 720px) { .home-top { grid-template-columns: 7fr 3fr; } }
 .explora-col { display: flex; flex-direction: column; }
-.explora-col ul.vease { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0.15rem 0 0; }
-.explora-col ul.vease li { border-bottom: 0; padding: 0.15rem 0; }
+/* Los enlaces de exploración se separan con filete, no con viñeta: son una
+   lista de destinos, no una enumeración dentro de un texto. */
+.explora-col ul.vease { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0.15rem 0 0; padding-left: 0; list-style: none; }
+.explora-col ul.vease li { border-bottom: 1px solid var(--line); padding: 0.45rem 0; }
+.explora-col ul.vease li:last-child { border-bottom: 0; }
 
 /* ── Home: últimas incorporaciones ──────────────────────────────────────── */
-.welcome-text { margin: 0; font-size: 1.05rem; line-height: 1.65; max-width: 46rem; }
+/* Cabecera de portada: el título en el cuerpo de display, la entradilla debajo
+   y las cuatro cifras separadas por un filete. Sin tarjeta: es la primera cosa
+   que se lee, no un bloque más de la pila. */
+.masthead { padding: 0.6rem 0 0.2rem; }
+.masthead h1 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: clamp(1.9rem, 5.5vw, 2.8rem); line-height: 1.05;
+    letter-spacing: -0.025em; margin: 0 0 0.6rem; text-wrap: balance;
+}
+.welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; max-width: 42rem; color: var(--muted-c); text-wrap: pretty; }
 /* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
    párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
    pasan a fila de cifras, con el número en serif al tamaño de un titular y la
@@ -690,7 +802,7 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 }
 @media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
 .welcome-counts .cifra { display: flex; flex-direction: column; gap: 0.1rem; }
-.welcome-counts .cifra b { font-family: var(--serif); font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--ink); letter-spacing: -0.01em; }
+.welcome-counts .cifra b { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
 .welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }
 .section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); margin: 0 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
 .ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
@@ -938,6 +1050,10 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 .previa-ficha { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.6rem; background: var(--bg); }
 .cover-vacia { width: 12rem; height: 12rem; display: grid; place-items: center; background: var(--s2); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--faint); font-size: 0.85rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
+/* Enlace cuyo texto ES una URL (la licencia de /datos). Sin esto la URL no
+   parte por ningún sitio y se sale de la tarjeta: medido, el documento pedía
+   421px de scroll en un viewport de 390. */
+.link { overflow-wrap: anywhere; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
 
 /* ── Mapa de provincias, coropleta (N-10) ────────────────────────────────── */

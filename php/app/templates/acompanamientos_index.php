@@ -18,7 +18,7 @@
         <ul class="vease">
 <?php foreach ($localidades as $l): ?>
 <?php $slug = S::slugify((string) $l['LOCALIDAD']); ?>
-            <li>→ <a href="/acompanamientos/<?= V::e($slug) ?>"><?= V::e($l['LOCALIDAD']) ?></a> <span class="muted small">(<?= (int) $l['N'] ?>)</span></li>
+            <li><a href="/acompanamientos/<?= V::e($slug) ?>"><?= V::e($l['LOCALIDAD']) ?></a> <span class="cnt"><?= number_format((int) $l['N'], 0, ',', '.') ?></span></li>
 <?php endforeach; ?>
         </ul>
 <?php endif; ?>

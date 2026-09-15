@@ -25,7 +25,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <span class="rescount">Discos — <b><?= $num($total) ?></b> registros</span>
+        <h1 class="rescount">Discos — <b><?= $num($total) ?></b> registros</h1>
         <?= H::porPagina($limit, '/disco', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>

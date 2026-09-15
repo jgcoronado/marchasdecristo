@@ -149,13 +149,16 @@ $hayEscuchar = $escuchar !== '';
 <?php if ($nGrab === 0): ?>
     <p class="bio-empty">Aún sin grabaciones documentadas.</p>
 <?php else: ?>
+<?php /* Ordenar una tabla de dos filas no ordena nada: con menos de tres
+         grabaciones la cabecera se queda quieta y sin flechas. */
+$ordenable = count($m['discos']) > 2; ?>
     <div class="scrollx">
-    <table class="reg" id="grab-table" data-sortable>
+    <table class="reg" id="grab-table"<?= $ordenable ? ' data-sortable' : '' ?>>
         <thead><tr>
-            <th data-type="num">Año <span class="ar">↕</span></th>
-            <th>Grabación <span class="ar">↕</span></th>
-            <th>Banda <span class="ar">↕</span></th>
-            <th data-type="num">Duración <span class="ar">↕</span></th>
+            <th data-type="num">Año<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
+            <th>Grabación<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
+            <th>Banda<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
+            <th data-type="num">Duración<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
         </tr></thead>
         <tbody>
 <?php foreach ($m['discos'] as $d):
@@ -170,7 +173,7 @@ $hayEscuchar = $escuchar !== '';
                          con el icono para explicar por qué es más larga que las
                          demás; el descuento solo se aplica al calcular la mediana. */ ?>
                 <td><?php if (!empty($d['DURACION_SEG'])): ?>
-                    <?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?><span class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)" aria-label="Con introducción de percusión">🥁</span><?php endif; ?>
+                    <?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?><span class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)" aria-label="Con introducción de percusión">perc</span><?php endif; ?>
                 <?php else: ?><span class="muted">—</span><?php endif; ?></td>
             </tr>
 <?php endforeach; ?>

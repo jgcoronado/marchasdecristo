@@ -13,7 +13,7 @@ $total = (int) $result['totalRows'];
     </div>
 
     <div class="toolbar">
-        <span class="rescount"><?= V::e($h1) ?> — <b><?= $num($total) ?></b> registros</span>
+        <h1 class="rescount"><?= V::e($h1) ?> — <b><?= $num($total) ?></b> registros</h1>
     </div>
 
     <p class="welcome-text"><?= V::e($intro) ?></p>

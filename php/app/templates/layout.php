@@ -104,12 +104,22 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 // segmentos (/marcha/ano/2024, /marcha/estilo/…, /marcha/provincia/…) vuelven
 // a ser listados, así que solo se exceptuan las fichas de entidad, que son
 // exactamente las de dos segmentos.
-$rutasCatalogo = ['marcha', 'autor', 'banda', 'disco', 'dedicatorias', 'rankings', 'aniversarios', 'acompanamientos', 'buscar', 'mapa', 'estadisticas', 'estado-catalogo'];
+// /autor y /rankings salieron de esta lista el 15-09-2026: no son exploradores
+// de facetas sino listas de dos columnas. A 76rem la tabla de /rankings medía
+// 1.093px y el número quedaba a más de 800 del nombre al que pertenece; a
+// --wrap la tabla llena el panel y el dato vuelve al lado de su fila.
+$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'acompanamientos', 'buscar', 'mapa', 'estado-catalogo'];
 $fichasEntidad = ['marcha', 'autor', 'banda', 'disco'];
+// Secciones cuyo índice (un solo segmento) no es un catálogo sino una portada
+// de lectura: /acompanamientos es un párrafo y siete enlaces, y a 76rem se
+// quedaba en una tarjeta de 1.216px con una lista de siete líneas dentro. Las
+// localidades (/acompanamientos/sevilla) sí son tabla y siguen anchas.
+$indicesLectura = ['acompanamientos'];
 $segs = array_values(array_filter(explode('/', trim($reqPath, '/')), static fn(string $x): bool => $x !== ''));
 $esCatalogo = $segs !== []
     && in_array($segs[0], $rutasCatalogo, true)
-    && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true));
+    && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true))
+    && !(count($segs) === 1 && in_array($segs[0], $indicesLectura, true));
 
 // La clase va en <body>, no en <main>: la cabecera y el pie tienen que
 // estrecharse y ensancharse con el contenido, o la marca y el menú dejan de
@@ -125,6 +135,12 @@ if (!empty($meta['ancho'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php /* La barra del navegador en móvil acompaña al tema. Los dos valores
+             son --bg de cada tema en app.css (BLOQUE 1 y BLOQUE 1-bis): si
+             cambian allí, hay que cambiarlos aquí, que es el único sitio del
+             proyecto donde un color de la paleta se repite fuera de la hoja. */ ?>
+    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#12151c" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">

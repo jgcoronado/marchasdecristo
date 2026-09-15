@@ -18,7 +18,7 @@ $val = static fn(string $k): string => V::e($criteria[$k] ?? '');
         <p class="bio-empty">No se han encontrado compositores.</p>
 <?php else: ?>
         <div class="toolbar">
-            <span class="rescount">Compositores — <b><?= number_format($total, 0, ',', '.') ?></b> registros</span>
+            <h1 class="rescount">Compositores — <b><?= number_format($total, 0, ',', '.') ?></b> registros</h1>
             <?= H::porPagina($limit, '/autor', $criteria) ?>
         </div>
 <?php endif; ?>

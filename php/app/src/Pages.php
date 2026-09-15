@@ -174,8 +174,12 @@ final class Pages
     public static function autorList(): void
     {
         [$criteria, $hasQuery, $page, $limit] = self::searchParams();
-        $result = $hasQuery ? Repo::searchAutores(http_build_query($criteria), $page, $limit) : null;
-        $result !== null ? Http::noStore() : Http::cachePublic(3600);
+        // Explorador: lista siempre (sin filtros = catálogo completo paginado),
+        // igual que bandaList y discoList. Antes devolvía null sin búsqueda y
+        // /autor era un campo de texto sobre una pantalla en blanco: 927
+        // compositores detrás de un formulario que no decía qué había dentro.
+        $result = Repo::searchAutores(http_build_query($criteria), $page, $limit);
+        $hasQuery ? Http::noStore() : Http::cachePublic(3600);
         View::render('autor_list', compact('criteria', 'result', 'page', 'limit'), [
             'title' => 'Buscador de compositores — Marchas de Cristo',
             'description' => 'Busca compositores de música procesional por nombre.',

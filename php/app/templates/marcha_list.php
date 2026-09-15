@@ -21,7 +21,7 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <span class="rescount">Marchas — <b><?= $num($total) ?></b> registros</span>
+        <h1 class="rescount">Marchas — <b><?= $num($total) ?></b> registros</h1>
         <?php /* Control segmentado: la etiqueta es una celda más (.lbl) y los
                  separadores "·" desaparecen — el filete entre celdas ya separa. */ ?>
         <span class="sortby"><span class="lbl">orden</span><a href="<?= V::e($href(['orden' => ''])) ?>"<?= $orden === '' ? ' class="on"' : '' ?>>título</a><a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a><a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a></span>

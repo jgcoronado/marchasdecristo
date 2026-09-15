@@ -6,10 +6,16 @@
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 ?>
 <div class="stack home">
-    <section class="card">
+<?php /* Cabecera de portada. Antes esto era una tarjeta con un párrafo dentro y
+         la portada no tenía <h1>: ni punto de entrada para el que llega ni
+         encabezado de primer nivel para quien la indexa. Va sobre el papel, sin
+         caja: la caja alrededor de un texto de bienvenida es lo que hace que una
+         portada parezca una plantilla. */ ?>
+    <header class="masthead">
+        <h1>Catálogo de música procesional</h1>
         <p class="welcome-text">
-            Base de datos de <strong>música procesional</strong> española: marchas, compositores,
-            bandas de cornetas y tambores, agrupaciones musicales y discos.
+            Marchas, compositores, bandas de cornetas y tambores, agrupaciones musicales
+            y discos de la música de Semana Santa española.
             Usa el menú para explorar o buscar por cualquier criterio.
         </p>
 <?php /* Las cuatro cifras son el activo del sitio, no un pie de página: van en
@@ -23,7 +29,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             <span class="cifra"><b><?= $num($estado['DISCOS']) ?></b><span>discos</span></span>
         </div>
 <?php endif; ?>
-    </section>
+    </header>
 
     <div class="home-top">
 <?php if ($marchaDelDia):
