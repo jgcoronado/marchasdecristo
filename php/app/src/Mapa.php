@@ -38,6 +38,29 @@ final class Mapa
         'ES-ZA' => 'Zamora',
     ];
 
+    /** Provincias andaluzas tal como aparecen en marcha.PROVINCIA (Sevilla primero). */
+    private const PROVINCIAS_ANDALUCIA = [
+        'Sevilla', 'Almería', 'Cádiz', 'Córdoba', 'Granada', 'Huelva', 'Jaén', 'Málaga',
+    ];
+
+    /**
+     * Orden del selector de provincia del explorador de compositores (/autor):
+     * Andalucía primero con Sevilla a la cabeza, luego el resto de España en
+     * orden alfabético. Pedido así porque el catálogo es abrumadoramente
+     * sevillano y es donde va a mirar la mayoría de las búsquedas.
+     *
+     * @return list<string>
+     */
+    public static function provinciasOrdenExplorador(): array
+    {
+        $todas = array_values(self::PROVINCIAS);
+        $restoAndalucia = array_values(array_diff(self::PROVINCIAS_ANDALUCIA, ['Sevilla']));
+        sort($restoAndalucia, SORT_LOCALE_STRING);
+        $restoEspana = array_values(array_diff($todas, self::PROVINCIAS_ANDALUCIA));
+        sort($restoEspana, SORT_LOCALE_STRING);
+        return array_merge(['Sevilla'], $restoAndalucia, $restoEspana);
+    }
+
     /**
      * Caja delimitadora (x, y, ancho, alto, en unidades del viewBox "0 0 569
      * 392") de cada <g id="ES-XX"> en mapa-provincias.svg — calculada una vez

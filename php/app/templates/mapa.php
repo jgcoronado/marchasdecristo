@@ -29,7 +29,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
         </ul>
 
         <div class="shead"><h2>Provincias con marchas</h2></div>
-        <div class="scrollx tableList">
+        <div class="scrollx tableList" data-cols="2">
         <table class="reg">
             <thead><tr>
                 <th>Provincia</th>

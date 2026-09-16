@@ -1,0 +1,37 @@
+# .github/workflows/calidad.yml
+name: calidad
+
+on:
+  pull_request:
+    paths: ['**.php']
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - run: composer install --prefer-dist --no-progress
+
+      - name: Ficheros PHP modificados
+        id: cambios
+        run: |
+          FICHEROS=$(git diff --name-only --diff-filter=ACM \
+            origin/${{ github.base_ref }}...HEAD -- '*.php' \
+            | grep -Ev '^(vendor|scripts|data)/' | tr '\n' ' ')
+          echo "ficheros=$FICHEROS" >> "$GITHUB_OUTPUT"
+
+      - name: PHPMD
+        if: steps.cambios.outputs.ficheros != ''
+        run: vendor/bin/phpmd ${{ steps.cambios.outputs.ficheros }} text .claude/phpmd-agent.xml
+
+      - name: Complejidad cognitiva
+        if: steps.cambios.outputs.ficheros != ''
+        run: vendor/bin/phpstan analyse --no-progress ${{ steps.cambios.outputs.ficheros }}

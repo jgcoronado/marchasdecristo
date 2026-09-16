@@ -52,7 +52,7 @@ $nav = [
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
     '/mapa' => 'Mapa',
-    '/temporada' => 'Temporada',
+    '/acompanamientos' => 'Acompañamientos',
 ];
 $nav = array_filter(
     $nav,
@@ -91,11 +91,56 @@ if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta
 }
 
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
+
+// Ancho de la página. Dos anchos, no uno (ver --wrap / --wrap-ancho en
+// app.css): las pantallas de catálogo son tabla + facetas y a 54rem se
+// recortan, mientras que las fichas y la prosa se leen mejor estrechas. La
+// cabecera y el pie van siempre a --wrap-ancho, así que el menú no cambia de
+// sitio al pasar de un listado a una ficha. $meta['ancho'] (panel) manda sobre
+// esto.
+//
+// Un mismo primer segmento sirve a las dos cosas: /marcha es el explorador
+// (ancho) y /marcha/{slug-id} es la ficha (estrecho). Los hubs de tres
+// segmentos (/marcha/ano/2024, /marcha/estilo/…, /marcha/provincia/…) vuelven
+// a ser listados, así que solo se exceptuan las fichas de entidad, que son
+// exactamente las de dos segmentos.
+// /autor y /rankings salieron de esta lista el 15-09-2026: no son exploradores
+// de facetas sino listas de dos columnas. A 76rem la tabla de /rankings medía
+// 1.093px y el número quedaba a más de 800 del nombre al que pertenece; a
+// --wrap la tabla llena el panel y el dato vuelve al lado de su fila.
+$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'acompanamientos', 'buscar', 'mapa', 'estado-catalogo'];
+$fichasEntidad = ['marcha', 'autor', 'banda', 'disco'];
+// Secciones cuyo índice (un solo segmento) no es un catálogo sino una portada
+// de lectura: /acompanamientos es un párrafo y siete enlaces, y a 76rem se
+// quedaba en una tarjeta de 1.216px con una lista de siete líneas dentro. Las
+// localidades (/acompanamientos/sevilla) sí son tabla y siguen anchas.
+$indicesLectura = ['acompanamientos'];
+$segs = array_values(array_filter(explode('/', trim($reqPath, '/')), static fn(string $x): bool => $x !== ''));
+$esCatalogo = $segs !== []
+    && in_array($segs[0], $rutasCatalogo, true)
+    && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true))
+    && !(count($segs) === 1 && in_array($segs[0], $indicesLectura, true));
+
+// La clase va en <body>, no en <main>: la cabecera y el pie tienen que
+// estrecharse y ensancharse con el contenido, o la marca y el menú dejan de
+// caer sobre el borde de la primera tarjeta y se nota a simple vista.
+$bodyClass = '';
+if (!empty($meta['ancho'])) {
+    $bodyClass = ' class="p-ancho"';
+} elseif ($esCatalogo) {
+    $bodyClass = ' class="p-catalogo"';
+}
 ?><!doctype html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php /* La barra del navegador en móvil acompaña al tema. Los dos valores
+             son --bg de cada tema en app.css (BLOQUE 1 y BLOQUE 1-bis): si
+             cambian allí, hay que cambiarlos aquí, que es el único sitio del
+             proyecto donde un color de la paleta se repite fuera de la hoja. */ ?>
+    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#12151c" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
@@ -136,7 +181,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
     <script type="application/ld+json"><?= Seo::json($schema) ?></script>
 <?php endforeach; ?>
 </head>
-<body>
+<body<?= $bodyClass ?>>
     <a class="skip-link" href="#main-content">Saltar al contenido</a>
 <?php if ($esPre): ?>
     <div class="pre-ribbon" role="status">Entorno de preproducción — los cambios aquí no afectan a marchasdecristo.com</div>
@@ -145,13 +190,23 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
     <div class="danger-ribbon" role="alert">PELIGRO: riesgo de desincronización. No actuar en este entorno salvo urgencia.</div>
 <?php endif; ?>
     <header>
-        <nav>
+        <div class="header-inner">
+        <div class="header-top">
             <a class="brand" href="/"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></a>
-            <ul class="nav-links">
-<?php foreach ($nav as $href => $label): ?>
-                <li><a href="<?= $href ?>"<?= $current === $href ? ' aria-current="page"' : '' ?>><?= $label ?></a></li>
-<?php endforeach; ?>
-            </ul>
+<?php if ($showSearch): ?>
+            <div class="site-search-row">
+                <form class="site-search" action="/buscar" method="get" role="search" autocomplete="off">
+                    <span aria-hidden="true">⌕</span>
+                    <input id="site-q" type="search" name="q" value="<?= $e($searchValue) ?>"
+                           placeholder="Buscar marchas, compositores, bandas, discos…"
+                           aria-label="Buscar en el catálogo"
+                           role="combobox" aria-expanded="false" aria-controls="site-ac"
+                           aria-autocomplete="list" autocomplete="off">
+                    <span class="kbd">/</span>
+                    <div id="site-ac" class="ac-panel" role="listbox" aria-label="Sugerencias" hidden></div>
+                </form>
+            </div>
+<?php endif; ?>
             <details class="nav-mobile">
                 <summary aria-label="Menú">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -163,27 +218,23 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 <?php endforeach; ?>
                 </ul>
             </details>
-        </nav>
-<?php if ($showSearch): ?>
-        <div class="site-search-row">
-            <form class="site-search" action="/buscar" method="get" role="search" autocomplete="off">
-                <span aria-hidden="true">⌕</span>
-                <input id="site-q" type="search" name="q" value="<?= $e($searchValue) ?>"
-                       placeholder="Buscar marchas, compositores, bandas, discos…"
-                       aria-label="Buscar en el catálogo"
-                       role="combobox" aria-expanded="false" aria-controls="site-ac"
-                       aria-autocomplete="list" autocomplete="off">
-                <span class="kbd">/</span>
-                <div id="site-ac" class="ac-panel" role="listbox" aria-label="Sugerencias" hidden></div>
-            </form>
         </div>
-<?php endif; ?>
+        <nav>
+            <ul class="nav-links">
+<?php foreach ($nav as $href => $label): ?>
+                <li><a href="<?= $href ?>"<?= $current === $href ? ' aria-current="page"' : '' ?>><?= $label ?></a></li>
+<?php endforeach; ?>
+            </ul>
+        </nav>
+        </div>
     </header>
 
     <?php /* $meta['ancho'] ensancha el contenido para las pantallas del panel
              que son tablas de trabajo, no lectura: con el ancho de lectura
-             (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho. */ ?>
-    <main id="main-content"<?= !empty($meta['ancho']) ? ' class="main-ancho"' : '' ?>><?= $content ?></main>
+             (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
+             .main-catalogo hace lo propio, más contenido, con los listados
+             públicos: ver RUTAS_CATALOGO arriba. */ ?>
+    <main id="main-content"><?= $content ?></main>
 
     <footer>
         <div class="inner">

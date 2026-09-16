@@ -21,12 +21,10 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <span class="rescount">Marchas — <b><?= $num($total) ?></b> registros</span>
-        <span class="sortby">orden:
-            <a href="<?= V::e($href(['orden' => ''])) ?>"<?= $orden === '' ? ' class="on"' : '' ?>>título</a> ·
-            <a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a> ·
-            <a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a>
-        </span>
+        <h1 class="rescount">Marchas — <b><?= $num($total) ?></b> registros</h1>
+        <?php /* Control segmentado: la etiqueta es una celda más (.lbl) y los
+                 separadores "·" desaparecen — el filete entre celdas ya separa. */ ?>
+        <span class="sortby"><span class="lbl">orden</span><a href="<?= V::e($href(['orden' => ''])) ?>"<?= $orden === '' ? ' class="on"' : '' ?>>título</a><a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a><a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a></span>
         <?= H::porPagina($limit, '/marcha', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/marcha">limpiar filtros ×</a>
@@ -74,9 +72,9 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
         </form>
     </details>
 
-    <div class="results-layout">
-        <aside class="facet-rail">
-            <div class="rail-title">Refinar por</div>
+    <details class="facet-rail-toggle">
+        <summary class="rail-title">Refinar por</summary>
+        <div class="facet-groups">
 <?php if ($facets['tipo'] !== []): ?>
             <div class="fgroup">
                 <div class="ftitle">Tipo</div>
@@ -116,33 +114,59 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php endforeach; ?>
             </div>
 <?php endif; ?>
-        </aside>
+        </div>
+    </details>
 
-        <section>
+    <section>
 <?php if ($total === 0): ?>
             <p class="bio-empty">No se han encontrado marchas con esos criterios.</p>
 <?php else: ?>
             <div class="scrollx tableList">
             <table class="reg">
+                <colgroup>
+                    <col style="width:30%">
+                    <col style="width:20%">
+                    <col style="width:5%">
+                    <col style="width:20%">
+                    <col style="width:15%">
+                    <col style="width:5%">
+                    <col style="width:5%">
+                </colgroup>
                 <thead><tr>
                     <th>Marcha</th>
-                    <th>Año</th>
                     <th>Compositor</th>
-                    <th>Prov.</th>
-                    <th class="num">Grab.</th>
+                    <th>Año</th>
+                    <th>Dedicatoria</th>
+                    <th>Localidad</th>
+                    <th class="ico-col" title="¿Tiene enlace de RRSS?">RRSS</th>
+                    <th class="ico-col" title="¿Grabada en algún disco?">Grabada</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $m): ?>
                     <tr>
                         <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                        <td><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
                         <td>
 <?php foreach ($m['AUTOR'] as $a): ?>
                             <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                         </td>
-                        <td><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="muted">—</span>' ?></td>
-                        <td class="num"><?= (int) $m['N_GRAB'] ?></td>
+                        <td><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
+                        <td><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="muted">—</span>' ?></td>
+                        <td><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="muted">—</span>' ?></td>
+                        <td class="ico-col">
+<?php if (!empty($m['TIENE_RRSS'])): ?>
+                            <span role="img" aria-label="Tiene enlace de RRSS" title="Tiene enlace de RRSS">🔗</span>
+<?php else: ?>
+                            <span class="muted" aria-label="Sin enlace de RRSS" title="Sin enlace de RRSS">—</span>
+<?php endif; ?>
+                        </td>
+                        <td class="ico-col">
+<?php if ((int) $m['N_GRAB'] > 0): ?>
+                            <span role="img" aria-label="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)" title="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)">💿</span>
+<?php else: ?>
+                            <span class="muted" aria-label="No grabada en ningún disco" title="No grabada en ningún disco">—</span>
+<?php endif; ?>
+                        </td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>
@@ -150,6 +174,5 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
             </div>
             <?= H::pagination($page, $total, $limit, '/marcha', $criteria) ?>
 <?php endif; ?>
-        </section>
-    </div>
+    </section>
 </div>

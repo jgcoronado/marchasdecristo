@@ -101,3 +101,12 @@ parameters:
         -
             identifier: deadCode.unreachable
             path: scripts/sync_db_to_prod.php
+
+        # `match ($srv)` sobre los 3 servicios de $porUpc (subconjunto fijo de
+        # SERVICIOS_VALIDOS_DISCO): al descartar 'apple' y 'deezer', PHPStan
+        # demuestra que el último caso ('tidal') es siempre cierto. Se mantiene
+        # el match explícito (en vez de un if/else) para que añadir un cuarto
+        # servicio a nivel de disco sea un `case` más, no una reestructuración.
+        -
+            identifier: match.alwaysTrue
+            path: php/app/tools/fill_enlaces_odesli.php

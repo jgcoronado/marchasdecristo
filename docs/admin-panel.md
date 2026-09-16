@@ -773,3 +773,35 @@ candidatos a `pendiente`, borra su `MOTIVO`/`REVIEWED_AT` y levanta su veto.
 | Ruta | Handler | Qué hace |
 |---|---|---|
 | `POST /dashboard/ingesta/deshacer-descarte` | `Admin::ingestaDeshacerDescarte` | Deshace el último descarte (CSRF + rol admin) |
+
+## 13. Log interno de cambios (`cambio_log`)
+
+No es una pantalla del panel: es trazabilidad interna que se consulta con
+`sqlite3` directamente sobre `mdc.db`. Diseño completo en
+[plan-log-cambios.md](plan-log-cambios.md); mecanismo (triggers, propagación
+del actor) en §7 de [architecture.md](architecture.md).
+
+```sql
+-- Historial completo de una marcha
+SELECT datetime(TS,'unixepoch','localtime') AS cuando, ACTOR, ACCION, CAMPO, ANTES, DESPUES
+  FROM cambio_log WHERE TABLA='marcha' AND ID_REGISTRO=1234 ORDER BY TS;
+
+-- Qué tocó cada usuario en los últimos 7 días
+SELECT ACTOR, TABLA, COUNT(*) FROM cambio_log
+ WHERE TS > strftime('%s','now','-7 days') GROUP BY 1,2 ORDER BY 3 DESC;
+
+-- Quién ha cambiado títulos de marcha alguna vez
+SELECT datetime(TS,'unixepoch','localtime'), ACTOR, ID_REGISTRO, ANTES, DESPUES
+  FROM cambio_log WHERE TABLA='marcha' AND CAMPO='TITULO' ORDER BY TS DESC;
+
+-- Todo lo borrado, con su contenido
+SELECT datetime(TS,'unixepoch','localtime'), ACTOR, TABLA, ID_REGISTRO, ANTES
+  FROM cambio_log WHERE ACCION='DELETE' ORDER BY TS DESC;
+
+-- Cambios de un actor concreto cruzados con el evento de negocio de admin_log
+SELECT c.TS, c.TABLA, c.CAMPO, c.ANTES, c.DESPUES, a.accion
+  FROM cambio_log c
+  LEFT JOIN admin_log a ON a.tabla=c.TABLA AND a.id_registro=c.ID_REGISTRO
+                       AND ABS(a.ts - c.TS) <= 2
+ WHERE c.ACTOR='jaguerra' ORDER BY c.TS DESC;
+```

@@ -35,10 +35,21 @@
 
 /* ── BLOQUE 1 · Colores base, tema claro ─────────────────────────────────── */
 :root {
-    --bg: #f4f5f8;          /* fondo de la app (apenas separado de la tarjeta) */
-    --card: #ffffff;        /* superficie del registro / tarjetas */
-    --ink: #22262f;         /* tinta (no negro puro: cansa menos) */
-    --acc: #2c3a77;         /* índigo: enlaces y acciones (oscurecido 2026-07-29, ~75% del valor anterior #3a4d9e, mismo tono — de 7.7:1 a 10.6:1 de contraste sobre --card) */
+    /* Los dos temas están definidos abajo con prefers-color-scheme; esto es lo
+       que hace que el navegador pinte con el mismo criterio lo que no es
+       nuestro: barra de scroll, controles nativos, autocompletado del
+       formulario. Sin esta línea el sitio salía oscuro con la barra en claro. */
+    color-scheme: light dark;
+    /* 2026-09-15: los neutros dejan de ser gris azulado. El azul frío en el
+       fondo, la tarjeta y los filetes es lo que hacía que el sitio pareciera un
+       panel de administración recién generado y no un catálogo. Ahora el fondo
+       es papel templado y la tinta tiene temperatura; el único color frío es el
+       acento, que es tinta de imprenta sobre papel cálido, un contraste que
+       viene de la edición en papel y no de una plantilla. */
+    --bg: #f2f0ea;          /* papel de la página */
+    --card: #fffefb;        /* superficie del registro / tarjetas (papel, no blanco puro) */
+    --ink: #232019;         /* tinta (negro cálido, no negro puro: cansa menos) */
+    --acc: #2e3a6e;         /* índigo: enlaces y acciones (10,7:1 sobre --card, medido) */
     --acc-fg: #ffffff;      /* texto sobre un fondo --acc macizo (.btn-neutral) */
     /* Semánticos (estreno / novedad / recuperación / error / juvenil).
        Su fondo tenue (--est-bg y compañía) se deriva de cada uno. */
@@ -54,8 +65,9 @@
        y --pt-fuerte el extremo más legible sobre el fondo del tema. */
     --pt: #f5a623;
     --pt-fuerte: #c9720a;
-    /* Color del que se tiñen sombras y velo del diálogo. */
-    --sombra-base: #141c3c;
+    /* Color del que se tiñen sombras y velo del diálogo. Cálido, como el resto
+       de los neutros: una sombra azul sobre papel se ve enseguida. */
+    --sombra-base: #2a2118;
     /* Hacia dónde se aclara u oscurece el fondo tenue de badges y avisos. En
        tema claro es la propia tarjeta; en oscuro, negro (ver BLOQUE 1-bis). */
     --tinte-base: var(--card);
@@ -67,19 +79,35 @@
    aclarando sobre blanco que oscureciendo sobre negro. */
 :root {
     --mz-muted: 78%;   /* --muted-c: tinta atenuada (etiquetas, texto de apoyo) */
-    --mz-faint: 75%;   /* --faint: tinta muy atenuada (recuentos, migas) */
+    /* 2026-09: era 75%, a tres puntos de --mz-muted. Sobre blanco los dos
+       tonos salían #575E79 y #5D6480 —indistinguibles—, así que el sitio decía
+       tener dos niveles de texto de apoyo y en la práctica tenía uno.
+       2026-09-15: de 68% a 72%. A 68% --faint daba 4,75:1 sobre --card, pero
+       casi nunca se pinta ahí: sobre la fila alterna salía 4,48, sobre el fondo
+       de página 4,35 y sobre --s2 4,29, todos por debajo del 4,5:1 de AA, y es
+       el color de los recuentos, las migas y el pie. A 72% pasa de 4,5 en las
+       cuatro superficies y sigue habiendo escalón contra --muted (6,4). */
+    --mz-faint: 72%;   /* --faint: tinta muy atenuada (recuentos, migas) */
     --mz-tint: 11%;    /* fondo tenue de badges y avisos */
     --mz-borde: 27%;   /* --err-line: filete del aviso de error */
+    /* Superficies y filetes. Se mezclan desde --ink, no desde --acc: mezclarlos
+       desde el acento teñía de azul la fila alterna y los filetes, y con el
+       papel cálido eso es justo la mezcla de grises fríos y cálidos que hay que
+       evitar. Desde la tinta salen grises de la misma familia que el papel. */
+    --mz-s2: 5.5%;     /* --s2: superficie secundaria */
+    --mz-zebra: 3%;    /* --zebra: fila alterna */
+    --mz-line: 12%;    /* --line: filete que solo separa */
+    --mz-ctrl: 55%;    /* --line-ctrl: filete de lo que se pulsa o se escribe */
 }
 
 /* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #12151c;
-        --card: #171b25;
-        --ink: #e7eaf4;
-        --acc: #8ea0ec;
-        --acc-fg: #12151c;  /* el acento claro pide tinta oscura encima, no blanca */
+        --bg: #181614;
+        --card: #211e1b;
+        --ink: #ebe7e0;
+        --acc: #9aacee;
+        --acc-fg: #181614;  /* el acento claro pide tinta oscura encima, no blanca */
         --est: #7cc39a;
         --nov: #5fc3cd;
         --rec: #d7a866;
@@ -93,20 +121,37 @@
            daba igual que fuera verde, ámbar o rojo. */
         --tinte-base: #000000;
         /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar y
-           más color para que el tinte del badge se distinga del negro. */
-        --mz-faint: 61%;
+           más color para que el tinte del badge se distinga del negro.
+           2026-09-15: --mz-faint de 61% a 65%, por lo mismo que en claro (a 61%
+           daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). Con el papel
+           cálido de 2026-09-15 sube a 70% para mantener el margen. */
+        --mz-faint: 70%;
         --mz-tint: 20%;
         --mz-borde: 30%;
+        /* Sobre fondo oscuro hace falta más tinta —aquí, más papel— para que la
+           superficie se despegue del fondo. */
+        --mz-s2: 7%;
+        --mz-zebra: 4%;
+        --mz-line: 16%;
+        --mz-ctrl: 45%;
     }
 }
 
 /* ── BLOQUE 3 · Tonos derivados — no editar, se calculan solos ───────────── */
 :root {
-    /* Superficies y filete: el acento tiñe ligerísimamente la tarjeta, que es
-       lo que da al gris del sitio su temperatura. */
-    --s2: color-mix(in srgb, var(--acc) 6%, var(--card));      /* superficie secundaria */
-    --zebra: color-mix(in srgb, var(--acc) 3.5%, var(--card)); /* fila alterna */
-    --line: color-mix(in srgb, var(--acc) 13%, var(--card));   /* filete */
+    /* Superficies y filetes: la tinta tiñe la tarjeta (ver --mz-s2 y compañía
+       en el BLOQUE 2), así que todos los grises del sitio son de la misma
+       familia que el papel. */
+    --s2: color-mix(in srgb, var(--ink) var(--mz-s2), var(--card));      /* superficie secundaria */
+    --zebra: color-mix(in srgb, var(--ink) var(--mz-zebra), var(--card)); /* fila alterna */
+    --line: color-mix(in srgb, var(--ink) var(--mz-line), var(--card));   /* filete */
+    /* Filete de CONTROL (campos, botones, la caja de búsqueda, el segmentado de
+       orden). --line se queda en 1,27:1 sobre la tarjeta, que es lo correcto
+       para una raya que solo separa, pero el límite de algo que se pulsa o se
+       escribe pide 3:1 (WCAG 1.4.11). Con --mz-ctrl da 3,71:1 sobre --card,
+       3,28 sobre --bg y 3,34 sobre --s2 en claro, y 3,80 / 4,14 / 3,18 en
+       oscuro (medido). Si se cambia --ink hay que volver a mirar el número. */
+    --line-ctrl: color-mix(in srgb, var(--ink) var(--mz-ctrl), var(--card));
     /* Tinta atenuada. Se parte de la tinta teñida a medias con el acento: una
        mezcla directa de --ink con la tarjeta sale gris neutro y el texto de
        apoyo pierde el matiz frío que tiene el resto de la página. Desde ahí se
@@ -178,12 +223,57 @@
 }
 
 /* ── Tipografía y métricas ──────────────────────────────────────────────── */
+/* IBM Plex, servido desde /assets/fonts. No es decoración: las tarjetas de
+   Open Graph que genera Og.php ya se dibujan con IBM Plex Serif (ver
+   app/fonts/), así que hasta ahora el enlace compartido y la página a la que
+   llevaba parecían de dos sitios distintos. La pareja Serif + Sans es del mismo
+   diseño, que es lo que no daba Georgia con la fuente de sistema: esa
+   combinación es la que sale por defecto cuando nadie ha elegido nada.
+   Solo dos pesos por familia (400 y 600) y solo el subconjunto latino: 92 KB en
+   total, con Cache-Control de 30 días (.htaccess). font-display: swap para que
+   el texto se lea desde el primer pintado; la cadena de respaldo mantiene las
+   métricas parecidas y absorbe los glifos que el subconjunto no trae (→ ▾ ↕). */
+@font-face {
+    font-family: "IBM Plex Serif"; font-style: normal; font-weight: 400;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-serif-400.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Serif"; font-style: normal; font-weight: 600;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-serif-600.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-sans-400.woff2) format("woff2");
+}
+@font-face {
+    font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600;
+    font-display: swap; src: url(/assets/fonts/ibm-plex-sans-600.woff2) format("woff2");
+}
 :root {
-    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --serif: "IBM Plex Serif", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
     --radius: 4px;
     --radius-sm: 3px;
+    /* Dos anchos, no uno. --wrap es el ancho de LECTURA: fichas, home, prosa;
+       54rem son ~85 caracteres, que es donde se lee cómodo y no tiene sentido
+       ensanchar. --wrap-ancho es el ancho de CATÁLOGO: el explorador es una
+       barra de facetas más una tabla de cinco columnas, y a 54rem la columna
+       de compositor partía los nombres en tres líneas mientras sobraba medio
+       monitor a los lados. La cabecera y el pie usan siempre --wrap-ancho para
+       que la barra de navegación no cambie de sitio al pasar de una ficha a un
+       listado. Ver .main-catalogo y la lista de rutas en layout.php. */
     --wrap: 54rem;
+    --wrap-ancho: 76rem;
+    /* Escala de espaciado. Antes cada regla elegía su propio valor (0.35, 0.45,
+       0.7, 0.9, 1.1, 1.6, 1.8rem…) y no había forma de apretar o airear el
+       sitio entero sin repasar la hoja línea a línea. Progresión ×1.5 redondeada. */
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1.1rem;
+    --sp-5: 1.6rem;
+    --sp-6: 2.4rem;
     font-synthesis-weight: none;
 }
 
@@ -193,10 +283,10 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--sans);
     color: var(--ink);
     background: var(--bg);
-    line-height: 1.55;
+    line-height: 1.6;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -224,29 +314,51 @@ body {
 .mono { font-family: var(--mono); }
 
 /* ── Cabecera del sitio ─────────────────────────────────────────────────── */
-header {
+/* Acotado a la cabecera del sitio (hija directa de <body>): desde que la
+   portada tiene su propia <header class="masthead">, un selector de elemento a
+   secas le pintaba encima el fondo y el filete de la barra de navegación. */
+body > header {
     background: var(--card);
     border-bottom: 1px solid var(--line);
 }
-header nav {
-    max-width: var(--wrap);
-    margin: 0 auto;
-    padding: 0.7rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1.1rem;
-    flex-wrap: wrap;
+/* La cabecera llevaba tres piezas en dos filas mal repartidas: marca y menú
+   juntos arriba y, debajo, el buscador centrado con un ancho propio (34rem)
+   que no coincidía con ninguna columna de la página. Ahora el reparto sigue a
+   las piezas: arriba la identidad y la herramienta (marca a la izquierda,
+   buscador a la derecha, que es donde se busca en todas partes) y debajo la
+   navegación, alineada con el contenido. El buscador gana presencia sin robarle
+   sitio al menú, que era lo que pasaba al meterlo todo en una línea.
+   .header-inner comparte ancho con <main> (ver body.p-catalogo), así que la
+   marca y el menú caen siempre sobre el borde de la primera tarjeta. */
+.header-inner { max-width: var(--wrap); margin: 0 auto; }
+.header-top {
+    display: flex; align-items: center; gap: 0.75rem 1.25rem;
+    padding: 0.7rem 1rem 0.45rem;
 }
-.brand { font-family: var(--serif); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
+.header-top .brand { margin-right: auto; }
+body > header nav { margin: 0; padding: 0 1rem 0.55rem; }
+.brand { font-family: var(--serif); font-weight: 600; font-size: 1.28rem; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); white-space: nowrap; }
 .brand .brand-sub { display: block; font-size: 0.76rem; color: var(--faint); font-weight: 400; margin-top: 0.05rem; }
-.nav-links { list-style: none; display: flex; gap: 0.1rem; margin: 0; padding: 0; font-size: 0.92rem; }
-.nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.55rem; border-bottom: 2px solid transparent; display: inline-block; }
+/* Nueve secciones a 0.92rem con 0.55rem de padding pedían 871px dentro de una
+   columna de 832: el <ul> se salía por la derecha del contenido (se veía:
+   "Acompañamientos" rebasaba el borde de la primera tarjeta). Se aprieta el
+   padding y se baja un punto el cuerpo —siguen por encima del suelo de 0.8rem—
+   para que quepan de verdad, y se deja flex-wrap con row-gap como red: cuando
+   se publique una sección más, la fila se parte limpia en vez de desbordar. */
+.nav-links { list-style: none; display: flex; flex-wrap: wrap; gap: 0 0.05rem; row-gap: 0.15rem; margin: 0; padding: 0; font-size: 0.9rem; }
+.nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.4rem; border-bottom: 2px solid transparent; display: inline-block; }
 .nav-links a:hover { color: var(--acc); }
-.nav-links a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--acc); }
+/* La sección activa se marca con tinta plena y filete, NO con negrita: la
+   negrita ensancha esa única etiqueta y, con nueve secciones en 832px, basta
+   para que "Acompañamientos" se caiga a una segunda fila en su propia página y
+   no en las demás. El menú tiene que medir lo mismo en todas. */
+.nav-links a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--acc); }
 
-.site-search-row { max-width: var(--wrap); margin: 0 auto; padding: 0 1rem 0.7rem; display: flex; justify-content: center; }
-.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); padding: 0.4rem 0.7rem; width: 100%; max-width: 34rem; }
-.site-search input { border: 0; background: none; font: inherit; font-size: 0.92rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+.site-search-row { margin: 0; padding: 0; display: flex; flex: 1 1 18rem; min-width: 0; justify-content: flex-end; }
+.site-search { position: relative; display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm); background: var(--bg); padding: 0.45rem 0.75rem; width: 100%; max-width: 28rem; }
+.site-search input { border: 0; background: none; font: inherit; font-size: 0.98rem; color: var(--ink); width: 100%; padding: 0; outline: none; }
+
+
 .site-search:focus-within { outline: 2px solid var(--acc); outline-offset: 1px; border-radius: var(--radius-sm); }
 .site-search input::placeholder { color: var(--faint); }
 .site-search .kbd { font-size: 0.7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.3rem; flex: none; }
@@ -283,11 +395,23 @@ header nav {
 .nav-mobile ul a:hover { background: var(--s2); }
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
-main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 1.1rem 1rem 2rem; }
+main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: var(--sp-4) 1rem var(--sp-6); }
+/* Páginas de catálogo (explorador de marchas, bandas, discos, dedicatorias,
+   rankings, mapa…): tabla + facetas, no prosa. La clase la pone layout.php en
+   <body> según la ruta, y ensancha a la vez contenido, cabecera y pie — si solo
+   se ensanchara <main>, la marca y el menú dejarían de caer sobre el borde de
+   la primera tarjeta. */
+body.p-catalogo main,
+body.p-catalogo .header-inner,
+body.p-catalogo footer .inner { max-width: var(--wrap-ancho); }
+/* Pantallas-tabla del panel: ver .main-ancho. */
+body.p-ancho main,
+body.p-ancho .header-inner,
+body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
 /* Pantallas del panel que son tabla de trabajo (revisión de la importación de
    pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
    ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
-main.main-ancho { max-width: min(90vw, 90rem); }
+main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
 main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
@@ -312,13 +436,20 @@ footer .inner a:hover { color: var(--acc); text-decoration: underline; }
 .row { display: flex; gap: 0.5rem; }
 .muted { color: var(--muted-c); font-size: 0.88rem; }
 .small { font-size: 0.9rem; }
-.nums { font-variant-numeric: tabular-nums; }
+.nums { font-variant-numeric: tabular-nums; text-align: right; }
 .hidden { display: none; }
 
-h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; margin: 0 0 0.5rem; text-wrap: balance; }
+/* 2026-09-15: el h1 medía 1,55rem, apenas medio paso por encima del cuerpo, y
+   ninguna página tenía un punto de entrada claro. Sube a 2,4rem en pantalla
+   grande con el interletrado apretado, que es lo que hace que un título pese. */
+h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; margin: 0 0 0.6rem; text-wrap: balance; }
 
 /* ── Cards / panels ─────────────────────────────────────────────────────── */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem; }
+/* La tarjeta se despega del papel con sombra, no con filete. Con el fondo y la
+   tarjeta a dos tonos de distancia, un borde de 1px alrededor de cada bloque es
+   lo que hacía que la página se leyera como una rejilla de cajas; la sombra
+   cálida dice lo mismo (esto está encima de aquello) sin dibujar la caja. */
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave); padding: 1.35rem 1.5rem; }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 
 /* Cabecera de detalle (vistas aún no migradas a .record) */
@@ -333,12 +464,12 @@ h1 { font-family: var(--serif); font-size: 1.55rem; letter-spacing: -0.01em; mar
 .crumbs a { color: var(--muted-c); text-decoration: none; }
 .crumbs a:hover { color: var(--acc); text-decoration: none; }
 
-.record { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.6rem 1.8rem 1.8rem; }
-.record h1 { font-size: clamp(1.5rem, 4.5vw, 2.05rem); margin: 0 0 0.2rem; line-height: 1.15; }
+.record { background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave); padding: 1.7rem 1.9rem 2rem; }
+.record h1 { font-size: clamp(1.7rem, 5vw, 2.4rem); margin: 0 0 0.3rem; line-height: 1.1; }
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1rem; color: var(--muted-c); margin: 0.35rem 0 0; line-height: 1.6; }
+.asiento { font-size: 1.05rem; color: var(--muted-c); margin: 0.5rem 0 0; line-height: 1.65; max-width: 46rem; text-wrap: pretty; }
 .asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
@@ -350,7 +481,13 @@ dl.desc .f { display: grid; grid-template-columns: 10.5rem 1fr; gap: 0.9rem; pad
 dl.desc .f:nth-child(odd) { background: var(--zebra); }
 dl.desc dt { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--muted-c); }
 dl.desc dd { margin: 0; font-size: 0.98rem; }
-.cnt { font-size: 0.84rem; color: var(--faint); }
+/* Cifras y códigos accesorios (recuentos, IDs). Sin paréntesis, el tamaño
+   reducido y el color tenue son lo que los separa visualmente del texto
+   principal — actúan como subíndice sin desplazarse de la línea base.
+   0.82rem, no 0.76: la regla 3 de la cabecera de esta hoja dice "nada por
+   debajo de 0.8rem en texto que el visitante deba leer", y .cnt no lleva
+   adorno sino contenido ("5.024 registros", "58 marchas compuestas"). */
+.cnt { font-size: 0.82rem; color: var(--faint); }
 
 /* Anclas de la ficha (Datos / Escuchar / Grabaciones): enlaces #ancla
    normales, sin JS. Solo se pintan cuando la página es larga de verdad (ver
@@ -365,7 +502,7 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 /* Sin hueco superior cuando abre el bloque (p. ej. "Marcha del día" en la home,
    que es lo primero dentro de su tarjeta). */
 .shead:first-child { margin-top: 0; }
-.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; margin: 0; }
+.shead h2, .shead h3 { font-family: var(--serif); font-size: 1.28rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .shead .n { font-size: 0.86rem; color: var(--faint); }
 .shead .filter { margin-left: auto; }
 /* /temporada/{año}: agrupado por ciudad (heurístico, ver docs/n03-hermandad.md)
@@ -419,7 +556,7 @@ a.svc:hover { border-color: var(--acc); }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
-.notas { font-size: 1rem; line-height: 1.7; margin: 0.7rem 0 0; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.8rem 0 0; max-width: 46rem; text-wrap: pretty; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
@@ -442,13 +579,31 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
-/* Grabación que abre con intro de percusión: la duración mostrada es la real,
-   el icono explica por qué esa toma es ~40 s más larga que las demás. */
-.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real y
+   la marca explica por qué esa toma es ~40 s más larga que las demás.
+   2026-09-15: era un emoji de tambor —el único glifo en color de todo el sitio,
+   dibujado distinto por cada sistema operativo, y dentro de una columna de
+   duraciones—. Pasa a badge, que es la gramática que la hoja ya usa para marcar
+   una fila (ver .badge-1a, mismo cuerpo y mismo radio). */
+.perc { margin-left: 0.4rem; font-size: 0.76rem; font-weight: 600; cursor: help; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.08rem 0.4rem; white-space: nowrap; }
 
-/* Véase también */
-ul.vease { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+/* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
+   porque son enlaces y ya se ve que lo son. */
+ul.vease { list-style: disc; margin: 0.5rem 0 0; padding: 0 0 0 1.15rem; }
 ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
+ul.vease li::marker { color: var(--faint); }
+
+/* Acompañamientos (/acompanamientos): rangos de años colapsados por
+   hermandad/paso, más reciente primero — el primero de cada lista (actual)
+   se destaca en negrita, igual que en los programas de mano de referencia. */
+.acomp-jump { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin: 0.8rem 0 0.2rem; padding: 0.7rem 0.9rem; background: var(--s2); border-radius: var(--radius-sm); font-size: 0.86rem; }
+.acomp-jump a { color: var(--muted-c); text-decoration: none; }
+.acomp-jump a:hover { color: var(--acc); text-decoration: underline; }
+.acomp-paso { font-weight: 600; margin: 1rem 0 0.15rem; font-size: 0.92rem; color: var(--muted-c); }
+ul.acomp-rangos { margin-top: 0.15rem; }
+ul.acomp-rangos li .anio { color: var(--faint); margin-right: 0.35rem; }
+ul.acomp-rangos li.acomp-actual { font-weight: 700; }
+ul.acomp-rangos li.acomp-actual .anio { color: var(--muted-c); }
 
 /* Permalink del registro */
 .ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
@@ -456,13 +611,40 @@ ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
 .ids a:hover { color: var(--acc); text-decoration: underline; }
 
 /* ── Explorador (listado con facetas) ───────────────────────────────────── */
-.toolbar { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
-.toolbar .rescount { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; }
+/* Los controles de orden y de tamaño de página eran enlaces sueltos separados
+   por puntos medios ("orden: título · año · grabaciones"): se leían como texto
+   corrido, no como algo pulsable, y no se veía cuál estaba activo hasta
+   comparar colores. Pasan a control segmentado —una caja, opciones separadas
+   por filete, la activa con fondo--, que es lo que la gente reconoce como
+   selector. Mismo marcado: sigue siendo <span class="sortby"> con <a>. */
+.toolbar { display: flex; align-items: center; gap: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
+/* 2026-09-15: era un <span>. Los exploradores (/marcha, /banda, /disco,
+   /autor) y los hubs no tenían encabezado de primer nivel: el recuento ES el
+   título de la página, así que ahora es el <h1> y conserva su cuerpo, que es
+   menor que el de un título de ficha a propósito —aquí el dato manda. */
+.toolbar .rescount { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin: 0 auto 0 0; }
 .toolbar .rescount b { color: var(--acc); font-variant-numeric: tabular-nums; }
-.toolbar .sortby { font-size: 0.88rem; color: var(--muted-c); }
-.toolbar .sortby a { color: var(--muted-c); text-decoration: none; }
-.toolbar .sortby a:hover { color: var(--acc); }
-.toolbar .sortby a.on { color: var(--acc); font-weight: 600; }
+.toolbar .sortby {
+    font-size: 0.86rem;
+    display: inline-flex; align-items: stretch;
+    border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm);
+    background: var(--card); overflow: hidden;
+}
+/* La etiqueta ("orden:", "por página:") deja de ser texto suelto y pasa a ser
+   la primera celda del control, con su propio fondo. */
+.toolbar .sortby .lbl {
+    color: var(--faint); padding: 0.3rem 0.6rem;
+    background: var(--s2); border-right: 1px solid var(--line);
+    display: inline-flex; align-items: center; white-space: nowrap;
+}
+.toolbar .sortby a {
+    color: var(--muted-c); text-decoration: none;
+    padding: 0.3rem 0.65rem; border-left: 1px solid var(--line);
+    display: inline-flex; align-items: center; white-space: nowrap;
+}
+.toolbar .sortby a:first-of-type { border-left: 0; }
+.toolbar .sortby a:hover { color: var(--acc); background: var(--s2); }
+.toolbar .sortby a.on { color: var(--acc); font-weight: 600; background: var(--acc-tint); }
 .toolbar .clearall { margin-left: auto; font-size: 0.88rem; color: var(--muted-c); text-decoration: none; }
 .toolbar .clearall:hover { color: var(--acc); }
 /* Búsqueda avanzada: desplegable en línea, sin tarjeta. Complementa a las
@@ -483,16 +665,53 @@ details.adv[open] > summary::before { content: "▾"; }
 .adv-rango span { color: var(--faint); }
 .adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
 .adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
-.results-layout { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: start; }
-@media (min-width: 720px) { .results-layout { grid-template-columns: 12.5rem 1fr; } }
-.facet-rail { display: flex; flex-direction: column; gap: 1.1rem; }
+/* Varios bloques llevan su propio tope de --wrap porque se usan sueltos en
+   vistas estrechas (.tableList, .cdlist, .divider, .headDetail). En una página
+   de catálogo ese tope sobra: deja la tabla centrada con dos franjas vacías a
+   los lados y el ensanchado no se nota. El contenedor ya manda. */
+body.p-catalogo .tableList,
+body.p-catalogo .cdlist,
+body.p-catalogo .divider,
+body.p-catalogo .headDetail { max-width: 100%; }
+/* Una tabla de dos columnas no mejora por estirarse: el número acaba a media
+   pantalla del nombre al que pertenece. Donde la página entera puede estrecharse
+   se estrecha (ver $rutasCatalogo en layout.php); donde no —en /mapa manda el
+   ancho del SVG— se le pone tope a la tabla sola. */
+body.p-catalogo .tableList[data-cols="2"] { max-width: 48rem; margin: 0; }
+/* Lo que sí conserva tope es la PROSA: la longitud de línea cómoda no depende
+   del ancho del contenedor. A 76rem, el párrafo de entradilla de /rankings se
+   iba a 120 caracteres por línea. */
+body.p-catalogo .asiento,
+body.p-catalogo .notas,
+body.p-catalogo .welcome-text,
+body.p-catalogo .search-info { max-width: 46rem; }
+/* Red de seguridad solo en móvil, donde cada .fgroup ocupa el ancho entero:
+   el recuento baja de línea antes que salirse. En pantallas más anchas los
+   grupos de .facet-groups quedan bastante más estrechos y el texto ya parte
+   solo dentro de su línea, así que el recuento se queda arriba a la derecha,
+   que es donde se compara mejor. */
+@media (max-width: 719px) { a.fopt { flex-wrap: wrap; } }
 .rail-title { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); margin-bottom: 0.15rem; }
+/* Panel de facetas colapsable y cerrado por defecto, fuera de cualquier grid:
+   la tabla de abajo usa el ancho entero de la página en vez de dejar una
+   columna en blanco a su izquierda. Mismo comportamiento en /marcha, /banda
+   y /disco. */
+.facet-rail-toggle { border-top: 1px solid var(--line); padding-top: 0.5rem; margin-top: 0.5rem; }
+.facet-rail-toggle > summary { cursor: pointer; list-style: none; }
+.facet-rail-toggle > summary::-webkit-details-marker { display: none; }
+.facet-rail-toggle > summary::before { content: "▸"; font-size: 0.7em; color: var(--faint); margin-right: 0.35rem; }
+.facet-rail-toggle[open] > summary::before { content: "▾"; }
+/* Abierto, los grupos van en fila (como columnas de una barra), no apilados a
+   todo el ancho: un solo grupo ("Refinar por" > Tipo) no tiene sentido a 60rem. */
+.facet-groups { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-5); margin-top: 0.6rem; }
+.facet-groups .fgroup { flex: 1 1 12rem; min-width: 10rem; }
 .fgroup .ftitle { font-size: 0.88rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
 a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.92rem; padding: 0.22rem 0; color: var(--ink); text-decoration: none; }
 a.fopt:hover { color: var(--acc); text-decoration: none; }
 a.fopt.on { color: var(--acc); font-weight: 600; }
 a.fopt .x { color: var(--faint); font-size: 0.84rem; }
 a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ico-col { width: 3.2rem; text-align: center; }
 
 /* ── Tablas (listados generales) ────────────────────────────────────────── */
 .tableList { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); width: 100%; max-width: var(--wrap); margin: 0 auto; }
@@ -512,7 +731,7 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 /* ── Botones ────────────────────────────────────────────────────────────── */
 .btn {
     display: inline-flex; align-items: center; justify-content: center;
-    padding: 0.5rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--line);
+    padding: 0.5rem 0.9rem; border-radius: var(--radius-sm); border: 1px solid var(--line-ctrl);
     background: var(--card); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer;
     text-decoration: none; line-height: 1; white-space: nowrap;
 }
@@ -527,9 +746,11 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .form-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
 .field-label { font-size: 0.8rem; font-weight: 600; color: var(--muted-c); }
+.field-check { flex-direction: row; align-items: center; gap: 0.5rem; }
+.field-check .field-label { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; font-size: 0.9rem; color: var(--ink); cursor: pointer; }
 .input, .select {
     width: 100%; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.9rem;
-    border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
+    border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
 }
 .input:focus, .select:focus { outline: 2px solid var(--acc); outline-offset: -1px; }
 .select { width: auto; }
@@ -548,24 +769,63 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .home-top { display: grid; grid-template-columns: 1fr; gap: 1.1rem; align-items: stretch; }
 @media (min-width: 720px) { .home-top { grid-template-columns: 7fr 3fr; } }
 .explora-col { display: flex; flex-direction: column; }
-.explora-col ul.vease { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0.15rem 0 0; }
-.explora-col ul.vease li { border-bottom: 0; padding: 0.15rem 0; }
+/* Los enlaces de exploración se separan con filete, no con viñeta: son una
+   lista de destinos, no una enumeración dentro de un texto. */
+.explora-col ul.vease { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0.15rem 0 0; padding-left: 0; list-style: none; }
+.explora-col ul.vease li { border-bottom: 1px solid var(--line); padding: 0.45rem 0; }
+.explora-col ul.vease li:last-child { border-bottom: 0; }
 
 /* ── Home: últimas incorporaciones ──────────────────────────────────────── */
-.welcome-text { margin: 0; font-size: 1rem; line-height: 1.65; }
-.welcome-counts { margin-top: 0.75rem; font-size: 0.88rem; color: var(--muted-c); font-variant-numeric: tabular-nums; }
+/* Cabecera de portada: el título en el cuerpo de display, la entradilla debajo
+   y las cuatro cifras separadas por un filete. Sin tarjeta: es la primera cosa
+   que se lee, no un bloque más de la pila. */
+.masthead { padding: 0.6rem 0 0.2rem; }
+.masthead h1 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: clamp(1.9rem, 5.5vw, 2.8rem); line-height: 1.05;
+    letter-spacing: -0.025em; margin: 0 0 0.6rem; text-wrap: balance;
+    text-align: center;
+}
+.welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; max-width: 42rem; color: var(--muted-c); text-wrap: pretty; }
+/* La home ensancha el bloque de bienvenida al ancho entero de .stack.home
+   (54rem, --wrap): a 42rem dejaba una franja vacía a la derecha que no
+   tiene la justificación de "línea de lectura cómoda" que sí tiene en las
+   páginas de catálogo (esas conservan el tope, ver body.p-catalogo abajo). */
+.stack.home .welcome-text { max-width: none; text-align: center; }
+/* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
+   párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
+   pasan a fila de cifras, con el número en serif al tamaño de un titular y la
+   etiqueta debajo. Sigue siendo el mismo bloque .welcome-counts; los números
+   van en <b> y la etiqueta en <span> (ver home.php). */
+.welcome-counts {
+    margin-top: var(--sp-4); padding-top: var(--sp-3);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3) var(--sp-4);
+    font-variant-numeric: tabular-nums;
+}
+@media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
+.welcome-counts .cifra { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.1rem; }
+.welcome-counts .cifra b { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
+.welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }
 .section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); margin: 0 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
 .ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
-.ultima-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 1rem; text-decoration: none; color: inherit; }
+/* Tres columnas puramente organizativas (título / autor+banda / fecha), sin
+   nada que las delate como tales: mismo fondo, sin filetes entre ellas. Solo
+   alinean cada dato bajo el mismo del resto de filas, como en una tabla mental. */
+.ultima-row {
+    display: grid; grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) auto;
+    align-items: center; gap: 0.25rem 1rem; padding: 0.7rem 1rem;
+    text-decoration: none; color: inherit;
+}
 /* Solo dentro de la lista: la "Marcha del día" usa .ultima-row suelta y no
    debe salir teñida. */
 .ultimas .ultima-row:nth-child(even) { background: var(--zebra); }
 .ultima-row:hover { background: var(--s2); text-decoration: none; }
-.ultima-main { min-width: 0; }
-.ultima-title { display: block; font-weight: 600; font-size: 1rem; color: var(--acc); }
+.ultima-title { min-width: 0; font-weight: 600; font-size: 1rem; color: var(--acc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ultima-meta { min-width: 0; display: flex; flex-direction: column; }
 .ultima-authors { display: block; font-size: 0.9rem; color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ultima-banda { display: block; font-size: 0.86rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
@@ -646,8 +906,15 @@ a.ln-name:hover { text-decoration: underline; }
 .ln-card.is-youth { width: 150px; border-color: var(--juv); background: var(--juv-bg); }
 
 /* ── Collapse (estadísticas) ────────────────────────────────────────────── */
+/* /rankings se abría con cuatro barras cerradas y ni un dato a la vista: en la
+   página que enseña lo que tiene el catálogo, el contenido no puede estar
+   entero detrás de un clic. El primer bloque va abierto (ver
+   rankings_index.php) y la barra se marca como pulsable, con fondo propio y
+   el cursor sobre toda la fila. */
 .collapse { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); overflow: hidden; }
 .collapse-title { cursor: pointer; padding: 0.8rem 1rem; font-family: var(--serif); font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.collapse-title:hover { background: var(--s2); color: var(--acc); }
+.collapse[open] > .collapse-title { border-bottom: 1px solid var(--line); }
 .collapse-title::-webkit-details-marker { display: none; }
 .collapse-title::after { content: "▾"; color: var(--faint); transition: transform 0.15s; }
 .collapse[open] .collapse-title::after { transform: rotate(180deg); }
@@ -664,7 +931,17 @@ a.ln-name:hover { text-decoration: underline; }
 .admin-narrow { margin: 0 auto; }
 .admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .admin-bar h1 { margin: 0; }
+/* La botonera del panel: .row es un flex sin wrap (se usa así en formularios,
+   donde eso es lo que se quiere), pero aquí lleva una decena larga de botones
+   y en cuanto la pantalla se estrecha se sale por la derecha y hay que hacer
+   scroll horizontal para llegar a las últimas opciones. Se envuelve solo aquí
+   para no cambiar el comportamiento de .row en el resto del panel.
+   min-width: 0 evita que el propio flex-item se niegue a encoger por debajo
+   del ancho de su contenido, que es lo que provoca el desbordamiento. */
+.admin-bar > .row { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.4rem; min-width: 0; flex: 1 1 auto; }
+.admin-bar > .row > * { flex: 0 0 auto; }
 .inline-form { display: inline; }
+.inline-form[hidden] { display: none; }
 .admin-form textarea.input { resize: vertical; min-height: 5rem; }
 
 .alert { border-radius: var(--radius-sm); padding: 0.6rem 0.9rem; font-size: 0.9rem; }
@@ -694,8 +971,14 @@ dialog.panel::backdrop { background: var(--velo); }
 .autocomplete { position: relative; }
 .suggest { position: absolute; z-index: 25; left: 0; right: 0; margin-top: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--sombra-media); max-height: 16rem; overflow-y: auto; }
 .suggest-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0.5rem 0.7rem; cursor: pointer; font: inherit; font-size: 0.9rem; color: var(--ink); }
-.suggest-item:hover { background: var(--s2); }
+.suggest-item:hover, .suggest-item.is-on { background: var(--s2); }
 .suggest-item-add { color: var(--acc); font-weight: 600; border-top: 1px solid var(--line); }
+.suggest-id { color: var(--muted-c); font-size: 0.8em; margin-right: 0.4em; }
+.suggest-meta { display: block; font-size: 0.8em; color: var(--muted-c); margin-top: 0.1em; }
+
+/* ── Buscador del panel (predictivo por caja) ───────────────────────────── */
+.dash-ac { flex: 1; min-width: 0; position: relative; }
+.dash-ac .input { width: 100%; }
 
 /* ── Índice de dedicatorias (N-02) ──────────────────────────────────────── */
 .aznav { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.1rem 0 0.4rem; }
@@ -721,7 +1004,11 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
 @media (max-width: 639px) {
     .nav-links { display: none; }
     .nav-mobile { display: block; }
-    .site-search-row { padding: 0 1rem 0.6rem; }
+    .header-top { flex-wrap: wrap; gap: 0.5rem 0.75rem; padding-bottom: 0.7rem; }
+    .site-search-row { flex: 1 1 100%; order: 3; }
+    /* La barra de orden/página no cabe al lado del recuento: pasa a línea
+       propia y el recuento deja de reservarle el hueco con margin-right. */
+    .toolbar .rescount { margin-right: 0; flex: 1 0 100%; font-size: 1.2rem; }
     /* En móvil la etiqueta no cabe al lado del valor sin partir palabras:
        pasa a ir encima, con la misma fila alterna de fondo. */
     dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }
@@ -773,6 +1060,10 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 .previa-ficha { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.6rem; background: var(--bg); }
 .cover-vacia { width: 12rem; height: 12rem; display: grid; place-items: center; background: var(--s2); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--faint); font-size: 0.85rem; }
 /* Botón con apariencia de enlace (para «Quitar selección» inline) */
+/* Enlace cuyo texto ES una URL (la licencia de /datos). Sin esto la URL no
+   parte por ningún sitio y se sale de la tarjeta: medido, el documento pedía
+   421px de scroll en un viewport de 390. */
+.link { overflow-wrap: anywhere; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; font: inherit; font-size: inherit; text-decoration: underline; }
 
 /* ── Mapa de provincias, coropleta (N-10) ────────────────────────────────── */

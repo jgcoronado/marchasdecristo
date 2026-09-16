@@ -43,6 +43,7 @@
 | `contrato` | 0 (esperado) | ✅ contratos banda↔hermandad por año (`005_contrato.sql`, N-04/05), alta manual en `/dashboard/temporada/{año}` — vacía hasta que el admin empiece a rellenarla |
 | `municipio` | ~8 112 | ✅ catálogo cerrado de localidad/provincia (`007_municipio.sql`), fuente del selector en cascada del panel y de las coordenadas del mapa — ver [ux-analysis-estado.md](ux-analysis-estado.md) |
 | `admin_log` | — | ✅ audit log de escrituras admin (`Db::logAdmin()`, sin migración `.sql` propia — se crea desde código) |
+| `cambio_log` / `log_actor` | — | ✅ log interno de diffs campo a campo (`011_cambio_log.sql`, triggers `trg_log_*`, generados por `gen_log_triggers.php`) — quién cambió qué valor y cuándo, complementario a `admin_log`. No se expone en pantalla, solo `sqlite3` directo. Ver [plan-log-cambios.md](plan-log-cambios.md) y §7 de [architecture.md](architecture.md) |
 
 Todas las tablas nuevas se crean con `php php/app/tools/migrate_ingest.php`
 (aplica en orden alfabético todos los `.sql` de `app/tools/sql/`, idempotente).

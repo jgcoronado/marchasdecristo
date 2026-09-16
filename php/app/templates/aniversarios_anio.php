@@ -11,7 +11,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     </div>
 
     <div class="toolbar">
-        <span class="rescount"><?= V::e($h1) ?></span>
+        <h1 class="rescount"><?= V::e($h1) ?></h1>
     </div>
 
     <p class="welcome-text">Marchas procesionales que cumplen un aniversario redondo (25, 50, 75, 100 años o
@@ -62,7 +62,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     <div class="shead"><h2>Véase también</h2></div>
     <ul class="vease">
 <?php foreach ($vease as $vs): ?>
-        <li>→ <a href="<?= V::e($vs['href']) ?>"><?= V::e($vs['label']) ?></a><?php if ($vs['cnt'] !== null): ?> <span class="cnt">(<?= $num($vs['cnt']) ?> registros)</span><?php endif; ?></li>
+        <li><a href="<?= V::e($vs['href']) ?>"><?= V::e($vs['label']) ?></a><?php if ($vs['cnt'] !== null): ?> <span class="cnt"><?= $num($vs['cnt']) ?> registros</span><?php endif; ?></li>
 <?php endforeach; ?>
     </ul>
 <?php endif; ?>

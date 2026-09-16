@@ -364,3 +364,99 @@
         if (!suggest.contains(e.target) && e.target !== search) close();
     });
 })();
+/* Edición inline de la banda de un contrato de temporada (N-04/N-05): la
+   celda "Banda" alterna entre el enlace fijo y un formulario con el mismo
+   autocompletado que el alta, para corregir un error de banda sin borrar y
+   recrear el contrato (que perdería ID_CONTRATO y el orden de alta que usa
+   Repo::temporada). Delegado sobre la tabla porque hay una fila por
+   contrato — puede haber cientos.*/
+(function () {
+    const table = document.querySelector('[data-contratos-table]');
+    if (!table) return;
+
+    function closeSuggest(row) {
+        const suggest = row.querySelector('[data-banda-edit-suggest]');
+        if (suggest) { suggest.hidden = true; suggest.innerHTML = ''; }
+    }
+
+    function abrir(row) {
+        row.querySelector('[data-banda-display]').hidden = true;
+        const form = row.querySelector('[data-banda-edit-form]');
+        form.hidden = false;
+        const search = form.querySelector('[data-banda-edit-search]');
+        search.focus();
+        search.select();
+    }
+
+    function cerrar(row) {
+        row.querySelector('[data-banda-edit-form]').hidden = true;
+        row.querySelector('[data-banda-display]').hidden = false;
+        closeSuggest(row);
+    }
+
+    table.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('[data-editar-banda]');
+        if (editBtn) { abrir(editBtn.closest('tr')); return; }
+        const cancelBtn = e.target.closest('[data-editar-cancelar]');
+        if (cancelBtn) cerrar(cancelBtn.closest('tr'));
+    });
+
+    let timer, ctrl;
+    table.addEventListener('input', (e) => {
+        const search = e.target.closest('[data-banda-edit-search]');
+        if (!search) return;
+        const row = search.closest('tr');
+        const hidden = row.querySelector('[data-banda-edit-hidden]');
+        const suggest = row.querySelector('[data-banda-edit-suggest]');
+        const q = search.value.trim();
+        // Exige reelegir de la lista, igual que el autocompletado del alta:
+        // así nunca se guarda un ID_BANDA que no corresponda al texto escrito.
+        hidden.value = '';
+        clearTimeout(timer);
+        if (q.length < 3) { closeSuggest(row); return; }
+        timer = setTimeout(async () => {
+            if (ctrl) ctrl.abort();
+            ctrl = new AbortController();
+            try {
+                const res = await fetch('/api/banda/fastSearch?q=' + encodeURIComponent(q),
+                    { signal: ctrl.signal, credentials: 'same-origin' });
+                const data = await res.json();
+                const rows = Array.isArray(data.data) ? data.data : [];
+                if (!rows.length) { closeSuggest(row); return; }
+                suggest.innerHTML = '';
+                rows.forEach((r) => {
+                    const label = r.LABEL || ('#' + r.ID_BANDA);
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'suggest-item';
+                    b.textContent = label;
+                    b.addEventListener('click', () => {
+                        hidden.value = r.ID_BANDA;
+                        search.value = label;
+                        closeSuggest(row);
+                    });
+                    suggest.appendChild(b);
+                });
+                suggest.hidden = false;
+            } catch (_) { /* abortado */ }
+        }, 200);
+    });
+
+    table.addEventListener('submit', (e) => {
+        const form = e.target.closest('[data-banda-edit-form]');
+        if (!form) return;
+        const hidden = form.querySelector('[data-banda-edit-hidden]');
+        if (!hidden.value) {
+            e.preventDefault();
+            alert('Elige una banda de la lista antes de guardar (o cancela si no quieres cambiarla).');
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        table.querySelectorAll('[data-banda-edit-suggest]:not([hidden])').forEach((suggest) => {
+            const row = suggest.closest('tr');
+            const search = row.querySelector('[data-banda-edit-search]');
+            if (!suggest.contains(e.target) && e.target !== search) closeSuggest(row);
+        });
+    });
+})();

@@ -244,7 +244,8 @@ final class Repo
         $rows = Db::all(
             "SELECT m.ID_MARCHA, m.TITULO, m.DEDICATORIA, m.LOCALIDAD, m.PROVINCIA, m.AUDIO, m.FECHA,
                     m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE,
-                    (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB
+                    (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB,
+                    EXISTS (SELECT 1 FROM enlace_streaming es WHERE es.TIPO_ENT = 'marcha' AND es.ID_ENT = m.ID_MARCHA) AS TIENE_RRSS
              FROM marcha m
              LEFT OUTER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              WHERE $baseWhere
@@ -702,13 +703,72 @@ final class Repo
         return $mejor;
     }
 
+    /**
+     * Año de nacimiento en formato libre (adv-form /autor): 4 dígitos tal
+     * cual, o los 2 últimos interpretados como 19XX — el catálogo no tiene
+     * compositores nacidos en el s. XXI, así que no hace falta desambiguar
+     * más. Entrada que no encaja en ninguno de los dos formatos se ignora.
+     */
+    private static function normalizeAnio(string $raw): ?int
+    {
+        $raw = trim($raw);
+        if (preg_match('/^\d{4}$/', $raw) === 1) return (int) $raw;
+        if (preg_match('/^\d{2}$/', $raw) === 1) return (int) ('19' . $raw);
+        return null;
+    }
+
+    /** Provincia con más marchas dedicadas entre las de un autor (bare, para el WHERE). */
+    private const AUTOR_TOP_PROVINCIA_SQL = "(SELECT m2.PROVINCIA FROM marcha_autor ma2
+         JOIN marcha m2 ON m2.ID_MARCHA = ma2.ID_MARCHA
+         WHERE ma2.ID_AUTOR = a.ID_AUTOR AND m2.PROVINCIA IS NOT NULL AND m2.PROVINCIA != ''
+         GROUP BY m2.PROVINCIA ORDER BY COUNT(*) DESC, m2.PROVINCIA ASC LIMIT 1)";
+
+    /**
+     * WHERE + values de la búsqueda de compositores. $exclude omite un
+     * criterio (para facetas futuras, misma convención que bandaWhere/marchaWhere).
+     * @return array{0:string,1:list<mixed>}
+     */
+    private static function autorWhere(array $params, ?string $exclude = null): array
+    {
+        $conditions = [];
+        $values = [];
+        $on = static fn(string $k): bool => $k !== $exclude && !empty($params[$k]);
+
+        $nombre = $exclude !== 'nombre' ? (string) ($params['nombre'] ?? '') : '';
+        $fts = $nombre !== '' ? self::buildFtsQuery($nombre) : null;
+        if ($fts !== null) {
+            $conditions[] = 'a.ID_AUTOR IN (SELECT rowid FROM autor_fts WHERE autor_fts MATCH ?)';
+            $values[] = $fts;
+        }
+
+        $nacDesde = $exclude !== 'nacDesde' ? self::normalizeAnio((string) ($params['nacDesde'] ?? '')) : null;
+        if ($nacDesde !== null) { $conditions[] = 'a.F_NAC >= ?'; $values[] = $nacDesde; }
+
+        $nacHasta = $exclude !== 'nacHasta' ? self::normalizeAnio((string) ($params['nacHasta'] ?? '')) : null;
+        if ($nacHasta !== null) { $conditions[] = 'a.F_NAC <= ?'; $values[] = $nacHasta; }
+
+        // Sentinelas heredados de la era MySQL: F_DEF llega como 0 cuando no
+        // hay fecha de defunción (mismo patrón que FECHA_FUND/FECHA_EXT de banda).
+        if ($on('fallecido')) { $conditions[] = '(a.F_DEF IS NOT NULL AND a.F_DEF != 0)'; }
+
+        if ($on('minMarchas') && ctype_digit((string) $params['minMarchas'])) {
+            $conditions[] = '(SELECT COUNT(*) FROM marcha_autor ma3 WHERE ma3.ID_AUTOR = a.ID_AUTOR) > ?';
+            $values[] = (int) $params['minMarchas'];
+        }
+
+        if ($on('provincia')) {
+            $conditions[] = self::AUTOR_TOP_PROVINCIA_SQL . ' = ?';
+            $values[] = $params['provincia'];
+        }
+
+        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        return [$where, $values];
+    }
+
     public static function searchAutores(string $query, int $page = 1, int $limit = 20): array
     {
         parse_str($query, $params);
-        $nombre = (string) ($params['nombre'] ?? '');
-        $fts = $nombre !== '' ? self::buildFtsQuery($nombre) : null;
-        $where = $fts !== null ? 'a.ID_AUTOR IN (SELECT rowid FROM autor_fts WHERE autor_fts MATCH ?)' : '1=1';
-        $values = $fts !== null ? [$fts] : [];
+        [$where, $values] = self::autorWhere($params);
 
         $countRow = Db::one("SELECT COUNT(*) AS n FROM autor a WHERE $where", $values);
         $totalRows = (int) ($countRow['n'] ?? 0);
@@ -716,7 +776,11 @@ final class Repo
 
         $rows = Db::all(
             "SELECT a.*, (a.NOMBRE || ' ' || a.APELLIDOS) AS NOMBRE_COMPLETO,
-                    (SELECT COUNT(ma.ID_MARCHA) FROM marcha_autor ma WHERE ma.ID_AUTOR = a.ID_AUTOR) AS MARCHAS
+                    (SELECT COUNT(ma.ID_MARCHA) FROM marcha_autor ma WHERE ma.ID_AUTOR = a.ID_AUTOR) AS MARCHAS,
+                    (SELECT m2.PROVINCIA || '|' || COUNT(*) FROM marcha_autor ma2
+                     JOIN marcha m2 ON m2.ID_MARCHA = ma2.ID_MARCHA
+                     WHERE ma2.ID_AUTOR = a.ID_AUTOR AND m2.PROVINCIA IS NOT NULL AND m2.PROVINCIA != ''
+                     GROUP BY m2.PROVINCIA ORDER BY COUNT(*) DESC, m2.PROVINCIA ASC LIMIT 1) AS TOP_PROVINCIA_N
              FROM autor a WHERE $where ORDER BY a.APELLIDOS ASC LIMIT ? OFFSET ?",
             [...$values, $limit, $offset]
         );
@@ -1263,7 +1327,7 @@ final class Repo
     public static function fetchUltimas(): array
     {
         $rows = Db::all(
-            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE
+            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE, b.LOCALIDAD AS BANDA_LOC
              FROM marcha m
              LEFT OUTER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              WHERE EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
@@ -1665,41 +1729,229 @@ final class Repo
         return $rows;
     }
 
-    // ── Temporada / contratos (N-04/N-05) ───────────────────────────────────
+    // ── Acompañamientos (rehecho 2026-08-29: por localidad → hermandad → paso,
+    // reemplaza a /temporada, que agrupaba por año y solo enseñaba una
+    // temporada cada vez). `contrato` sigue siendo una fila por año — el
+    // colapso en rangos (1991-2023: misma banda) es puramente de
+    // presentación, ver agruparAcompanamientos(). ────────────────────────────
+
     /**
-     * Contratos de un año, ordenados para agrupar por hermandad en la
-     * plantilla (misma hermandad = filas consecutivas). FUENTE se selecciona
-     * por si se necesita más adelante, pero la plantilla ya no la muestra
-     * (info pública sin contraste, no aporta como enlace visible); NOTA es
-     * interna del admin y no se selecciona.
-     * BANDA_LOCALIDAD viaja aparte (no solo dentro de BANDA ya formateado)
-     * para que Pages::temporada pueda inferir una "ciudad" aproximada por
-     * hermandad (localidad más frecuente entre sus bandas contratadas) sin
-     * esperar a la entidad `hermandad` real (N-03, ver docs/n03-hermandad.md).
-     * Orden: por ID_CONTRATO (orden de alta), no alfabético — el pipeline de
-     * carga inserta las filas en el mismo orden del CSV de origen (día →
-     * hermandad → paso), así que el ID autoincremental ya reconstruye ese
-     * orden sin necesidad de guardarlo aparte.
-     * @return list<array{ID_CONTRATO:int,HERMANDAD:string,HERMANDAD_SLUG:string,
-     *                     TITULAR:?string,FUENTE:?string,ID_BANDA:int,BANDA:string,
-     *                     BANDA_LOCALIDAD:string}>
+     * Localidades del ACOMPAÑAMIENTO (contrato_localidad.LOCALIDAD, no
+     * banda.LOCALIDAD — ver 009_contrato_localidad.sql) con al menos un
+     * contrato, para el índice de /acompanamientos y el sitemap. Las filas
+     * de contrato sin fila en contrato_localidad (no debería haberlas desde
+     * que addContratoRango() la exige siempre) caen en 'Sin localidad' en vez
+     * de desaparecer.
+     * @return list<array{LOCALIDAD:string,N:int}>
      */
-    public static function temporada(string $anio): array
+    public static function acompanamientosLocalidades(): array
     {
         return Db::all(
-            "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.FUENTE,
-                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
-                    b.LOCALIDAD AS BANDA_LOCALIDAD
-             FROM contrato c INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
-             WHERE c.ANIO = ?
-             ORDER BY c.ID_CONTRATO ASC",
-            [$anio]
+            "SELECT COALESCE(cl.LOCALIDAD, 'Sin localidad') AS LOCALIDAD, COUNT(*) AS N
+             FROM contrato c LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             GROUP BY COALESCE(cl.LOCALIDAD, 'Sin localidad')
+             ORDER BY LOCALIDAD = 'Sin localidad', LOCALIDAD ASC"
         );
     }
 
-    /** Años con al menos un contrato, para el sitemap y el índice de /temporada. */
-    public static function aniosConTemporada(): array
+    /**
+     * Slug de ruta (/acompanamientos/{slug}) → LOCALIDAD literal, igual que
+     * HERMANDAD_SLUG pero sin columna dedicada: la lista de localidades es
+     * corta (una decena, no miles), así que comparar slugs en PHP sobre
+     * acompanamientosLocalidades() es más simple que mantener otra columna.
+     */
+    public static function resolverLocalidadPorSlug(string $slug): ?string
     {
-        return Db::all('SELECT ANIO AS K, COUNT(*) AS N FROM contrato GROUP BY ANIO ORDER BY ANIO DESC');
+        foreach (self::acompanamientosLocalidades() as $l) {
+            if (Slug::slugify((string) $l['LOCALIDAD']) === $slug) {
+                return (string) $l['LOCALIDAD'];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Todos los contratos de una localidad, cualquier año — a diferencia de
+     * la vieja temporada() (un año cada vez), aquí se trae el histórico
+     * completo para poder colapsarlo en rangos por hermandad/paso.
+     *
+     * Orden de hermandades: si la localidad tiene nómina real en `hermandad`
+     * (012_hermandad_paso.sql — hoy solo Córdoba y Jerez), se usa el orden de
+     * la Semana Santa (DIA_ORDEN, ORDEN); las hermandades con contrato pero
+     * sin fila en `hermandad` todavía (enlace por SLUG) caen al final,
+     * alfabéticas. Si la localidad no tiene nómina en absoluto (Sevilla,
+     * Málaga, Huelva, Cádiz, Granada de momento), el JOIN no casa nada y el
+     * orden es puramente alfabético por HERMANDAD_SLUG, como antes. Dentro de
+     * cada hermandad, ANIO ASC (agruparAcompanamientos colapsa consecutivos y
+     * luego invierte a reciente→antiguo).
+     * @return list<array{ID_CONTRATO:int,HERMANDAD:string,HERMANDAD_SLUG:string,
+     *                     TITULAR:?string,ANIO:int,ID_BANDA:int,BANDA:string}>
+     */
+    public static function acompanamientosPorLocalidad(string $localidad): array
+    {
+        if ($localidad === 'Sin localidad') {
+            return Db::all(
+                "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.ANIO,
+                        b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+                 FROM contrato c
+                 INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
+                 LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                 WHERE cl.ID_CONTRATO IS NULL
+                 ORDER BY c.HERMANDAD_SLUG ASC, c.ANIO ASC"
+            );
+        }
+        return Db::all(
+            "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.ANIO,
+                    b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
+             FROM contrato c
+             INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
+             INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
+             WHERE cl.LOCALIDAD = ?
+             ORDER BY (h.ID_HERMANDAD IS NULL) ASC, h.DIA_ORDEN ASC, h.ORDEN ASC,
+                      c.HERMANDAD_SLUG ASC, c.ANIO ASC",
+            [$localidad]
+        );
+    }
+
+    /**
+     * Agrupa las filas de acompanamientosPorLocalidad() en hermandad → paso →
+     * rangos de años con la misma banda, más reciente primero (petición
+     * expresa: al revés del orden habitual "más antiguo arriba" de este tipo
+     * de listados, y terminando en 1980 porque ahí se acaba el histórico
+     * cargado — no se rellenan huecos ni años sin contrato conocido, eso
+     * inventaría datos).
+     *
+     * Un hueco entre dos años (p.ej. hay 1991 y 1993 pero no 1992) NUNCA se
+     * fusiona en un solo rango aunque la banda coincida: solo se colapsan
+     * años consecutivos de verdad, fila a fila.
+     *
+     * Dentro de una hermandad, si TODOS los contratos comparten el mismo
+     * TITULAR (o todos lo tienen vacío) se devuelve un único grupo con
+     * titular=null (sin subtítulo en la plantilla, como en el ejemplo con una
+     * sola línea de "Paso Cristo"). Si hay TITULAR distintos (varios pasos:
+     * Cruz de Guía, Paso de Misterio…) cada uno sale como su propio grupo con
+     * su texto tal cual está en la fila — sin normalizar variantes de
+     * redacción, eso también sería inventar/corregir un dato sin confirmar.
+     *
+     * "posibleDuplicado" en un rango: otro TITULAR de la misma hermandad tiene
+     * un rango con la misma banda en años que se solapan — casi seguro el
+     * mismo paso real cargado dos veces con redacciones de TITULAR distintas
+     * (ver docs/acompanamientos-nomina-2026.md §Deuda). Es una pista para el
+     * panel, no una fusión automática: el admin decide y borra a mano.
+     *
+     * @param list<array{ID_CONTRATO:int,HERMANDAD:string,HERMANDAD_SLUG:string,
+     *                    TITULAR:?string,ANIO:int,ID_BANDA:int,BANDA:string}> $rows
+     * @return list<array{slug:string,nombre:string,titulares:list<array{
+     *                    titular:?string,
+     *                    rangos:list<array{anioInicio:int,anioFin:int,idBanda:int,
+     *                                       banda:string,actual:bool,contratos:list<int>,
+     *                                       posibleDuplicado:bool}>}>}>
+     */
+    /** TITULAR con el que se etiqueta la cruz de guía en `contrato` (única forma
+     * vista hasta ahora: "Cruz de Guia", sin tilde). Comparación sin
+     * mayúsculas/tilde para no depender de que todas las cargas futuras
+     * escriban exactamente igual. */
+    private static function esCruzDeGuia(string $titular): bool
+    {
+        $t = str_replace(['í', 'Í'], ['i', 'I'], trim($titular));
+        return strcasecmp($t, 'Cruz de Guia') === 0;
+    }
+
+    public static function agruparAcompanamientos(array $rows): array
+    {
+        $porHermandad = [];
+        foreach ($rows as $r) {
+            $slug = (string) $r['HERMANDAD_SLUG'];
+            $porHermandad[$slug]['nombre'] ??= $r['HERMANDAD'];
+            $porHermandad[$slug]['rows'][] = $r;
+        }
+
+        $out = [];
+        foreach ($porHermandad as $slug => $h) {
+            $porTitular = [];
+            foreach ($h['rows'] as $r) {
+                $key = trim((string) ($r['TITULAR'] ?? ''));
+                $porTitular[$key]['label'] ??= $key;
+                $porTitular[$key]['rows'][] = $r;
+            }
+            $variosTitulares = count($porTitular) > 1;
+
+            $titularesOut = [];
+            foreach ($porTitular as $key => $t) {
+                $rangos = [];
+                foreach ($t['rows'] as $r) {
+                    $anio = (int) $r['ANIO'];
+                    $idBanda = (int) $r['ID_BANDA'];
+                    $i = $rangos === [] ? null : array_key_last($rangos);
+                    if ($i !== null && $rangos[$i]['idBanda'] === $idBanda && $rangos[$i]['anioFin'] === $anio - 1) {
+                        $rangos[$i]['anioFin'] = $anio;
+                        $rangos[$i]['contratos'][] = (int) $r['ID_CONTRATO'];
+                    } else {
+                        $rangos[] = [
+                            'anioInicio' => $anio,
+                            'anioFin' => $anio,
+                            'idBanda' => $idBanda,
+                            'banda' => (string) $r['BANDA'],
+                            'contratos' => [(int) $r['ID_CONTRATO']],
+                            'posibleDuplicado' => false,
+                        ];
+                    }
+                }
+                $rangos = array_reverse($rangos); // reciente → antiguo
+                foreach ($rangos as $i => &$rg) {
+                    $rg['actual'] = ($i === 0);
+                }
+                unset($rg);
+
+                $titularesOut[] = [
+                    'titular' => $variosTitulares ? ($t['label'] !== '' ? $t['label'] : 'Sin especificar') : null,
+                    'esCruzDeGuia' => self::esCruzDeGuia($key),
+                    'rangos' => $rangos,
+                ];
+            }
+
+            // La cruz de guía no es un paso pero va siempre la primera en la
+            // procesión — igual que fija 012_hermandad_paso.sql (ORDEN = 0)
+            // para cuando haya nómina real. Orden estable: entre el resto no
+            // se toca nada.
+            usort($titularesOut, static fn(array $a, array $b): int => (int) $b['esCruzDeGuia'] <=> (int) $a['esCruzDeGuia']);
+
+            // Posible duplicado: dos TITULAR distintos ("Paso de Misterio" /
+            // "Paso de Cristo"...) con la MISMA banda en años que se solapan
+            // casi seguro son el mismo paso real cargado dos veces con
+            // redacciones distintas (ver docs/acompanamientos-nomina-2026.md
+            // §Deuda). No se fusionan solos — Regla 1, esto lo confirma un
+            // humano — solo se marcan para que el panel los destaque y se
+            // puedan seleccionar juntos para borrar.
+            if ($variosTitulares) {
+                foreach ($titularesOut as $ti => &$ta) {
+                    foreach ($ta['rangos'] as &$rgA) {
+                        foreach ($titularesOut as $tj => $tb) {
+                            if ($tj === $ti) continue;
+                            foreach ($tb['rangos'] as $rgB) {
+                                if ($rgA['idBanda'] === $rgB['idBanda']
+                                    && $rgA['anioInicio'] <= $rgB['anioFin']
+                                    && $rgB['anioInicio'] <= $rgA['anioFin']) {
+                                    $rgA['posibleDuplicado'] = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                    unset($rgA);
+                }
+                unset($ta);
+            }
+
+            foreach ($titularesOut as &$to) {
+                unset($to['esCruzDeGuia']);
+            }
+            unset($to);
+
+            $out[] = ['slug' => $slug, 'nombre' => $h['nombre'], 'titulares' => $titularesOut];
+        }
+
+        return $out;
     }
 }

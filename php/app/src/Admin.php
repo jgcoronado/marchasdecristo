@@ -40,6 +40,17 @@ final class Admin
     {
         if (isset($_GET['saved'])) return ['type' => 'ok', 'msg' => 'Cambios guardados.'];
         if (isset($_GET['created'])) return ['type' => 'ok', 'msg' => 'Creado correctamente.'];
+        if (isset($_GET['creados'])) {
+            $creados = (int) $_GET['creados'];
+            $existentes = (int) ($_GET['existentes'] ?? 0);
+            $msg = $creados === 1 ? '1 acompañamiento creado.' : "$creados acompañamientos creados.";
+            if ($existentes > 0) $msg .= $existentes === 1 ? ' 1 año ya existía (sin duplicar).' : " $existentes años ya existían (sin duplicar).";
+            return ['type' => 'ok', 'msg' => $msg];
+        }
+        if (isset($_GET['borrados'])) {
+            $borrados = (int) $_GET['borrados'];
+            return ['type' => 'ok', 'msg' => $borrados === 1 ? '1 acompañamiento eliminado.' : "$borrados acompañamientos eliminados."];
+        }
         if (isset($_GET['deleted'])) return ['type' => 'ok', 'msg' => 'Relación eliminada.'];
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
@@ -56,6 +67,8 @@ final class Admin
         if (isset($_GET['rechazada'])) return ['type' => 'info', 'msg' => 'Propuesta rechazada.'];
         if (isset($_GET['nochanges'])) return ['type' => 'info', 'msg' => 'No había cambios que guardar.'];
         if (isset($_GET['social'])) return ['type' => 'ok', 'msg' => 'Enlaces sociales actualizados.'];
+        if (isset($_GET['resuelto'])) return ['type' => 'ok', 'msg' => 'Duda resuelta.'];
+        if (isset($_GET['descartado'])) return ['type' => 'info', 'msg' => 'Duda descartada.'];
         if (isset($_GET['err'])) return ['type' => 'error', 'msg' => 'Error: ' . preg_replace('/[^A-Z_]/', '', (string) $_GET['err'])];
         return null;
     }
@@ -219,7 +232,15 @@ final class Admin
         }
         $notice = self::noticeFromQuery();
         $pendientes = self::isAdmin($session) ? PropuestaRepo::countPendientes() : 0;
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes'),
+        $dudasAcompanamientos = 0;
+        if (self::isAdmin($session)) {
+            try {
+                $dudasAcompanamientos = AcompanamientoDudaRepo::countPendientes();
+            } catch (\Throwable $e) {
+                // Tabla 013_acompanamiento_duda.sql aún no migrada en este host; el badge se queda a 0.
+            }
+        }
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -632,63 +653,199 @@ final class Admin
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
-    // ── Temporada / contratos (N-04/N-05): alta manual ──────────────────────
-    public static function temporadaAdmin(array $p): void
+    // ── Acompañamientos / contratos (N-04/N-05, rehecho 2026-08-29): alta en
+    // bloque por rango de años, organizado por localidad → hermandad → paso,
+    // igual que la página pública. Reemplaza al panel de /dashboard/temporada
+    // (por año). ─────────────────────────────────────────────────────────────
+
+    /** @return list<int> */
+    private static function parseContratoIds(mixed $raw): array
     {
-        $session = Auth::requireAdmin();
-        $anio = (string) $p['anio'];
-        if (preg_match('/^\d{4}$/', $anio) !== 1) Http::notFound();
-
-        // Igual que Pages::temporada(): la tabla `contrato` puede no estar
-        // migrada aún en este host (mecanismo manual, como P-07). Sin este
-        // fallback el panel da un 500 crudo en vez de avisar de qué falta.
-        $notice = self::noticeFromQuery();
-        try {
-            $contratos = Repo::temporada($anio);
-        } catch (\Throwable $e) {
-            error_log('[dashboard/temporada] ' . $e->getMessage());
-            $contratos = [];
-            $notice = ['type' => 'error', 'msg' => 'La tabla contrato no existe todavía en este host — falta aplicar la migración 005_contrato.sql (migrate_ingest.php vía Plesk, con PHP 8.4 seleccionado).'];
-        }
-
-        View::render('admin/temporada', [
-            'session' => $session, 'anio' => $anio,
-            'contratos' => $contratos,
-            'notice' => $notice,
-        ], ['title' => "Temporada $anio — Marchas de Cristo", 'noindex' => true]);
+        if (!is_string($raw) || trim($raw) === '') return [];
+        $ids = array_map('intval', explode(',', $raw));
+        return array_values(array_filter($ids, static fn(int $id): bool => $id > 0));
     }
 
-    public static function temporadaAddPost(array $p): void
+    public static function acompanamientosIndexAdmin(): void
     {
         $session = Auth::requireAdmin();
-        $anio = (string) $p['anio'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/temporada/$anio?err=CSRF", 302);
+        $localidades = [];
+        try {
+            $localidades = Repo::acompanamientosLocalidades();
+        } catch (\Throwable $e) {
+            error_log('[dashboard/acompanamientos] ' . $e->getMessage());
+        }
+        View::render('admin/acompanamientos_index', [
+            'session' => $session,
+            'localidades' => $localidades,
+            'notice' => self::noticeFromQuery(),
+        ], ['title' => 'Acompañamientos — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    /** Redirige a la ficha de una localidad nueva sin adivinar el nombre a
+     *  partir del slug (perdería tildes: "Málaga" → "malaga"). No escribe
+     *  nada en la BD — eso solo ocurre al dar de alta el primer contrato. */
+    public static function acompanamientosCrearPost(): void
+    {
+        $session = Auth::requireAdmin();
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos?err=CSRF', 302);
+        $localidad = trim((string) ($_POST['LOCALIDAD'] ?? ''));
+        if ($localidad === '') Http::redirect('/dashboard/acompanamientos?err=LOCALIDAD_REQUERIDA', 302);
+        $slug = Slug::slugify($localidad);
+        if ($slug === '') Http::redirect('/dashboard/acompanamientos?err=LOCALIDAD_INVALIDA', 302);
+        Http::redirect('/dashboard/acompanamientos/' . $slug . '?nueva=' . rawurlencode($localidad), 302);
+    }
+
+    public static function acompanamientosAdmin(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        $notice = self::noticeFromQuery();
+        $localidad = null;
+        $hermandades = [];
+
+        // Igual que Pages::acompanamientos(): la tabla `contrato` puede no
+        // estar migrada aún en este host (mecanismo manual, como P-07). Sin
+        // este fallback el panel da un 500 crudo en vez de avisar de qué falta.
+        try {
+            $localidad = Repo::resolverLocalidadPorSlug($slug);
+            if ($localidad !== null) {
+                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad));
+            }
+        } catch (\Throwable $e) {
+            error_log('[dashboard/acompanamientos] ' . $e->getMessage());
+            $notice = ['type' => 'error', 'msg' => 'La tabla contrato no existe todavía en este host — falta aplicar la migración 005_contrato.sql / 009_contrato_localidad.sql (migrate_ingest.php vía Plesk, con PHP 8.4 seleccionado).'];
+        }
+
+        // Localidad todavía sin ningún contrato: solo se admite si viene del
+        // formulario "Localidad nueva" de acompanamientosCrearPost (?nueva=),
+        // que ya comprobó que su slug coincide con este. Cualquier otro slug
+        // desconocido es 404, igual que en la página pública.
+        $esNueva = false;
+        if ($localidad === null) {
+            $nueva = trim((string) ($_GET['nueva'] ?? ''));
+            if ($nueva !== '' && Slug::slugify($nueva) === $slug) {
+                $localidad = $nueva;
+                $esNueva = true;
+            } else {
+                Http::notFound();
+            }
+        }
+
+        View::render('admin/acompanamientos', [
+            'session' => $session, 'slug' => $slug, 'localidad' => $localidad, 'esNueva' => $esNueva,
+            'hermandades' => $hermandades,
+            'notice' => $notice,
+        ], ['title' => "Acompañamientos — $localidad — Marchas de Cristo", 'noindex' => true]);
+    }
+
+    public static function acompanamientosAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+
+        $localidad = Repo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) {
+            // Primer contrato de una localidad nueva: el nombre correcto (con
+            // tildes) solo puede venir del formulario, nunca del slug.
+            $posted = trim((string) ($_POST['LOCALIDAD'] ?? ''));
+            if ($posted === '' || Slug::slugify($posted) !== $slug) {
+                Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+            }
+            $localidad = $posted;
+        }
 
         $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
         $hermandad = (string) ($_POST['HERMANDAD'] ?? '');
-        $titular = is_string($_POST['TITULAR'] ?? null) ? (string) $_POST['TITULAR'] : null;
+        $titularRaw = is_string($_POST['TITULAR'] ?? null) ? trim((string) $_POST['TITULAR']) : '';
+        $titular = $titularRaw !== '' ? $titularRaw : null;
+        $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
+        $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
         $fuente = is_string($_POST['FUENTE'] ?? null) ? (string) $_POST['FUENTE'] : null;
         $nota = is_string($_POST['NOTA'] ?? null) ? (string) $_POST['NOTA'] : null;
 
         try {
-            $r = AdminRepo::addContrato($idBanda, $hermandad, $anio, $titular, $fuente, $nota);
+            $r = AdminRepo::addContratoRango($idBanda, $hermandad, $titular, $anioInicio, $anioFin, $fuente, $nota, $localidad);
         } catch (\Throwable $e) {
-            error_log('[dashboard/temporada/add] ' . $e->getMessage());
-            Http::redirect("/dashboard/temporada/$anio?err=TABLA_NO_MIGRADA", 302);
+            error_log('[dashboard/acompanamientos/add] ' . $e->getMessage());
+            Http::redirect("/dashboard/acompanamientos/$slug?err=TABLA_NO_MIGRADA", 302);
         }
-        if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/temporada/$anio?created=1", 302);
-        Http::redirect("/dashboard/temporada/$anio?err=" . ($r['code'] ?? 'ERROR'), 302);
+        if (($r['code'] ?? '') === 'CREATED') {
+            Http::redirect("/dashboard/acompanamientos/$slug?creados=" . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0), 302);
+        }
+        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
-    public static function temporadaDeletePost(array $p): void
+    public static function acompanamientosBorrarRangoPost(array $p): void
     {
         $session = Auth::requireAdmin();
-        $anio = (string) $p['anio'];
-        $contrato = (int) $p['contrato'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/temporada/$anio?err=CSRF", 302);
-        $r = AdminRepo::deleteContrato($contrato);
-        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/temporada/$anio?deleted=1", 302);
-        Http::redirect("/dashboard/temporada/$anio?err=" . ($r['code'] ?? 'ERROR'), 302);
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $ids = self::parseContratoIds($_POST['ids'] ?? null);
+        $r = AdminRepo::deleteContratoRango($ids);
+        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/acompanamientos/$slug?borrados=" . ($r['borrados'] ?? 0), 302);
+        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function acompanamientosBandaRangoPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $ids = self::parseContratoIds($_POST['ids'] ?? null);
+        $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
+        $r = AdminRepo::updateContratoBandaRango($ids, $idBanda);
+        if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/acompanamientos/$slug?saved=1", 302);
+        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    /**
+     * Cola de revisión de la nómina de hermandades/pasos (N-03): filas que
+     * los scripts de parseo de scripts/tmp_acompanamientos/ no han sabido
+     * clasificar solas — ver acompanamiento_duda (013_acompanamiento_duda.sql)
+     * y docs/acompanamientos-nomina-2026.md.
+     */
+    public static function acompanamientoDudasAdmin(): void
+    {
+        $session = Auth::requireAdmin();
+        $pendientes = [];
+        $revisadas = [];
+        $notice = self::noticeFromQuery();
+        try {
+            $pendientes = AcompanamientoDudaRepo::pendientes();
+            $revisadas = AcompanamientoDudaRepo::revisadas(50);
+        } catch (\Throwable $e) {
+            error_log('[dashboard/acompanamientos-dudas] ' . $e->getMessage());
+            $notice = ['type' => 'error', 'msg' => 'La tabla acompanamiento_duda no existe todavía en este host — falta aplicar la migración 013_acompanamiento_duda.sql (migrate_ingest.php).'];
+        }
+        View::render('admin/acompanamiento_dudas', [
+            'session' => $session, 'pendientes' => $pendientes, 'revisadas' => $revisadas,
+            'notice' => $notice,
+        ], ['title' => 'Dudas de acompañamientos — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    public static function acompanamientoDudaResolverPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-dudas?err=CSRF', 302);
+        $tipo = (string) ($_POST['TIPO'] ?? '');
+        $nota = trim((string) ($_POST['NOTA'] ?? ''));
+        $r = AdminRepo::resolverAcompanamientoDuda($id, $tipo, $nota !== '' ? $nota : null);
+        if (($r['code'] ?? '') === 'RESOLVED') Http::redirect('/dashboard/acompanamientos-dudas?resuelto=1', 302);
+        Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function acompanamientoDudaDescartarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-dudas?err=CSRF', 302);
+        $nota = trim((string) ($_POST['NOTA'] ?? ''));
+        $r = AdminRepo::descartarAcompanamientoDuda($id, $nota !== '' ? $nota : null);
+        if (($r['code'] ?? '') === 'DISCARDED') Http::redirect('/dashboard/acompanamientos-dudas?descartado=1', 302);
+        Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
     }
 
     /** Alta/edición/baja manual de los enlaces de streaming/RRSS musicales de una banda (pestaña Social). */
@@ -1801,6 +1958,76 @@ final class Admin
             }
         }
         Http::redirect("/dashboard/marcha/$id?ok=" . rawurlencode('Enlaces de escucha guardados.'), 302);
+    }
+
+    /** Predictivo unificado del panel: ?tipo=marcha|autor|banda|disco &q=… → { id, label, meta, url } */
+    public static function dashboardFastSearch(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (Auth::currentSession() === null) {
+            http_response_code(401);
+            echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
+            return;
+        }
+        $tipo = trim((string) ($_GET['tipo'] ?? ''));
+        $q    = trim((string) ($_GET['q'] ?? ''));
+        if ($q === '' || (mb_strlen($q) < 3 && !ctype_digit($q))) {
+            echo json_encode(['rowsReturned' => 0, 'data' => []]);
+            return;
+        }
+        $normalize = static fn(string $tipo, array $rows): array => array_map(static function (array $r) use ($tipo): array {
+            return match ($tipo) {
+                'marcha' => ['id' => (int)$r['ID_MARCHA'], 'label' => (string)$r['TITULO'],
+                             'meta' => implode(' · ', array_filter([(string)($r['FECHA'] ?? ''), (string)($r['AUTORES'] ?? '')])),
+                             'url' => '/dashboard/marcha/' . (int)$r['ID_MARCHA']],
+                'autor'  => ['id' => (int)$r['ID_AUTOR'], 'label' => (string)$r['NOMBRE_COMPLETO'],
+                             'meta' => null, 'url' => '/dashboard/autor/' . (int)$r['ID_AUTOR']],
+                'banda'  => ['id' => (int)$r['ID_BANDA'], 'label' => (string)$r['NOMBRE_BREVE'],
+                             'meta' => (string)($r['LOCALIDAD'] ?? ''), 'url' => '/dashboard/banda/' . (int)$r['ID_BANDA']],
+                'disco'  => ['id' => (int)$r['ID_DISCO'], 'label' => (string)$r['NOMBRE_CD'],
+                             'meta' => implode(' · ', array_filter([(string)($r['FECHA_CD'] ?? ''), (int)$r['PISTAS'] > 0 ? (int)$r['PISTAS'] . ' pistas' : ''])),
+                             'url' => '/dashboard/disco/' . (int)$r['ID_DISCO']],
+                default  => [],
+            };
+        }, $rows);
+
+        // Para autor y banda añadimos búsqueda por ID exacto antes del texto,
+        // igual que ya hacen marchaCandidatosPorTexto y discoCandidatosPorTexto.
+        $data = match ($tipo) {
+            'marcha' => $normalize('marcha', AdminRepo::marchaCandidatosPorTexto($q, 15)),
+            'autor'  => (static function () use ($q, $normalize): array {
+                $out = [];
+                if (ctype_digit($q)) {
+                    $r = Db::one('SELECT ID_AUTOR, (NOMBRE || \' \' || APELLIDOS) AS NOMBRE_COMPLETO FROM autor WHERE ID_AUTOR = ?', [(int)$q]);
+                    if ($r !== null) $out[] = $r;
+                }
+                $vistos = array_column($out, 'ID_AUTOR');
+                foreach (Repo::autorCandidatosPorTexto($q, 15) as $r) {
+                    if (!in_array($r['ID_AUTOR'], $vistos, true)) $out[] = $r;
+                }
+                return $normalize('autor', array_slice($out, 0, 15));
+            })(),
+            'banda'  => (static function () use ($q, $normalize): array {
+                $out = [];
+                if (ctype_digit($q)) {
+                    $r = Db::one('SELECT ID_BANDA, NOMBRE_BREVE, LOCALIDAD FROM banda WHERE ID_BANDA = ?', [(int)$q]);
+                    if ($r !== null) $out[] = $r;
+                }
+                $vistos = array_column($out, 'ID_BANDA');
+                foreach (Repo::bandaCandidatosPorTexto($q, 15) as $r) {
+                    if (!in_array($r['ID_BANDA'], $vistos, true)) $out[] = $r;
+                }
+                return $normalize('banda', array_slice($out, 0, 15));
+            })(),
+            'disco'  => (static function () use ($q, $normalize): array {
+                $session = Auth::currentSession();
+                if ($session === null || !Roles::isAdmin($session['rol'] ?? '')) return [];
+                return $normalize('disco', AdminRepo::discoCandidatosPorTexto($q, 15));
+            })(),
+            default  => [],
+        };
+        echo json_encode(['rowsReturned' => count($data), 'data' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /** Marchas que casan con ?q (ID exacto o trozos del título), para el buscador de pistas. */

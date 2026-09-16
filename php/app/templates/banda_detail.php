@@ -94,8 +94,8 @@ $nMarchas = (int) $b['marchasLength'];
 <?php if ($nDiscos > 0): ?>
         <div class="f"><dt>Discos propios</dt><dd><?= $num($nDiscos) ?></dd></div>
 <?php endif; ?>
-<?php if ($t($b['WEB'])): ?>
-        <div class="f"><dt>Web</dt><dd><a href="<?= V::e($b['WEB']) ?>" rel="noopener" target="_blank"><?= V::e(preg_replace('#^https?://#', '', (string) $b['WEB'])) ?> ↗</a></dd></div>
+<?php $webUrl = H::externalUrl($b['WEB']); if ($t($webUrl)): ?>
+        <div class="f"><dt>Web</dt><dd><a href="<?= V::e($webUrl) ?>" rel="noopener" target="_blank"><?= V::e(preg_replace('#^https?://#', '', (string) $webUrl)) ?> ↗</a></dd></div>
 <?php endif; ?>
     </dl>
     <?= H::streaming($enlaces ?? []) ?>

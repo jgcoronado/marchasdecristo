@@ -6,18 +6,30 @@
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 ?>
 <div class="stack home">
-    <section class="card">
+<?php /* Cabecera de portada. Antes esto era una tarjeta con un párrafo dentro y
+         la portada no tenía <h1>: ni punto de entrada para el que llega ni
+         encabezado de primer nivel para quien la indexa. Va sobre el papel, sin
+         caja: la caja alrededor de un texto de bienvenida es lo que hace que una
+         portada parezca una plantilla. */ ?>
+    <header class="masthead">
+        <h1>Bienvenido a MarchasDeCristo</h1>
         <p class="welcome-text">
-            Base de datos de <strong>música procesional</strong> española: marchas, compositores,
-            bandas de cornetas y tambores, agrupaciones musicales y discos.
-            Usa el menú para explorar o buscar por cualquier criterio.
+            La más completa base de datos de música procesional para los estilos de cornetas 
+            y tambores y agrupación musical de España. Desde los inicios del género hasta
+            las marchas de más rabiosa actualidad, con la más completa información sobre autores, bandas y discos.
         </p>
+<?php /* Las cuatro cifras son el activo del sitio, no un pie de página: van en
+         fila, con el número al tamaño de un titular. $num aplica separador de
+         millares, que la línea anterior no tenía ("5024 marchas"). */ ?>
 <?php if ($estado): ?>
         <div class="welcome-counts">
-            <?= $estado['MARCHAS'] ?> marchas · <?= $estado['AUTORES'] ?> compositores · <?= $estado['BANDAS'] ?> bandas · <?= $estado['DISCOS'] ?> discos
+            <span class="cifra"><b><?= $num($estado['MARCHAS']) ?></b><span>marchas</span></span>
+            <span class="cifra"><b><?= $num($estado['AUTORES']) ?></b><span>compositores</span></span>
+            <span class="cifra"><b><?= $num($estado['BANDAS']) ?></b><span>bandas</span></span>
+            <span class="cifra"><b><?= $num($estado['DISCOS']) ?></b><span>discos</span></span>
         </div>
 <?php endif; ?>
-    </section>
+    </header>
 
     <div class="home-top">
 <?php if ($marchaDelDia):
@@ -30,11 +42,11 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
         <section class="card marcha-dia">
             <div class="shead"><h2>Marcha del día</h2></div>
             <a class="ultima-row" href="<?= V::e($mddPath) ?>">
-                <span class="ultima-main">
-                    <span class="ultima-title"><?= V::e($mdd['TITULO']) ?></span>
+                <span class="ultima-title"><?= V::e($mdd['TITULO']) ?></span>
+                <span class="ultima-meta">
                     <span class="ultima-authors"><?= V::e($mddAutores) ?></span>
 <?php if (!empty($mdd['BANDA_NOMBRE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?><?php if (!empty($mdd['BANDA_LOC'])): ?>, <?= V::e($mdd['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
 <?php if ($mddFecha !== '' && $mddFecha !== 's/f'): ?>
@@ -57,7 +69,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             <h2 class="section-title">Explorar el catálogo</h2>
             <ul class="vease">
 <?php foreach ($sugerencias as $s): ?>
-                <li>→ <a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt">(<?= $num($s['cnt']) ?> registros)</span><?php elseif ($s['note'] !== null): ?> <span class="cnt">— <?= V::e($s['note']) ?></span><?php endif; ?></li>
+                <li><a href="<?= V::e($s['href']) ?>"><?= V::e($s['label']) ?></a><?php if ($s['cnt'] !== null): ?> <span class="cnt"><?= $num($s['cnt']) ?> registros</span><?php elseif ($s['note'] !== null): ?> <span class="cnt"><?= V::e($s['note']) ?></span><?php endif; ?></li>
 <?php endforeach; ?>
             </ul>
         </section>
@@ -71,11 +83,11 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 <?php foreach ($ultimas as $m):
     $authors = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR'])); ?>
             <a class="ultima-row" href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>">
-                <span class="ultima-main">
-                    <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
+                <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
+                <span class="ultima-meta">
                     <span class="ultima-authors"><?= V::e($authors) ?></span>
 <?php if (!empty($m['BANDA_BREVE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?></span>
+                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?></span>
 <?php endif; ?>
                 </span>
                 <span class="ultima-date"><?= V::e($m['FECHA']) ?></span>

@@ -69,9 +69,10 @@ $router->get('/estado-catalogo', [Pages::class, 'estadoCatalogo']);
 $router->get('/mapa', [Pages::class, 'mapa']);
 $router->get('/mapa/provincia/{slug}', [Pages::class, 'mapaProvincia']);
 
-// ── Temporada (N-04): contratos banda↔hermandad, alta manual (N-06 pendiente) ──
-$router->get('/temporada', [Pages::class, 'temporadaIndex']);
-$router->get('/temporada/{anio}', [Pages::class, 'temporada']);
+// ── Acompañamientos (N-04, rehecho 2026-08-29): banda↔hermandad por localidad,
+// alta manual en bloque desde el panel (N-06, ingesta automática, pendiente) ──
+$router->get('/acompanamientos', [Pages::class, 'acompanamientosIndex']);
+$router->get('/acompanamientos/{localidad}', [Pages::class, 'acompanamientos']);
 
 // ── Búsqueda global unificada (M3): página + autocompletado público ──────────
 $router->get('/buscar', [Pages::class, 'buscar']);
@@ -201,6 +202,7 @@ $router->post('/dashboard/disco/{id}/pista', [Admin::class, 'discoPistaAddPost']
 $router->post('/dashboard/disco/{id}/pista/{dm}/borrar', [Admin::class, 'discoPistaDeletePost']);
 $router->post('/dashboard/disco/{id}/pista/{dm}/editar', [Admin::class, 'discoPistaEditPost']);
 $router->post('/dashboard/disco/{id}/social', [Admin::class, 'discoSocialPost']);
+$router->get('/api/dashboard/fastSearch', [Admin::class, 'dashboardFastSearch']);
 $router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
@@ -238,10 +240,20 @@ $router->post('/dashboard/ingesta/{id}/aceptar', [Admin::class, 'ingestaAceptar'
 $router->post('/dashboard/ingesta/{id}/asociar', [Admin::class, 'ingestaAsociar']);
 $router->post('/dashboard/ingesta/{id}/descartar', [Admin::class, 'ingestaDescartar']);
 
-// ── Temporada / contratos (N-04/N-05): alta manual desde el panel ───────────
-$router->get('/dashboard/temporada/{anio}', [Admin::class, 'temporadaAdmin']);
-$router->post('/dashboard/temporada/{anio}/add', [Admin::class, 'temporadaAddPost']);
-$router->post('/dashboard/temporada/{anio}/{contrato}/borrar', [Admin::class, 'temporadaDeletePost']);
+// ── Acompañamientos / contratos (N-04/N-05, rehecho 2026-08-29): alta en
+// bloque por rango de años, por localidad → hermandad ───────────────────────
+$router->get('/dashboard/acompanamientos', [Admin::class, 'acompanamientosIndexAdmin']);
+$router->post('/dashboard/acompanamientos/crear', [Admin::class, 'acompanamientosCrearPost']);
+$router->get('/dashboard/acompanamientos/{localidad}', [Admin::class, 'acompanamientosAdmin']);
+$router->post('/dashboard/acompanamientos/{localidad}/add', [Admin::class, 'acompanamientosAddPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/borrar-rango', [Admin::class, 'acompanamientosBorrarRangoPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/banda-rango', [Admin::class, 'acompanamientosBandaRangoPost']);
+
+// ── Cola de revisión de la nómina de hermandades/pasos (N-03): filas que los
+// scripts de parseo no han sabido clasificar solas, ver AcompanamientoDudaRepo ─
+$router->get('/dashboard/acompanamientos-dudas', [Admin::class, 'acompanamientoDudasAdmin']);
+$router->post('/dashboard/acompanamientos-dudas/{id}/resolver', [Admin::class, 'acompanamientoDudaResolverPost']);
+$router->post('/dashboard/acompanamientos-dudas/{id}/descartar', [Admin::class, 'acompanamientoDudaDescartarPost']);
 
 // ── Enlaces de streaming (curación de candidatos Spotify/Apple/Deezer) ───────
 $router->get('/dashboard/enlaces', [Admin::class, 'enlaceList']);

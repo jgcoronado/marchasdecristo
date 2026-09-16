@@ -10,8 +10,8 @@ namespace App;
  */
 final class AdminRepo
 {
-    public const EDITABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'AUDIO', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA'];
-    public const INSERTABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA'];
+    public const EDITABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'AUDIO', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA', 'DATOS_INT'];
+    public const INSERTABLE_MARCHA = ['TITULO', 'FECHA', 'DEDICATORIA', 'LOCALIDAD', 'PROVINCIA', 'BANDA_ESTRENO', 'TIPO', 'ESTILO', 'DETALLES_MARCHA', 'DATOS_INT'];
 
     /**
      * Valores reales de marcha.TIPO en producción (consultado 2026-07:
@@ -313,6 +313,7 @@ final class AdminRepo
         foreach ($keys as $i => $k) {
             if (!in_array($k, self::EDITABLE_BANDA, true)) return ['code' => 'BAD_REQUEST'];
             $safe[$k] = self::normalize($values[$i] ?? null);
+            if ($k === 'WEB') $safe[$k] = Html::externalUrl($safe[$k]);
         }
         foreach (['FECHA_FUND', 'FECHA_EXT'] as $f) {
             if (array_key_exists($f, $safe) && $safe[$f] !== null && !preg_match('/^\d{4}$/', (string) $safe[$f])) {
@@ -344,6 +345,7 @@ final class AdminRepo
         foreach (self::EDITABLE_BANDA as $f) {
             if (array_key_exists($f, $banda)) $safe[$f] = self::normalize($banda[$f]);
         }
+        if (array_key_exists('WEB', $safe)) $safe['WEB'] = Html::externalUrl($safe['WEB']);
         if (self::normalize($safe['NOMBRE_BREVE'] ?? null) === null) return ['code' => 'NOMBRE_REQUERIDO'];
         foreach (['FECHA_FUND', 'FECHA_EXT'] as $f) {
             if (array_key_exists($f, $safe) && $safe[$f] !== null && !preg_match('/^\d{4}$/', (string) $safe[$f])) {
@@ -418,9 +420,11 @@ final class AdminRepo
         return ['code' => 'DELETED'];
     }
 
-    // ── Temporada / contratos (N-04/N-05) — alta manual, sin edición: borrar
-    // y volver a crear si hay un error, es más simple que un formulario de
-    // edición para el volumen bajo que tiene esto de momento. ────────────────
+    // ── Acompañamientos / contratos (N-04/N-05, rehecho 2026-08-29) — alta en
+    // bloque por rango de años (addContratoRango); edición y borrado también
+    // en bloque sobre un rango ya colapsado (updateContratoBandaRango,
+    // deleteContratoRango). addContrato() de un año suelto se conserva porque
+    // la sigue usando seed_contratos_2026.php. ─────────────────────────────
 
     /**
      * $localidad es la del ACOMPAÑAMIENTO (ciudad de cuya Semana Santa procede
@@ -453,13 +457,119 @@ final class AdminRepo
         return ['code' => 'CREATED', 'contratoId' => $contratoId];
     }
 
-    /** @return array{code:string} */
-    public static function deleteContrato(int $idContrato): array
+    /**
+     * Alta en bloque (rehecho 2026-08-29): un mismo contrato repetido para un
+     * rango de años — reemplaza al alta de un año suelto en el panel
+     * (addContrato() se conserva tal cual porque la sigue usando
+     * seed_contratos_2026.php). Un INSERT por año dentro de una transacción,
+     * saltando en silencio los años que ya existan para esa banda+hermandad+
+     * titular (mismo criterio de dedup que ya usaba el seed script, que
+     * addContrato() en sí nunca tuvo): así se puede reintentar sin duplicar
+     * si el rango se solapa con datos ya cargados. $localidad es obligatoria
+     * aquí (a diferencia de addContrato) para no volver a dejar contrato_localidad
+     * a medias — ver 009_contrato_localidad.sql / docs/technical-debt.md §4.2.
+     *
+     * @return array{code:string, creados?:int, existentes?:int}
+     */
+    public static function addContratoRango(
+        int $idBanda,
+        string $hermandad,
+        ?string $titular,
+        int $anioInicio,
+        int $anioFin,
+        ?string $fuente,
+        ?string $nota,
+        string $localidad
+    ): array {
+        if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
+        $hermandad = trim($hermandad);
+        if ($hermandad === '') return ['code' => 'HERMANDAD_REQUERIDA'];
+        $localidad = trim($localidad);
+        if ($localidad === '') return ['code' => 'LOCALIDAD_REQUERIDA'];
+        if ($anioInicio < 1900 || $anioFin < $anioInicio || $anioFin - $anioInicio > 100) {
+            return ['code' => 'INVALID_RANGO'];
+        }
+
+        $slug = Slug::slugify($hermandad);
+        $titularNorm = self::normalize($titular);
+        $fuenteNorm = self::normalize($fuente);
+        $notaNorm = self::normalize($nota);
+
+        return Db::transaction(function () use ($idBanda, $hermandad, $slug, $titularNorm, $anioInicio, $anioFin, $fuenteNorm, $notaNorm, $localidad) {
+            $creados = 0;
+            $existentes = 0;
+            for ($anio = $anioInicio; $anio <= $anioFin; $anio++) {
+                $existe = Db::one(
+                    "SELECT ID_CONTRATO FROM contrato
+                     WHERE ID_BANDA = ? AND HERMANDAD_SLUG = ? AND ANIO = ? AND IFNULL(TITULAR,'') = ?",
+                    [$idBanda, $slug, $anio, $titularNorm ?? '']
+                );
+                if ($existe !== null) {
+                    $existentes++;
+                    continue;
+                }
+                Db::run(
+                    'INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE, NOTA)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [$idBanda, $hermandad, $slug, $titularNorm, $anio, $fuenteNorm, $notaNorm]
+                );
+                $contratoId = Db::lastInsertId();
+                Db::run('INSERT INTO contrato_localidad (ID_CONTRATO, LOCALIDAD) VALUES (?, ?)', [$contratoId, $localidad]);
+                $creados++;
+            }
+            Db::logAdmin('INSERT_RANGO', 'contrato', null, [
+                'banda' => $idBanda, 'hermandad' => $hermandad, 'titular' => $titularNorm,
+                'anio_inicio' => $anioInicio, 'anio_fin' => $anioFin,
+                'creados' => $creados, 'existentes' => $existentes,
+            ]);
+            return ['code' => 'CREATED', 'creados' => $creados, 'existentes' => $existentes];
+        });
+    }
+
+    /**
+     * Borra un rango ya colapsado (todos los ID_CONTRATO que representa una
+     * línea de Repo::agruparAcompanamientos). Borra también sus filas de
+     * contrato_localidad y contrato_paso — el borrado NO es en cascada en
+     * SQLite y dejarlas huérfanas es justo el bug que ya se limpió a mano una
+     * vez (ver memoria del proyecto, limpieza de pasos de Virgen 2026-08-29).
+     * contrato_paso además tiene FK con `foreign_keys = ON` (Db::connect()):
+     * sin este borrado previo, eliminar un contrato ya enlazado a un paso
+     * (Córdoba desde 2026-09-07) fallaría entero por violar la referencia.
+     *
+     * @param list<int> $idsContrato
+     * @return array{code:string, borrados?:int}
+     */
+    public static function deleteContratoRango(array $idsContrato): array
     {
-        $changes = Db::run('DELETE FROM contrato WHERE ID_CONTRATO = ?', [$idContrato]);
+        if ($idsContrato === []) return ['code' => 'NOT_FOUND'];
+        return Db::transaction(function () use ($idsContrato) {
+            $placeholders = implode(',', array_fill(0, count($idsContrato), '?'));
+            Db::run("DELETE FROM contrato_localidad WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
+            Db::run("DELETE FROM contrato_paso WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
+            $borrados = Db::run("DELETE FROM contrato WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
+            if ($borrados === 0) return ['code' => 'NOT_FOUND'];
+            Db::logAdmin('DELETE_RANGO', 'contrato', null, ['ids' => $idsContrato, 'borrados' => $borrados]);
+            return ['code' => 'DELETED', 'borrados' => $borrados];
+        });
+    }
+
+    /**
+     * Corrige la banda de TODOS los ID_CONTRATO de un rango ya colapsado a la
+     * vez (equivalente en bloque a la vieja updateContratoBanda de un único
+     * contrato) — para arreglar un error sin borrar y recrear el rango.
+     *
+     * @param list<int> $idsContrato
+     * @return array{code:string}
+     */
+    public static function updateContratoBandaRango(array $idsContrato, int $idBanda): array
+    {
+        if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
+        if ($idsContrato === []) return ['code' => 'NOT_FOUND'];
+        $placeholders = implode(',', array_fill(0, count($idsContrato), '?'));
+        $changes = Db::run("UPDATE contrato SET ID_BANDA = ? WHERE ID_CONTRATO IN ($placeholders)", [$idBanda, ...$idsContrato]);
         if ($changes === 0) return ['code' => 'NOT_FOUND'];
-        Db::logAdmin('DELETE', 'contrato', $idContrato);
-        return ['code' => 'DELETED'];
+        Db::logAdmin('UPDATE_RANGO', 'contrato', null, ['ids' => $idsContrato, 'id_banda' => $idBanda]);
+        return ['code' => 'UPDATED'];
     }
 
     // ── Ingesta (candidatos de YouTube, ver tools/ingest/) ──────────────────
@@ -1544,5 +1654,45 @@ final class AdminRepo
             }
         }
         return array_slice($out, 0, $limit);
+    }
+
+    /**
+     * Registra la decisión del admin sobre una duda de acompanamiento_duda
+     * (ver AcompanamientoDudaRepo). No toca `hermandad`/`paso`/`contrato_paso`
+     * todavía — la importación final a esas tablas sigue pendiente (ver
+     * docs/acompanamientos-nomina-2026.md); esto solo deja constancia de qué
+     * decidió el admin para cuando llegue.
+     */
+    public static function resolverAcompanamientoDuda(int $id, string $tipo, ?string $nota): array
+    {
+        if (!in_array($tipo, AcompanamientoDudaRepo::TIPOS, true)) return ['code' => 'TIPO_INVALIDO'];
+        $nota = self::normalize($nota);
+
+        $changes = Db::run(
+            "UPDATE acompanamiento_duda
+             SET ESTADO = 'resuelto', RESOLUCION_TIPO = ?, RESOLUCION_NOTA = ?,
+                 REVIEWED_AT = datetime('now'), REVIEWED_BY = ?
+             WHERE ID_DUDA = ? AND ESTADO = 'pendiente'",
+            [$tipo, $nota, Db::auditUser(), $id]
+        );
+        if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING'];
+        Db::logAdmin('RESOLVE', 'acompanamiento_duda', $id, ['tipo' => $tipo, 'nota' => $nota]);
+        return ['code' => 'RESOLVED'];
+    }
+
+    /** Descarta una duda sin asignarle tipo (p. ej. la hermandad no lleva CCTT/AM y ya está claro). */
+    public static function descartarAcompanamientoDuda(int $id, ?string $nota): array
+    {
+        $nota = self::normalize($nota);
+        $changes = Db::run(
+            "UPDATE acompanamiento_duda
+             SET ESTADO = 'descartado', RESOLUCION_NOTA = ?,
+                 REVIEWED_AT = datetime('now'), REVIEWED_BY = ?
+             WHERE ID_DUDA = ? AND ESTADO = 'pendiente'",
+            [$nota, Db::auditUser(), $id]
+        );
+        if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING'];
+        Db::logAdmin('DISCARD', 'acompanamiento_duda', $id, ['nota' => $nota]);
+        return ['code' => 'DISCARDED'];
     }
 }

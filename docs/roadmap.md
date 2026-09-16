@@ -100,7 +100,7 @@ P3 no se planifica.
 | Ref | Tarea | Condición / motivo de aplazamiento |
 |---|---|---|
 | **R-03** | Identificadores externos (Wikidata / MusicBrainz / VIAF) + `sameAs` en JSON-LD | Alto valor SEO/IA, pero el objetivo declarado de 2027 es dato + experiencia. Rinde más con el catálogo ya curado |
-| **N-03** | Ficha de hermandad (entidad `hermandad` + `marcha_hermandad`) | Bloqueada por el dossier de palancas: condicionada a que N-01 (dedicatorias) demuestre tráfico real — no verificable sin el tablero |
+| **N-03** | Ficha de hermandad (entidad `hermandad` + `marcha_hermandad`) | **Empezada a medias el 2026-09-07, adelantada a petición directa** (no por el criterio de tráfico de N-01). Nómina real (`hermandad`+`paso`+`contrato_paso`, migración 012) poblada para **Córdoba y Jerez**; Sevilla, Málaga, Huelva, Cádiz y Granada siguen solo con `contrato` (sin nómina). Desde 2026-09-09, `/acompanamientos/{localidad}` usa el orden real de la Semana Santa (DIA_ORDEN/ORDEN) donde hay nómina, alfabético donde no. `marcha_hermandad` y la ficha pública siguen sin empezar. Ver [acompanamientos-nomina-2026.md](acompanamientos-nomina-2026.md) |
 | **N-06** | Ingesta semi-automática de anuncios de contrato | Diferida: clasificador de texto sobre YouTube, tarea grande y abierta. **No confundir con la ingesta de streaming ya construida**: aquella descubre marchas, esta descubriría contratos |
 | **L1** | Dumps abiertos versionados (CSV/SQLite) con CC BY | El prerrequisito (licencia + página «Datos») ya está hecho en M1 |
 | **L2** | Hubs enriquecidos por advocación/hermandad con playlist | Depende de cobertura de audio (P1) |
@@ -347,6 +347,14 @@ espíritu que `dedicatoria_alias`, sin FK a una entidad `hermandad` que no exist
 aún). **Incidente del primer deploy**: la query nueva del sitemap rompió las
 ~5.700 URLs reales al no estar la tabla migrada — arreglado (try/catch aislado +
 degradado con gracia) y migración `005` aplicada el mismo día.
+
+**Recuperación del histórico (2026-09-07).** La carga masiva del 2026-08-29
+perdió el 40% de lo que estaba en ámbito y además asignó mal 234 filas, porque
+su resolutor de bandas casaba nombres sin mirar la localidad (222 filas de
+«CCTT Tres Caídas» acabaron en la banda de Arcos de la Frontera en vez de la de
+Triana). Reparado: `contrato` pasa de 1.431 a 2.507 filas. Sigue **sin migrar a
+prod**, donde la tabla está vacía. Detalle, deuda pendiente y dudas abiertas en
+[acompanamientos-nomina-2026.md](acompanamientos-nomina-2026.md).
 
 ### 6.4 Análisis UX comparativo (patrimoniomusical.com) — cerrado 2026-07-27
 

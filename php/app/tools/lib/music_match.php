@@ -529,3 +529,155 @@ function mejorDescartado(array $pista, array $tracks): array {
 function mmss(?int $seg): string {
     return $seg === null ? '' : sprintf('%d:%02d', intdiv($seg, 60), $seg % 60);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TIDAL OpenAPI  (sustituye a Odesli a partir de 2026-08-04)
+//
+//  Odesli/song.link retiró la API v1-alpha.1 el 31-07-2026.
+//  TIDAL ofrece identidad real: UPC para álbumes e ISRC para pistas, igual
+//  que hacía Odesli pero sin intermediario.
+//
+//  Requiere TIDAL_CLIENT_ID y TIDAL_CLIENT_SECRET en .env.
+//  El token de client-credentials dura 24 h (no hace falta renovarlo en un run).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Token de TIDAL (client-credentials). */
+function tidalToken(string $id, string $secret): ?string {
+    $ch = curl_init('https://auth.tidal.com/v1/oauth2/token');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query(['grant_type' => 'client_credentials']),
+        CURLOPT_USERPWD        => "$id:$secret",
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+    $res = json_decode((string) curl_exec($ch), true);
+    return $res['access_token'] ?? null;
+}
+
+/**
+ * Álbum de TIDAL por UPC (identidad: mismo número de barras en todos los catálogos).
+ * Prueba la variante de 12 y 13 dígitos como los demás repesques por UPC.
+ *
+ * @return array{url:string, id:string, titulo:string, artista:string}|null
+ */
+function albumPorUpcTidal(string $upc, string $token): ?array {
+    if ($upc === '' || $token === '') return null;
+    $variantes = [$upc];
+    if (strlen($upc) === 13 && $upc[0] === '0') $variantes[] = substr($upc, 1);
+    if (strlen($upc) === 12)                    $variantes[] = '0' . $upc;
+
+    foreach ($variantes as $u) {
+        $body = httpGet(
+            'https://openapi.tidal.com/v2/albums/byUpc?upc=' . rawurlencode($u) . '&countryCode=ES',
+            ['Authorization: Bearer ' . $token, 'Accept: application/vnd.api+json']
+        );
+        if ($body === null) continue;
+        $j = json_decode($body, true);
+        if (!is_array($j)) continue;
+        $item = $j['data'][0] ?? null;
+        if (!is_array($item) || !isset($item['id'])) continue;
+        $id = (string) $item['id'];
+        return [
+            'url'     => "https://tidal.com/browse/album/$id",
+            'id'      => $id,
+            'titulo'  => (string) ($item['attributes']['title'] ?? ''),
+            'artista' => '',   // el artista requiere incluir la relación; no necesario para guardar
+        ];
+    }
+    return null;
+}
+
+/**
+ * Pista de TIDAL por ISRC (identidad de la grabación, no búsqueda difusa).
+ * El ISRC viene de Spotify (ya lo recoge isrcsSpotify()), así que no hace falta
+ * ninguna llamada extra para tenerlo.
+ *
+ * @return array{url:string, id:string, titulo:string}|null
+ */
+function pistaPorIsrcTidal(string $isrc, string $token): ?array {
+    if ($isrc === '' || $token === '') return null;
+    $body = httpGet(
+        'https://openapi.tidal.com/v2/tracks/byIsrc?isrc=' . rawurlencode($isrc) . '&countryCode=ES',
+        ['Authorization: Bearer ' . $token, 'Accept: application/vnd.api+json']
+    );
+    if ($body === null) return null;
+    $j = json_decode($body, true);
+    if (!is_array($j)) return null;
+    $item = $j['data'][0] ?? null;
+    if (!is_array($item) || !isset($item['id'])) return null;
+    $id = (string) $item['id'];
+    return [
+        'url'    => "https://tidal.com/browse/track/$id",
+        'id'     => $id,
+        'titulo' => (string) ($item['attributes']['title'] ?? ''),
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  YouTube Data API v3  (solo nivel de pista; no hay API pública de álbumes)
+//
+//  Requiere YOUTUBE_API_KEY en .env (Google Cloud → YouTube Data API v3).
+//  Cuota gratuita: 10.000 unidades/día; cada búsqueda = 100 unidades (100/día).
+//  Los resultados se cachean en php/data/youtube_cache/ para no repetirlos.
+//
+//  No es identidad — es búsqueda por título + artista. Se aplica un umbral de
+//  similitud antes de guardar: el llamante decide si publicar o descartar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Primer vídeo musical en YouTube que coincida con título + artista.
+ *
+ * Cachea la respuesta (vacía incluida) en php/data/youtube_cache/ para no
+ * gastar cuota en reruns. Con $sinCache=true se ignora y sobreescribe la caché.
+ *
+ * @return array{url:string, id:string, titulo:string}|null
+ */
+function pistaYoutube(string $titulo, string $artista, string $apiKey, bool $sinCache = false): ?array {
+    if ($apiKey === '') return null;
+
+    $q         = trim("$titulo $artista");
+    $cacheDir  = __DIR__ . '/../../data/youtube_cache';
+    $cacheFile = $cacheDir . '/' . sha1($q) . '.json';
+
+    if (!$sinCache && is_file($cacheFile)) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        // [] en caché = búsqueda anterior sin resultado; null = fichero corrupto (reintentar)
+        if (is_array($cached)) return $cached !== [] ? $cached : null;
+    }
+
+    $url  = 'https://www.googleapis.com/youtube/v3/search?' . http_build_query([
+        'part'            => 'snippet',
+        'type'            => 'video',
+        'videoCategoryId' => '10',      // Music
+        'q'               => $q,
+        'maxResults'      => 1,
+        'key'             => $apiKey,
+    ]);
+    // Solo 2 intentos: cada reintento consume cuota aunque falle.
+    $body = httpGet($url, [], 2);
+    if ($body === null) return null;   // 403 (cuota agotada) llega aquí como null
+
+    $j = json_decode($body, true);
+    if (isset($j['error']) || empty($j['items'])) {
+        if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
+        @file_put_contents($cacheFile, '[]');   // sin resultado: cachear evita repetir la búsqueda
+        return null;
+    }
+
+    $item    = $j['items'][0];
+    $videoId = (string) ($item['id']['videoId'] ?? '');
+    if ($videoId === '') return null;
+
+    $result = [
+        'url'    => "https://www.youtube.com/watch?v=$videoId",
+        'id'     => $videoId,
+        'titulo' => (string) ($item['snippet']['title'] ?? ''),
+    ];
+    if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
+    @file_put_contents($cacheFile, (string) json_encode($result));
+    return $result;
+}

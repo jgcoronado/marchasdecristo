@@ -70,7 +70,7 @@ jobs:
 
       # Segunda pasada como entorno local. Sin ella, las secciones que aún no se
       # publican fuera de local (App\Secciones: dedicatorias, estado del
-      # catálogo, mapa y temporada) se quedarían sin ninguna prueba de
+      # catálogo, mapa y acompañamientos) se quedarían sin ninguna prueba de
       # contenido: la pasada de arriba solo puede comprobar que dan 404. El
       # config.local.php es el mismo mecanismo que usa un portátil de
       # desarrollo, y está gitignored, así que se escribe aquí y muere con el

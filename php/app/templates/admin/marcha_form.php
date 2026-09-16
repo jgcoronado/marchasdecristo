@@ -123,6 +123,12 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
         </div>
 
         <div class="field">
+            <label class="field-label" for="DATOS_INT">Datos internos</label>
+            <textarea class="input" id="DATOS_INT" name="DATOS_INT" rows="4"><?= $val('DATOS_INT') ?></textarea>
+            <p class="field-help muted small">Uso interno, no se muestra en la ficha pública: investigación sobre datación, fuentes o dudas pendientes de confirmar.</p>
+        </div>
+
+        <div class="field">
             <label class="field-label">Autor(es) <span class="muted small">· al menos uno obligatorio</span></label>
             <div id="autoresBox" class="chips">
 <?php foreach ($authors as $a): ?>

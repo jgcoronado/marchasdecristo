@@ -434,7 +434,7 @@ $tests = [
     'banda ficha 200 + JSON-LD MusicGroup' => static fn() => assertJsonLd('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', $base, 'MusicGroup'),
     'disco listado 200' => static fn() => assertStatus('/disco', 200, $base),
     'disco ficha 200 + JSON-LD MusicAlbum' => static fn() => assertJsonLd('/disco/sevilla-cofrade-vol-1-1', $base, 'MusicAlbum'),
-    // Dedicatorias, estado del catálogo, mapa y temporada no se prueban aquí:
+    // Dedicatorias, estado del catálogo, mapa y acompañamientos no se prueban aquí:
     // solo se publican en algunos entornos, así que van al bloque por modo del
     // final del fichero.
 
@@ -657,7 +657,7 @@ $tests = [
 ];
 
 // ── Secciones en maduración (App\Secciones) ─────────────────────────────────
-// Dedicatorias, estado del catálogo, mapa y temporada están terminadas pero no
+// Dedicatorias, estado del catálogo, mapa y acompañamientos están terminadas pero no
 // se publican fuera de local hasta que maduren. Lo que se prueba depende del
 // entorno que simule el servidor, así que primero se confirma cuál es: si la
 // pasada corriera contra el entorno equivocado, el grupo entero comprobaría lo
@@ -675,7 +675,7 @@ $secciones = [
     'dedicatorias'    => ['indice' => '/dedicatorias',    'internas' => ['/dedicatoria/hdad-de-los-gitanos-sevilla-1']],
     'estado-catalogo' => ['indice' => '/estado-catalogo', 'internas' => []],
     'mapa'            => ['indice' => '/mapa',            'internas' => ['/mapa/provincia/sevilla']],
-    'temporada'       => ['indice' => '/temporada',       'internas' => ['/temporada/2026']],
+    'acompanamientos' => ['indice' => '/acompanamientos', 'internas' => ['/acompanamientos/sevilla']],
 ];
 
 if ($modo === 'pro') {
@@ -721,10 +721,8 @@ if ($modo === 'pro') {
     // En local se ven enteras: es la única pasada donde se puede probar su
     // contenido, así que aquí van las pruebas de verdad de cada una.
     $tests['sección visible en local: todas responden 200'] = static function () use ($base, $secciones): void {
-        foreach ($secciones as $slug => $s) {
-            $rutas = $slug === 'temporada'
-                ? $s['internas']            // /temporada redirige 302 al año en curso
-                : array_merge([$s['indice']], $s['internas']);
+        foreach ($secciones as $s) {
+            $rutas = array_merge([$s['indice']], $s['internas']);
             foreach ($rutas as $ruta) {
                 assertStatus($ruta, 200, $base);
             }
@@ -732,7 +730,7 @@ if ($modo === 'pro') {
     };
     $tests['sección visible en local: nav, sitemap y llms.txt las anuncian'] = static function () use ($base): void {
         $home = assertStatus('/', 200, $base)['body'];
-        foreach (['/dedicatorias', '/mapa', '/temporada'] as $indice) { // estado-catalogo no está en el nav
+        foreach (['/dedicatorias', '/mapa', '/acompanamientos'] as $indice) { // estado-catalogo no está en el nav
             if (!str_contains($home, 'href="' . $indice . '"')) {
                 throw new RuntimeException("home → falta el enlace del nav a $indice");
             }
@@ -757,16 +755,9 @@ if ($modo === 'pro') {
     $tests['estado-catalogo: indexable'] = static fn() => assertNotNoIndex('/estado-catalogo', $base);
     $tests['estado-catalogo: rankings enlaza a él'] = static fn() => assertContains('/rankings', 'href="/estado-catalogo"', $base);
     $tests['mapa: la provincia se enlaza desde el índice'] = static fn() => assertContains('/mapa', 'href="/mapa/provincia/sevilla"', $base);
-    $tests['temporada: índice → 302 al año en curso'] = static function () use ($base): void {
-        $r = httpGet($base . '/temporada');
-        if ($r['status'] !== 302) {
-            throw new RuntimeException("/temporada → esperado 302, obtenido {$r['status']}");
-        }
-        if (!preg_match('#/temporada/\d{4}$#', $r['headers']['location'] ?? '')) {
-            throw new RuntimeException('/temporada → Location no apunta a /temporada/<año>');
-        }
-    };
-    $tests['temporada: el año de la fixture agrupa por hermandad'] = static fn() => assertContains('/temporada/2026', 'Hdad de los Gitanos', $base);
+    $tests['acompanamientos: índice enlaza a la localidad de la fixture'] = static fn() => assertContains('/acompanamientos', 'href="/acompanamientos/sevilla"', $base);
+    $tests['acompanamientos: la localidad agrupa por hermandad'] = static fn() => assertContains('/acompanamientos/sevilla', 'Hdad de los Gitanos', $base);
+    $tests['acompanamientos: localidad inexistente 404'] = static fn() => assertStatus('/acompanamientos/no-existe', 404, $base);
 }
 
 $failed = [];

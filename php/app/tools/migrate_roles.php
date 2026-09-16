@@ -42,6 +42,7 @@ if (!is_file($db)) {
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:migrate_roles' WHERE ID = 1");
 
     $cols = $pdo->query('PRAGMA table_info(usuarios)')->fetchAll(PDO::FETCH_COLUMN, 1);
     $yaExiste = in_array('ROL', $cols, true);

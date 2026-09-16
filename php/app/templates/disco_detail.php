@@ -94,7 +94,7 @@ $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
 <?php if ($t($d['ID_BANDA'])): ?>
     <div class="shead"><h2>Véase también</h2></div>
     <ul class="vease">
-        <li>→ <a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a> — ficha y discografía de la banda <span class="cnt">(B-<?= (int) $d['ID_BANDA'] ?>)</span></li>
+        <li><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a> — ficha y discografía de la banda <span class="cnt">B-<?= (int) $d['ID_BANDA'] ?></span></li>
     </ul>
 <?php endif; ?>
 

@@ -18,7 +18,7 @@ final class Pages
 
     /**
      * Secciones aún no publicadas fuera de local (dedicatorias, estado del
-     * catálogo, mapa y temporada): ver App\Secciones, que es donde se lista el
+     * catálogo, mapa y acompañamientos): ver App\Secciones, que es donde se lista el
      * porqué de cada una y desde donde se republican. Aquí solo se consulta,
      * en las cuatro superficies que hay que apagar a la vez: la ruta (404), el
      * nav (layout.php), el sitemap y llms.txt.
@@ -174,8 +174,12 @@ final class Pages
     public static function autorList(): void
     {
         [$criteria, $hasQuery, $page, $limit] = self::searchParams();
-        $result = $hasQuery ? Repo::searchAutores(http_build_query($criteria), $page, $limit) : null;
-        $result !== null ? Http::noStore() : Http::cachePublic(3600);
+        // Explorador: lista siempre (sin filtros = catálogo completo paginado),
+        // igual que bandaList y discoList. Antes devolvía null sin búsqueda y
+        // /autor era un campo de texto sobre una pantalla en blanco: 927
+        // compositores detrás de un formulario que no decía qué había dentro.
+        $result = Repo::searchAutores(http_build_query($criteria), $page, $limit);
+        $hasQuery ? Http::noStore() : Http::cachePublic(3600);
         View::render('autor_list', compact('criteria', 'result', 'page', 'limit'), [
             'title' => 'Buscador de compositores — Marchas de Cristo',
             'description' => 'Busca compositores de música procesional por nombre.',
@@ -968,102 +972,93 @@ final class Pages
         ]);
     }
 
-    // ── Temporada (N-04): contratos banda↔hermandad, alta manual por ahora ──
-    public static function temporadaIndex(): void
+    // ── Acompañamientos (N-04, rehecho 2026-08-29): históricos banda↔hermandad
+    // por localidad y paso — reemplaza a /temporada, que agrupaba por año y
+    // solo enseñaba una temporada cada vez. ─────────────────────────────────
+    public static function acompanamientosIndex(): void
     {
-        if (!self::seccionVisible(Secciones::TEMPORADA)) {
+        if (!self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
             Http::notFound();
         }
-        Http::redirect('/temporada/' . gmdate('Y'), 302);
-    }
-
-    public static function temporada(array $p): void
-    {
-        if (!self::seccionVisible(Secciones::TEMPORADA)) {
-            Http::notFound();
-        }
-        $anio = (string) $p['anio'];
-        if (preg_match('/^\d{4}$/', $anio) !== 1) {
-            Http::notFound();
-        }
-        // Igual que /aniversarios: no hay un universo cerrado de "años válidos"
-        // (cualquier temporada, pasada o futura, es un destino legítimo una vez
-        // haya contratos), así que se acota el rango en vez de dejarlo abierto a
-        // un espacio infinito de URLs sin contenido.
-        $anioActual = (int) gmdate('Y');
-        if ((int) $anio < 2020 || (int) $anio > $anioActual + 2) {
-            Http::notFound();
-        }
-
-        // Fallback defensivo: la tabla `contrato` (005_contrato.sql) necesita
-        // una migración manual en el host que puede no haberse aplicado aún
-        // (mismo mecanismo que P-07, ver docs/pendientes-post-cutover.md). Sin
-        // esto, visitar la página antes de migrar da un 500 crudo en vez de
-        // "todavía no hay contratos" — que es, en la práctica, el mismo estado.
-        try {
-            $contratos = Repo::temporada($anio);
-        } catch (\Throwable $e) {
-            error_log('[temporada] ' . $e->getMessage());
-            $contratos = [];
-        }
-        // Agrupado por hermandad (comportamiento original) + una "ciudad"
-        // heurística por hermandad: la localidad más frecuente entre las
-        // bandas que le tocan ese año. Es una aproximación deliberada
-        // mientras no existe la entidad `hermandad` real (N-03): sirve para
-        // no mezclar en una sola lista plana las hermandades de varias
-        // localidades (Sevilla, Málaga, ...) a medida que se cargan más
-        // temporadas. Ver docs/n03-hermandad.md para el reemplazo definitivo.
-        $grupos = [];
-        foreach ($contratos as $c) {
-            $key = (string) $c['HERMANDAD_SLUG'];
-            $grupos[$key]['nombre'] ??= $c['HERMANDAD'];
-            $grupos[$key]['items'][] = $c;
-            $loc = trim((string) ($c['BANDA_LOCALIDAD'] ?? ''));
-            if ($loc !== '') {
-                $grupos[$key]['localidades'][$loc] = ($grupos[$key]['localidades'][$loc] ?? 0) + 1;
-            }
-        }
-        foreach ($grupos as $key => &$g) {
-            $locs = $g['localidades'] ?? [];
-            arsort($locs);
-            $g['ciudad'] = $locs === [] ? 'Sin localidad' : (string) array_key_first($locs);
-            unset($g['localidades']);
-        }
-        unset($g);
-
-        $porCiudad = [];
-        foreach ($grupos as $key => $g) {
-            $porCiudad[$g['ciudad']][$key] = $g;
-        }
-        ksort($porCiudad, SORT_STRING);
-        // Dentro de cada ciudad, las hermandades NO se alfabetizan: se dejan
-        // en el orden en que llegaron desde Repo::temporada() (ID_CONTRATO
-        // ASC = orden del CSV de origen: día → hermandad → paso). Mismo
-        // criterio para los acompañamientos de cada hermandad (ya venían así
-        // en $g['items']).
-
         $base = self::base();
-        $canonical = $base . '/temporada/' . $anio;
-        $h1 = "Temporada $anio";
-        $desc = "Qué banda toca este año tras cada paso: contratos de la temporada $anio por hermandad y localidad.";
+        $localidades = [];
+        try {
+            $localidades = Repo::acompanamientosLocalidades();
+        } catch (\Throwable $e) {
+            error_log('[acompanamientos] ' . $e->getMessage());
+        }
+        $canonical = $base . '/acompanamientos';
+        $h1 = 'Acompañamientos';
+        $desc = 'Qué banda ha tocado cada año tras cada paso de Cristo, hermandad a hermandad — por localidad.';
 
         Http::cachePublic(3600);
-        View::render('temporada', [
+        View::render('acompanamientos_index', [
             'h1' => $h1,
-            'anio' => $anio,
-            'porCiudad' => $porCiudad,
+            'localidades' => $localidades,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,
             'canonical' => $canonical,
-            // Alta manual, todavía sin datos casi siempre: no indexar una
-            // temporada vacía o con apenas 1-2 contratos (thin), igual que
-            // los demás hubs con Repo::HUB_MIN_MARCHAS.
-            'noindex' => count($contratos) < Repo::HUB_MIN_MARCHAS,
+            'noindex' => array_sum(array_column($localidades, 'N')) < Repo::HUB_MIN_MARCHAS,
             'jsonld' => [
                 Seo::breadcrumbs([
                     ['name' => 'Inicio', 'url' => $base],
                     ['name' => $h1, 'url' => $canonical],
+                ]),
+            ],
+        ]);
+    }
+
+    public static function acompanamientos(array $p): void
+    {
+        if (!self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
+            Http::notFound();
+        }
+        $slug = (string) $p['localidad'];
+        $localidad = null;
+        $contratos = [];
+        // Fallback defensivo, igual que antes en /temporada: la tabla
+        // `contrato` puede no estar migrada aún en este host.
+        try {
+            $localidad = Repo::resolverLocalidadPorSlug($slug);
+            if ($localidad !== null) {
+                $contratos = Repo::acompanamientosPorLocalidad($localidad);
+            }
+        } catch (\Throwable $e) {
+            error_log('[acompanamientos] ' . $e->getMessage());
+        }
+        // Slug que no resuelve a ninguna localidad con datos = 404, igual que
+        // cualquier otro slug desconocido del sitio — no hay universo cerrado
+        // de localidades válidas que listar aparte.
+        if ($localidad === null) {
+            Http::notFound();
+        }
+
+        $hermandades = Repo::agruparAcompanamientos($contratos);
+
+        $base = self::base();
+        $canonical = $base . '/acompanamientos/' . $slug;
+        $h1 = "Acompañamientos — $localidad";
+        $desc = "Qué banda ha tocado cada año tras cada paso de Cristo en $localidad, hermandad a hermandad.";
+
+        Http::cachePublic(3600);
+        View::render('acompanamientos', [
+            'h1' => $h1,
+            'localidad' => $localidad,
+            'hermandades' => $hermandades,
+        ], [
+            'title' => "$h1 — Marchas de Cristo",
+            'description' => $desc,
+            'canonical' => $canonical,
+            // Todavía de alta manual: no indexar una localidad vacía o con
+            // apenas 1-2 contratos (thin), igual que los demás hubs con
+            // Repo::HUB_MIN_MARCHAS.
+            'noindex' => count($contratos) < Repo::HUB_MIN_MARCHAS,
+            'jsonld' => [
+                Seo::breadcrumbs([
+                    ['name' => 'Inicio', 'url' => $base],
+                    ['name' => 'Acompañamientos', 'url' => $base . '/acompanamientos'],
+                    ['name' => $localidad, 'url' => $canonical],
                 ]),
             ],
         ]);
@@ -1177,23 +1172,21 @@ final class Pages
             error_log('[sitemap] ' . $e->getMessage());
         }
 
-        // Temporada (N-04) en su propio try: tabla nueva (005_contrato.sql) que
-        // necesita una migración manual en el host (ver docs/pendientes-post-cutover.md)
-        // — si aún no se ha aplicado, esto no debe tumbar el resto del sitemap
-        // (ya pasó: el primer deploy de N-04 dejó el sitemap sin fichas de marcha
-        // porque la consulta vivía dentro del try principal, más arriba).
-        // Sin publicar fuera de local (ver App\Secciones): listar aquí una URL
-        // que el propio sitio responde con 404 sería peor para el sitemap que
-        // omitirla.
-        if (self::seccionVisible(Secciones::TEMPORADA)) {
+        // Acompañamientos (N-04) en su propio try: misma razón que antes con
+        // /temporada — tabla nueva que necesita migración manual en el host
+        // (ver docs/pendientes-post-cutover.md), no debe tumbar el resto del
+        // sitemap si aún no se ha aplicado. Sin publicar fuera de local (ver
+        // App\Secciones): listar aquí una URL que el propio sitio responde
+        // con 404 sería peor para el sitemap que omitirla.
+        if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
             try {
-                foreach (Repo::aniosConTemporada() as $r) {
+                foreach (Repo::acompanamientosLocalidades() as $r) {
                     if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
-                        $urls[] = [$base . '/temporada/' . $r['K'], 'weekly', '0.5'];
+                        $urls[] = [$base . '/acompanamientos/' . Slug::slugify((string) $r['LOCALIDAD']), 'weekly', '0.5'];
                     }
                 }
             } catch (Throwable $e) {
-                error_log('[sitemap:temporada] ' . $e->getMessage());
+                error_log('[sitemap:acompanamientos] ' . $e->getMessage());
             }
         }
 
@@ -1444,8 +1437,8 @@ final class Pages
         if (self::seccionVisible(Secciones::MAPA)) {
             $lines[] = '- [Mapa](' . $base . '/mapa)';
         }
-        if (self::seccionVisible(Secciones::TEMPORADA)) {
-            $lines[] = '- [Temporada](' . $base . '/temporada)';
+        if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
+            $lines[] = '- [Acompañamientos](' . $base . '/acompanamientos)';
         }
         $lines[] = '- [Mapa del sitio](' . $base . '/sitemap.xml)';
         $lines[] = '';

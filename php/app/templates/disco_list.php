@@ -25,7 +25,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <span class="rescount">Discos — <b><?= $num($total) ?></b> registros</span>
+        <h1 class="rescount">Discos — <b><?= $num($total) ?></b> registros</h1>
         <?= H::porPagina($limit, '/disco', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
@@ -50,9 +50,9 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
         </form>
     </details>
 
-    <div class="results-layout">
-        <aside class="facet-rail">
-            <div class="rail-title">Refinar por</div>
+    <details class="facet-rail-toggle">
+        <summary class="rail-title">Refinar por</summary>
+        <div class="facet-groups">
 <?php if ($facets['decada'] !== []): ?>
             <div class="fgroup">
                 <div class="ftitle">Década</div>
@@ -63,9 +63,10 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <?php endforeach; ?>
             </div>
 <?php endif; ?>
-        </aside>
+        </div>
+    </details>
 
-        <section>
+    <section>
 <?php if ($total === 0): ?>
             <p class="bio-empty">No se han encontrado discos con esos criterios.</p>
 <?php else: ?>
@@ -108,6 +109,5 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             </div>
             <?= H::pagination($page, $total, $limit, '/disco', $criteria) ?>
 <?php endif; ?>
-        </section>
-    </div>
+    </section>
 </div>

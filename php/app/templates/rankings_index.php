@@ -24,7 +24,9 @@ krsort($decadas);
         está el <a href="/estado-catalogo">estado del catálogo</a>.<?php endif; ?></p>
 
     <div class="stack">
-        <details class="collapse">
+        <?php /* El primero va abierto: /rankings se abría con cuatro barras
+                 cerradas y ni un dato a la vista. */ ?>
+        <details class="collapse" open>
             <summary class="collapse-title">Autores que más marchas han compuesto</summary>
             <div class="collapse-content">
                 <div class="tableList">

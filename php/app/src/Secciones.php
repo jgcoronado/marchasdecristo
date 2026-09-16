@@ -31,7 +31,7 @@ final class Secciones
     public const DEDICATORIAS = 'dedicatorias';
     public const ESTADO_CATALOGO = 'estado-catalogo';
     public const MAPA = 'mapa';
-    public const TEMPORADA = 'temporada';
+    public const ACOMPANAMIENTOS = 'acompanamientos';
 
     /**
      * Secciones no publicadas todavía fuera de local, con el motivo por el que
@@ -51,9 +51,12 @@ final class Secciones
         // N-10 · Pendiente de corregir el solape de dianas de clic entre
         // municipios próximos (Castilleja de la Cuesta / Tomares).
         self::MAPA => 'Mapa',
-        // N-04 · `contrato` es de alta manual y todavía no tiene datos de
-        // calidad suficiente para una página pública.
-        self::TEMPORADA => 'Temporada',
+        // N-04 · `contrato` es de alta manual (rehecho 2026-08-29: por
+        // localidad → hermandad, con alta en rango de años); el histórico de
+        // Sevilla ya tiene volumen real pero el campo TITULAR sigue con
+        // variantes de redacción sin normalizar (ver aviso a Javier del
+        // 2026-08-29) — se enseña primero en local/PRE hasta limpiarlo.
+        self::ACOMPANAMIENTOS => 'Acompañamientos',
     ];
 
     /** ¿Se muestra $seccion en este entorno? */

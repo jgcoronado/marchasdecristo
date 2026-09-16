@@ -46,6 +46,7 @@ function aAnio(mixed $v): ?int
 
 try {
     $pdo = new PDO('sqlite:' . $db, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $pdo->exec("UPDATE log_actor SET ACTOR = 'cli:migrate_banda_relacion' WHERE ID = 1");
 
     // 1) Backup consistente antes de nada.
     $backupDir = dirname($db) . '/backups';
