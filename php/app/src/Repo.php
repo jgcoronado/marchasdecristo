@@ -244,7 +244,8 @@ final class Repo
         $rows = Db::all(
             "SELECT m.ID_MARCHA, m.TITULO, m.DEDICATORIA, m.LOCALIDAD, m.PROVINCIA, m.AUDIO, m.FECHA,
                     m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE,
-                    (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB
+                    (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB,
+                    EXISTS (SELECT 1 FROM enlace_streaming es WHERE es.TIPO_ENT = 'marcha' AND es.ID_ENT = m.ID_MARCHA) AS TIENE_RRSS
              FROM marcha m
              LEFT OUTER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              WHERE $baseWhere
@@ -702,13 +703,72 @@ final class Repo
         return $mejor;
     }
 
+    /**
+     * Año de nacimiento en formato libre (adv-form /autor): 4 dígitos tal
+     * cual, o los 2 últimos interpretados como 19XX — el catálogo no tiene
+     * compositores nacidos en el s. XXI, así que no hace falta desambiguar
+     * más. Entrada que no encaja en ninguno de los dos formatos se ignora.
+     */
+    private static function normalizeAnio(string $raw): ?int
+    {
+        $raw = trim($raw);
+        if (preg_match('/^\d{4}$/', $raw) === 1) return (int) $raw;
+        if (preg_match('/^\d{2}$/', $raw) === 1) return (int) ('19' . $raw);
+        return null;
+    }
+
+    /** Provincia con más marchas dedicadas entre las de un autor (bare, para el WHERE). */
+    private const AUTOR_TOP_PROVINCIA_SQL = "(SELECT m2.PROVINCIA FROM marcha_autor ma2
+         JOIN marcha m2 ON m2.ID_MARCHA = ma2.ID_MARCHA
+         WHERE ma2.ID_AUTOR = a.ID_AUTOR AND m2.PROVINCIA IS NOT NULL AND m2.PROVINCIA != ''
+         GROUP BY m2.PROVINCIA ORDER BY COUNT(*) DESC, m2.PROVINCIA ASC LIMIT 1)";
+
+    /**
+     * WHERE + values de la búsqueda de compositores. $exclude omite un
+     * criterio (para facetas futuras, misma convención que bandaWhere/marchaWhere).
+     * @return array{0:string,1:list<mixed>}
+     */
+    private static function autorWhere(array $params, ?string $exclude = null): array
+    {
+        $conditions = [];
+        $values = [];
+        $on = static fn(string $k): bool => $k !== $exclude && !empty($params[$k]);
+
+        $nombre = $exclude !== 'nombre' ? (string) ($params['nombre'] ?? '') : '';
+        $fts = $nombre !== '' ? self::buildFtsQuery($nombre) : null;
+        if ($fts !== null) {
+            $conditions[] = 'a.ID_AUTOR IN (SELECT rowid FROM autor_fts WHERE autor_fts MATCH ?)';
+            $values[] = $fts;
+        }
+
+        $nacDesde = $exclude !== 'nacDesde' ? self::normalizeAnio((string) ($params['nacDesde'] ?? '')) : null;
+        if ($nacDesde !== null) { $conditions[] = 'a.F_NAC >= ?'; $values[] = $nacDesde; }
+
+        $nacHasta = $exclude !== 'nacHasta' ? self::normalizeAnio((string) ($params['nacHasta'] ?? '')) : null;
+        if ($nacHasta !== null) { $conditions[] = 'a.F_NAC <= ?'; $values[] = $nacHasta; }
+
+        // Sentinelas heredados de la era MySQL: F_DEF llega como 0 cuando no
+        // hay fecha de defunción (mismo patrón que FECHA_FUND/FECHA_EXT de banda).
+        if ($on('fallecido')) { $conditions[] = '(a.F_DEF IS NOT NULL AND a.F_DEF != 0)'; }
+
+        if ($on('minMarchas') && ctype_digit((string) $params['minMarchas'])) {
+            $conditions[] = '(SELECT COUNT(*) FROM marcha_autor ma3 WHERE ma3.ID_AUTOR = a.ID_AUTOR) > ?';
+            $values[] = (int) $params['minMarchas'];
+        }
+
+        if ($on('provincia')) {
+            $conditions[] = self::AUTOR_TOP_PROVINCIA_SQL . ' = ?';
+            $values[] = $params['provincia'];
+        }
+
+        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        return [$where, $values];
+    }
+
     public static function searchAutores(string $query, int $page = 1, int $limit = 20): array
     {
         parse_str($query, $params);
-        $nombre = (string) ($params['nombre'] ?? '');
-        $fts = $nombre !== '' ? self::buildFtsQuery($nombre) : null;
-        $where = $fts !== null ? 'a.ID_AUTOR IN (SELECT rowid FROM autor_fts WHERE autor_fts MATCH ?)' : '1=1';
-        $values = $fts !== null ? [$fts] : [];
+        [$where, $values] = self::autorWhere($params);
 
         $countRow = Db::one("SELECT COUNT(*) AS n FROM autor a WHERE $where", $values);
         $totalRows = (int) ($countRow['n'] ?? 0);
@@ -716,7 +776,11 @@ final class Repo
 
         $rows = Db::all(
             "SELECT a.*, (a.NOMBRE || ' ' || a.APELLIDOS) AS NOMBRE_COMPLETO,
-                    (SELECT COUNT(ma.ID_MARCHA) FROM marcha_autor ma WHERE ma.ID_AUTOR = a.ID_AUTOR) AS MARCHAS
+                    (SELECT COUNT(ma.ID_MARCHA) FROM marcha_autor ma WHERE ma.ID_AUTOR = a.ID_AUTOR) AS MARCHAS,
+                    (SELECT m2.PROVINCIA || '|' || COUNT(*) FROM marcha_autor ma2
+                     JOIN marcha m2 ON m2.ID_MARCHA = ma2.ID_MARCHA
+                     WHERE ma2.ID_AUTOR = a.ID_AUTOR AND m2.PROVINCIA IS NOT NULL AND m2.PROVINCIA != ''
+                     GROUP BY m2.PROVINCIA ORDER BY COUNT(*) DESC, m2.PROVINCIA ASC LIMIT 1) AS TOP_PROVINCIA_N
              FROM autor a WHERE $where ORDER BY a.APELLIDOS ASC LIMIT ? OFFSET ?",
             [...$values, $limit, $offset]
         );

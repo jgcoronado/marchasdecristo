@@ -436,7 +436,7 @@ footer .inner a:hover { color: var(--acc); text-decoration: underline; }
 .row { display: flex; gap: 0.5rem; }
 .muted { color: var(--muted-c); font-size: 0.88rem; }
 .small { font-size: 0.9rem; }
-.nums { font-variant-numeric: tabular-nums; }
+.nums { font-variant-numeric: tabular-nums; text-align: right; }
 .hidden { display: none; }
 
 /* 2026-09-15: el h1 medía 1,55rem, apenas medio paso por encima del cuerpo, y
@@ -665,11 +665,6 @@ details.adv[open] > summary::before { content: "▾"; }
 .adv-rango span { color: var(--faint); }
 .adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
 .adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
-.results-layout { display: grid; grid-template-columns: 1fr; gap: var(--sp-4); align-items: start; }
-@media (min-width: 720px) { .results-layout { grid-template-columns: 12.5rem 1fr; } }
-/* Con --wrap-ancho la barra de facetas puede respirar sin comerse la tabla:
-   los nombres de provincia ("Santa Cruz de Tenerife") dejan de partirse. */
-@media (min-width: 1080px) { .results-layout { grid-template-columns: 14.5rem 1fr; gap: var(--sp-5); } }
 /* Varios bloques llevan su propio tope de --wrap porque se usan sueltos en
    vistas estrechas (.tableList, .cdlist, .divider, .headDetail). En una página
    de catálogo ese tope sobra: deja la tabla centrada con dos franjas vacías a
@@ -690,33 +685,33 @@ body.p-catalogo .asiento,
 body.p-catalogo .notas,
 body.p-catalogo .welcome-text,
 body.p-catalogo .search-info { max-width: 46rem; }
-/* min-width: 0 en las dos columnas. Sin esto, un ítem de grid conserva su
-   min-width:auto (= ancho mínimo del contenido) y una faceta larga
-   ("Adaptación marcha de banda de música" + su recuento empujado con
-   margin-left:auto) hace la barra más ancha que la columna: medido en un
-   viewport de 390px, .facet-rail ocupaba 469px y la página tenía 485px de
-   scroll horizontal con los recuentos fuera de pantalla. Pasaba igual en
-   /disco (414px) y /banda (402px). */
-.results-layout > * { min-width: 0; }
-.facet-rail { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
-/* Red de seguridad solo en una columna (móvil), donde la etiqueta ocupa el
-   ancho entero: el recuento baja de línea antes que salirse. En escritorio la
-   barra tiene 14,5rem y el texto ya parte solo dentro de su línea, así que el
-   recuento se queda arriba a la derecha, que es donde se compara mejor. */
+/* Red de seguridad solo en móvil, donde cada .fgroup ocupa el ancho entero:
+   el recuento baja de línea antes que salirse. En pantallas más anchas los
+   grupos de .facet-groups quedan bastante más estrechos y el texto ya parte
+   solo dentro de su línea, así que el recuento se queda arriba a la derecha,
+   que es donde se compara mejor. */
 @media (max-width: 719px) { a.fopt { flex-wrap: wrap; } }
-/* En una sola columna la barra de facetas va DESPUÉS de los resultados. Medido
-   a 390x844 antes de esto: en /marcha la barra ocupaba 888px de alto y la
-   primera marcha no aparecía hasta el píxel 1.238, casi pantalla y media de
-   scroll para ver un solo dato (/banda 747, /disco 598). El explorador se abre
-   enseñando lo que hay; refinar es el segundo paso, no el primero. */
-@media (max-width: 719px) { .facet-rail { order: 2; } }
 .rail-title { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; padding-bottom: 0.3rem; border-bottom: 1px solid var(--line); margin-bottom: 0.15rem; }
+/* Panel de facetas colapsable y cerrado por defecto, fuera de cualquier grid:
+   la tabla de abajo usa el ancho entero de la página en vez de dejar una
+   columna en blanco a su izquierda. Mismo comportamiento en /marcha, /banda
+   y /disco. */
+.facet-rail-toggle { border-top: 1px solid var(--line); padding-top: 0.5rem; margin-top: 0.5rem; }
+.facet-rail-toggle > summary { cursor: pointer; list-style: none; }
+.facet-rail-toggle > summary::-webkit-details-marker { display: none; }
+.facet-rail-toggle > summary::before { content: "▸"; font-size: 0.7em; color: var(--faint); margin-right: 0.35rem; }
+.facet-rail-toggle[open] > summary::before { content: "▾"; }
+/* Abierto, los grupos van en fila (como columnas de una barra), no apilados a
+   todo el ancho: un solo grupo ("Refinar por" > Tipo) no tiene sentido a 60rem. */
+.facet-groups { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-5); margin-top: 0.6rem; }
+.facet-groups .fgroup { flex: 1 1 12rem; min-width: 10rem; }
 .fgroup .ftitle { font-size: 0.88rem; font-weight: 600; color: var(--muted-c); margin-bottom: 0.3rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--line); }
 a.fopt { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.92rem; padding: 0.22rem 0; color: var(--ink); text-decoration: none; }
 a.fopt:hover { color: var(--acc); text-decoration: none; }
 a.fopt.on { color: var(--acc); font-weight: 600; }
 a.fopt .x { color: var(--faint); font-size: 0.84rem; }
 a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ico-col { width: 3.2rem; text-align: center; }
 
 /* ── Tablas (listados generales) ────────────────────────────────────────── */
 .tableList { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); width: 100%; max-width: var(--wrap); margin: 0 auto; }
@@ -751,6 +746,8 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .form-grid { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
 .field-label { font-size: 0.8rem; font-weight: 600; color: var(--muted-c); }
+.field-check { flex-direction: row; align-items: center; gap: 0.5rem; }
+.field-check .field-label { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; font-size: 0.9rem; color: var(--ink); cursor: pointer; }
 .input, .select {
     width: 100%; padding: 0.4rem 0.6rem; font: inherit; font-size: 0.9rem;
     border: 1px solid var(--line-ctrl); border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
@@ -787,8 +784,14 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
     font-family: var(--serif); font-weight: 600;
     font-size: clamp(1.9rem, 5.5vw, 2.8rem); line-height: 1.05;
     letter-spacing: -0.025em; margin: 0 0 0.6rem; text-wrap: balance;
+    text-align: center;
 }
 .welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; max-width: 42rem; color: var(--muted-c); text-wrap: pretty; }
+/* La home ensancha el bloque de bienvenida al ancho entero de .stack.home
+   (54rem, --wrap): a 42rem dejaba una franja vacía a la derecha que no
+   tiene la justificación de "línea de lectura cómoda" que sí tiene en las
+   páginas de catálogo (esas conservan el tope, ver body.p-catalogo abajo). */
+.stack.home .welcome-text { max-width: none; text-align: center; }
 /* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
    párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
    pasan a fila de cifras, con el número en serif al tamaño de un titular y la
@@ -801,21 +804,28 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
     font-variant-numeric: tabular-nums;
 }
 @media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
-.welcome-counts .cifra { display: flex; flex-direction: column; gap: 0.1rem; }
+.welcome-counts .cifra { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.1rem; }
 .welcome-counts .cifra b { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
 .welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }
 .section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--ink); margin: 0 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
 .ultimas { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
-.ultima-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 1rem; text-decoration: none; color: inherit; }
+/* Tres columnas puramente organizativas (título / autor+banda / fecha), sin
+   nada que las delate como tales: mismo fondo, sin filetes entre ellas. Solo
+   alinean cada dato bajo el mismo del resto de filas, como en una tabla mental. */
+.ultima-row {
+    display: grid; grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) auto;
+    align-items: center; gap: 0.25rem 1rem; padding: 0.7rem 1rem;
+    text-decoration: none; color: inherit;
+}
 /* Solo dentro de la lista: la "Marcha del día" usa .ultima-row suelta y no
    debe salir teñida. */
 .ultimas .ultima-row:nth-child(even) { background: var(--zebra); }
 .ultima-row:hover { background: var(--s2); text-decoration: none; }
-.ultima-main { min-width: 0; }
-.ultima-title { display: block; font-weight: 600; font-size: 1rem; color: var(--acc); }
+.ultima-title { min-width: 0; font-weight: 600; font-size: 1rem; color: var(--acc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ultima-meta { min-width: 0; display: flex; flex-direction: column; }
 .ultima-authors { display: block; font-size: 0.9rem; color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ultima-banda { display: block; font-size: 0.86rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
