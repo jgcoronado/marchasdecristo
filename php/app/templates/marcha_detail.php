@@ -158,7 +158,7 @@ $ordenable = count($m['discos']) > 2; ?>
             <th data-type="num">Año<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
             <th>Grabación<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
             <th>Banda<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
-            <th data-type="num">Duración<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
+            <th data-type="num" class="mobile-hide">Duración<?php if ($ordenable): ?> <span class="ar">↕</span><?php endif; ?></th>
         </tr></thead>
         <tbody>
 <?php foreach ($m['discos'] as $d):
@@ -172,7 +172,7 @@ $ordenable = count($m['discos']) > 2; ?>
                          abre con intro de percusión (~40 s de tambores), se marca
                          con el icono para explicar por qué es más larga que las
                          demás; el descuento solo se aplica al calcular la mediana. */ ?>
-                <td><?php if (!empty($d['DURACION_SEG'])): ?>
+                <td class="mobile-hide"><?php if (!empty($d['DURACION_SEG'])): ?>
                     <?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?><span class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)" aria-label="Con introducción de percusión">perc</span><?php endif; ?>
                 <?php else: ?><span class="muted">—</span><?php endif; ?></td>
             </tr>

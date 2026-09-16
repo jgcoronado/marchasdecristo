@@ -75,7 +75,7 @@ $ppal = $a['BANDA_PPAL'] ?? null;
             <th>Marcha <span class="ar">↕</span></th>
             <th data-type="num">Año <span class="ar">↕</span></th>
             <th>Banda de estreno <span class="ar">↕</span></th>
-            <th class="num" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($a['marchas'] as $m): ?>
@@ -83,7 +83,7 @@ $ppal = $a['BANDA_PPAL'] ?? null;
                 <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
                 <td><?= $t($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
                 <td><?php if ($t($m['BANDA_ESTRENO'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="num"><?= (int) $m['N_GRAB'] ?></td>
+                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>

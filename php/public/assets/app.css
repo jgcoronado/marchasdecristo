@@ -562,6 +562,14 @@ a.svc:hover { border-color: var(--acc); }
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
 .scrollx { overflow-x: auto; }
 table.reg { width: 100%; border-collapse: collapse; font-size: 0.95rem; font-variant-numeric: tabular-nums; margin-top: 0.5rem; }
+/* iOS Safari "boostea" el texto dentro de <td>/<th> en columnas estrechas
+   como ayuda de lectura, aparte de cualquier zoom de página — el
+   -webkit-text-size-adjust:100% en <html> NO lo desactiva dentro de tablas.
+   Es el motivo más probable del desbordamiento horizontal visto en
+   /disco/{id} (sep-2026): en Chromium/DevTools la tabla ajusta a 100% sin
+   problema, así que el bug solo aparece en un iPhone real. */
+table.reg, table.reg th, table.reg td,
+.table, .table th, .table td { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 table.reg thead th { text-align: left; font-size: 0.88rem; color: var(--muted-c); font-weight: 600; border-bottom: 1px solid var(--line); padding: 0.4rem 0.7rem; white-space: nowrap; }
 table.reg[data-sortable] thead th { cursor: pointer; user-select: none; }
 table.reg thead th .ar { color: var(--faint); font-size: 0.78rem; }
@@ -1013,6 +1021,28 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
        pasa a ir encima, con la misma fila alterna de fondo. */
     dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }
     .record { padding: 1.2rem 1rem 1.4rem; }
+    /* Tablas de fichas y listados (table.reg / .table): en escritorio cada
+       columna respira, pero en móvil la cabecera con white-space:nowrap y
+       el padding de escritorio fuerzan un ancho mínimo mayor que la
+       pantalla y obligan a scroll horizontal para leer la tabla entera
+       (visto en /disco/{id}, sep-2026). Se condensa tipografía y relleno,
+       se deja partir la cabecera en dos líneas, se quita la flecha de
+       orden (decorativa, no aporta al ancho) y se ocultan las columnas
+       menos esenciales marcadas con .mobile-hide en la propia plantilla
+       (secuencia ya implícita en el orden de fila, o metadato secundario).
+       El .scrollx se mantiene como red de seguridad en listados muy anchos
+       (p. ej. /marcha con 7 columnas) que ni así terminan de caber. */
+    table.reg, .table { font-size: 0.82rem; }
+    table.reg thead th, .table thead th, .table th {
+        padding: 0.32rem 0.4rem;
+        font-size: 0.72rem;
+        white-space: normal;
+        line-height: 1.15;
+    }
+    table.reg tbody td, .table td { padding: 0.36rem 0.4rem; }
+    table.reg thead th .ar { display: none; }
+    a.sortcol { white-space: normal; }
+    .mobile-hide { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }

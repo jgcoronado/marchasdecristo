@@ -90,7 +90,7 @@ $hayFiltro = $val('nombre') !== '' || $hayFiltroAvanzado;
         <div class="scrollx tableList">
             <table class="table table-zebra table-sm">
                 <thead><tr>
-                    <th>Nombre</th><th class="nums">Nacimiento</th><?php if ($hayDefuncion): ?><th>Defunción</th><?php endif; ?><th class="nums">Marchas</th><th>Mayoría de marchas</th>
+                    <th>Nombre</th><th class="nums">Nacimiento</th><?php if ($hayDefuncion): ?><th class="mobile-hide">Defunción</th><?php endif; ?><th class="nums">Marchas</th><th class="mobile-hide">Mayoría de marchas</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $a): ?>
@@ -98,10 +98,10 @@ $hayFiltro = $val('nombre') !== '' || $hayFiltroAvanzado;
                         <td><a href="<?= V::e(S::buildDetailPath('autor', $a['ID_AUTOR'], (string) $a['NOMBRE_COMPLETO'])) ?>"><?= V::e($a['NOMBRE_COMPLETO']) ?></a></td>
                         <td class="nums"><?= $anio($a['F_NAC']) ?></td>
 <?php if ($hayDefuncion): ?>
-                        <td><?= $defuncion($a['F_DEF']) ?></td>
+                        <td class="mobile-hide"><?= $defuncion($a['F_DEF']) ?></td>
 <?php endif; ?>
                         <td class="nums"><?= V::e($a['MARCHAS']) ?></td>
-                        <td><?= V::e($mayoria($a['TOP_PROVINCIA_N'])) ?></td>
+                        <td class="mobile-hide"><?= V::e($mayoria($a['TOP_PROVINCIA_N'])) ?></td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>

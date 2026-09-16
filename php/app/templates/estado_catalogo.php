@@ -31,7 +31,7 @@ $nBandas = count($porBanda);
         <thead><tr>
             <th data-type="num">Año <span class="ar">↕</span></th>
             <th data-type="num">Marchas <span class="ar">↕</span></th>
-            <th data-type="num">Con audio <span class="ar">↕</span></th>
+            <th data-type="num" class="mobile-hide">Con audio <span class="ar">↕</span></th>
             <th data-type="num">Cobertura <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
@@ -39,7 +39,7 @@ $nBandas = count($porBanda);
             <tr>
                 <td><a href="/marcha/ano/<?= (int) $a['K'] ?>"><?= (int) $a['K'] ?></a></td>
                 <td><?= $num($a['TOTAL']) ?></td>
-                <td><?= $num($a['CON_AUDIO']) ?></td>
+                <td class="mobile-hide"><?= $num($a['CON_AUDIO']) ?></td>
                 <td><?= $pct($a['PCT']) ?></td>
             </tr>
 <?php endforeach; ?>
@@ -62,7 +62,7 @@ $nBandas = count($porBanda);
         <thead><tr>
             <th>Banda <span class="ar">↕</span></th>
             <th data-type="num">Marchas <span class="ar">↕</span></th>
-            <th data-type="num">Con audio <span class="ar">↕</span></th>
+            <th data-type="num" class="mobile-hide">Con audio <span class="ar">↕</span></th>
             <th data-type="num">Cobertura <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
@@ -70,7 +70,7 @@ $nBandas = count($porBanda);
             <tr>
                 <td><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['BANDA'])) ?>"><?= V::e($b['BANDA']) ?></a></td>
                 <td><?= $num($b['TOTAL']) ?></td>
-                <td><?= $num($b['CON_AUDIO']) ?></td>
+                <td class="mobile-hide"><?= $num($b['CON_AUDIO']) ?></td>
                 <td><?= $pct($b['PCT']) ?></td>
             </tr>
 <?php endforeach; ?>

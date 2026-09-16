@@ -127,19 +127,19 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
                     <col style="width:30%">
                     <col style="width:20%">
                     <col style="width:5%">
-                    <col style="width:20%">
-                    <col style="width:15%">
-                    <col style="width:5%">
-                    <col style="width:5%">
+                    <col style="width:20%" class="mobile-hide">
+                    <col style="width:15%" class="mobile-hide">
+                    <col style="width:5%" class="mobile-hide">
+                    <col style="width:5%" class="mobile-hide">
                 </colgroup>
                 <thead><tr>
                     <th>Marcha</th>
                     <th>Compositor</th>
                     <th>Año</th>
-                    <th>Dedicatoria</th>
-                    <th>Localidad</th>
-                    <th class="ico-col" title="¿Tiene enlace de RRSS?">RRSS</th>
-                    <th class="ico-col" title="¿Grabada en algún disco?">Grabada</th>
+                    <th class="mobile-hide">Dedicatoria</th>
+                    <th class="mobile-hide">Localidad</th>
+                    <th class="ico-col mobile-hide" title="¿Tiene enlace de RRSS?">RRSS</th>
+                    <th class="ico-col mobile-hide" title="¿Grabada en algún disco?">Grabada</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $m): ?>
@@ -151,16 +151,16 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php endforeach; ?>
                         </td>
                         <td><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
-                        <td><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="muted">—</span>' ?></td>
-                        <td><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="muted">—</span>' ?></td>
-                        <td class="ico-col">
+                        <td class="mobile-hide"><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="muted">—</span>' ?></td>
+                        <td class="mobile-hide"><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="muted">—</span>' ?></td>
+                        <td class="ico-col mobile-hide">
 <?php if (!empty($m['TIENE_RRSS'])): ?>
                             <span role="img" aria-label="Tiene enlace de RRSS" title="Tiene enlace de RRSS">🔗</span>
 <?php else: ?>
                             <span class="muted" aria-label="Sin enlace de RRSS" title="Sin enlace de RRSS">—</span>
 <?php endif; ?>
                         </td>
-                        <td class="ico-col">
+                        <td class="ico-col mobile-hide">
 <?php if ((int) $m['N_GRAB'] > 0): ?>
                             <span role="img" aria-label="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)" title="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)">💿</span>
 <?php else: ?>

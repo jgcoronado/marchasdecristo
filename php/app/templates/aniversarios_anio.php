@@ -30,7 +30,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                     <thead><tr>
                         <th>Marcha</th>
                         <th>Compositor</th>
-                        <th>Prov.</th>
+                        <th class="mobile-hide">Prov.</th>
                         <th class="num">Grab.</th>
                     </tr></thead>
                     <tbody>
@@ -42,7 +42,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                                 <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                             </td>
-                            <td><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="muted">—</span>' ?></td>
+                            <td class="mobile-hide"><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="muted">—</span>' ?></td>
                             <td class="num"><?= (int) $m['N_GRAB'] ?></td>
                         </tr>
 <?php endforeach; ?>

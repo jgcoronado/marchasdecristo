@@ -164,7 +164,7 @@ $nMarchas = (int) $b['marchasLength'];
             <th>Marcha <span class="ar">↕</span></th>
             <th data-type="num">Año <span class="ar">↕</span></th>
             <th>Compositor <span class="ar">↕</span></th>
-            <th class="num" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($b['marchas'] as $m): ?>
@@ -176,7 +176,7 @@ $nMarchas = (int) $b['marchasLength'];
                     <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                 </td>
-                <td class="num"><?= (int) $m['N_GRAB'] ?></td>
+                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>

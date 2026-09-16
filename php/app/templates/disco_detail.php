@@ -64,9 +64,9 @@ $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
     <table class="reg" id="pistas-table" data-sortable>
         <thead><tr>
 <?php if ($multi): ?>
-            <th class="num" data-type="num">Vol. <span class="ar">↕</span></th>
+            <th class="num mobile-hide" data-type="num">Vol. <span class="ar">↕</span></th>
 <?php endif; ?>
-            <th class="num" data-type="num">Pista <span class="ar">↕</span></th>
+            <th class="num mobile-hide" data-type="num">Pista <span class="ar">↕</span></th>
             <th>Marcha <span class="ar">↕</span></th>
             <th>Compositor <span class="ar">↕</span></th>
             <th data-type="num">Año <span class="ar">↕</span></th>
@@ -75,9 +75,9 @@ $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
 <?php foreach ($d['marchas'] as $m): ?>
             <tr>
 <?php if ($multi): ?>
-                <td class="num"><?= (int) $m['N_DISCO'] ?></td>
+                <td class="num mobile-hide"><?= (int) $m['N_DISCO'] ?></td>
 <?php endif; ?>
-                <td class="num"><?= (int) $m['NUMEROMARCHA'] ?></td>
+                <td class="num mobile-hide"><?= (int) $m['NUMEROMARCHA'] ?></td>
                 <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
                 <td>
 <?php foreach ($m['AUTOR'] as $a): ?>

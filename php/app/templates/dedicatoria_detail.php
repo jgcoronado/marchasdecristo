@@ -48,8 +48,8 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
             <th>Marcha <span class="ar">↕</span></th>
             <th data-type="num">Año <span class="ar">↕</span></th>
             <th>Compositor <span class="ar">↕</span></th>
-            <th>Banda de estreno <span class="ar">↕</span></th>
-            <th class="num" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th class="mobile-hide">Banda de estreno <span class="ar">↕</span></th>
+            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($d['marchas'] as $m): ?>
@@ -64,8 +64,8 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
                     <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                 </td>
-                <td><?php if ($t($m['BANDA_ESTRENO']) && $t($m['BANDA_BREVE'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="num"><?= (int) $m['N_GRAB'] ?></td>
+                <td class="mobile-hide"><?php if ($t($m['BANDA_ESTRENO']) && $t($m['BANDA_BREVE'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
