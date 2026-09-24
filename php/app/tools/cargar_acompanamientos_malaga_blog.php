@@ -212,6 +212,22 @@ function agruparBloques(array $lineas): array
 // ─────────────────────────── clasificación de banda ──────────────────────
 
 /**
+ * Normaliza el texto de banda que se guarda en acompanamiento_pendiente.BANDA_TEXTO
+ * (y con el que se compara/agrupa): quita el punto final y colapsa espacios.
+ * A propósito NO hace más que esto — no unifica "C.T." con "Banda de Cornetas
+ * y Tambores" ni nada parecido: eso lo decide el admin al enlazar en el panel.
+ */
+function normalizarBandaTexto(string $t): string
+{
+    $t = trim($t);
+    if (str_ends_with($t, '.')) {
+        $t = rtrim(substr($t, 0, -1));
+    }
+    $t = preg_replace('/\s+/u', ' ', $t) ?? $t;
+    return trim($t);
+}
+
+/**
  * @return array{0:string,1:?string} [core sin prefijo de tipo, localidad|null]
  */
 function normalizarBanda(string $raw): array
@@ -528,7 +544,7 @@ try {
                 if ($idBanda !== null) {
                     $aContrato[] = ['paso' => $pasoNombre, 'anio' => $anio, 'idBanda' => $idBanda, 'bandaTexto' => $bandaTexto];
                 } else {
-                    $aPendiente[] = ['paso' => $pasoNombre, 'anio' => $anio, 'bandaTexto' => $bandaTexto];
+                    $aPendiente[] = ['paso' => $pasoNombre, 'anio' => $anio, 'bandaTexto' => normalizarBandaTexto($bandaTexto)];
                 }
             }
         }
@@ -619,47 +635,50 @@ try {
     $yaPendientes = 0;
     $resueltoPorOtraFuente = [];
 
-    if ($idHermandad !== null && $pasosNuevos === []) {
-        foreach ($aContrato as $f) {
-            $idPaso = $pasosExistentes[$f['paso']];
-            $filas = $filasDelPaso($idPaso, $f['paso'], $f['anio']);
-            $bandas = array_column($filas, 'ID_BANDA');
-            $otras = array_values(array_unique(array_diff($bandas, [$f['idBanda']])));
-            if ($otras !== []) {
-                // Aviso informativo aunque la banda del blog ya esté cargada:
-                // hay OTRA banda distinta para el mismo paso+año en la BD
-                // (caso real: Pollinica 2024, #3714 Clemencia y #4296 Vera
-                // Cruz) — no se toca nada de ninguna de las dos.
-                $conflictos[] = sprintf(
-                    '%s %d: BD tiene %s, blog dice ID_BANDA=%d ("%s")',
-                    $f['paso'], $f['anio'], implode(',', array_map(static fn($b) => "#$b", $bandas)), $f['idBanda'], $f['bandaTexto']
-                );
-            }
-            if (in_array($f['idBanda'], $bandas, true)) {
-                $yaCargados++;
-                continue;
-            }
-            if ($otras !== []) {
-                continue; // conflicto real: ni la banda del blog está cargada, no se inserta
-            }
-            $nuevosContratos[] = $f + ['idPaso' => $idPaso];
+    // -1: el paso (o la hermandad) todavía no existe en la BD — se crea más
+    // abajo si hay --commit. Ningún contrato_paso real puede apuntar a -1, así
+    // que $filasDelPaso() y la búsqueda de pendientes ya existentes dan
+    // correctamente "nada todavía", sin necesidad de una segunda pasada tras
+    // crear la nómina: el informe (y el --commit) se calculan de una vez.
+    foreach ($aContrato as $f) {
+        $idPaso = $pasosExistentes[$f['paso']] ?? -1;
+        $filas = $filasDelPaso($idPaso, $f['paso'], $f['anio']);
+        $bandas = array_column($filas, 'ID_BANDA');
+        $otras = array_values(array_unique(array_diff($bandas, [$f['idBanda']])));
+        if ($otras !== []) {
+            // Aviso informativo aunque la banda del blog ya esté cargada:
+            // hay OTRA banda distinta para el mismo paso+año en la BD
+            // (caso real: Pollinica 2024, #3714 Clemencia y #4296 Vera
+            // Cruz) — no se toca nada de ninguna de las dos.
+            $conflictos[] = sprintf(
+                '%s %d: BD tiene %s, blog dice ID_BANDA=%d ("%s")',
+                $f['paso'], $f['anio'], implode(',', array_map(static fn($b) => "#$b", $bandas)), $f['idBanda'], $f['bandaTexto']
+            );
         }
-        foreach ($aPendiente as $f) {
-            $idPaso = $pasosExistentes[$f['paso']];
-            $filas = $filasDelPaso($idPaso, $f['paso'], $f['anio']);
-            if ($filas !== []) {
-                $resueltoPorOtraFuente[] = "{$f['paso']} {$f['anio']}: ya hay contrato en la BD, no se guarda pendiente para \"{$f['bandaTexto']}\"";
-                continue;
-            }
-            $existePendiente->execute([LOCALIDAD, $hermandadSlug, $idPaso, $f['anio'], $f['bandaTexto']]);
-            $yaEnPendiente = $existePendiente->fetchColumn();
-            $existePendiente->closeCursor();
-            if ($yaEnPendiente !== false) {
-                $yaPendientes++;
-                continue;
-            }
-            $nuevasPendientes[] = $f + ['idPaso' => $idPaso];
+        if (in_array($f['idBanda'], $bandas, true)) {
+            $yaCargados++;
+            continue;
         }
+        if ($otras !== []) {
+            continue; // conflicto real: ni la banda del blog está cargada, no se inserta
+        }
+        $nuevosContratos[] = $f + ['idPaso' => $idPaso];
+    }
+    foreach ($aPendiente as $f) {
+        $idPaso = $pasosExistentes[$f['paso']] ?? -1;
+        $filas = $filasDelPaso($idPaso, $f['paso'], $f['anio']);
+        if ($filas !== []) {
+            $resueltoPorOtraFuente[] = "{$f['paso']} {$f['anio']}: ya hay contrato en la BD, no se guarda pendiente para \"{$f['bandaTexto']}\"";
+            continue;
+        }
+        $existePendiente->execute([LOCALIDAD, $hermandadSlug, $idPaso, $f['anio'], $f['bandaTexto']]);
+        $yaEnPendiente = $existePendiente->fetchColumn();
+        $existePendiente->closeCursor();
+        if ($yaEnPendiente !== false) {
+            $yaPendientes++;
+            continue;
+        }
+        $nuevasPendientes[] = $f + ['idPaso' => $idPaso];
     }
 
     // ── informe ──────────────────────────────────────────────────────
@@ -669,9 +688,6 @@ try {
     }
     if ($pasosNuevos !== []) {
         echo 'Pasos nuevos a crear: ' . implode(', ', array_map(static fn($p) => $p['nombre'] . ($p['es_cruz_guia'] ? ' [cruz de guía]' : ''), $pasosNuevos)) . "\n";
-    }
-    if ($hermandadNueva || $pasosNuevos !== []) {
-        echo "(hermandad/pasos nuevos: no se calculan conflictos/pendientes contra una BD que aún no los tiene — vuelve a ejecutar tras crearlos con --commit)\n";
     }
     echo 'Contratos nuevos a insertar: ' . count($nuevosContratos) . "\n";
     foreach ($nuevosContratos as $f) {
@@ -762,10 +778,17 @@ try {
             $pasosExistentes[$p['nombre']] = (int) $pdo->lastInsertId();
             echo "paso creado: {$p['nombre']} (ID_PASO={$pasosExistentes[$p['nombre']]})\n";
         }
-        $pdo->commit();
-        $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
-        echo "Hermandad/pasos nuevos creados. Vuelve a ejecutar el script (dry-run o --commit) para cargar los contratos/pendientes ahora que ya existen.\n";
-        exit(0);
+        // Los contratos/pendientes calculados arriba llevan idPaso=-1 (placeholder)
+        // para los pasos que no existían todavía: se resuelven al ID real recién
+        // creado, en la misma transacción — no hace falta otra pasada.
+        foreach ($nuevosContratos as &$f) {
+            if ($f['idPaso'] === -1) $f['idPaso'] = $pasosExistentes[$f['paso']];
+        }
+        unset($f);
+        foreach ($nuevasPendientes as &$f) {
+            if ($f['idPaso'] === -1) $f['idPaso'] = $pasosExistentes[$f['paso']];
+        }
+        unset($f);
     }
 
     $insC = $pdo->prepare(
