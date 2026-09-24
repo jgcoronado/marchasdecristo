@@ -730,7 +730,7 @@ final class Admin
                 $nomina = $r['dias'];
                 $hermandades = $r['fuera'];
             } elseif ($localidad !== null) {
-                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad), Repo::aniosSinSalida($localidad));
+                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad));
             }
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos] ' . $e->getMessage());

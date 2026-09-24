@@ -1859,24 +1859,13 @@ final class Repo
     }
 
     /**
-     * Años sin salida procesional de la localidad (014_temporada_sin_salida:
-     * 2020 y 2021 por la pandemia). Si la tabla aún no existe en el host, nada.
-     * @return list<int>
-     */
-    public static function aniosSinSalida(string $localidad): array
-    {
-        try {
-            return array_map('intval', array_column(Db::all('SELECT ANIO FROM temporada_sin_salida WHERE LOCALIDAD = ?', [$localidad]), 'ANIO'));
-        } catch (\Throwable $e) {
-            return [];
-        }
-    }
-
-    /**
-     * $aniosSinSalida (ver aniosSinSalida()): años en que no hubo procesión.
-     * No cortan una línea: si la misma banda estaba en 2019 y vuelve en 2022,
-     * se entiende que no hubo cambio y sale una sola línea 2015–2026 (sus
-     * contratos siguen siendo los reales; no se inventa ninguno para 2020-21).
+     * $aniosSinSalida: años en que no hubo procesión (nadie los pasa ya desde
+     * que se eliminó `temporada_sin_salida` — ver 018_drop_temporada_sin_salida.sql
+     * — pero el parámetro se conserva porque la lógica sigue siendo válida si
+     * algún día vuelve a hacer falta). No cortan una línea: si la misma banda
+     * estaba en 2019 y vuelve en 2022, se entiende que no hubo cambio y sale
+     * una sola línea 2015–2026 (sus contratos siguen siendo los reales; no se
+     * inventa ninguno para los años sin salida).
      */
     public static function agruparAcompanamientos(array $rows, array $aniosSinSalida = []): array
     {

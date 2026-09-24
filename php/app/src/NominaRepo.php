@@ -487,12 +487,11 @@ final class NominaRepo
             [$localidad]
         ), 'ID_HERMANDAD')));
 
-        $sinSalida = Repo::aniosSinSalida($localidad);
         $dias = self::cargarLocalidad($localidad);
         foreach ($dias as &$d) {
             foreach ($d['hermandades'] as &$h) {
                 foreach ($h['pasos'] as &$p) {
-                    $g = isset($porPaso[$p['ID_PASO']]) ? Repo::agruparAcompanamientos($porPaso[$p['ID_PASO']], $sinSalida) : [];
+                    $g = isset($porPaso[$p['ID_PASO']]) ? Repo::agruparAcompanamientos($porPaso[$p['ID_PASO']]) : [];
                     $p['rangos'] = $g[0]['titulares'][0]['rangos'] ?? [];
                 }
                 unset($p);
@@ -500,7 +499,7 @@ final class NominaRepo
                 $h['sinPaso'] = [];
                 if (isset($sinPaso[$h['ID_HERMANDAD']])) {
                     $filas = $sinPaso[$h['ID_HERMANDAD']];
-                    foreach (Repo::agruparAcompanamientos($filas, $sinSalida)[0]['titulares'] as $t) {
+                    foreach (Repo::agruparAcompanamientos($filas)[0]['titulares'] as $t) {
                         // Con un único TITULAR agruparAcompanamientos() lo deja en null: aquí sí se enseña.
                         if ($t['titular'] === null) {
                             $t['titular'] = trim((string) ($filas[0]['TITULAR'] ?? '')) ?: 'Sin especificar';
@@ -513,7 +512,7 @@ final class NominaRepo
         }
         unset($d);
 
-        return ['dias' => $dias, 'fuera' => Repo::agruparAcompanamientos($fuera, $sinSalida)];
+        return ['dias' => $dias, 'fuera' => Repo::agruparAcompanamientos($fuera)];
     }
 
     /** Paso + su hermandad, sólo si es de esta localidad. */

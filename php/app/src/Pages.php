@@ -1034,7 +1034,7 @@ final class Pages
             Http::notFound();
         }
 
-        $hermandades = Repo::agruparAcompanamientos($contratos, Repo::aniosSinSalida($localidad));
+        $hermandades = Repo::agruparAcompanamientos($contratos);
 
         $base = self::base();
         $canonical = $base . '/acompanamientos/' . $slug;
