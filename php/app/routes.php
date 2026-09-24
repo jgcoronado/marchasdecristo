@@ -247,13 +247,40 @@ $router->post('/dashboard/acompanamientos/crear', [Admin::class, 'acompanamiento
 $router->get('/dashboard/acompanamientos/{localidad}', [Admin::class, 'acompanamientosAdmin']);
 $router->post('/dashboard/acompanamientos/{localidad}/add', [Admin::class, 'acompanamientosAddPost']);
 $router->post('/dashboard/acompanamientos/{localidad}/borrar-rango', [Admin::class, 'acompanamientosBorrarRangoPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/mover-paso', [Admin::class, 'acompanamientosMoverPasoPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/tramo-rango', [Admin::class, 'acompanamientosTramoRangoPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/hermandad/{id}/ida-vuelta', [Admin::class, 'acompanamientosIdaVueltaPost']);
 $router->post('/dashboard/acompanamientos/{localidad}/banda-rango', [Admin::class, 'acompanamientosBandaRangoPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/anios-rango', [Admin::class, 'acompanamientosAniosRangoPost']);
 
 // ── Cola de revisión de la nómina de hermandades/pasos (N-03): filas que los
 // scripts de parseo no han sabido clasificar solas, ver AcompanamientoDudaRepo ─
 $router->get('/dashboard/acompanamientos-dudas', [Admin::class, 'acompanamientoDudasAdmin']);
 $router->post('/dashboard/acompanamientos-dudas/{id}/resolver', [Admin::class, 'acompanamientoDudaResolverPost']);
 $router->post('/dashboard/acompanamientos-dudas/{id}/descartar', [Admin::class, 'acompanamientoDudaDescartarPost']);
+
+// ── Nómina de Semana Santa (localidad → día → hermandad → paso), base sobre la
+// que luego se cuelgan los acompañamientos — ver 015_semana_santa_dia.sql y
+// NominaRepo ──────────────────────────────────────────────────────────────
+$router->get('/dashboard/semana-santa', [Admin::class, 'semanaSantaIndexAdmin']);
+$router->post('/dashboard/semana-santa/crear', [Admin::class, 'semanaSantaCrearPost']);
+$router->get('/dashboard/semana-santa/{localidad}', [Admin::class, 'semanaSantaAdmin']);
+$router->post('/dashboard/semana-santa/{localidad}/dia/add', [Admin::class, 'semanaSantaDiaAddPost']);
+$router->post('/dashboard/semana-santa/{localidad}/dias/reorder', [Admin::class, 'semanaSantaDiasReorderPost']);
+$router->post('/dashboard/semana-santa/{localidad}/dia/{idDia}/renombrar', [Admin::class, 'semanaSantaDiaRenombrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/dia/{idDia}/borrar', [Admin::class, 'semanaSantaDiaBorrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/dia/{idDia}/mover', [Admin::class, 'semanaSantaDiaMoverPost']);
+$router->post('/dashboard/semana-santa/{localidad}/dia/{idDia}/hermandades/reorder', [Admin::class, 'semanaSantaHermandadesReorderPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/add', [Admin::class, 'semanaSantaHermandadAddPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/renombrar', [Admin::class, 'semanaSantaHermandadRenombrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/borrar', [Admin::class, 'semanaSantaHermandadBorrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/mover-dia', [Admin::class, 'semanaSantaHermandadMoverDiaPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/mover', [Admin::class, 'semanaSantaHermandadMoverPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/pasos/reorder', [Admin::class, 'semanaSantaPasosReorderPost']);
+$router->post('/dashboard/semana-santa/{localidad}/paso/add', [Admin::class, 'semanaSantaPasoAddPost']);
+$router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/renombrar', [Admin::class, 'semanaSantaPasoRenombrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/borrar', [Admin::class, 'semanaSantaPasoBorrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/mover', [Admin::class, 'semanaSantaPasoMoverPost']);
 
 // ── Enlaces de streaming (curación de candidatos Spotify/Apple/Deezer) ───────
 $router->get('/dashboard/enlaces', [Admin::class, 'enlaceList']);
