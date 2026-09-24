@@ -596,6 +596,13 @@ final class AdminRepo
         $tpl = $rango[0];
         $idPaso = null;
         foreach ($rango as $r) { if ($r['ID_PASO'] !== null) { $idPaso = (int) $r['ID_PASO']; break; } }
+        // En el panel una línea es un paso aunque sus contratos tengan TITULAR
+        // con redacciones distintas: los años nuevos llevan el nombre del paso
+        // (convención de NominaRepo), no el TITULAR del contrato más reciente,
+        // o la página pública (que agrupa por TITULAR) pinta un paso de más.
+        if ($idPaso !== null) {
+            $tpl['TITULAR'] = Db::one('SELECT NOMBRE FROM paso WHERE ID_PASO = ?', [$idPaso])['NOMBRE'] ?? $tpl['TITULAR'];
+        }
 
         return Db::transaction(function () use ($rango, $tpl, $idPaso, $anioInicio, $anioFin) {
             $fuera = [];
