@@ -62,6 +62,10 @@ final class Admin
             $movidos = (int) $_GET['movidos'];
             return ['type' => 'ok', 'msg' => $movidos === 1 ? '1 acompañamiento movido de paso.' : "$movidos acompañamientos movidos de paso."];
         }
+        if (isset($_GET['convertido'])) {
+            $n = (int) $_GET['convertido'];
+            return ['type' => 'ok', 'msg' => $n === 1 ? '1 contrato creado a partir de la pendiente.' : "$n contratos creados a partir de la pendiente."];
+        }
         if (isset($_GET['deleted'])) return ['type' => 'ok', 'msg' => 'Relación eliminada.'];
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
@@ -252,7 +256,15 @@ final class Admin
             }
         }
         $pendientesDmp = self::isAdmin($session) ? IngestaRepo::countPendientesPorFuente('dmp') : 0;
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos', 'pendientesDmp'),
+        $pendientesAcompanamiento = 0;
+        if (self::isAdmin($session)) {
+            try {
+                $pendientesAcompanamiento = AcompanamientoPendienteRepo::count();
+            } catch (\Throwable $e) {
+                // Tabla 017_acompanamiento_pendiente.sql aún no migrada en este host; el badge se queda a 0.
+            }
+        }
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos', 'pendientesDmp', 'pendientesAcompanamiento'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -937,6 +949,44 @@ final class Admin
         $r = AdminRepo::descartarAcompanamientoDuda($id, $nota !== '' ? $nota : null);
         if (($r['code'] ?? '') === 'DISCARDED') Http::redirect('/dashboard/acompanamientos-dudas?descartado=1', 302);
         Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    /**
+     * Bandas CCTT/AM sin enlazar de la carga de acompanamientos históricos de
+     * Málaga (017_acompanamiento_pendiente.sql, ver
+     * cargar_acompanamientos_malaga_blog.php). Agrupadas por el texto literal
+     * de banda: se enlazan todas las filas de una banda de golpe.
+     */
+    public static function acompanamientosPendientesAdmin(): void
+    {
+        $session = Auth::requireAdmin();
+        $grupos = [];
+        $notice = self::noticeFromQuery();
+        try {
+            $grupos = AcompanamientoPendienteRepo::agrupadasPorBanda();
+        } catch (\Throwable $e) {
+            error_log('[dashboard/acompanamientos-pendientes] ' . $e->getMessage());
+            $notice = ['type' => 'error', 'msg' => 'La tabla acompanamiento_pendiente no existe todavía en este host — falta aplicar la migración 017 (migrate_ingest.php).'];
+        }
+        View::render('admin/acompanamientos_pendientes', [
+            'session' => $session, 'grupos' => $grupos, 'notice' => $notice,
+        ], ['title' => 'Bandas pendientes de acompañamientos — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    public static function acompanamientosPendienteConvertirPost(): void
+    {
+        $session = Auth::requireAdmin();
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-pendientes?err=CSRF', 302);
+        $bandaTexto = (string) ($_POST['BANDA_TEXTO'] ?? '');
+        $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
+        if ($bandaTexto === '' || $idBanda <= 0) {
+            Http::redirect('/dashboard/acompanamientos-pendientes?err=DATOS_INCOMPLETOS', 302);
+        }
+        $r = AdminRepo::convertirPendientesEnContratos($bandaTexto, $idBanda);
+        if (($r['code'] ?? '') === 'CONVERTED') {
+            Http::redirect('/dashboard/acompanamientos-pendientes?convertido=' . (int) $r['creados'], 302);
+        }
+        Http::redirect('/dashboard/acompanamientos-pendientes?err=' . ($r['code'] ?? 'ERROR'), 302);
     }
 
     // ── Nómina de Semana Santa (localidad → día → hermandad → paso), base para

@@ -1819,4 +1819,64 @@ final class AdminRepo
         Db::logAdmin('DISCARD', 'acompanamiento_duda', $id, ['nota' => $nota]);
         return ['code' => 'DISCARDED'];
     }
+
+    /**
+     * Enlaza TODAS las filas de `acompanamiento_pendiente` con un mismo
+     * BANDA_TEXTO a una banda real, convirtiéndolas en contrato +
+     * contrato_localidad + contrato_paso (017_acompanamiento_pendiente.sql,
+     * ver cargar_acompanamientos_malaga_blog.php y
+     * docs/acompanamientos-nomina-2026.md). No enlaza por nombre solo: es el
+     * admin quien elige la banda en el panel, a propósito ("no enlazar a
+     * ciegas" — la resolución automática ya lo intentó al cargar).
+     *
+     * Idempotente igual que el resto de altas de contrato: salta las filas
+     * cuyo contrato ya existiera (mismo HERMANDAD_SLUG+TITULAR+ANIO+ID_BANDA).
+     *
+     * @return array{code:string, creados?:int, existentes?:int}
+     */
+    public static function convertirPendientesEnContratos(string $bandaTexto, int $idBanda): array
+    {
+        if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
+        $filas = AcompanamientoPendienteRepo::porBanda($bandaTexto);
+        if ($filas === []) return ['code' => 'SIN_PENDIENTES'];
+
+        return Db::transaction(function () use ($filas, $idBanda, $bandaTexto) {
+            $creados = 0;
+            $existentes = 0;
+            foreach ($filas as $f) {
+                $hermandad = Db::one(
+                    'SELECT NOMBRE FROM hermandad WHERE LOCALIDAD = ? AND SLUG = ?',
+                    [$f['LOCALIDAD'], $f['HERMANDAD_SLUG']]
+                );
+                $hermandadNombre = $hermandad['NOMBRE'] ?? $f['HERMANDAD_SLUG'];
+
+                $existe = Db::one(
+                    "SELECT ID_CONTRATO FROM contrato
+                     WHERE HERMANDAD_SLUG = ? AND ANIO = ? AND ID_BANDA = ? AND IFNULL(TITULAR,'') = ?",
+                    [$f['HERMANDAD_SLUG'], $f['ANIO'], $idBanda, $f['TITULAR']]
+                );
+                if ($existe !== null) {
+                    $existentes++;
+                } else {
+                    Db::run(
+                        'INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE, NOTA)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [$idBanda, $hermandadNombre, $f['HERMANDAD_SLUG'], $f['TITULAR'], $f['ANIO'], $f['FUENTE'], 'banda_texto=' . $bandaTexto]
+                    );
+                    $idContrato = Db::lastInsertId();
+                    Db::run('INSERT INTO contrato_localidad (ID_CONTRATO, LOCALIDAD) VALUES (?, ?)', [$idContrato, $f['LOCALIDAD']]);
+                    Db::run('INSERT INTO contrato_paso (ID_CONTRATO, ID_PASO) VALUES (?, ?)', [$idContrato, $f['ID_PASO']]);
+                    $creados++;
+                }
+                Db::run(
+                    'DELETE FROM acompanamiento_pendiente WHERE ID_PENDIENTE = ?',
+                    [$f['ID_PENDIENTE']]
+                );
+            }
+            Db::logAdmin('CONVERT', 'acompanamiento_pendiente', null, [
+                'banda_texto' => $bandaTexto, 'id_banda' => $idBanda, 'creados' => $creados, 'existentes' => $existentes,
+            ]);
+            return ['code' => 'CONVERTED', 'creados' => $creados, 'existentes' => $existentes];
+        });
+    }
 }
