@@ -1,5 +1,5 @@
 <?php use App\View as V; use App\Html as H; use App\IngestaRepo; use App\Auth;
-/** @var array $session @var array{estado:string,banda:string,clasificacion:string,disco:string} $filters
+/** @var array $session @var array{estado:string,banda:string,clasificacion:string,disco:string,fuente:string} $filters
  *  @var int $page @var array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>} $result
  *  @var list<array{ID_BANDA:int,NOMBRE_BREVE:string,LOCALIDAD:?string,N:int}> $bandas
  *  @var list<array{FUENTE_ALBUM:string,N:int}> $discos @var array<string,int> $counts @var string $backQs
@@ -84,6 +84,15 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
 <?php endforeach; ?>
                 </select>
             </div>
+            <div class="field">
+                <label class="field-label" for="fuente">Fuente</label>
+                <select class="input" id="fuente" name="fuente" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+<?php foreach (IngestaRepo::FUENTES as $f): ?>
+                    <option value="<?= $f ?>" <?= $filters['fuente'] === $f ? 'selected' : '' ?>><?= V::e(IngestaRepo::FUENTE_LABEL[$f] ?? ucfirst($f)) ?></option>
+<?php endforeach; ?>
+                </select>
+            </div>
 <?php if ($discos): ?>
             <div class="field">
                 <label class="field-label" for="disco">Disco</label>
@@ -109,32 +118,63 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
             <button type="button" id="btnDescartarSeleccionados" class="btn btn-sm btn-danger" disabled>Descartar seleccionados (<span id="numSeleccionados">0</span>)</button>
         </div>
 <?php endif; ?>
-    <div class="tableList"><table class="table table-zebra table-sm"><tbody>
-<?php foreach ($result['data'] as $c): ?>
+    <?php /* Orden de lectura: marcha (+ disco) → banda → año; la clasificación y la
+             fuente son metadato y van juntas en una columna estrecha. */ ?>
+    <div class="tableList tableList-ancho"><table class="table table-zebra table-sm ingesta-table">
+        <colgroup>
+<?php if ($puedeDescartarMultiple): ?>
+            <col class="c-check">
+<?php endif; ?>
+            <col class="c-titulo"><col class="c-banda"><col class="c-anio">
+            <col class="c-meta mobile-hide"><col class="c-conf mobile-hide"><col class="c-estado mobile-hide">
+        </colgroup>
+        <thead><tr>
+<?php if ($puedeDescartarMultiple): ?>
+            <th></th>
+<?php endif; ?>
+            <th>Marcha</th><th>Banda</th><th>Año</th>
+            <th class="mobile-hide">Origen</th><th class="mobile-hide">Conf.</th><th class="mobile-hide">Estado</th>
+        </tr></thead>
+        <tbody>
+<?php foreach ($result['data'] as $c):
+    $titulo = $c['P_TITULO'] ?: $c['VIDEO_TITULO'];
+    $fuente = $c['FUENTE'] ?? 'youtube';
+    $bandaOrigen = $c['NOMBRE_BREVE'] === null ? IngestaRepo::bandaOrigen($c['FLAGS'] ?? null) : null;
+    $bandaTxt = $c['NOMBRE_BREVE'] ?? ($bandaOrigen['texto'] ?? ($c['ID_BANDA'] ? 'Banda #' . $c['ID_BANDA'] : '—'));
+?>
         <tr>
 <?php if ($puedeDescartarMultiple): ?>
-            <td style="width:1.5rem">
+            <td>
                 <input type="checkbox" class="ingesta-check" name="ids[]" value="<?= (int) $c['ID_CAND'] ?>"
-                       data-titulo="<?= V::e($c['P_TITULO'] ?: $c['VIDEO_TITULO']) ?>"
-                       data-banda="<?= V::e($c['NOMBRE_BREVE'] ?? ('Banda #' . $c['ID_BANDA'])) ?>">
+                       data-titulo="<?= V::e($titulo) ?>"
+                       data-banda="<?= V::e($bandaTxt) ?>">
             </td>
 <?php endif; ?>
-            <td><span class="badge <?= $claseBadge[$c['CLASIFICACION']] ?? '' ?>"><?= V::e($c['CLASIFICACION']) ?></span></td>
-            <td class="small muted"><?= V::e(IngestaRepo::FUENTE_LABEL[$c['FUENTE'] ?? 'youtube'] ?? (string) $c['FUENTE']) ?></td>
             <td>
-                <a href="/dashboard/ingesta/<?= (int) $c['ID_CAND'] ?><?= $backQs !== '' ? '?ref=' . rawurlencode($backQs) : '' ?>"><?= V::e($c['P_TITULO'] ?: $c['VIDEO_TITULO']) ?></a>
+                <a class="ingesta-titulo" href="/dashboard/ingesta/<?= (int) $c['ID_CAND'] ?><?= $backQs !== '' ? '?ref=' . rawurlencode($backQs) : '' ?>"><?= V::e($titulo) ?></a>
 <?php if ($c['MATCH_MARCHA_ID']): ?>
                 <span class="badge badge-warn" title="Posible coincidencia con una marcha ya existente">⚠ posible duplicado</span>
 <?php endif; ?>
 <?php if (!empty($c['FUENTE_ALBUM'])): ?>
-                <span class="small muted">· <?= V::e($c['FUENTE_ALBUM']) ?></span>
+                <span class="ingesta-disco"><?= V::e($c['FUENTE_ALBUM']) ?></span>
 <?php endif; ?>
             </td>
-            <td class="small"><?= V::e($c['NOMBRE_BREVE'] ?? ('Banda #' . $c['ID_BANDA'])) ?></td>
+            <td class="ingesta-banda">
+<?php if ($bandaOrigen !== null): ?>
+                <span title="Banda según el origen, sin cruzar con la BD"><?= V::e((string) preg_replace('/^\((AM|CT|BM)\)\s*/u', '($1) ', $bandaOrigen['texto'])) ?></span><?php if ($bandaOrigen['otras'] > 0): ?>
+                <span class="small muted">+<?= (int) $bandaOrigen['otras'] ?></span><?php endif; ?>
+<?php else: ?>
+                <?= V::e($bandaTxt) ?>
+<?php endif; ?>
+            </td>
             <td class="small nums"><?= V::e($c['P_FECHA']) ?></td>
-            <td class="small nums"><?= (int) round(((float) $c['CONFIANZA']) * 100) ?>%</td>
-            <td class="small">
-                <?= V::e($c['ESTADO']) ?><?php if (isset($vetos[($c['FUENTE'] ?? 'youtube') . '|' . $c['VIDEO_ID']])): ?>
+            <td class="mobile-hide ingesta-meta">
+                <span class="badge <?= $claseBadge[$c['CLASIFICACION']] ?? '' ?>"><?= V::e($c['CLASIFICACION']) ?></span>
+                <span class="muted" title="<?= V::e(IngestaRepo::FUENTE_LABEL[$fuente] ?? $fuente) ?>"><?= V::e(IngestaRepo::FUENTE_CORTA[$fuente] ?? IngestaRepo::FUENTE_LABEL[$fuente] ?? $fuente) ?></span>
+            </td>
+            <td class="small nums mobile-hide"><?= (int) round(((float) $c['CONFIANZA']) * 100) ?>%</td>
+            <td class="small mobile-hide">
+                <?= V::e($c['ESTADO']) ?><?php if (isset($vetos[$fuente . '|' . $c['VIDEO_ID']])): ?>
                 <span class="badge" title="Este origen no volverá a proponerse en futuras pasadas">vetado</span>
 <?php endif; ?>
             </td>

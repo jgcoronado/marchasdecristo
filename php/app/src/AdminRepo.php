@@ -694,6 +694,21 @@ final class AdminRepo
      * @param list<int> $autoresIds
      * @return array{code:string, marchaId?:int}
      */
+    /**
+     * Anota la URL del disco de origen de la importación DMP en DATOS_INT
+     * (uso interno, no se muestra en la ficha pública) sin machacar lo que
+     * ya hubiera — a diferencia de AUDIO/enlace_streaming, la marcha no
+     * tiene un campo dedicado para este origen.
+     */
+    private static function apuntarOrigenDmp(int $marchaId, string $url): void
+    {
+        $actual = Db::one('SELECT DATOS_INT FROM marcha WHERE ID_MARCHA = ?', [$marchaId]);
+        $datosInt = trim((string) ($actual['DATOS_INT'] ?? ''));
+        if ($datosInt !== '' && str_contains($datosInt, $url)) return;
+        $nota = 'Origen (discografiasdemarchasprocesionales.com): ' . $url;
+        self::editMarcha($marchaId, ['DATOS_INT'], [$datosInt !== '' ? $datosInt . "\n" . $nota : $nota]);
+    }
+
     public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true): array
     {
         $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA, ISRC, P_TITULO, VIDEO_TITULO FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
@@ -713,6 +728,8 @@ final class AdminRepo
                 self::editMarcha($r['marchaId'], ['AUDIO'], [$cand['VIDEO_URL']]);
             } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
                 self::setEnlaceStreaming('marcha', $r['marchaId'], $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
+            } elseif ($fuente === 'dmp') {
+                self::apuntarOrigenDmp($r['marchaId'], (string) $cand['VIDEO_URL']);
             }
         }
 
@@ -1693,6 +1710,8 @@ final class AdminRepo
                 self::editMarcha($marchaId, ['AUDIO'], [$cand['VIDEO_URL']]);
             } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
                 self::setEnlaceStreaming('marcha', $marchaId, $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
+            } elseif ($fuente === 'dmp') {
+                self::apuntarOrigenDmp($marchaId, (string) $cand['VIDEO_URL']);
             }
         }
 

@@ -251,7 +251,8 @@ final class Admin
                 // Tabla 013_acompanamiento_duda.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos'),
+        $pendientesDmp = self::isAdmin($session) ? IngestaRepo::countPendientesPorFuente('dmp') : 0;
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos', 'pendientesDmp'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -1333,6 +1334,7 @@ final class Admin
             'banda' => (string) ($_GET['banda'] ?? ''),
             'clasificacion' => (string) ($_GET['clasificacion'] ?? ''),
             'disco' => (string) ($_GET['disco'] ?? ''),
+            'fuente' => (string) ($_GET['fuente'] ?? ''),
         ];
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $result = IngestaRepo::listCandidatos($filters, $page);
@@ -1345,7 +1347,9 @@ final class Admin
             'counts' => IngestaRepo::counts(), 'backQs' => http_build_query($backParams),
             'ultimoDescarte' => IngestaRepo::ultimoDescarte(),
             'vetos' => IngestaRepo::vetosDe($result['data']),
-        ], ['title' => 'Ingesta de marchas — Marchas de Cristo', 'noindex' => true]);
+        ], ['title' => 'Ingesta de marchas — Marchas de Cristo', 'noindex' => true,
+            // tabla de trabajo: con el ancho de lectura el título y la banda se parten en cuatro líneas
+            'ancho' => true]);
     }
 
     /** Reconstruye de forma segura la query de filtros de /dashboard/ingesta a partir de un string arbitrario
@@ -1353,7 +1357,7 @@ final class Admin
     private static function ingestaBackQuery(string $raw): string
     {
         parse_str($raw, $parsed);
-        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'disco', 'page']));
+        $allowed = array_intersect_key($parsed, array_flip(['estado', 'banda', 'clasificacion', 'disco', 'fuente', 'page']));
         return http_build_query($allowed);
     }
 

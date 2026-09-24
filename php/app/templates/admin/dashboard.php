@@ -1,5 +1,5 @@
 <?php use App\View as V; use App\Auth; use App\Entorno; use App\Roles;
-/** @var string $q @var string $qb @var string $qd @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var list<array<string,mixed>> $discos @var array $session @var array|null $notice @var int $pendientes @var int $dudasAcompanamientos */
+/** @var string $q @var string $qb @var string $qd @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var list<array<string,mixed>> $discos @var array $session @var array|null $notice @var int $pendientes @var int $dudasAcompanamientos @var int $pendientesDmp */
 $csrf = Auth::csrfToken($session);
 $rol = $session['rol'] ?? Roles::EDITOR;
 $isAdmin = Roles::isAdmin($rol);
@@ -25,6 +25,7 @@ $isAdmin = Roles::isAdmin($rol);
             <a class="btn btn-sm btn-ghost" href="/dashboard/propuestas">Propuestas<?= $pendientes > 0 ? ' <span class="chip">' . (int) $pendientes . '</span>' : '' ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/usuarios">Usuarios</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta marchas</a>
+            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta?fuente=dmp">Candidatos DMP<?= $pendientesDmp > 0 ? ' <span class="chip">' . (int) $pendientesDmp . '</span>' : '' ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/enlaces">Enlaces streaming</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/dedicatorias">Dedicatorias</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos">Acompañamientos</a>

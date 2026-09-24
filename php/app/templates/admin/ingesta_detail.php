@@ -31,7 +31,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     <div class="admin-bar">
         <h1>Revisar candidato #<?= (int) $cand['ID_CAND'] ?></h1>
         <div class="row">
-            <a class="btn btn-sm btn-ghost" href="<?= V::e($cand['VIDEO_URL']) ?>" target="_blank"><?= $esYoutube ? 'Vídeo original' : 'Escuchar en ' . V::e($fuenteLabel) ?> ↗</a>
+            <a class="btn btn-sm btn-ghost" href="<?= V::e($cand['VIDEO_URL']) ?>" target="_blank"><?= $esYoutube ? 'Vídeo original' : ($fuente === 'dmp' ? 'Ver disco de origen' : 'Escuchar en ' . V::e($fuenteLabel)) ?> ↗</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta<?= $back !== '' ? '?' . V::e($back) : '' ?>">← Volver</a>
         </div>
     </div>
@@ -61,7 +61,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
                         title="Reproductor de <?= V::e($fuenteLabel) ?>" frameborder="0" allowfullscreen
                         allow="autoplay; encrypted-media; clipboard-write"></iframe>
 <?php else: ?>
-                <p class="small muted">No se puede incrustar aquí la pista de <?= V::e($fuenteLabel) ?>; ábrela con el enlace de arriba para escucharla.</p>
+                <p class="small muted"><?= $fuente === 'dmp' ? 'No hay reproductor para el disco de origen; ábrelo con el enlace de arriba para verlo.' : 'No se puede incrustar aquí la pista de ' . V::e($fuenteLabel) . '; ábrela con el enlace de arriba para escucharla.' ?></p>
 <?php endif; ?>
             </div>
             <div style="flex:1;min-width:280px" class="stack">
@@ -175,7 +175,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
                 <input type="checkbox" id="guardar_origen" name="guardar_origen" value="1" checked>
 <?= $esYoutube
     ? 'Guardar el vídeo como audio de la marcha'
-    : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha' ?>
+    : ($fuente === 'dmp' ? 'Guardar el disco de origen como nota interna de la marcha' : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha') ?>
             </label>
         </div>
 
@@ -219,7 +219,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
                 <input type="checkbox" name="guardar_origen" value="1" checked>
 <?= $esYoutube
     ? 'Guardar el vídeo como audio de la marcha'
-    : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha' ?>
+    : ($fuente === 'dmp' ? 'Guardar el disco de origen como nota interna de la marcha' : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha') ?>
             </label>
         </div>
 

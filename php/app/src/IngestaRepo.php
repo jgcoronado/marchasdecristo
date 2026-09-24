@@ -22,7 +22,7 @@ final class IngestaRepo
      * EnlaceRepo::SERVICIOS pueden publicarse como enlace de la marcha al
      * aceptar el candidato.
      */
-    public const FUENTES = ['youtube', 'spotify', 'deezer', 'apple'];
+    public const FUENTES = ['youtube', 'spotify', 'deezer', 'apple', 'dmp'];
 
     /** Etiquetas de fuente para el panel. */
     public const FUENTE_LABEL = [
@@ -30,7 +30,48 @@ final class IngestaRepo
         'spotify' => 'Spotify',
         'deezer' => 'Deezer',
         'apple' => 'Apple Music',
+        'dmp' => 'Discografiasdemarchasprocesionales.com',
     ];
+
+    /** Etiqueta corta para columnas estrechas (la larga va en el title). */
+    public const FUENTE_CORTA = ['dmp' => 'Discografías'];
+
+    /**
+     * Banda del origen de un candidato que aún no tiene ID_BANDA (candidatos
+     * 'dmp'): sale de sus FLAGS, donde el importador anota la banda tal cual la
+     * da el origen ("Banda de estreno (candidata): (AM)X (Loc) - …" o
+     * "Banda(s)/disco(s) CT o AM donde aparece …: (AM)X (Loc) — disco "…"; …").
+     * Solo para mostrar: no está cruzada con la tabla banda.
+     *
+     * @return array{texto:string,otras:int}|null
+     */
+    public static function bandaOrigen(?string $flagsJson): ?array
+    {
+        $flags = json_decode((string) $flagsJson, true);
+        if (!is_array($flags)) {
+            return null;
+        }
+        foreach ($flags as $f) {
+            if (!is_string($f) || !preg_match('/^(Banda de estreno \(candidata\)|Banda\(s\)\/disco\(s\)[^:]*):\s*(.+)$/su', $f, $m)) {
+                continue;
+            }
+            $bandas = [];
+            // solo la lista de "Banda(s)/disco(s)" va separada por "; "; en "Banda de estreno" el "; " es texto explicativo
+            $trozos = str_starts_with($m[1], 'Banda de estreno') ? [$m[2]] : explode('; ', $m[2]);
+            foreach ($trozos as $trozo) {
+                $b = (string) preg_replace('/\s+(—\s+disco\s+".*|-\s+candidata.*|\[origen:.*)$/su', '', $trozo);
+                $b = trim((string) preg_replace('/\s*\(id \d+, ya en BD\)/u', '', $b));
+                if ($b !== '' && !str_starts_with($b, 'NO DETERMINADA')) {
+                    $bandas[$b] = true;
+                }
+            }
+            if ($bandas !== []) {
+                $lista = array_keys($bandas);
+                return ['texto' => $lista[0], 'otras' => count($lista) - 1];
+            }
+        }
+        return null;
+    }
 
     /** Mismos umbrales que tools/ingest/dedup.mjs, para que el criterio sea consistente. */
     private const UMBRAL_MEDIA = 0.75;
@@ -220,6 +261,13 @@ final class IngestaRepo
         return $out;
     }
 
+    /** Nº de candidatos pendientes de una fuente concreta (p.ej. 'dmp'), para el badge del panel principal. */
+    public static function countPendientesPorFuente(string $fuente): int
+    {
+        $row = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato WHERE ESTADO = 'pendiente' AND FUENTE = ?", [$fuente]);
+        return (int) ($row['n'] ?? 0);
+    }
+
     /**
      * @param array{estado?:string,banda?:string,clasificacion?:string,disco?:string} $filters
      * @return array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>}
@@ -241,6 +289,10 @@ final class IngestaRepo
         if (!empty($filters['clasificacion']) && in_array($filters['clasificacion'], self::CLASIFICACIONES, true)) {
             $conditions[] = 'c.CLASIFICACION = ?';
             $values[] = $filters['clasificacion'];
+        }
+        if (!empty($filters['fuente']) && in_array($filters['fuente'], self::FUENTES, true)) {
+            $conditions[] = 'c.FUENTE = ?';
+            $values[] = $filters['fuente'];
         }
         if (!empty($filters['disco'])) {
             $conditions[] = 'c.FUENTE_ALBUM = ?';

@@ -729,6 +729,24 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .table tbody tr:nth-child(even) > * { background: var(--zebra); }
 .table-zebra tbody tr:hover > * { background: var(--s2); }
 .table-sm th, .table-sm td { padding: 0.4rem 0.6rem; font-size: 0.9rem; }
+/* Ingesta (/dashboard/ingesta): la marcha y la banda se llevan el ancho; clasificación,
+   fuente y confianza son metadato y van en columnas estrechas. */
+body.p-ancho .tableList-ancho { max-width: 100%; }
+.ingesta-table { table-layout: fixed; }
+.ingesta-table col.c-check { width: 2rem; }
+.ingesta-table col.c-titulo { width: 46%; }
+.ingesta-table col.c-banda { width: 32%; }
+.ingesta-table col.c-anio { width: 3.6rem; }
+.ingesta-table col.c-meta { width: 7.5rem; }
+.ingesta-table col.c-conf { width: 4.2rem; }
+.ingesta-table col.c-estado { width: 6rem; }
+.ingesta-table td { overflow-wrap: break-word; }
+.ingesta-titulo { font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.ingesta-disco { display: block; margin-top: 0.15rem; font-size: 0.82rem; color: var(--muted-c); }
+.ingesta-banda { font-size: 0.95rem; line-height: 1.3; }
+.ingesta-meta { font-size: 0.75rem; line-height: 1.5; }
+.ingesta-meta .badge { font-size: 0.72rem; padding: 0.05rem 0.4rem; }
+.ingesta-meta .muted { display: block; }
 .thead-neutral td { background: var(--s2); font-size: 0.9rem; color: var(--muted-c); font-weight: 600; }
 .table thead th { border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--muted-c); font-weight: 600; background: none; }
 
@@ -1043,6 +1061,8 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
     table.reg thead th .ar { display: none; }
     a.sortcol { white-space: normal; }
     .mobile-hide { display: none; }
+    .ingesta-table { table-layout: auto; }
+    .ingesta-titulo { font-size: 0.92rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
