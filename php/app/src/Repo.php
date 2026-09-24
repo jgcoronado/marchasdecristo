@@ -1814,6 +1814,18 @@ final class Repo
         );
     }
 
+    /** Años con acompañamientos en una localidad (selector de la vista por año del panel).
+     *  @return list<array{ANIO:int,N:int}> */
+    public static function aniosAcompanamientos(string $localidad): array
+    {
+        return Db::all(
+            'SELECT c.ANIO, COUNT(*) AS N FROM contrato c
+             INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             WHERE cl.LOCALIDAD = ? GROUP BY c.ANIO ORDER BY c.ANIO DESC',
+            [$localidad]
+        );
+    }
+
     /**
      * Agrupa las filas de acompanamientosPorLocalidad() en hermandad → paso →
      * rangos de años con la misma banda, más reciente primero (petición

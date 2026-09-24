@@ -728,6 +728,8 @@ final class Admin
         $localidad = null;
         $hermandades = [];
         $nomina = null;
+        $anio = self::anioAcomp();
+        $anios = [];
 
         // Igual que Pages::acompanamientos(): la tabla `contrato` puede no
         // estar migrada aún en este host (mecanismo manual, como P-07). Sin
@@ -738,12 +740,15 @@ final class Admin
                 // Con nómina en /dashboard/semana-santa, los acompañamientos se
                 // colocan sobre sus días/hermandades/pasos; en $hermandades
                 // quedan solo los de hermandades que aún no están en la nómina.
-                $r = NominaRepo::acompanamientosPorNomina($localidad);
+                $r = NominaRepo::acompanamientosPorNomina($localidad, $anio);
                 $nomina = $r['dias'];
                 $hermandades = $r['fuera'];
             } elseif ($localidad !== null) {
-                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad));
+                $filas = Repo::acompanamientosPorLocalidad($localidad);
+                if ($anio !== null) $filas = array_values(array_filter($filas, static fn ($f) => (int) $f['ANIO'] === $anio));
+                $hermandades = Repo::agruparAcompanamientos($filas);
             }
+            if ($localidad !== null) $anios = Repo::aniosAcompanamientos($localidad);
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos] ' . $e->getMessage());
             $notice = ['type' => 'error', 'msg' => 'La tabla contrato no existe todavía en este host — falta aplicar la migración 005_contrato.sql / 009_contrato_localidad.sql (migrate_ingest.php vía Plesk, con PHP 8.4 seleccionado).'];
@@ -768,17 +773,32 @@ final class Admin
             'session' => $session, 'slug' => $slug, 'localidad' => $localidad, 'esNueva' => $esNueva,
             'hermandades' => $hermandades,
             'nomina' => $nomina,
+            'anio' => $anio, 'anios' => $anios,
             'notice' => $notice,
-        ], ['title' => "Acompañamientos — $localidad — Marchas de Cristo", 'noindex' => true,
+        ], ['title' => "Acompañamientos — $localidad" . ($anio !== null ? " $anio" : '') . " — Marchas de Cristo", 'noindex' => true,
             // con nómina: hermandad y sus pasos en dos columnas, como en /dashboard/semana-santa
             'ancho' => $nomina !== null]);
+    }
+
+    /** Vista por año de /dashboard/acompanamientos/{localidad} (?anio=AAAA):
+     *  los formularios la llevan en su action para volver a ella tras guardar. */
+    private static function anioAcomp(): ?int
+    {
+        $a = filter_var($_GET['anio'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1900, 'max_range' => 2100]]);
+        return $a === false ? null : $a;
+    }
+
+    private static function volverAcomp(string $slug, string $qs): never
+    {
+        $anio = self::anioAcomp();
+        Http::redirect("/dashboard/acompanamientos/$slug?$qs" . ($anio !== null ? "&anio=$anio" : ''), 302);
     }
 
     public static function acompanamientosAddPost(array $p): void
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
 
         $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) {
@@ -786,7 +806,7 @@ final class Admin
             // tildes) solo puede venir del formulario, nunca del slug.
             $posted = trim((string) ($_POST['LOCALIDAD'] ?? ''));
             if ($posted === '' || Slug::slugify($posted) !== $slug) {
-                Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+                self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
             }
             $localidad = $posted;
         }
@@ -806,7 +826,7 @@ final class Admin
         try {
             if ($idPaso > 0) {
                 $paso = NominaRepo::pasoDeLocalidad($idPaso, $localidad);
-                if ($paso === null) Http::redirect("/dashboard/acompanamientos/$slug?err=PASO_INVALIDO", 302);
+                if ($paso === null) self::volverAcomp($slug, "err=PASO_INVALIDO");
                 $r = AdminRepo::addContratoRango($idBanda, $paso['HERMANDAD'], $paso['NOMBRE'], $anioInicio, $anioFin, $fuente, $nota, $localidad, $paso['SLUG']);
                 if (($r['code'] ?? '') === 'CREATED') {
                     NominaRepo::enlazarRangoAPaso($localidad, $idBanda, $paso, $anioInicio, $anioFin);
@@ -818,12 +838,12 @@ final class Admin
             }
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos/add] ' . $e->getMessage());
-            Http::redirect("/dashboard/acompanamientos/$slug?err=TABLA_NO_MIGRADA", 302);
+            self::volverAcomp($slug, "err=TABLA_NO_MIGRADA");
         }
         if (($r['code'] ?? '') === 'CREATED') {
-            Http::redirect("/dashboard/acompanamientos/$slug?creados=" . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0), 302);
+            self::volverAcomp($slug, "creados=" . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0));
         }
-        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+        self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     /** Marca/desmarca una hermandad como "ida / vuelta" (bandas distintas a la ida y a la vuelta), ver 016_ida_vuelta.sql. */
@@ -831,11 +851,11 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
-        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
         $r = NominaRepo::setIdaVuelta($localidad, (int) $p['id'], ($_POST['activo'] ?? '') === '1');
-        Http::redirect("/dashboard/acompanamientos/$slug?" . (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')), 302);
+        self::volverAcomp($slug, (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')));
     }
 
     /** Pone ida / vuelta (o lo quita) a una línea de rango. */
@@ -843,12 +863,12 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
-        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
         $tramo = (string) ($_POST['TRAMO'] ?? '');
         $r = NominaRepo::setTramo($localidad, self::parseContratoIds($_POST['ids'] ?? null), $tramo === '' ? null : $tramo);
-        Http::redirect("/dashboard/acompanamientos/$slug?" . (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')), 302);
+        self::volverAcomp($slug, (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')));
     }
 
     /** Mueve una línea de rango (o una selección) a otro paso de la nómina, ver NominaRepo::moverContratosAPaso. */
@@ -856,35 +876,35 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
-        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
         $r = NominaRepo::moverContratosAPaso($localidad, self::parseContratoIds($_POST['ids'] ?? null), (int) ($_POST['ID_PASO'] ?? 0));
-        if (($r['code'] ?? '') === 'MOVED') Http::redirect("/dashboard/acompanamientos/$slug?movidos=" . ($r['movidos'] ?? 0), 302);
-        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+        if (($r['code'] ?? '') === 'MOVED') self::volverAcomp($slug, "movidos=" . ($r['movidos'] ?? 0));
+        self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     public static function acompanamientosBorrarRangoPost(array $p): void
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $ids = self::parseContratoIds($_POST['ids'] ?? null);
         $r = AdminRepo::deleteContratoRango($ids);
-        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/acompanamientos/$slug?borrados=" . ($r['borrados'] ?? 0), 302);
-        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+        if (($r['code'] ?? '') === 'DELETED') self::volverAcomp($slug, "borrados=" . ($r['borrados'] ?? 0));
+        self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     public static function acompanamientosBandaRangoPost(array $p): void
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $ids = self::parseContratoIds($_POST['ids'] ?? null);
         $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
         $r = AdminRepo::updateContratoBandaRango($ids, $idBanda);
-        if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/acompanamientos/$slug?saved=1", 302);
-        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+        if (($r['code'] ?? '') === 'UPDATED') self::volverAcomp($slug, "saved=1");
+        self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     /** Cambia los años de una línea de rango, fundiéndola con la misma banda/paso si se solapan (AdminRepo::editarAniosRango). */
@@ -892,15 +912,15 @@ final class Admin
     {
         $session = Auth::requireAdmin();
         $slug = (string) $p['localidad'];
-        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $ids = self::parseContratoIds($_POST['ids'] ?? null);
         $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
         $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
         $r = AdminRepo::editarAniosRango($ids, $anioInicio, $anioFin);
         if (($r['code'] ?? '') === 'UPDATED') {
-            Http::redirect("/dashboard/acompanamientos/$slug?anios=1&aC=" . ($r['creados'] ?? 0) . '&aF=' . ($r['fusionados'] ?? 0) . '&aB=' . ($r['borrados'] ?? 0), 302);
+            self::volverAcomp($slug, "anios=1&aC=" . ($r['creados'] ?? 0) . '&aF=' . ($r['fusionados'] ?? 0) . '&aB=' . ($r['borrados'] ?? 0));
         }
-        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+        self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     /**
