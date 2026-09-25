@@ -479,7 +479,8 @@ final class AdminRepo
         int $anioFin,
         ?string $fuente,
         ?string $nota,
-        string $localidad
+        string $localidad,
+        ?string $slug = null  // alta desde la nómina: el SLUG fijo de la hermandad, que tras un renombrado ya no es slugify(NOMBRE)
     ): array {
         if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
         $hermandad = trim($hermandad);
@@ -490,7 +491,7 @@ final class AdminRepo
             return ['code' => 'INVALID_RANGO'];
         }
 
-        $slug = Slug::slugify($hermandad);
+        $slug ??= Slug::slugify($hermandad);
         $titularNorm = self::normalize($titular);
         $fuenteNorm = self::normalize($fuente);
         $notaNorm = self::normalize($nota);
@@ -546,10 +547,114 @@ final class AdminRepo
             $placeholders = implode(',', array_fill(0, count($idsContrato), '?'));
             Db::run("DELETE FROM contrato_localidad WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
             Db::run("DELETE FROM contrato_paso WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
+            Db::run("DELETE FROM contrato_tramo WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
             $borrados = Db::run("DELETE FROM contrato WHERE ID_CONTRATO IN ($placeholders)", $idsContrato);
             if ($borrados === 0) return ['code' => 'NOT_FOUND'];
             Db::logAdmin('DELETE_RANGO', 'contrato', null, ['ids' => $idsContrato, 'borrados' => $borrados]);
             return ['code' => 'DELETED', 'borrados' => $borrados];
+        });
+    }
+
+    /**
+     * Cambia los años de una línea de rango (misma banda, mismo paso — una
+     * línea de Repo::agruparAcompanamientos) a [$anioInicio, $anioFin]:
+     * borra los contratos de años que quedan fuera y crea los que faltan
+     * copiando hermandad/titular/localidad/paso del más reciente (FUENTE y
+     * NOTA no: eran de los años originales). Si un año que falta ya lo tiene
+     * otro contrato de la misma banda en el mismo paso (enlazado a él o con el
+     * mismo TITULAR), se reutiliza en vez de duplicar — así, al alargar
+     * 2010-2017 hasta 2026, la línea 2019-2026 de esa banda se funde con ésta
+     * (la lista colapsa años seguidos en una sola línea).
+     *
+     * @param list<int> $idsContrato
+     * @return array{code:string,creados?:int,fusionados?:int,borrados?:int}
+     */
+    public static function editarAniosRango(array $idsContrato, int $anioInicio, int $anioFin): array
+    {
+        if ($idsContrato === []) return ['code' => 'NOT_FOUND'];
+        if ($anioInicio < 1900 || $anioFin < $anioInicio || $anioFin - $anioInicio > 100) {
+            return ['code' => 'INVALID_RANGO'];
+        }
+        $in = implode(',', array_fill(0, count($idsContrato), '?'));
+        $rango = Db::all(
+            "SELECT c.ID_CONTRATO, c.ID_BANDA, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.ANIO,
+                    cl.LOCALIDAD, cp.ID_PASO, ct.TRAMO
+             FROM contrato c
+             LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN contrato_tramo ct ON ct.ID_CONTRATO = c.ID_CONTRATO
+             WHERE c.ID_CONTRATO IN ($in)
+             ORDER BY c.ANIO DESC",
+            $idsContrato
+        );
+        if ($rango === []) return ['code' => 'NOT_FOUND'];
+        // Una línea es siempre una banda de una hermandad; otra cosa no se toca.
+        if (count(array_unique(array_column($rango, 'ID_BANDA'))) > 1
+            || count(array_unique(array_column($rango, 'HERMANDAD_SLUG'))) > 1) {
+            return ['code' => 'RANGO_MIXTO'];
+        }
+        $tpl = $rango[0];
+        $idPaso = null;
+        foreach ($rango as $r) { if ($r['ID_PASO'] !== null) { $idPaso = (int) $r['ID_PASO']; break; } }
+
+        return Db::transaction(function () use ($rango, $tpl, $idPaso, $anioInicio, $anioFin) {
+            $fuera = [];
+            $tiene = [];
+            foreach ($rango as $r) {
+                $anio = (int) $r['ANIO'];
+                if ($anio < $anioInicio || $anio > $anioFin) $fuera[] = (int) $r['ID_CONTRATO'];
+                else $tiene[$anio] = true;
+            }
+            if ($fuera !== []) {
+                $inF = implode(',', array_fill(0, count($fuera), '?'));
+                Db::run("DELETE FROM contrato_localidad WHERE ID_CONTRATO IN ($inF)", $fuera);
+                Db::run("DELETE FROM contrato_paso WHERE ID_CONTRATO IN ($inF)", $fuera);
+                Db::run("DELETE FROM contrato_tramo WHERE ID_CONTRATO IN ($inF)", $fuera);
+                Db::run("DELETE FROM contrato WHERE ID_CONTRATO IN ($inF)", $fuera);
+            }
+
+            $creados = 0;
+            $fusionados = 0;
+            for ($anio = $anioInicio; $anio <= $anioFin; $anio++) {
+                if (isset($tiene[$anio])) continue;
+                $existe = Db::one(
+                    "SELECT c.ID_CONTRATO, cp.ID_PASO FROM contrato c
+                     LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                     LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
+                     WHERE c.ID_BANDA = ? AND c.ANIO = ? AND c.HERMANDAD_SLUG = ?
+                       AND IFNULL(cl.LOCALIDAD, '') = IFNULL(?, '')
+                       AND (cp.ID_PASO = ? OR IFNULL(c.TITULAR, '') = IFNULL(?, ''))
+                     LIMIT 1",
+                    [$tpl['ID_BANDA'], $anio, $tpl['HERMANDAD_SLUG'], $tpl['LOCALIDAD'], $idPaso, $tpl['TITULAR']]
+                );
+                if ($existe !== null) {
+                    if ($idPaso !== null && $existe['ID_PASO'] === null) {
+                        Db::run('INSERT OR IGNORE INTO contrato_paso (ID_CONTRATO, ID_PASO) VALUES (?, ?)', [$existe['ID_CONTRATO'], $idPaso]);
+                    }
+                    $fusionados++;
+                    continue;
+                }
+                Db::run(
+                    'INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO) VALUES (?, ?, ?, ?, ?)',
+                    [$tpl['ID_BANDA'], $tpl['HERMANDAD'], $tpl['HERMANDAD_SLUG'], $tpl['TITULAR'], $anio]
+                );
+                $id = Db::lastInsertId();
+                if ($tpl['LOCALIDAD'] !== null) {
+                    Db::run('INSERT INTO contrato_localidad (ID_CONTRATO, LOCALIDAD) VALUES (?, ?)', [$id, $tpl['LOCALIDAD']]);
+                }
+                if ($idPaso !== null) {
+                    Db::run('INSERT INTO contrato_paso (ID_CONTRATO, ID_PASO) VALUES (?, ?)', [$id, $idPaso]);
+                }
+                if ($tpl['TRAMO'] !== null) {
+                    Db::run('INSERT INTO contrato_tramo (ID_CONTRATO, TRAMO) VALUES (?, ?)', [$id, $tpl['TRAMO']]);
+                }
+                $creados++;
+            }
+            Db::logAdmin('EDITAR_ANIOS_RANGO', 'contrato', null, [
+                'ids' => array_column($rango, 'ID_CONTRATO'), 'anio_inicio' => $anioInicio, 'anio_fin' => $anioFin,
+                'creados' => $creados, 'fusionados' => $fusionados, 'borrados' => count($fuera),
+            ]);
+            return ['code' => 'UPDATED', 'creados' => $creados, 'fusionados' => $fusionados, 'borrados' => count($fuera)];
         });
     }
 

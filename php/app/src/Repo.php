@@ -1858,8 +1858,37 @@ final class Repo
         return strcasecmp($t, 'Cruz de Guia') === 0;
     }
 
-    public static function agruparAcompanamientos(array $rows): array
+    /**
+     * Años sin salida procesional de la localidad (014_temporada_sin_salida:
+     * 2020 y 2021 por la pandemia). Si la tabla aún no existe en el host, nada.
+     * @return list<int>
+     */
+    public static function aniosSinSalida(string $localidad): array
     {
+        try {
+            return array_map('intval', array_column(Db::all('SELECT ANIO FROM temporada_sin_salida WHERE LOCALIDAD = ?', [$localidad]), 'ANIO'));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * $aniosSinSalida (ver aniosSinSalida()): años en que no hubo procesión.
+     * No cortan una línea: si la misma banda estaba en 2019 y vuelve en 2022,
+     * se entiende que no hubo cambio y sale una sola línea 2015–2026 (sus
+     * contratos siguen siendo los reales; no se inventa ninguno para 2020-21).
+     */
+    public static function agruparAcompanamientos(array $rows, array $aniosSinSalida = []): array
+    {
+        $sinSalida = array_flip($aniosSinSalida);
+        // ¿Hay continuidad de $fin a $anio? Sí si son seguidos o todo lo de en medio fue año sin salida.
+        $seguido = static function (int $fin, int $anio) use ($sinSalida): bool {
+            if ($anio <= $fin) return false;
+            for ($y = $fin + 1; $y < $anio; $y++) {
+                if (!isset($sinSalida[$y])) return false;
+            }
+            return true;
+        };
         $porHermandad = [];
         foreach ($rows as $r) {
             $slug = (string) $r['HERMANDAD_SLUG'];
@@ -1883,8 +1912,16 @@ final class Repo
                 foreach ($t['rows'] as $r) {
                     $anio = (int) $r['ANIO'];
                     $idBanda = (int) $r['ID_BANDA'];
-                    $i = $rangos === [] ? null : array_key_last($rangos);
-                    if ($i !== null && $rangos[$i]['idBanda'] === $idBanda && $rangos[$i]['anioFin'] === $anio - 1) {
+                    $tramo = $r['TRAMO'] ?? null; // ida/vuelta (016), solo lo trae la vista sobre la nómina
+                    // Se busca la línea de ESTA banda que acaba justo el año
+                    // anterior, no solo la última: si otra banda toca el mismo
+                    // paso un año intermedio, su fila cae en medio (orden por
+                    // ANIO) y partía en dos una racha continua.
+                    $i = null;
+                    foreach ($rangos as $k => $rgPrev) {
+                        if ($rgPrev['idBanda'] === $idBanda && $rgPrev['tramo'] === $tramo && $seguido($rgPrev['anioFin'], $anio)) { $i = $k; break; }
+                    }
+                    if ($i !== null) {
                         $rangos[$i]['anioFin'] = $anio;
                         $rangos[$i]['contratos'][] = (int) $r['ID_CONTRATO'];
                     } else {
@@ -1892,13 +1929,16 @@ final class Repo
                             'anioInicio' => $anio,
                             'anioFin' => $anio,
                             'idBanda' => $idBanda,
+                            'tramo' => $tramo,
                             'banda' => (string) $r['BANDA'],
                             'contratos' => [(int) $r['ID_CONTRATO']],
                             'posibleDuplicado' => false,
                         ];
                     }
                 }
-                $rangos = array_reverse($rangos); // reciente → antiguo
+                // reciente → antiguo, por año final (una línea larga que llega a
+                // hoy va antes que otra corta que empezó más tarde)
+                usort($rangos, static fn(array $a, array $b): int => [$b['anioFin'], $b['anioInicio'], $a['tramo'] ?? ''] <=> [$a['anioFin'], $a['anioInicio'], $b['tramo'] ?? '']);
                 foreach ($rangos as $i => &$rg) {
                     $rg['actual'] = ($i === 0);
                 }

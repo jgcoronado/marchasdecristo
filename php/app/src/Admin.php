@@ -51,6 +51,17 @@ final class Admin
             $borrados = (int) $_GET['borrados'];
             return ['type' => 'ok', 'msg' => $borrados === 1 ? '1 acompañamiento eliminado.' : "$borrados acompañamientos eliminados."];
         }
+        if (isset($_GET['anios'])) {
+            $partes = [];
+            if ((int) ($_GET['aC'] ?? 0) > 0) $partes[] = (int) $_GET['aC'] . ' año(s) añadido(s)';
+            if ((int) ($_GET['aF'] ?? 0) > 0) $partes[] = (int) $_GET['aF'] . ' año(s) fusionado(s) con otra línea de la misma banda y paso';
+            if ((int) ($_GET['aB'] ?? 0) > 0) $partes[] = (int) $_GET['aB'] . ' año(s) eliminado(s)';
+            return ['type' => 'ok', 'msg' => 'Años actualizados' . ($partes ? ': ' . implode(', ', $partes) : '') . '.'];
+        }
+        if (isset($_GET['movidos'])) {
+            $movidos = (int) $_GET['movidos'];
+            return ['type' => 'ok', 'msg' => $movidos === 1 ? '1 acompañamiento movido de paso.' : "$movidos acompañamientos movidos de paso."];
+        }
         if (isset($_GET['deleted'])) return ['type' => 'ok', 'msg' => 'Relación eliminada.'];
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
@@ -703,14 +714,22 @@ final class Admin
         $notice = self::noticeFromQuery();
         $localidad = null;
         $hermandades = [];
+        $nomina = null;
 
         // Igual que Pages::acompanamientos(): la tabla `contrato` puede no
         // estar migrada aún en este host (mecanismo manual, como P-07). Sin
         // este fallback el panel da un 500 crudo en vez de avisar de qué falta.
         try {
-            $localidad = Repo::resolverLocalidadPorSlug($slug);
-            if ($localidad !== null) {
-                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad));
+            $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug);
+            if ($localidad !== null && NominaRepo::tieneNomina($localidad)) {
+                // Con nómina en /dashboard/semana-santa, los acompañamientos se
+                // colocan sobre sus días/hermandades/pasos; en $hermandades
+                // quedan solo los de hermandades que aún no están en la nómina.
+                $r = NominaRepo::acompanamientosPorNomina($localidad);
+                $nomina = $r['dias'];
+                $hermandades = $r['fuera'];
+            } elseif ($localidad !== null) {
+                $hermandades = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad), Repo::aniosSinSalida($localidad));
             }
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos] ' . $e->getMessage());
@@ -735,8 +754,11 @@ final class Admin
         View::render('admin/acompanamientos', [
             'session' => $session, 'slug' => $slug, 'localidad' => $localidad, 'esNueva' => $esNueva,
             'hermandades' => $hermandades,
+            'nomina' => $nomina,
             'notice' => $notice,
-        ], ['title' => "Acompañamientos — $localidad — Marchas de Cristo", 'noindex' => true]);
+        ], ['title' => "Acompañamientos — $localidad — Marchas de Cristo", 'noindex' => true,
+            // con nómina: hermandad y sus pasos en dos columnas, como en /dashboard/semana-santa
+            'ancho' => $nomina !== null]);
     }
 
     public static function acompanamientosAddPost(array $p): void
@@ -745,7 +767,7 @@ final class Admin
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
 
-        $localidad = Repo::resolverLocalidadPorSlug($slug);
+        $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) {
             // Primer contrato de una localidad nueva: el nombre correcto (con
             // tildes) solo puede venir del formulario, nunca del slug.
@@ -764,9 +786,23 @@ final class Admin
         $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
         $fuente = is_string($_POST['FUENTE'] ?? null) ? (string) $_POST['FUENTE'] : null;
         $nota = is_string($_POST['NOTA'] ?? null) ? (string) $_POST['NOTA'] : null;
+        // Localidad con nómina: se elige un paso y de él salen hermandad,
+        // titular y SLUG; el texto libre queda para hermandades fuera de la nómina.
+        $idPaso = (int) ($_POST['ID_PASO'] ?? 0);
 
         try {
-            $r = AdminRepo::addContratoRango($idBanda, $hermandad, $titular, $anioInicio, $anioFin, $fuente, $nota, $localidad);
+            if ($idPaso > 0) {
+                $paso = NominaRepo::pasoDeLocalidad($idPaso, $localidad);
+                if ($paso === null) Http::redirect("/dashboard/acompanamientos/$slug?err=PASO_INVALIDO", 302);
+                $r = AdminRepo::addContratoRango($idBanda, $paso['HERMANDAD'], $paso['NOMBRE'], $anioInicio, $anioFin, $fuente, $nota, $localidad, $paso['SLUG']);
+                if (($r['code'] ?? '') === 'CREATED') {
+                    NominaRepo::enlazarRangoAPaso($localidad, $idBanda, $paso, $anioInicio, $anioFin);
+                    $tramo = (string) ($_POST['TRAMO'] ?? '');
+                    if ($tramo !== '') NominaRepo::marcarTramoRango($localidad, $idBanda, $paso, $anioInicio, $anioFin, $tramo);
+                }
+            } else {
+                $r = AdminRepo::addContratoRango($idBanda, $hermandad, $titular, $anioInicio, $anioFin, $fuente, $nota, $localidad);
+            }
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos/add] ' . $e->getMessage());
             Http::redirect("/dashboard/acompanamientos/$slug?err=TABLA_NO_MIGRADA", 302);
@@ -774,6 +810,44 @@ final class Admin
         if (($r['code'] ?? '') === 'CREATED') {
             Http::redirect("/dashboard/acompanamientos/$slug?creados=" . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0), 302);
         }
+        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    /** Marca/desmarca una hermandad como "ida / vuelta" (bandas distintas a la ida y a la vuelta), ver 016_ida_vuelta.sql. */
+    public static function acompanamientosIdaVueltaPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        $r = NominaRepo::setIdaVuelta($localidad, (int) $p['id'], ($_POST['activo'] ?? '') === '1');
+        Http::redirect("/dashboard/acompanamientos/$slug?" . (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')), 302);
+    }
+
+    /** Pone ida / vuelta (o lo quita) a una línea de rango. */
+    public static function acompanamientosTramoRangoPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        $tramo = (string) ($_POST['TRAMO'] ?? '');
+        $r = NominaRepo::setTramo($localidad, self::parseContratoIds($_POST['ids'] ?? null), $tramo === '' ? null : $tramo);
+        Http::redirect("/dashboard/acompanamientos/$slug?" . (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')), 302);
+    }
+
+    /** Mueve una línea de rango (o una selección) a otro paso de la nómina, ver NominaRepo::moverContratosAPaso. */
+    public static function acompanamientosMoverPasoPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) Http::redirect("/dashboard/acompanamientos/$slug?err=LOCALIDAD_INVALIDA", 302);
+        $r = NominaRepo::moverContratosAPaso($localidad, self::parseContratoIds($_POST['ids'] ?? null), (int) ($_POST['ID_PASO'] ?? 0));
+        if (($r['code'] ?? '') === 'MOVED') Http::redirect("/dashboard/acompanamientos/$slug?movidos=" . ($r['movidos'] ?? 0), 302);
         Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
@@ -797,6 +871,22 @@ final class Admin
         $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
         $r = AdminRepo::updateContratoBandaRango($ids, $idBanda);
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/acompanamientos/$slug?saved=1", 302);
+        Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    /** Cambia los años de una línea de rango, fundiéndola con la misma banda/paso si se solapan (AdminRepo::editarAniosRango). */
+    public static function acompanamientosAniosRangoPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/acompanamientos/$slug?err=CSRF", 302);
+        $ids = self::parseContratoIds($_POST['ids'] ?? null);
+        $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
+        $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
+        $r = AdminRepo::editarAniosRango($ids, $anioInicio, $anioFin);
+        if (($r['code'] ?? '') === 'UPDATED') {
+            Http::redirect("/dashboard/acompanamientos/$slug?anios=1&aC=" . ($r['creados'] ?? 0) . '&aF=' . ($r['fusionados'] ?? 0) . '&aB=' . ($r['borrados'] ?? 0), 302);
+        }
         Http::redirect("/dashboard/acompanamientos/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
@@ -846,6 +936,256 @@ final class Admin
         $r = AdminRepo::descartarAcompanamientoDuda($id, $nota !== '' ? $nota : null);
         if (($r['code'] ?? '') === 'DISCARDED') Http::redirect('/dashboard/acompanamientos-dudas?descartado=1', 302);
         Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    // ── Nómina de Semana Santa (localidad → día → hermandad → paso), base para
+    // los acompañamientos — ver 015_semana_santa_dia.sql y NominaRepo ────────
+
+    /** @return list<int> IDs enviados en orden[] (orden DOM tras arrastrar). */
+    private static function postOrdenIds(): array
+    {
+        $raw = $_POST['orden'] ?? [];
+        if (!is_array($raw)) $raw = [$raw];
+        return array_values(array_filter(array_map('intval', $raw), static fn(int $n): bool => $n > 0));
+    }
+
+    public static function semanaSantaIndexAdmin(): void
+    {
+        $session = Auth::requireAdmin();
+        $localidades = [];
+        try {
+            $localidades = NominaRepo::localidades();
+        } catch (\Throwable $e) {
+            error_log('[dashboard/semana-santa] ' . $e->getMessage());
+        }
+        View::render('admin/semana_santa_index', [
+            'session' => $session,
+            'localidades' => $localidades,
+            'notice' => self::noticeFromQuery(),
+        ], ['title' => 'Semana Santa — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    /** Igual que acompanamientosCrearPost: no escribe nada, solo resuelve el slug y pasa el nombre exacto por query. */
+    public static function semanaSantaCrearPost(): void
+    {
+        $session = Auth::requireAdmin();
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/semana-santa?err=CSRF', 302);
+        $localidad = trim((string) ($_POST['LOCALIDAD'] ?? ''));
+        if ($localidad === '') Http::redirect('/dashboard/semana-santa?err=LOCALIDAD_REQUERIDA', 302);
+        $slug = Slug::slugify($localidad);
+        if ($slug === '') Http::redirect('/dashboard/semana-santa?err=LOCALIDAD_INVALIDA', 302);
+        Http::redirect('/dashboard/semana-santa/' . $slug . '?nueva=' . rawurlencode($localidad), 302);
+    }
+
+    public static function semanaSantaAdmin(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        $notice = self::noticeFromQuery();
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+
+        $esNueva = false;
+        if ($localidad === null) {
+            $nueva = trim((string) ($_GET['nueva'] ?? ''));
+            if ($nueva !== '' && Slug::slugify($nueva) === $slug) {
+                $localidad = $nueva;
+                $esNueva = true;
+            } else {
+                Http::notFound();
+            }
+        }
+
+        $dias = [];
+        try {
+            $dias = NominaRepo::cargarLocalidad($localidad);
+        } catch (\Throwable $e) {
+            error_log('[dashboard/semana-santa] ' . $e->getMessage());
+            $notice = ['type' => 'error', 'msg' => 'La tabla semana_santa_dia no existe todavía en este host — falta aplicar la migración 015_semana_santa_dia.sql (migrate_ingest.php).'];
+        }
+
+        View::render('admin/semana_santa', [
+            'session' => $session, 'slug' => $slug, 'localidad' => $localidad, 'esNueva' => $esNueva,
+            'dias' => $dias,
+            'notice' => $notice,
+        ], ['title' => "Semana Santa — $localidad — Marchas de Cristo", 'noindex' => true,
+            // pantalla de trabajo (≥1200px): hermandad y sus pasos en dos columnas
+            'ancho' => true]);
+    }
+
+    public static function semanaSantaDiaAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) {
+            $posted = trim((string) ($_POST['LOCALIDAD'] ?? ''));
+            if ($posted === '' || Slug::slugify($posted) !== $slug) Http::redirect("/dashboard/semana-santa/$slug?err=LOCALIDAD_INVALIDA", 302);
+            $localidad = $posted;
+        }
+        $r = NominaRepo::addDia($localidad, (string) ($_POST['NOMBRE'] ?? ''));
+        if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaDiaRenombrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::renameDia((int) $p['idDia'], (string) ($_POST['NOMBRE'] ?? ''));
+        if (in_array($r['code'] ?? '', ['CREATED', 'UPDATED'], true)) Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaDiaBorrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::deleteDia((int) $p['idDia']);
+        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaDiaMoverPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
+        $r = NominaRepo::swapDiaConVecino((int) $p['idDia'], $direccion);
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaDiasReorderPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) Http::notFound();
+        $r = NominaRepo::reorderDias($localidad, self::postOrdenIds());
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        if ($localidad === null) Http::notFound();
+        $idDia = (int) ($_POST['idDia'] ?? 0);
+        $r = NominaRepo::addHermandad($localidad, $idDia, (string) ($_POST['NOMBRE'] ?? ''));
+        if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadRenombrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::renameHermandad((int) $p['idHermandad'], (string) ($_POST['NOMBRE'] ?? ''));
+        if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadBorrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::deleteHermandad((int) $p['idHermandad']);
+        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadMoverDiaPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::moveHermandad((int) $p['idHermandad'], (int) ($_POST['idDia'] ?? 0));
+        if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadMoverPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
+        $r = NominaRepo::swapHermandadConVecino((int) $p['idHermandad'], $direccion);
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaHermandadesReorderPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::reorderHermandades((int) $p['idDia'], self::postOrdenIds());
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaPasoAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $idHermandad = (int) ($_POST['idHermandad'] ?? 0);
+        $esCruzGuia = (string) ($_POST['esCruzGuia'] ?? '') === '1';
+        $r = NominaRepo::addPaso($idHermandad, (string) ($_POST['NOMBRE'] ?? ''), $esCruzGuia);
+        if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaPasoRenombrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::renamePaso((int) $p['idPaso'], (string) ($_POST['NOMBRE'] ?? ''));
+        if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaPasoBorrarPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::deletePaso((int) $p['idPaso']);
+        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaPasoMoverPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
+        $r = NominaRepo::swapPasoConVecino((int) $p['idPaso'], $direccion);
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function semanaSantaPasosReorderPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $slug = (string) $p['localidad'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
+        $r = NominaRepo::reorderPasos((int) $p['idHermandad'], self::postOrdenIds());
+        if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
+        Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     /** Alta/edición/baja manual de los enlaces de streaming/RRSS musicales de una banda (pestaña Social). */

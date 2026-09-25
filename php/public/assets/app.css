@@ -1233,3 +1233,49 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
     a { color: var(--pr-tinta); text-decoration: underline; }
     .record h1 { font-size: 1.5rem; }
 }
+
+/* ── Panel /dashboard/semana-santa (N-06): asa de arrastre y filas de
+   hermandad/paso reordenables, ver public/assets/nomina.js. ──────────────── */
+.drag-handle { cursor: grab; color: var(--faint); font-size: 1.1rem; user-select: none; }
+[draggable="true"].arrastrando { opacity: 0.4; }
+.nomina-herm {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    padding: 0.6rem 0.75rem;
+}
+.nomina-pasos { margin-top: 0.5rem; padding-left: 1.6rem; }
+/* Panel a ancho de trabajo (≥1200px): nombre y controles de la hermandad a la
+   izquierda, sus pasos a la derecha, para que cada hermandad ocupe pocas filas. */
+@media (min-width: 1100px) {
+    .nomina-herm { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .nomina-herm .nomina-pasos { margin-top: 0; padding-left: 1rem; border-left: 1px solid var(--line); }
+}
+.nomina-pasos ul { margin: 0 0 0.35rem; }
+@media (min-width: 1100px) { .nomina-pasos li[data-paso-row] { flex-wrap: nowrap; } }
+.nomina-pasos li[data-paso-row] {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    flex-wrap: wrap;
+}
+
+/* ── Acompañamientos sobre la nómina (/dashboard/acompanamientos/{localidad}):
+   una tabla por paso, a la que se arrastran las líneas de rango. Ver nomina.js. */
+.acomp-paso + .acomp-paso { margin-top: 0.6rem; }
+.acomp-paso-cab { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
+.acomp-tabla { width: 100%; margin: 0; }
+.acomp-tabla td { vertical-align: middle; }
+.acomp-sin-paso .acomp-paso-cab { font-weight: 400; }
+[data-paso-drop].drop-activo { outline: 2px dashed var(--acc); outline-offset: 2px; background: var(--acc-tint); }
+tr.arrastrando { opacity: 0.4; }
+tr.acomp-alta td { background: transparent; border-top: 1px dashed var(--line); padding-top: 0.35rem; }
+.acomp-fuera-alta { margin: 0 0 1rem; }
+.acomp-fuera-alta > summary { cursor: pointer; margin-bottom: 0.5rem; }
+.acomp-alta form { display: flex; align-items: center; gap: 0.35rem; flex-wrap: nowrap; }
+.acomp-alta .autocomplete { flex: 1; min-width: 0; }
+.acomp-alta .autocomplete .input { width: 100% !important; }
+tr.acomp-alta, tr.acomp-alta:nth-child(even) { background: transparent; }
+.acomp-tramo { width: auto; padding-block: 0.15rem; font-size: 0.85rem; }
+.arrastre-varios { position: fixed; top: -100px; left: 0; padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); background: var(--acc); color: var(--acc-fg); font-size: 0.85rem; white-space: nowrap; }
