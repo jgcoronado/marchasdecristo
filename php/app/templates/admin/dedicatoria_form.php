@@ -100,3 +100,4 @@ $nVar = count($dedic['variantes']);
         </table></div>
     </section>
 </div>
+<script src="/assets/admin.js" defer></script>

@@ -41,3 +41,4 @@ $fields = [
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : 'Crear banda' ?></button></div>
     </form>
 </div>
+<script src="/assets/admin.js" defer></script>
