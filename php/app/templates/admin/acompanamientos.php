@@ -85,7 +85,7 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
 <?php endif; ?>
 
 <?php if ($anio !== null): ?>
-<p class="muted small">Vista del año <strong><?= $anio ?></strong>: solo se muestran los acompañamientos de ese año (una línea por banda). Las altas van por defecto a <?= $anio ?>; cambiar la banda o borrar una línea afecta solo a este año.</p>
+<p class="muted small">Vista del año <strong><?= $anio ?></strong>: solo se muestran los acompañamientos de ese año (una línea por banda). Lo que añadas aquí se guarda solo para <?= $anio ?>; cambiar la banda o borrar una línea afecta solo a este año.</p>
 <?php endif; ?>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
@@ -136,16 +136,20 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
             </datalist>
         </div>
 
+<?php if ($anio !== null): /* vista por año: el alta es solo para ese año */ ?>
+        <input type="hidden" name="ANIO_INICIO" value="<?= $anio ?>">
+<?php else: ?>
         <div class="adv-grid">
             <div class="field">
                 <label class="field-label" for="ANIO_INICIO">Año inicio</label>
-                <input class="input" id="ANIO_INICIO" name="ANIO_INICIO" type="number" min="1900" max="2100" value="<?= $anio ?? '' ?>" required>
+                <input class="input" id="ANIO_INICIO" name="ANIO_INICIO" type="number" min="1900" max="2100" required>
             </div>
             <div class="field">
                 <label class="field-label" for="ANIO_FIN">Año fin (vacío = solo el año de inicio)</label>
                 <input class="input" id="ANIO_FIN" name="ANIO_FIN" type="number" min="1900" max="2100">
             </div>
         </div>
+<?php endif; ?>
 
         <div class="field">
             <label class="field-label" for="FUENTE">Fuente (opcional, uso interno — no se muestra público)</label>
@@ -226,8 +230,12 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
                                     <input class="input" type="text" placeholder="Añadir banda…" autocomplete="off" data-banda-edit-search aria-label="Banda" style="width:17rem">
                                     <div class="suggest" data-banda-edit-suggest hidden></div>
                                 </div>
-                                <input class="input" type="number" name="ANIO_INICIO" min="1900" max="2100" placeholder="Desde" value="<?= $anio ?? '' ?>" required style="width:5.5rem" aria-label="Año inicio">
+<?php if ($anio !== null): ?>
+                                <input type="hidden" name="ANIO_INICIO" value="<?= $anio ?>">
+<?php else: ?>
+                                <input class="input" type="number" name="ANIO_INICIO" min="1900" max="2100" placeholder="Desde" required style="width:5.5rem" aria-label="Año inicio">
                                 <input class="input" type="number" name="ANIO_FIN" min="1900" max="2100" placeholder="Hasta" style="width:5.5rem" aria-label="Año fin (vacío = solo el de inicio)">
+<?php endif; ?>
 <?php if ($h['IDA_VUELTA']): ?>
                                 <select class="input acomp-tramo" name="TRAMO" aria-label="Ida o vuelta">
                                     <option value="">Ida / vuelta…</option>

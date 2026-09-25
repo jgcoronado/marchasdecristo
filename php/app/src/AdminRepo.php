@@ -500,10 +500,13 @@ final class AdminRepo
             $creados = 0;
             $existentes = 0;
             for ($anio = $anioInicio; $anio <= $anioFin; $anio++) {
+                // Por localidad: el mismo SLUG y TITULAR se repite entre
+                // ciudades (La Sed de Sevilla y la de Jerez) y no es duplicado.
                 $existe = Db::one(
-                    "SELECT ID_CONTRATO FROM contrato
-                     WHERE ID_BANDA = ? AND HERMANDAD_SLUG = ? AND ANIO = ? AND IFNULL(TITULAR,'') = ?",
-                    [$idBanda, $slug, $anio, $titularNorm ?? '']
+                    "SELECT c.ID_CONTRATO FROM contrato c
+                     INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                     WHERE c.ID_BANDA = ? AND c.HERMANDAD_SLUG = ? AND c.ANIO = ? AND IFNULL(c.TITULAR,'') = ? AND cl.LOCALIDAD = ?",
+                    [$idBanda, $slug, $anio, $titularNorm ?? '', $localidad]
                 );
                 if ($existe !== null) {
                     $existentes++;
@@ -1858,9 +1861,10 @@ final class AdminRepo
                 $hermandadNombre = $hermandad['NOMBRE'] ?? $f['HERMANDAD_SLUG'];
 
                 $existe = Db::one(
-                    "SELECT ID_CONTRATO FROM contrato
-                     WHERE HERMANDAD_SLUG = ? AND ANIO = ? AND ID_BANDA = ? AND IFNULL(TITULAR,'') = ?",
-                    [$f['HERMANDAD_SLUG'], $f['ANIO'], $idBanda, $f['TITULAR']]
+                    "SELECT c.ID_CONTRATO FROM contrato c
+                     INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                     WHERE c.HERMANDAD_SLUG = ? AND c.ANIO = ? AND c.ID_BANDA = ? AND IFNULL(c.TITULAR,'') = ? AND cl.LOCALIDAD = ?",
+                    [$f['HERMANDAD_SLUG'], $f['ANIO'], $idBanda, $f['TITULAR'], $f['LOCALIDAD']]
                 );
                 if ($existe !== null) {
                     $existentes++;
