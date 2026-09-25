@@ -69,8 +69,16 @@ final class MalagaBlogImporter
         $host = (string) parse_url($url, PHP_URL_HOST);
         $path = (string) parse_url($url, PHP_URL_PATH);
         $etiqueta = urldecode(basename(rtrim($path, '/')));
-        if ($host !== 'malagamusical.blogspot.com' || $etiqueta === '' || !str_contains($path, '/label/')) {
-            throw new RuntimeException("La URL no parece una etiqueta de malagamusical.blogspot.com ($url)");
+        // Además de /search/label/<etiqueta> se acepta la URL de una entrada
+        // (/AAAA/MM/<slug>.html): su cuerpo tiene el mismo formato y el slug
+        // del fichero hace de etiqueta (clave del mapeo).
+        $esEntrada = (bool) preg_match('#^/\d{4}/\d{2}/[^/]+\.html$#', $path);
+        if ($esEntrada) {
+            $etiqueta = substr($etiqueta, 0, -strlen('.html'));
+        }
+        // Blogger sirve el mismo blog con dominio de país (.com.es, .com.ar…).
+        if (!preg_match('/^malagamusical\.blogspot\.com(\.[a-z]{2})?$/', $host) || $etiqueta === '' || (!$esEntrada && !str_contains($path, '/label/'))) {
+            throw new RuntimeException("La URL no parece una etiqueta ni una entrada de malagamusical.blogspot.com ($url)");
         }
         return [$etiqueta, Slug::slugify($etiqueta)];
     }
@@ -127,7 +135,6 @@ final class MalagaBlogImporter
             }
             $err = curl_error($ch);
             $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
             if ($body === false) {
                 throw new RuntimeException("curl falló ($err)");
             }
@@ -144,7 +151,21 @@ final class MalagaBlogImporter
         return $body;
     }
 
-    /** Extrae el texto de <div class='post-body entry-content'>, una línea por elemento de bloque. */
+    /** Marca con la que extraerTexto() señala las cabeceras <h1>…<h6> del blog. */
+    private const CABECERA_MARCA = "\u{1F}";
+    /**
+     * Marca provisional de inicio de negrita/subrayado. Algunas entradas no usan
+     * <hN> sino una línea en negrita y subrayada ("<b><i><u>Cristo</u></i></b>",
+     * Gamarra): lineasDe() la convierte en CABECERA_MARCA si abre la línea y lo
+     * que sigue no es un año; en cualquier otro sitio se borra.
+     */
+    private const RESALTE_MARCA = "\u{1E}";
+
+    /**
+     * Extrae el texto de <div class='post-body entry-content'>, una línea por
+     * elemento de bloque. Las cabeceras <hN> salen precedidas de CABECERA_MARCA
+     * y cada negrita/subrayado de RESALTE_MARCA (ver lineasDe()).
+     */
     public static function extraerTexto(string $html): string
     {
         if (!preg_match(
@@ -156,7 +177,9 @@ final class MalagaBlogImporter
         }
         $frag = $m[2];
         $frag = preg_replace('/<br\s*\/?>/i', "\n", $frag) ?? $frag;
-        $frag = preg_replace('/<\/(p|div|li)>/i', "\n", $frag) ?? $frag;
+        $frag = preg_replace('/<h[1-6][^>]*>/i', "\n" . self::CABECERA_MARCA, $frag) ?? $frag;
+        $frag = preg_replace('/<(?:b|strong|u)\b[^>]*>|<span\b[^>]*underline[^>]*>/i', self::RESALTE_MARCA, $frag) ?? $frag;
+        $frag = preg_replace('/<\/(p|div|li|ul|ol|h[1-6])>/i', "\n", $frag) ?? $frag;
         $text = strip_tags($frag);
         return html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
@@ -168,6 +191,14 @@ final class MalagaBlogImporter
         $out = [];
         foreach ($lineas as $l) {
             $l = trim(preg_replace('/\s+/u', ' ', $l) ?? $l);
+            // Una línea que abre en negrita/subrayado y no es de año es cabecera.
+            $resaltada = str_starts_with($l, self::RESALTE_MARCA);
+            $l = trim(str_replace(self::RESALTE_MARCA, '', $l));
+            // Viñetas al principio ("• 2013- Banda…" en Gamarra).
+            $l = trim(preg_replace('/^[•·▪◦*]+\s*/u', '', $l) ?? $l);
+            if ($resaltada && $l !== '' && !preg_match('/^\d/', $l)) {
+                $l = self::CABECERA_MARCA . rtrim($l, ': ');
+            }
             if ($l !== '') {
                 $out[] = $l;
             }
@@ -189,11 +220,29 @@ final class MalagaBlogImporter
         $cabecera = null;
         $actuales = [];
         $orfanas = [];
+        // Si la entrada marca sus cabeceras con <hN>, solo esas son cabeceras:
+        // cualquier otra línea (p.ej. la continuación "- C.T. del Regimiento…"
+        // que el blog deja fuera del <li>) queda dentro del bloque y analizar()
+        // la enseña como línea no reconocida.
+        $conMarcas = false;
         foreach ($lineas as $l) {
+            if (str_starts_with($l, self::CABECERA_MARCA)) {
+                $conMarcas = true;
+                break;
+            }
+        }
+        foreach ($lineas as $l) {
+            $esMarca = str_starts_with($l, self::CABECERA_MARCA);
+            if ($esMarca) {
+                $l = trim(substr($l, strlen(self::CABECERA_MARCA)));
+                if ($l === '') {
+                    continue;
+                }
+            }
             // Cualquier línea que empiece por dígito es de año, aunque venga mal
             // escrita ("201872019- ..." en Salud): así no se toma por cabecera y
             // analizar() la enseña como línea no reconocida.
-            if (preg_match('/^\d/', $l)) {
+            if (preg_match('/^\d/', $l) || ($conMarcas && !$esMarca)) {
                 if ($cabecera === null) {
                     $orfanas[] = $l;
                 } else {
@@ -214,6 +263,51 @@ final class MalagaBlogImporter
             $bloques[] = ['cabecera' => '(sin cabecera)', 'lineas' => [], 'orfanas' => $orfanas];
         }
         return $bloques;
+    }
+
+    /**
+     * Clave estable de una línea del blog para sus correcciones en el mapeo:
+     * cabecera + años + banda tal como los escribe el blog. Si el blog cambia
+     * esa línea, la corrección deja de aplicarse (y se ve en el panel).
+     */
+    public static function claveLinea(string $cabecera, string $rango, string $bandaTexto): string
+    {
+        return self::claveCabecera($cabecera) . '|' . $rango . '|' . self::normalizarBandaTexto($bandaTexto);
+    }
+
+    /**
+     * Guarda (o quita, con $correccion = []) la corrección de una línea del blog.
+     * @param array<string,mixed> $correccion
+     */
+    public static function guardarCorreccion(string $labelSlug, string $clave, array $correccion): void
+    {
+        $mapeo = self::leerJson(self::mapeoPath());
+        if (!isset($mapeo[$labelSlug]) || !is_array($mapeo[$labelSlug])) {
+            throw new RuntimeException('Guarda antes el mapeo de la etiqueta.');
+        }
+        $entrada = $mapeo[$labelSlug];
+        if ($correccion === []) {
+            unset($entrada['correcciones'][$clave]);
+        } else {
+            $entrada['correcciones'][$clave] = $correccion;
+        }
+        if (empty($entrada['correcciones'])) unset($entrada['correcciones']);
+        self::guardarEntradaMapeo($labelSlug, $entrada);
+    }
+
+    /**
+     * Alta a mano de un acompañamiento que no está en el blog.
+     * @param array{paso:string, anios:string, id_banda:int} $extra
+     */
+    public static function anadirExtra(string $labelSlug, array $extra): void
+    {
+        $mapeo = self::leerJson(self::mapeoPath());
+        if (!isset($mapeo[$labelSlug]) || !is_array($mapeo[$labelSlug])) {
+            throw new RuntimeException('Guarda antes el mapeo de la etiqueta.');
+        }
+        $entrada = $mapeo[$labelSlug];
+        $entrada['extras'][bin2hex(random_bytes(4))] = $extra;
+        self::guardarEntradaMapeo($labelSlug, $entrada);
     }
 
     /** Clave de una cabecera de bloque en pasos[] del mapeo ("Cruz de Guía" → "cruz de guia"). */
@@ -464,6 +558,15 @@ final class MalagaBlogImporter
 
         $indiceBandas = self::construirIndiceBandas($pdo);
 
+        // Correcciones a mano por línea del blog (ver claveLinea()), guardadas
+        // desde el panel en el mapeo de la etiqueta.
+        $correcciones = (array) ($hermandadCfg['correcciones'] ?? []);
+        $cruzPorNombre = [];
+        foreach ($pasosCfg as $cfg) {
+            if (isset($cfg['nombre'])) $cruzPorNombre[(string) $cfg['nombre']] = !empty($cfg['es_cruz_guia']);
+        }
+        $filas = [];
+
         $lineasNoParseadas = [];
         $descartadas = [];
         $dudasTipo = [];
@@ -489,7 +592,19 @@ final class MalagaBlogImporter
                 $anioFin = $m[2] !== '' ? (int) $m[2] : $anioIni;
                 $rango = self::rango($anioIni, $anioFin);
                 $bandaTexto = trim($m[3]);
-                $tipo = self::clasificarTipo($bandaTexto);
+                $clave = self::claveLinea($cabecera, $rango, $bandaTexto);
+                $corr = (array) ($correcciones[$clave] ?? []);
+
+                if (!empty($corr['descartar'])) {
+                    $descartadas[] = ['anio' => $rango, 'paso' => $cabecera, 'texto' => $bandaTexto, 'motivo' => 'corregido', 'clave' => $clave];
+                    continue;
+                }
+                if (isset($corr['anios']) && preg_match('/^(\d{4})(?:\/(\d{4}))?$/', (string) $corr['anios'], $ma)) {
+                    $anioIni = (int) $ma[1];
+                    $anioFin = isset($ma[2]) && $ma[2] !== '' ? (int) $ma[2] : $anioIni;
+                }
+                // Banda elegida a mano: manda sobre la clasificación y la resolución.
+                $tipo = isset($corr['id_banda']) ? 'forzada' : self::clasificarTipo($bandaTexto);
 
                 if ($tipo === 'omitir') {
                     continue; // "Sin información" / "No lleva"
@@ -502,15 +617,21 @@ final class MalagaBlogImporter
                     $dudasTipo[] = "$cabecera $rango: \"$bandaTexto\" (tipo de banda no reconocido)";
                     continue;
                 }
-                if (!empty($pasoCfg['descartar'])) {
+                if (isset($corr['paso'])) {
+                    $pasoNombre = (string) $corr['paso'];
+                    $esCruz = !empty($cruzPorNombre[$pasoNombre]);
+                } elseif (!empty($pasoCfg['descartar'])) {
                     $dudasTipo[] = "$cabecera $rango: \"$bandaTexto\" es $tipo pero el paso \"$cabecera\" está marcado como descartado en el mapeo — ponle el nombre real del paso para poder registrarlo";
                     continue;
+                } else {
+                    $pasoNombre = (string) $pasoCfg['nombre'];
+                    $esCruz = !empty($pasoCfg['es_cruz_guia']);
                 }
+                $pasosACrear[$pasoNombre] ??= ['nombre' => $pasoNombre, 'es_cruz_guia' => $esCruz];
 
-                $pasoNombre = (string) $pasoCfg['nombre'];
-                $pasosACrear[$pasoNombre] = ['nombre' => $pasoNombre, 'es_cruz_guia' => !empty($pasoCfg['es_cruz_guia'])];
-
-                $res = self::resolverBanda($bandaTexto, $tipo, $indiceBandas, $alias);
+                $res = $tipo === 'forzada'
+                    ? ['status' => 'ok', 'id' => (int) $corr['id_banda']]
+                    : self::resolverBanda($bandaTexto, $tipo, $indiceBandas, $alias);
                 $idBanda = null;
                 if ($res['status'] === 'ok') {
                     $idBanda = $res['id'];
@@ -520,13 +641,45 @@ final class MalagaBlogImporter
                 }
                 // 'sin_match' no genera duda: es el caso normal de "no existe en la BD".
 
+                $filas[] = [
+                    'clave' => $clave, 'cabecera' => $cabecera, 'rangoBlog' => $rango, 'bandaTexto' => $bandaTexto,
+                    'paso' => $pasoNombre, 'anios' => self::rango($anioIni, $anioFin), 'idBanda' => $idBanda,
+                    'correccion' => $corr,
+                ];
                 for ($anio = max($anioIni, self::ANIO_MINIMO); $anio <= $anioFin; $anio++) {
                     if ($idBanda !== null) {
-                        $aContrato[] = ['paso' => $pasoNombre, 'anio' => $anio, 'idBanda' => $idBanda, 'bandaTexto' => $bandaTexto];
+                        $aContrato[] = ['paso' => $pasoNombre, 'anio' => $anio, 'idBanda' => $idBanda, 'bandaTexto' => $bandaTexto, 'clave' => $clave];
                     } else {
-                        $aPendiente[] = ['paso' => $pasoNombre, 'anio' => $anio, 'bandaTexto' => self::normalizarBandaTexto($bandaTexto)];
+                        $aPendiente[] = ['paso' => $pasoNombre, 'anio' => $anio, 'bandaTexto' => self::normalizarBandaTexto($bandaTexto), 'clave' => $clave];
                     }
                 }
+            }
+        }
+
+        // ── altas a mano desde el panel (no están en el blog) ─────────────
+        // Se tratan como una línea más: clave "extra|<id>", admiten las mismas
+        // correcciones y «Descartar» las saca (recuperables como las demás).
+        foreach ((array) ($hermandadCfg['extras'] ?? []) as $idExtra => $ex) {
+            $clave = 'extra|' . $idExtra;
+            $corr = (array) ($correcciones[$clave] ?? []);
+            $rangoEx = (string) $ex['anios'];
+            $textoEx = '(añadida a mano)';
+            if (!empty($corr['descartar'])) {
+                $descartadas[] = ['anio' => $rangoEx, 'paso' => (string) $ex['paso'], 'texto' => $textoEx, 'motivo' => 'corregido', 'clave' => $clave];
+                continue;
+            }
+            $anios = (string) ($corr['anios'] ?? $rangoEx);
+            [$anioIni, $anioFin] = array_map('intval', explode('/', $anios . '/' . $anios));
+            $pasoNombre = (string) ($corr['paso'] ?? $ex['paso']);
+            $idBanda = (int) ($corr['id_banda'] ?? $ex['id_banda']);
+            $pasosACrear[$pasoNombre] ??= ['nombre' => $pasoNombre, 'es_cruz_guia' => !empty($cruzPorNombre[$pasoNombre])];
+            $filas[] = [
+                'clave' => $clave, 'cabecera' => $pasoNombre, 'rangoBlog' => $rangoEx, 'bandaTexto' => $textoEx,
+                'paso' => $pasoNombre, 'anios' => self::rango($anioIni, $anioFin), 'idBanda' => $idBanda,
+                'correccion' => $corr, 'extra' => true,
+            ];
+            for ($anio = $anioIni; $anio <= $anioFin; $anio++) {
+                $aContrato[] = ['paso' => $pasoNombre, 'anio' => $anio, 'idBanda' => $idBanda, 'bandaTexto' => $textoEx, 'clave' => $clave];
             }
         }
 
@@ -629,8 +782,25 @@ final class MalagaBlogImporter
             $nuevasPendientes[] = $f + ['idPaso' => $idPaso];
         }
 
+        // Nombres de banda para las filas enlazadas (tabla editable del panel).
+        $ids = array_values(array_unique(array_filter(array_column($filas, 'idBanda'))));
+        $bandaNombres = [];
+        if ($ids !== []) {
+            // Mismo formato que el resto del panel: «Nombre breve (Localidad)».
+            $selB = $pdo->prepare(
+                "SELECT ID_BANDA, NOMBRE_BREVE || CASE WHEN LOCALIDAD IS NOT NULL AND LOCALIDAD <> '' THEN ' (' || LOCALIDAD || ')' ELSE '' END
+                 FROM banda WHERE ID_BANDA IN (" . implode(',', array_fill(0, count($ids), '?')) . ')'
+            );
+            $selB->execute($ids);
+            $bandaNombres = $selB->fetchAll(PDO::FETCH_KEY_PAIR);
+            $selB->closeCursor();
+        }
+
         return $base + [
             'listo' => true,
+            'filas' => $filas,
+            'bandaNombres' => $bandaNombres,
+            'pasosExistentes' => array_keys($pasosExistentes),
             'hermandadSlug' => $hermandadSlug,
             'hermandadNombre' => (string) ($hermandadCfg['hermandad_nombre'] ?? $hermandadSlug),
             'idHermandad' => $idHermandad,

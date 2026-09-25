@@ -18,17 +18,1275 @@
     },
     "dulce-nombre": {
         "hermandad_slug": "dulce-nombre",
+        "hermandad_nombre": "Dulce Nombre",
         "pasos": {
             "cruz de guia": {
-                "nombre": "Cruz de Guía",
-                "es_cruz_guia": true
+                "descartar": true
             },
             "cristo": {
                 "nombre": "Nuestro Padre Jesús de la Soledad"
             },
             "virgen": {
-                "descartar": true,
-                "motivo": "palio, fuera de alcance salvo CCTT/AM (no aparece ninguna en esta hermandad)"
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2001|A.M. Virgen de la Cabeza (Esfiliana, Granada)": {
+                "id_banda": 58
+            }
+        }
+    },
+    "huerto": {
+        "hermandad_slug": "huerto",
+        "hermandad_nombre": "Huerto",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Orando en el Huerto"
+            },
+            "abriendo la seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1921|C.T. Regimiento de Infantería de Borbón": {
+                "descartar": true
+            },
+            "cristo|1922|C.T. Regimiento Álava": {
+                "descartar": true
+            },
+            "cristo|1987|Agrupación Musical de la Vera + Cruz (Campillos)": {
+                "id_banda": 110
+            },
+            "cristo|2004|A.M. Ntro. Padre Jesús Nazareno (La Roda de Andalucía, Sevilla)": {
+                "id_banda": 104
+            },
+            "cristo|2013/2015|Agrupación Musical Resurrección (Sierra Yeguas, Málaga)": {
+                "id_banda": 377
+            },
+            "cristo|1943|C.T. de Segunda Línea de la Secretaría local de Falange": {
+                "descartar": true
+            },
+            "cristo|1945|C.T. de la Aviación": {
+                "descartar": true
+            },
+            "cristo|1976|C.T. de la Guardia Civil": {
+                "descartar": true
+            },
+            "cristo|1986|C.T. de la Cruz Roja": {
+                "descartar": true
+            }
+        }
+    },
+    "humildadypaciencia": {
+        "hermandad_slug": "humildad-y-paciencia",
+        "hermandad_nombre": "Humildad y Paciencia",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Humildad y Paciencia"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2012/2014|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|2011|Banda de Cornetas y Tambores Virgen de la Peña (Mijas)": {
+                "id_banda": 378
+            },
+            "cristo|2015/2026|Banda de Cornetas y Tambores Ntra. Sra. del Carmen": {
+                "id_banda": 101
+            }
+        }
+    },
+    "amor": {
+        "hermandad_slug": "el-amor",
+        "hermandad_nombre": "El Amor",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo del Amor"
+            },
+            "abriendo seccion de virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2003/2005|Banda de Cornetas y Tambores Sagrada Cena": {
+                "id_banda": 379
+            },
+            "cristo|2015/2019|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "anios": "2015/2026",
+                "id_banda": 166
+            },
+            "cristo|1940/1941|C.T. de la C.N.S": {
+                "descartar": true
+            },
+            "cristo|1943|C.T. del Frente de Juventudes": {
+                "descartar": true
+            },
+            "cristo|1945/1946|C.T. de la Guardia Civil": {
+                "descartar": true
+            },
+            "cristo|1950|C.T. de la escuela de Especialistas de la Aviación": {
+                "descartar": true
+            }
+        }
+    },
+    "cautivo": {
+        "hermandad_slug": "el-cautivo",
+        "hermandad_nombre": "El Cautivo",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Cautivo"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1940|Banda de Cornetas y Tambores del Cuerpo de Carabineros": {
+                "descartar": true
+            },
+            "cristo|1941|Banda de Cornetas y Tambores de los Flechas Navales": {
+                "descartar": true
+            },
+            "cristo|1942|Banda de Cornetas y Tambores de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1943|Banda de Cornetas y Tambores de Falange": {
+                "descartar": true
+            },
+            "cristo|1944|Banda de Cornetas y Tambores de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1945|Banda de Cornetas y Tambores de la Policía Armada": {
+                "descartar": true
+            },
+            "cristo|1946|Banda de Cornetas y Tambores de las Escuelas del Ave María": {
+                "descartar": true
+            },
+            "cristo|1951/1952|Banda de Cornetas y Tambores del Regimiento de Infantería Aragón nº 17": {
+                "descartar": true
+            },
+            "cristo|2001/2004|Banda de Cornetas y Tambores Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|2010/2026|Banda de Cornetas y Tambores Nuestro Padre Jesús Cautivo": {
+                "id_banda": 240
+            },
+            "cristo|2007/2009|Banda de Cornetas y Tambores Nuestra Señora de los Dolores (Puerto de la Torre)": {
+                "id_banda": 380
+            }
+        }
+    },
+    "cena": {
+        "hermandad_slug": "sagrada-cena",
+        "hermandad_nombre": "Sagrada Cena",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Sagrada Cena Sacramental de Nuestro Señor Jesucristo"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1925|C.T. del Regimiento de Infantería Borbón nº 17": {
+                "descartar": true
+            },
+            "cristo|1941|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1945|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1990|Banda de Cornetas y Tambores del Regimiento de Zapadores Ferroviarios": {
+                "descartar": true
+            },
+            "cristo|1997|Agrupación Musical Santa Águeda (Villalba del Alcor, Huelva)": {
+                "id_banda": 381
+            }
+        }
+    },
+    "columna": {
+        "hermandad_slug": "gitanos",
+        "hermandad_nombre": "Gitanos",
+        "pasos": {
+            "nuestro padre jesus de la humillacion y perdon": {
+                "descartar": true
+            },
+            "trono": {
+                "descartar": true
+            },
+            "nuestro padre jesus de la columna": {
+                "nombre": "Nuestro Padre Jesús de la Columna"
+            },
+            "santisimo cristo de la buena muerte": {
+                "descartar": true
+            },
+            "delante de la cristo": {
+                "descartar": true
+            },
+            "escolta": {
+                "descartar": true
+            }
+        }
+    },
+    "venerable-y-muy-ilustre-hermandad-y": {
+        "hermandad_slug": "gitanos",
+        "hermandad_nombre": "Gitanos",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Columna"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1925|C.T. del Regimiento de Infantería de Borbón": {
+                "descartar": true
+            },
+            "cristo|1940|C.T. del Regimiento de Infantería de Montaña nº 8": {
+                "descartar": true
+            },
+            "cristo|1941|C.T. de Especialistas de la Aviación": {
+                "descartar": true
+            },
+            "cristo|1943|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1945/1946|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1983|C.T. del Descendimiento": {
+                "descartar": true
+            },
+            "cristo|1984/1985|C.T. del Buen Pastor": {
+                "descartar": true
+            },
+            "cristo|1989/1995|Banda de Cornetas y Tambores del Rescate": {
+                "descartar": true
+            },
+            "cristo|1996/1998|Banda de Cornetas y Tambores de la Piedad": {
+                "descartar": true
+            },
+            "cristo|2000|Banda de Cornetas y Tambores Ntra. Sra. De los Dolores (Puerto de la Torre)": {
+                "id_banda": 380
+            },
+            "cristo|2001|Banda de Cornetas y Tambores Juvenil de las Fusionadas": {
+                "id_banda": 383
+            },
+            "cristo|2007/2019|Banda de Cornetas y Tambores Mª Stma. de la Estrella": {
+                "id_banda": 382
+            },
+            "cristo|2020/2026|Banda de Cornetas y Tambores de Gitanos": {
+                "id_banda": 314
+            }
+        }
+    },
+    "crucifixion": {
+        "hermandad_slug": "crucifixion",
+        "hermandad_nombre": "Crucifixión",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Crucifixión"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2000|A.M. Virgen de la Cabeza (Esfiliana, Granada)": {
+                "id_banda": 58
+            },
+            "cristo|2004|A.M. Jesús Nazareno (La Puebla de Cazalla, Sevilla)": {
+                "descartar": true
+            },
+            "cristo|2017/2018|Banda de Cornetas y Tambores Santísimo Cristo a la Columna \"El Amarrado\" (Ávila)": {
+                "id_banda": 139
+            },
+            "cristo|2023/2026|Banda de Cornetas y Tambores de Nuestra Señora del Carmen": {
+                "id_banda": 101
+            }
+        }
+    },
+    "dolores-del-puente": {
+        "hermandad_slug": "dolores-del-puente",
+        "hermandad_nombre": "Dolores del Puente",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo del Perdón"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        }
+    },
+    "esperanza": {
+        "hermandad_slug": "paso-y-esperanza",
+        "hermandad_nombre": "Paso y Esperanza",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Dulce Nombre de Jesús Nazareno del Paso"
+            },
+            "abriendo la seccion de la virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1920|C.T. (no aporta nombre)": {
+                "descartar": true
+            },
+            "cristo|1941|C.T. de los Flechas Navales": {
+                "descartar": true
+            },
+            "cristo|1943/1944|C.T. del Frente de Juventudes": {
+                "descartar": true
+            },
+            "cristo|1950|Centuria y C.T. de las Falanges Juveniles de Franco": {
+                "descartar": true
+            },
+            "cristo|1952|Centuria y C.T. de las Falanges Juveniles de Franco": {
+                "descartar": true
+            },
+            "cristo|1981/1982|C.T. Guardia Civil de Málaga": {
+                "descartar": true
+            }
+        },
+        "extras": {
+            "0815b217": {
+                "paso": "Dulce Nombre de Jesús Nazareno del Paso",
+                "anios": "2024/2026",
+                "id_banda": 166
+            }
+        }
+    },
+    "cofradia-de-la-estrella": {
+        "hermandad_slug": "la-estrella",
+        "hermandad_nombre": "La Estrella",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Humillación y Perdón"
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1941|Banda de Cornetas y Tambores de Cadetes": {
+                "descartar": true
+            },
+            "cristo|1942|Banda de Cornetas y Tambores del Regimiento de Infantería nº 8": {
+                "descartar": true
+            },
+            "cristo|1943|Banda de Cornetas y Tambores de Cadetes montañeros del Frente Juventudes": {
+                "descartar": true
+            },
+            "cristo|1944|Banda de Cornetas y Tambores del Frente de Juventudes": {
+                "descartar": true
+            },
+            "cristo|1946|Banda de Cornetas y Tambores de la Agrupación de la Cofradía": {
+                "descartar": true
+            },
+            "cristo|1987|Banda de Cornetas y Tambores del Buen Pastor": {
+                "descartar": true
+            },
+            "cristo|1991|Banda de Cornetas y Tambores del Buen Pastor": {
+                "descartar": true
+            },
+            "cristo|2005/2006|Banda de Cornetas y Tambores Nuestra Señora De los Dolores (Puerto de la Torre)": {
+                "id_banda": 380
+            },
+            "cristo|2007/2013|Banda de Cornetas y Tambores María Stma. de la Estrella": {
+                "id_banda": 382
+            },
+            "cristo|2015/2017|Banda de Cornetas y Tambores María Stma. de la Estrella": {
+                "id_banda": 382
+            },
+            "cristo|2019/2026|Banda de Cornetas y Tambores Nuestra Señora del Carmen": {
+                "id_banda": 101
+            }
+        }
+    },
+    "rimitiva-hermandad-sacramental-y-reales": {
+        "hermandad_slug": "fusionadas",
+        "hermandad_nombre": "Fusionadas",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "azotes": {
+                "nombre": "Nuestro Padre Jesús de Azotes y Columna"
+            },
+            "abriendo seccion de exaltacion": {
+                "descartar": true
+            },
+            "exaltacion": {
+                "nombre": "Santísimo Cristo de la Exaltación"
+            },
+            "animas de ciegos": {
+                "nombre": "Santísimo Cristo de Ánimas de Ciegos"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "azotes|1995|C.T. Crucifixión": {
+                "descartar": true
+            },
+            "azotes|2005|Banda de Cornetas y Tambores de la Cofradía del Santo Sepulcro (Palencia)": {
+                "descartar": true
+            },
+            "azotes|2006/2008|A.M. Los Remedios (Estepona)": {
+                "id_banda": 282
+            },
+            "azotes|2009/2013|A.M. Stmo. Cristo de la Salud (Alcalá la Real, Jaén)": {
+                "id_banda": 49
+            },
+            "exaltacion|1987|C.T. del Buen Pastor": {
+                "descartar": true
+            },
+            "exaltacion|2012|C.T. Ntra. Sra. del Carmen": {
+                "id_banda": 101
+            },
+            "exaltacion|2016/2019|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            },
+            "animas de ciegos|1986/1988|C.T. y Música de la Brigada Paracaidista": {
+                "descartar": true
+            }
+        }
+    },
+    "humildad": {
+        "hermandad_slug": "humildad",
+        "hermandad_nombre": "Humildad",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Humildad en su Presentación al Pueblo"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1996|A.M. Stmo. Cristo de la Buena Muerte (Almuñécar, Granada)": {
+                "id_banda": 385
+            },
+            "cristo|2009/2026|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            }
+        }
+    },
+    "la-puente": {
+        "hermandad_slug": "la-paloma",
+        "hermandad_nombre": "La Paloma",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Puente del Cedrón"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1919/1920|C.T. del Cuerpo de Exploradores": {
+                "descartar": true
+            },
+            "cristo|1925|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1940|C.T. de la C.N.S": {
+                "descartar": true
+            },
+            "cristo|1943|C.T. de montañeros del Frente Juventudes": {
+                "descartar": true
+            },
+            "cristo|1944/1945|C.T. de Aviación": {
+                "descartar": true
+            },
+            "cristo|1946|C.T. de la Agrupación de Cofradías": {
+                "descartar": true
+            },
+            "cristo|1950|C.T. del Ave María": {
+                "descartar": true
+            },
+            "cristo|2001/2012|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|2016/2026|Banda de Cornetas y Tambores Ntra. Sra. Del Carmen": {
+                "id_banda": 101
+            }
+        }
+    },
+    "mediadora": {
+        "hermandad_slug": "mediadora",
+        "hermandad_nombre": "Mediadora",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Nazareno Redentor del Mundo"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2018|Banda de Cornetas y Tambores Ntro. Padre Jesús Despojados de sus Vestiduras (Granada)": {
+                "id_banda": 76
+            },
+            "cristo|2019|Banda de Cornetas y Tambores la Estrella": {
+                "id_banda": 382
+            },
+            "cristo|2022/2023|Banda de Cornetas y Tambores Gitanos": {
+                "id_banda": 314
+            }
+        }
+    },
+    "misericordia": {
+        "hermandad_slug": "misericordia",
+        "hermandad_nombre": "Misericordia",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Misericordia"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1924|C.T. (no aporta nombre)": {
+                "descartar": true
+            },
+            "cristo|1925|C.T. de San Patricio": {
+                "descartar": true
+            },
+            "cristo|1941|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1943|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1984/1985|C.T. Ejercito del Aire": {
+                "descartar": true
+            },
+            "cristo|1995/1997|A.M. San José (Morón de la Frontera, Sevilla)": {
+                "descartar": true
+            },
+            "cristo|1999/2000|C.T. Aviación": {
+                "descartar": true
+            },
+            "cristo|2001|Banda de Cornetas y Tambores del Ejercito del Aire": {
+                "descartar": true
+            },
+            "cristo|2017|Agrupación Musical Ntro. Padre Jesús en su Presentación al Pueblo \"La Estrella\" (Jaén)": {
+                "id_banda": 27
+            },
+            "cristo|2018/2019|Banda de Cornetas y Tambores Ntro. Padre Jesús Cautivo": {
+                "anios": "2018/2025",
+                "id_banda": 240
+            }
+        },
+        "extras": {
+            "dc94fcfb": {
+                "paso": "Nuestro Padre Jesús de la Misericordia",
+                "anios": "2026",
+                "id_banda": 101
+            }
+        }
+    },
+    "nuevaesperanza": {
+        "hermandad_slug": "nueva-esperanza",
+        "hermandad_nombre": "Nueva Esperanza",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Nazareno del Perdón"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2023/2024|Agrupación Musical María Santísima de los Dolores “El Rescate” (Linares, Jaén), hasta la Catedral": {
+                "descartar": true
+            },
+            "cristo|2025|Agrupación Musical Jesús Cautivo (Estepona, Málaga), hasta la catedral": {
+                "descartar": true
+            },
+            "cristo|2026|Agrupación Musical Jesús Cautivo (Estepona, Málaga), hasta la catedral": {
+                "descartar": true
+            },
+            "cristo|2009/2011|Agrupación Musical Ntro. Padre Jesús de la Salud (Churriana de la Vega, Granada)": {
+                "id_banda": 177
+            }
+        }
+    },
+    "pasion": {
+        "hermandad_slug": "pasion",
+        "hermandad_nombre": "Pasión",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Pasión"
+            },
+            "abriendo la seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1942|C.T. de Segunda Línea": {
+                "descartar": true
+            },
+            "cristo|1943/1944|C.T. del Frente Juventudes": {
+                "descartar": true
+            },
+            "cristo|1945|C.T. de Aviación": {
+                "descartar": true
+            },
+            "cristo|1950/1951|C.T. y Música del Frente de Juventudes": {
+                "descartar": true
+            },
+            "cristo|1980|Banda de Cornetas y Tambores de los Colegios Gibraljaire y Miraflores de los Ángeles": {
+                "descartar": true
+            },
+            "cristo|2005/2026|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            }
+        }
+    },
+    "penas": {
+        "hermandad_slug": "las-penas",
+        "hermandad_nombre": "Las Penas",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Agonía"
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1947|Banda de Cornetas y Tambores de la Aviación": {
+                "descartar": true
+            },
+            "cristo|1951|Banda de Cornetas y Tambores de la escuela de Especialistas de la Aviación": {
+                "descartar": true
+            },
+            "cristo|2002/2026|Banda de Cornetas y Tambores del Paso y la Esperanza": {
+                "id_banda": 166
+            }
+        }
+    },
+    "prendimiento": {
+        "hermandad_slug": "prendimiento",
+        "hermandad_nombre": "Prendimiento",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús del Prendimiento"
+            },
+            "abriendo la seccion de la virgen": {
+                "descartar": true
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2000/2001|C.T. Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|1994|C.T. de la Agrupación de Apoyo Logístico XXII (Granada)": {
+                "descartar": true
+            },
+            "cristo|2011|A.M. María Stma. de la Estrella (Granada)": {
+                "id_banda": 81
+            }
+        }
+    },
+    "rescate": {
+        "hermandad_slug": "el-rescate",
+        "hermandad_nombre": "El Rescate",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús del Rescate"
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1958|Banda de Cornetas y Tambores de la Aviación": {
+                "descartar": true
+            },
+            "cristo|1976|Banda de Cornetas y Tambores de la Aviación": {
+                "descartar": true
+            }
+        }
+    },
+    "resucitado": {
+        "hermandad_slug": "el-resucitado",
+        "hermandad_nombre": "El Resucitado",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo Resucitado"
+            },
+            "seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|2000/2004|C.T. Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|2006/2007|C.T. Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|1940|C.T. y Música del Regimiento de Infantería de Montaña nº 8": {
+                "descartar": true
+            },
+            "cristo|2010|Banda de Cornetas y Tambores Nuestro Padre Jesús Cautivo": {
+                "id_banda": 240
+            },
+            "cristo|2016/2019|Banda de Cornetas y Tambores de Nuestra Señora del Carmen": {
+                "anios": "2016/2026",
+                "id_banda": 101
+            }
+        }
+    },
+    "rocio": {
+        "hermandad_slug": "el-rocio",
+        "hermandad_nombre": "El Rocío",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Nazareno de los Pasos en el Monte Calvario"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1941|Banda de Cornetas y Tambores de la C.N.S": {
+                "descartar": true
+            },
+            "cristo|1942/1944|Banda de Cornetas y Tambores de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1946|Banda de Cornetas y Tambores de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1950|Banda de Cornetas y Tambores del Frente Juventudes": {
+                "descartar": true
+            },
+            "cristo|1987|Banda de Cornetas y Tambores y Música de Mijas": {
+                "descartar": true
+            },
+            "cristo|1991|Banda de Cornetas y Tambores Peña de Martiricos": {
+                "descartar": true
+            },
+            "cristo|1997/2000|Agrupación Musical Ntra. Sra. De la Victoria (Arahal, Sevilla)": {
+                "anios": "1997/1999",
+                "id_banda": 22
+            },
+            "cristo|2001|Agrupación Musical Los Gitanos (Sevilla)": {
+                "id_banda": 314
+            },
+            "cristo|1994/1996|Agrupación Musical San José (Morón de la Frontera, Sevilla)": {
+                "id_banda": 386
+            }
+        },
+        "extras": {
+            "d52ca02d": {
+                "paso": "Nuestro Padre Jesús Nazareno de los Pasos en el Monte Calvario",
+                "anios": "2000",
+                "id_banda": 1
+            }
+        }
+    },
+    "salesianos": {
+        "hermandad_slug": "salesianos",
+        "hermandad_nombre": "Salesianos",
+        "pasos": {
+            "cristo": {
+                "nombre": "Santísimo Cristo de las Penas"
+            }
+        },
+        "correcciones": {
+            "cristo|2010/2026|Banda de Cornetas y Tambores Nuestro Padre Jesús Cautivo": {
+                "id_banda": 240
+            }
+        }
+    },
+    "salud": {
+        "hermandad_slug": "la-salud",
+        "hermandad_nombre": "Salud",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Esperanza en su Gran Amor"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1999/2001|A.M. Ntro. Padre Jesús Nazareno (Algaba, Sevilla)": {
+                "id_banda": 55
+            },
+            "cristo|2002|A.M. Santísimo Cristo de la Lanzada (Granada)": {
+                "id_banda": 244
+            },
+            "cristo|2007/2009|A.M. Ntra. Sra. De las Angustias (Alcalá la Real, Jaén)": {
+                "id_banda": 34
+            },
+            "cristo|2010/2026|Agrupación Musical Vera Cruz (Campillos, Málaga)": {
+                "anios": "2010/2023"
+            }
+        },
+        "extras": {
+            "7dfd3927": {
+                "paso": "Santísimo Cristo de la Esperanza en su Gran Amor",
+                "anios": "2024/2026",
+                "id_banda": 240
+            }
+        }
+    },
+    "salutacion": {
+        "hermandad_slug": "salutacion",
+        "hermandad_nombre": "Salutación",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Jesús Nazareno de la Salutación"
+            },
+            "virgen": {
+                "descartar": true
+            }
+        }
+    },
+    "sangre": {
+        "hermandad_slug": "la-sangre",
+        "hermandad_nombre": "La Sangre",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo de la Sangre"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1920|C.T. del Asilo de San Bartolomé": {
+                "descartar": true
+            },
+            "cristo|1925|C.T. y Música del Regimiento de Infantería Borbón nº 17": {
+                "descartar": true
+            },
+            "cristo|1941|C.T. y Música del Colegio San Bartolomé": {
+                "descartar": true
+            },
+            "cristo|1943|C.T. del Frente Juventudes": {
+                "descartar": true
+            },
+            "cristo|1945|C.T. del Frente de Juventudes": {
+                "descartar": true
+            },
+            "cristo|1950|C.T. del Regimiento de Infantería Aragón nº 17": {
+                "descartar": true
+            },
+            "cristo|1970|C.T. y Música del Regimiento de Infantería Aragón nº 17": {
+                "descartar": true
+            },
+            "cristo|1984|C.T. de la Agrupación de Infantería Aragón nº 17": {
+                "descartar": true
+            },
+            "cristo|1985|C.T. y Música Regimiento de Infantería Melilla nº 52": {
+                "descartar": true
+            }
+        }
+    },
+    "sentencia": {
+        "hermandad_slug": "la-sentencia",
+        "hermandad_nombre": "La Sentencia",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Sentencia"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cruz de guia|1943|Banda de Cornetas y Tambores de la Escuela de Especialistas de la Aviación": {
+                "descartar": true
+            },
+            "cruz de guia|1944|Banda de Cornetas y Tambores de la Policía Armada": {
+                "descartar": true
+            },
+            "cruz de guia|1950|Banda de Cornetas y Tambores del Regimiento de Infantería Aragón nº 17": {
+                "descartar": true
+            },
+            "cruz de guia|1951|Banda de Cornetas y Tambores de Frente Juventudes": {
+                "descartar": true
+            },
+            "cruz de guia|1984|Banda de Cornetas y Tambores y Música de Ntra. Sra. De los Dolores y Soledad (Almogía, Málaga)": {
+                "descartar": true
+            },
+            "cruz de guia|1985|Banda de Cornetas y Tambores del Centro de Instrucción de Reclutas nº 5 (Cerro Muriano)": {
+                "descartar": true
+            },
+            "cruz de guia|1987/1988|Banda de Cornetas y Tambores de la Brigada Mecanizada nº XXI (Cerro Muriano, Córdoba)": {
+                "descartar": true
+            },
+            "cruz de guia|1990|Banda de Cornetas y Tambores Stmo. Cristo Yacente (Fuengirola, Málaga)": {
+                "descartar": true
+            },
+            "cruz de guia|1996/2000|Banda de Cornetas y Tambores de la Brigada Mecanizada de Cerro Muriano": {
+                "descartar": true
+            },
+            "cruz de guia|2001/2006|Banda de Cornetas y Tambores de la Brigada Guzmán el Bueno X (Cerro Muriano, Córdoba)": {
+                "descartar": true
+            },
+            "cristo|1940|Banda de Cornetas y Tambores del Cuerpo de Carabineros": {
+                "descartar": true
+            },
+            "cristo|1941|Banda de Cornetas y Tambores de la Aviación": {
+                "descartar": true
+            },
+            "cristo|1942|Banda de Cornetas y Tambores de Cadetes": {
+                "descartar": true
+            },
+            "cristo|1943|Banda de Cornetas y Tambores de Falange": {
+                "descartar": true
+            },
+            "cristo|1944|Banda de Cornetas y Tambores del Regimiento de Infantería nº 17": {
+                "descartar": true
+            },
+            "cristo|1996/1998|Agrupación Musical de la Sentencia ‘La Yedra’ (Jerez de la Frontera, Cádiz)": {
+                "id_banda": 28
+            },
+            "cristo|1999|Banda de Cornetas y Tambores Esperanza": {
+                "id_banda": 166
+            },
+            "cristo|2022/2024|Agrupación Musical Arroquia Martínez (Jódar, Jaén)": {
+                "anios": "2022/2025"
+            }
+        },
+        "extras": {
+            "44f4ed49": {
+                "paso": "Nuestro Padre Jesús de la Sentencia",
+                "anios": "2026",
+                "id_banda": 338
+            }
+        }
+    },
+    "santotraslado": {
+        "hermandad_slug": "soledad-de-san-pablo",
+        "hermandad_nombre": "Santo Traslado",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Santísimo Cristo del Santo Traslado"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1982|C.T. de la Cruz Roja": {
+                "descartar": true
+            },
+            "cristo|1983|C.T. y Música Regimiento de Infantería nº 52 (Melilla)": {
+                "descartar": true
+            },
+            "cristo|1986|C.T. de Fusionadas": {
+                "descartar": true
+            },
+            "cristo|2013/2019|Banda de Cornetas y Tambores Ntro. Padre Jesús Cautivo": {
+                "anios": "2013/2026",
+                "id_banda": 240
+            },
+            "cristo|2011/2012|C.T. Esperanza": {
+                "id_banda": 166
+            }
+        }
+    },
+    "vineros": {
+        "hermandad_slug": "vineros",
+        "hermandad_nombre": "Viñeros",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del cristo": {
+                "descartar": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús Nazareno de Viñeros"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "delante del trono de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cristo|1991|C.T. Peña de Martiricos": {
+                "descartar": true
+            },
+            "cristo|2004|A.M. Ntro. Padre Jesús Nazareno (La Roda de Andalucía, Sevilla)": {
+                "id_banda": 104
+            },
+            "cristo|2008/2019|Agrupación Musical San Lorenzo Mártir": {
+                "anios": "2008/2026"
+            }
+        }
+    },
+    "zamarrilla": {
+        "hermandad_slug": "zamarrilla",
+        "hermandad_nombre": "Zamarrilla",
+        "pasos": {
+            "cruz de guia": {
+                "descartar": true
+            },
+            "delante del trono de los milagros": {
+                "descartar": true
+            },
+            "milagros": {
+                "nombre": "Santísimo Cristo de los Milagros"
+            },
+            "abriendo seccion de la virgen": {
+                "descartar": true
+            },
+            "virgen": {
+                "descartar": true
+            }
+        },
+        "correcciones": {
+            "cruz de guia|1940/1941|C.T. de la Segunda Línea": {
+                "descartar": true
+            },
+            "cruz de guia|1959|C.T. de la Guardia Civil": {
+                "descartar": true
+            },
+            "cruz de guia|1977|C.T. del Regimiento Farnesio nº 12 (Valladolid)": {
+                "descartar": true
+            },
+            "cruz de guia|1978|C.T. del Regimiento nº V y Escuadra del Regimiento Farnesio nº 12 (Valladolid)": {
+                "descartar": true
+            },
+            "cruz de guia|1981|Banda de Cornetas y Tambores del Regimiento de Caballería Acorazado Almansa nº 5": {
+                "descartar": true
+            },
+            "cruz de guia|1982|C.T. del Regimiento Montesa III (Ceuta)": {
+                "descartar": true
+            },
+            "cruz de guia|1984|C.T. Regimiento Caballería Pavía IV (Aranjuez, Madrid)": {
+                "descartar": true
+            },
+            "cruz de guia|1986|C.T. Regimiento Acorazado de Caballería Farnesio nº 12 (Valladolid)": {
+                "descartar": true
+            },
+            "cruz de guia|1989|Banda de Cornetas y Tambores de la Peña Martiricos": {
+                "descartar": true
+            },
+            "cruz de guia|1990|Banda de Cornetas y Tambores del Regimiento Caballería «Sagunto» nº 7 (Sevilla)": {
+                "descartar": true
+            },
+            "milagros|1940|C.T. de la Legión": {
+                "descartar": true
+            },
+            "milagros|1941|C.T. de la C.N.S": {
+                "descartar": true
+            },
+            "milagros|1943|C.T. de la Guardia Civil de Costa": {
+                "descartar": true
+            },
+            "milagros|1944|C.T. de la Policía Armada": {
+                "descartar": true
+            },
+            "milagros|1977|C.T. Regimiento Almansa Nº 5 (Albacete)": {
+                "descartar": true
+            },
+            "milagros|2005|Agrupación Musical Ntro. Padre Jesús Despojado (Jaén)": {
+                "id_banda": 37
+            },
+            "milagros|2011/2014|Banda de Cornetas y Tambores Nuestro Padre Jesús Cautivo": {
+                "id_banda": 240
+            },
+            "milagros|2019/2025|Banda de Cornetas y Tambores Nuestra Señora del Carmen": {
+                "id_banda": 101
+            },
+            "milagros|2026|Banda de Cornetas y Tambores Ntro. Padre Jesús Cautivo": {
+                "id_banda": 240
             }
         }
     }

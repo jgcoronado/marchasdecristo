@@ -1025,6 +1025,10 @@ final class Admin
                 'Cargado: %d contrato(s) y %d banda(s) sin enlazar. Copia previa: %s',
                 (int) ($_GET['c'] ?? 0), (int) ($_GET['p'] ?? 0), (string) ($_GET['b'] ?? '')
             )];
+        } elseif (isset($_GET['anadido'])) {
+            $notice = ['type' => 'ok', 'msg' => 'Acompañamiento añadido (se creará al cargar).'];
+        } elseif (isset($_GET['corregido'])) {
+            $notice = ['type' => 'ok', 'msg' => (int) $_GET['corregido'] . ' línea(s) corregida(s) en malaga_blog_mapeo.json.'];
         } elseif (isset($_GET['mapeo'])) {
             $notice = ['type' => 'ok', 'msg' => 'Mapeo guardado en malaga_blog_mapeo.json.'];
         } elseif (isset($_GET['err'])) {
@@ -1043,10 +1047,10 @@ final class Admin
             'session' => $session, 'url' => $url, 'a' => $a, 'notice' => $notice, 'local' => $local,
             'hermandades' => $local ? Db::all("SELECT SLUG, NOMBRE FROM hermandad WHERE LOCALIDAD = ? ORDER BY NOMBRE", [MalagaBlogImporter::LOCALIDAD]) : [],
             'pasos' => $local ? Db::all(
-                "SELECT DISTINCT p.NOMBRE FROM paso p JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE h.LOCALIDAD = ? ORDER BY p.NOMBRE",
+                "SELECT h.SLUG, p.NOMBRE, p.ES_CRUZ_GUIA FROM paso p JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE h.LOCALIDAD = ? ORDER BY p.ORDEN, p.NOMBRE",
                 [MalagaBlogImporter::LOCALIDAD]
             ) : [],
-        ], ['title' => 'Acompañamientos de Málaga desde el blog — Marchas de Cristo', 'noindex' => true]);
+        ], ['title' => 'Acompañamientos de Málaga desde el blog — Marchas de Cristo', 'noindex' => true, 'ancho' => true]);
     }
 
     public static function malagaBlogMapeoPost(): void
@@ -1058,8 +1062,17 @@ final class Admin
         if (!Entorno::permiteEscrituraDirecta()) Http::redirect($volver . '&err=SOLO_LOCAL', 302);
         try {
             [, $labelSlug] = MalagaBlogImporter::etiquetaDeUrl($url);
-            $hermandadSlug = Slug::slugify((string) ($_POST['hermandad_slug'] ?? ''));
+            // Hermandad existente (select) o nueva (nombre libre → slug).
+            $hermandadSlug = (string) ($_POST['hermandad_slug'] ?? '');
             $hermandadNombre = trim((string) ($_POST['hermandad_nombre'] ?? ''));
+            if ($hermandadSlug !== '') {
+                $hermandadNombre = (string) (Db::one(
+                    'SELECT NOMBRE FROM hermandad WHERE LOCALIDAD = ? AND SLUG = ?',
+                    [MalagaBlogImporter::LOCALIDAD, $hermandadSlug]
+                )['NOMBRE'] ?? '');
+            } else {
+                $hermandadSlug = Slug::slugify($hermandadNombre);
+            }
             if ($hermandadSlug === '' || $hermandadNombre === '') Http::redirect($volver . '&err=FALTA_HERMANDAD', 302);
 
             // Conserva las cabeceras ya mapeadas que no vienen en el formulario.
@@ -1068,7 +1081,9 @@ final class Admin
             foreach ((array) ($_POST['pasos'] ?? []) as $p) {
                 $clave = MalagaBlogImporter::claveCabecera((string) ($p['cabecera'] ?? ''));
                 $tipo = (string) ($p['tipo'] ?? '');
-                $nombre = trim((string) ($p['nombre'] ?? ''));
+                // «nuevo» (texto libre) crea un paso; si viene vacío, el paso existente elegido.
+                $nombre = trim((string) ($p['nuevo'] ?? ''));
+                if ($nombre === '') $nombre = trim((string) ($p['nombre'] ?? ''));
                 if ($clave === '') continue;
                 if ($tipo === 'descartar') {
                     $pasos[$clave] = ['descartar' => true];
@@ -1082,11 +1097,86 @@ final class Admin
                 'hermandad_slug' => $hermandadSlug,
                 'hermandad_nombre' => $hermandadNombre,
                 'pasos' => $pasos,
-            ]);
+            ] + array_intersect_key((array) ($a['mapeo'] ?? []), ['correcciones' => 1, 'extras' => 1]));
         } catch (\Throwable $e) {
             Http::redirect($volver . '&err=' . rawurlencode($e->getMessage()), 302);
         }
         Http::redirect($volver . '&mapeo=1', 302);
+    }
+
+    /**
+     * Corrige una línea del blog antes de cargar (paso, años, banda o
+     * descartarla). Se guarda en el mapeo de la etiqueta y se aplica en cada
+     * análisis — ver MalagaBlogImporter::claveLinea().
+     */
+    public static function malagaBlogCorreccionPost(): void
+    {
+        $session = Auth::requireAdmin();
+        $url = trim((string) ($_POST['url'] ?? ''));
+        $volver = self::MALAGA_BLOG_URL . '?url=' . rawurlencode($url);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect($volver . '&err=CSRF', 302);
+        if (!Entorno::permiteEscrituraDirecta()) Http::redirect($volver . '&err=SOLO_LOCAL', 302);
+        try {
+            [, $labelSlug] = MalagaBlogImporter::etiquetaDeUrl($url);
+            $accion = (string) ($_POST['accion'] ?? 'guardar');
+            if ($accion === 'anadir') {
+                $paso = trim((string) ($_POST['paso'] ?? ''));
+                $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
+                $desde = (int) ($_POST['desde'] ?? 0);
+                $hasta = (int) ($_POST['hasta'] ?? 0) ?: $desde;
+                if ($paso === '' || $idBanda <= 0) throw new \RuntimeException('Elige una banda de la lista.');
+                if ($desde < 1000 || $hasta > 9999 || $hasta < $desde) throw new \RuntimeException("Años no válidos: $desde–$hasta");
+                MalagaBlogImporter::anadirExtra($labelSlug, [
+                    'paso' => $paso, 'anios' => $desde . ($hasta !== $desde ? "/$hasta" : ''), 'id_banda' => $idBanda,
+                ]);
+                Http::redirect($volver . '&anadido=1', 302);
+            }
+            // Una fila (botones de la fila) o varias (seleccionados: filas[i][…]).
+            $filas = isset($_POST['filas']) ? (array) $_POST['filas'] : [$_POST];
+            $n = 0;
+            foreach ($filas as $in) {
+                $in = (array) $in;
+                $clave = (string) ($in['clave'] ?? '');
+                if ($clave === '') continue;
+                MalagaBlogImporter::guardarCorreccion($labelSlug, $clave, self::malagaBlogCorreccionDe($in, $accion));
+                $n++;
+            }
+            if ($n === 0) Http::redirect($volver . '&err=NADA_SELECCIONADO', 302);
+        } catch (\Throwable $e) {
+            Http::redirect($volver . '&err=' . rawurlencode($e->getMessage()), 302);
+        }
+        Http::redirect($volver . '&corregido=' . $n, 302);
+    }
+
+    /**
+     * Corrección de una fila a partir de sus campos del formulario. Solo se
+     * guarda lo que difiere de lo que da el blog; 'quitar' → [] (vuelve al blog).
+     * @param array<string,mixed> $in
+     * @return array<string,mixed>
+     */
+    private static function malagaBlogCorreccionDe(array $in, string $accion): array
+    {
+        if ($accion === 'descartar') return ['descartar' => true];
+        if ($accion !== 'guardar') return [];
+        $corr = [];
+        $paso = trim((string) ($in['paso'] ?? ''));
+        if ($paso !== '' && $paso !== (string) ($in['paso_blog'] ?? '')) $corr['paso'] = $paso;
+        $desde = (int) ($in['desde'] ?? 0);
+        $hasta = (int) ($in['hasta'] ?? 0) ?: $desde;
+        $anios = $desde > 0 ? $desde . ($hasta !== $desde ? "/$hasta" : '') : '';
+        if ($anios !== '' && $anios !== (string) ($in['anios_blog'] ?? '')) {
+            if ($desde < 1000 || $hasta > 9999 || $hasta < $desde) {
+                throw new \RuntimeException("Años no válidos: $anios (desde ≤ hasta, 4 cifras)");
+            }
+            $corr['anios'] = $anios;
+        }
+        $idBanda = (int) ($in['ID_BANDA'] ?? 0);
+        if ($idBanda > 0) {
+            $corr['id_banda'] = $idBanda;
+        } elseif ((int) ($in['id_banda_previa'] ?? 0) > 0) {
+            $corr['id_banda'] = (int) $in['id_banda_previa']; // conserva una banda ya corregida
+        }
+        return $corr;
     }
 
     public static function malagaBlogCargarPost(): void

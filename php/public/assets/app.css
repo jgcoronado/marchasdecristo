@@ -407,11 +407,11 @@ body.p-catalogo footer .inner { max-width: var(--wrap-ancho); }
 /* Pantallas-tabla del panel: ver .main-ancho. */
 body.p-ancho main,
 body.p-ancho .header-inner,
-body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
+body.p-ancho footer .inner { max-width: min(96vw, 120rem); }
 /* Pantallas del panel que son tabla de trabajo (revisión de la importación de
-   pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
+   pistas): el ancho de lectura les recorta columnas. Se les da el 96% de la
    ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
-main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
+main.main-ancho { max-width: min(96vw, 120rem); }  /* legado: hoy lo pone body.p-ancho */
 main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }

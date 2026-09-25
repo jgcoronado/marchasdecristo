@@ -464,6 +464,22 @@ final class NominaRepo
             $pasoPorNombre[(int) $p['ID_HERMANDAD']][Slug::slugify((string) $p['NOMBRE'])] = (int) $p['ID_PASO'];
         }
 
+        // Contratos cuyo SLUG no es de la nómina pero su nombre sí casa con
+        // una única hermandad de ella quitando tildes, artículos y
+        // «Sagrada/Santísimo…» («La Lanzada» ≈ «Sagrada Lanzada», «Los
+        // Mutilados» ≈ «Mutilados»): se pintan en ella, sin paso. Solo
+        // presentación; el enlace se escribe si se mueven.
+        $tokensHermandad = [];
+        foreach (Db::all('SELECT ID_HERMANDAD, NOMBRE FROM hermandad WHERE LOCALIDAD = ?', [$localidad]) as $h) {
+            $tokensHermandad[(int) $h['ID_HERMANDAD']] = self::tokensNombre((string) $h['NOMBRE']);
+        }
+        $hermandadParecida = static function (string $nombre) use ($tokensHermandad): ?int {
+            $t = self::tokensNombre($nombre);
+            if (!$t) return null;
+            $ids = array_keys(array_filter($tokensHermandad, static fn($th) => $th && (!array_diff($t, $th) || !array_diff($th, $t))));
+            return count($ids) === 1 ? $ids[0] : null;
+        };
+
         $porPaso = [];
         $sinPaso = [];
         $fuera = [];
@@ -471,6 +487,9 @@ final class NominaRepo
             // El tramo solo cuenta si la hermandad está marcada como ida/vuelta:
             // desmarcarla no borra el dato, pero deja de partir las líneas.
             if (!(int) $r['IDA_VUELTA']) $r['TRAMO'] = null;
+            if ($r['ID_HERMANDAD'] === null) {
+                $r['ID_HERMANDAD'] = $hermandadParecida((string) $r['HERMANDAD']);
+            }
             if ($r['ID_PASO'] === null && $r['ID_HERMANDAD'] !== null) {
                 $r['ID_PASO'] = $pasoPorNombre[(int) $r['ID_HERMANDAD']][Slug::slugify((string) $r['TITULAR'])] ?? null;
             }
@@ -516,6 +535,15 @@ final class NominaRepo
         unset($d);
 
         return ['dias' => $dias, 'fuera' => Repo::agruparAcompanamientos($fuera)];
+    }
+
+    /** Palabras significativas de un nombre de hermandad, sin tildes ni artículos. */
+    private static function tokensNombre(string $s): array
+    {
+        static $vacias = ['el', 'la', 'los', 'las', 'de', 'del', 'y', 'en', 'su', 'sus', 'sagrada', 'sagrado',
+                          'santisimo', 'santisima', 'hermandad', 'cofradia', 'real', 'ilustre'];
+        $palabras = preg_split('/[^a-z0-9]+/', strtolower(Db::noAcc($s)), -1, PREG_SPLIT_NO_EMPTY);
+        return array_values(array_diff($palabras, $vacias));
     }
 
     /** Paso + su hermandad, sólo si es de esta localidad. */

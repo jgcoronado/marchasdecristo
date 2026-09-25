@@ -262,6 +262,7 @@ $router->get('/dashboard/acompanamientos-pendientes', [Admin::class, 'acompanami
 $router->post('/dashboard/acompanamientos-pendientes/convertir', [Admin::class, 'acompanamientosPendienteConvertirPost']);
 $router->get('/dashboard/acompanamientos-malaga-blog', [Admin::class, 'malagaBlogAdmin']);
 $router->post('/dashboard/acompanamientos-malaga-blog/mapeo', [Admin::class, 'malagaBlogMapeoPost']);
+$router->post('/dashboard/acompanamientos-malaga-blog/correccion', [Admin::class, 'malagaBlogCorreccionPost']);
 $router->post('/dashboard/acompanamientos-malaga-blog/cargar', [Admin::class, 'malagaBlogCargarPost']);
 
 // ── Nómina de Semana Santa (localidad → día → hermandad → paso), base sobre la
