@@ -1016,13 +1016,23 @@ final class Pages
         }
         $slug = (string) $p['localidad'];
         $localidad = null;
-        $contratos = [];
-        // Fallback defensivo, igual que antes en /temporada: la tabla
-        // `contrato` puede no estar migrada aún en este host.
+        $dias = [];
+        $fuera = [];
+        // Fallback defensivo, igual que antes en /temporada: las tablas de
+        // contratos y nómina pueden no estar migradas aún en este host.
         try {
             $localidad = Repo::resolverLocalidadPorSlug($slug);
             if ($localidad !== null) {
-                $contratos = Repo::acompanamientosPorLocalidad($localidad);
+                // Con nómina (día → hermandad → paso), la misma lectura que el
+                // panel: trae el día, el orden de los pasos y el tramo. Sin
+                // nómina, todo va a "Sin día asignado" con la agrupación plana.
+                if (NominaRepo::tieneNomina($localidad)) {
+                    $n = NominaRepo::acompanamientosPorNomina($localidad);
+                    $dias = $n['dias'];
+                    $fuera = $n['fuera'];
+                } else {
+                    $fuera = Repo::agruparAcompanamientos(Repo::acompanamientosPorLocalidad($localidad));
+                }
             }
         } catch (\Throwable $e) {
             error_log('[acompanamientos] ' . $e->getMessage());
@@ -1034,18 +1044,21 @@ final class Pages
             Http::notFound();
         }
 
-        $hermandades = Repo::agruparAcompanamientos($contratos);
+        $serie = AcompSerie::construir($dias, $fuera);
+        // En Málaga se dice "trono", no "paso".
+        $pieza = Slug::slugify($localidad) === 'malaga' ? 'trono' : 'paso';
 
         $base = self::base();
         $canonical = $base . '/acompanamientos/' . $slug;
         $h1 = "Acompañamientos — $localidad";
-        $desc = "Qué banda ha tocado cada año tras cada paso de Cristo en $localidad, hermandad a hermandad.";
+        $desc = "Qué banda ha tocado cada año tras cada $pieza de Cristo en $localidad, hermandad a hermandad, desde " . $serie['eje']['ini'] . '.';
 
         Http::cachePublic(3600);
         View::render('acompanamientos', [
             'h1' => $h1,
             'localidad' => $localidad,
-            'hermandades' => $hermandades,
+            'pieza' => $pieza,
+            'serie' => $serie,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,
@@ -1053,7 +1066,7 @@ final class Pages
             // Todavía de alta manual: no indexar una localidad vacía o con
             // apenas 1-2 contratos (thin), igual que los demás hubs con
             // Repo::HUB_MIN_MARCHAS.
-            'noindex' => count($contratos) < Repo::HUB_MIN_MARCHAS,
+            'noindex' => $serie['nContratos'] < Repo::HUB_MIN_MARCHAS,
             'jsonld' => [
                 Seo::breadcrumbs([
                     ['name' => 'Inicio', 'url' => $base],

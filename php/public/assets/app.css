@@ -601,17 +601,71 @@ ul.vease { list-style: disc; margin: 0.5rem 0 0; padding: 0 0 0 1.15rem; }
 ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
 ul.vease li::marker { color: var(--faint); }
 
-/* Acompañamientos (/acompanamientos): rangos de años colapsados por
-   hermandad/paso, más reciente primero — el primero de cada lista (actual)
-   se destaca en negrita, igual que en los programas de mano de referencia. */
-.acomp-jump { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin: 0.8rem 0 0.2rem; padding: 0.7rem 0.9rem; background: var(--s2); border-radius: var(--radius-sm); font-size: 0.86rem; }
-.acomp-jump a { color: var(--muted-c); text-decoration: none; }
-.acomp-jump a:hover { color: var(--acc); text-decoration: underline; }
+/* Acompañamientos del panel: nombre del paso sobre su tabla (ver también el
+   bloque "Acompañamientos sobre la nómina" más abajo). */
 .acomp-paso { font-weight: 600; margin: 1rem 0 0.15rem; font-size: 0.92rem; color: var(--muted-c); }
-ul.acomp-rangos { margin-top: 0.15rem; }
-ul.acomp-rangos li .anio { color: var(--faint); margin-right: 0.35rem; }
-ul.acomp-rangos li.acomp-actual { font-weight: 700; }
-ul.acomp-rangos li.acomp-actual .anio { color: var(--muted-c); }
+
+/* Acompañamientos públicos (/acompanamientos/{localidad}, rediseño B):
+   día → hermandad → paso; por paso, tira cronológica (App\AcompSerie) y
+   debajo la serie completa. Todo a la vista, sin desplegables. Sin colores
+   nuevos: la tira es --acc mezclado con --card en dos tonos alternos y el
+   tramo vigente en --acc pleno; nunca un color por banda. */
+.acs-dias {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 0.15rem 0.3rem; flex-wrap: wrap;
+    margin: 1rem -0.5rem 0; padding: 0.35rem 0.5rem;
+    background: var(--card); border-bottom: 1px solid var(--line);
+    font-size: 0.86rem;
+}
+.acs-dias a { display: inline-flex; align-items: center; min-height: 1.5rem; padding: 0.2rem 0.45rem; color: var(--muted-c); text-decoration: none; border-radius: var(--radius-sm); white-space: nowrap; }
+.acs-dias a:hover { color: var(--acc); background: var(--s2); }
+@media (max-width: 719px) {
+    .acs-dias { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+}
+/* La barra de días tapa lo que hay debajo al saltar a un ancla. */
+.acs-dia-t, .acs-h { scroll-margin-top: 4.6rem; }
+
+.acs-dia-t { margin: 2rem 0 0.2rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); font-size: 1.3rem; }
+.acs-cols { columns: 1; column-gap: 2.5rem; }
+@media (min-width: 900px) { .acs-cols { columns: 2; } }
+.acs-h { break-inside: avoid; padding-top: 1.1rem; }
+.acs-h h3 { margin: 0; font-size: 1.08rem; line-height: 1.25; }
+.acs-h .meta { margin: 0.1rem 0 0; font-size: 0.84rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+.acs-paso { margin-top: 0.7rem; }
+.acs-paso-t { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 600; color: var(--muted-c); }
+
+.acs-tira {
+    --carril: 0.5rem;
+    position: relative; height: calc(var(--carriles, 1) * var(--carril));
+    background-color: var(--s2);
+    background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--dec));
+    background-position: var(--dec0) 0;
+    border-radius: 2px; overflow: hidden;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+.acs-tira i { position: absolute; height: var(--carril); }
+.acs-tira i + i { box-shadow: -1px 0 0 var(--card); }  /* separa dos bandas contiguas del mismo tono */
+.acs-tira .t-a { background: color-mix(in srgb, var(--acc) 35%, var(--card)); }
+.acs-tira .t-b { background: color-mix(in srgb, var(--acc) 60%, var(--card)); }
+.acs-tira .t-v { background: var(--acc); }
+
+ol.acs-serie { list-style: none; margin: 0.35rem 0 0; padding: 0; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+ol.acs-serie li { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0.6rem; padding: 0.22rem 0; border-bottom: 1px solid var(--line); }
+ol.acs-serie li:last-child { border-bottom: 0; }
+ol.acs-serie .anio { color: var(--faint); white-space: nowrap; }
+ol.acs-serie .bandas { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+ol.acs-serie .b { display: flex; gap: 0.4rem; }
+ol.acs-serie .tramo { flex: none; min-width: 3.2rem; color: var(--muted-c); font-size: 0.84rem; }
+ol.acs-serie .sub { color: var(--faint); font-size: 0.84rem; }
+ol.acs-serie li.sin { color: var(--faint); font-style: italic; }
+ol.acs-serie li.vig .anio { color: var(--muted-c); font-weight: 700; }
+ol.acs-serie li.vig .b:only-child, ol.acs-serie li.vig .b.vig { font-weight: 700; }
+
+@media print {
+    .acs-dias { display: none; }
+    .acs-cols { columns: 1; }
+}
 
 /* Permalink del registro */
 .ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
