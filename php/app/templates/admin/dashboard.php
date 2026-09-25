@@ -31,6 +31,9 @@ $isAdmin = Roles::isAdmin($rol);
             <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos">Acompañamientos</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos-dudas">Dudas acompañamientos<?= $dudasAcompanamientos > 0 ? ' <span class="chip">' . (int) $dudasAcompanamientos . '</span>' : '' ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos-pendientes">Bandas pendientes<?= $pendientesAcompanamiento > 0 ? ' <span class="chip">' . (int) $pendientesAcompanamiento . '</span>' : '' ?></a>
+<?php if (\App\Entorno::permiteEscrituraDirecta()): ?>
+            <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos-malaga-blog">Cargar Málaga (blog)</a>
+<?php endif; ?>
             <a class="btn btn-sm btn-ghost" href="/dashboard/semana-santa">Semana Santa</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/estilos">Estilos CCTT/AM</a>
 <?php endif; ?>

@@ -1009,6 +1009,108 @@ final class Admin
         Http::redirect('/dashboard/acompanamientos-pendientes?err=' . ($r['code'] ?? 'ERROR'), 302);
     }
 
+    // ── Carga de acompañamientos de Málaga desde malagamusical.blogspot.com
+    // (MalagaBlogImporter). Solo local: escribe directo en la BD maestra ──────
+
+    private const MALAGA_BLOG_URL = '/dashboard/acompanamientos-malaga-blog';
+
+    public static function malagaBlogAdmin(): void
+    {
+        $session = Auth::requireAdmin();
+        $url = trim((string) ($_GET['url'] ?? ''));
+        $notice = null;
+        $a = null;
+        if (isset($_GET['cargado'])) {
+            $notice = ['type' => 'ok', 'msg' => sprintf(
+                'Cargado: %d contrato(s) y %d banda(s) sin enlazar. Copia previa: %s',
+                (int) ($_GET['c'] ?? 0), (int) ($_GET['p'] ?? 0), (string) ($_GET['b'] ?? '')
+            )];
+        } elseif (isset($_GET['mapeo'])) {
+            $notice = ['type' => 'ok', 'msg' => 'Mapeo guardado en malaga_blog_mapeo.json.'];
+        } elseif (isset($_GET['err'])) {
+            $notice = ['type' => 'error', 'msg' => 'Error: ' . (string) $_GET['err']];
+        }
+
+        $local = Entorno::permiteEscrituraDirecta();
+        if ($local && $url !== '') {
+            try {
+                $a = MalagaBlogImporter::analizar(Db::pdo(), $url);
+            } catch (\Throwable $e) {
+                $notice = ['type' => 'error', 'msg' => $e->getMessage()];
+            }
+        }
+        View::render('admin/acompanamientos_malaga_blog', [
+            'session' => $session, 'url' => $url, 'a' => $a, 'notice' => $notice, 'local' => $local,
+            'hermandades' => $local ? Db::all("SELECT SLUG, NOMBRE FROM hermandad WHERE LOCALIDAD = ? ORDER BY NOMBRE", [MalagaBlogImporter::LOCALIDAD]) : [],
+            'pasos' => $local ? Db::all(
+                "SELECT DISTINCT p.NOMBRE FROM paso p JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE h.LOCALIDAD = ? ORDER BY p.NOMBRE",
+                [MalagaBlogImporter::LOCALIDAD]
+            ) : [],
+        ], ['title' => 'Acompañamientos de Málaga desde el blog — Marchas de Cristo', 'noindex' => true]);
+    }
+
+    public static function malagaBlogMapeoPost(): void
+    {
+        $session = Auth::requireAdmin();
+        $url = trim((string) ($_POST['url'] ?? ''));
+        $volver = self::MALAGA_BLOG_URL . '?url=' . rawurlencode($url);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect($volver . '&err=CSRF', 302);
+        if (!Entorno::permiteEscrituraDirecta()) Http::redirect($volver . '&err=SOLO_LOCAL', 302);
+        try {
+            [, $labelSlug] = MalagaBlogImporter::etiquetaDeUrl($url);
+            $hermandadSlug = Slug::slugify((string) ($_POST['hermandad_slug'] ?? ''));
+            $hermandadNombre = trim((string) ($_POST['hermandad_nombre'] ?? ''));
+            if ($hermandadSlug === '' || $hermandadNombre === '') Http::redirect($volver . '&err=FALTA_HERMANDAD', 302);
+
+            // Conserva las cabeceras ya mapeadas que no vienen en el formulario.
+            $a = MalagaBlogImporter::analizar(Db::pdo(), $url);
+            $pasos = (array) ($a['mapeo']['pasos'] ?? []);
+            foreach ((array) ($_POST['pasos'] ?? []) as $p) {
+                $clave = MalagaBlogImporter::claveCabecera((string) ($p['cabecera'] ?? ''));
+                $tipo = (string) ($p['tipo'] ?? '');
+                $nombre = trim((string) ($p['nombre'] ?? ''));
+                if ($clave === '') continue;
+                if ($tipo === 'descartar') {
+                    $pasos[$clave] = ['descartar' => true];
+                } elseif ($nombre === '') {
+                    Http::redirect($volver . '&err=FALTA_NOMBRE_PASO', 302);
+                } else {
+                    $pasos[$clave] = ['nombre' => $nombre] + ($tipo === 'cruz' ? ['es_cruz_guia' => true] : []);
+                }
+            }
+            MalagaBlogImporter::guardarEntradaMapeo($labelSlug, [
+                'hermandad_slug' => $hermandadSlug,
+                'hermandad_nombre' => $hermandadNombre,
+                'pasos' => $pasos,
+            ]);
+        } catch (\Throwable $e) {
+            Http::redirect($volver . '&err=' . rawurlencode($e->getMessage()), 302);
+        }
+        Http::redirect($volver . '&mapeo=1', 302);
+    }
+
+    public static function malagaBlogCargarPost(): void
+    {
+        $session = Auth::requireAdmin();
+        $url = trim((string) ($_POST['url'] ?? ''));
+        $volver = self::MALAGA_BLOG_URL . '?url=' . rawurlencode($url);
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect($volver . '&err=CSRF', 302);
+        if (!Entorno::permiteEscrituraDirecta()) Http::redirect($volver . '&err=SOLO_LOCAL', 302);
+        try {
+            // Se recalcula aquí en vez de fiarse de lo que se vio en pantalla:
+            // la BD puede haber cambiado entre "Analizar" y "Cargar".
+            $a = MalagaBlogImporter::analizar(Db::pdo(), $url);
+            $r = MalagaBlogImporter::aplicar(Db::pdo(), $a, (string) $GLOBALS['config']['db_path'], Db::auditUser());
+            Db::logAdmin('IMPORT', 'contrato', null, [
+                'fuente' => $url, 'contratos' => $r['contratos'], 'pendientes' => $r['pendientes'],
+                'hermandad_creada' => $r['hermandadCreada'], 'pasos_creados' => $r['pasosCreados'], 'backup' => basename($r['backup']),
+            ]);
+        } catch (\Throwable $e) {
+            Http::redirect($volver . '&err=' . rawurlencode($e->getMessage()), 302);
+        }
+        Http::redirect($volver . '&cargado=1&c=' . $r['contratos'] . '&p=' . $r['pendientes'] . '&b=' . rawurlencode(basename($r['backup'])), 302);
+    }
+
     // ── Nómina de Semana Santa (localidad → día → hermandad → paso), base para
     // los acompañamientos — ver 015_semana_santa_dia.sql y NominaRepo ────────
 
