@@ -1800,13 +1800,19 @@ final class Repo
                  ORDER BY c.HERMANDAD_SLUG ASC, c.ANIO ASC"
             );
         }
+        // TITULAR: si el contrato cuelga de un paso de la nómina (contrato_paso),
+        // manda el nombre del paso, como en el panel; si no, un TITULAR con otra
+        // redacción ("El Rescatado" vs "Nuestro Padre Jesús Nazareno Rescatado")
+        // pintaba en la web un paso que no existe.
         return Db::all(
-            "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.ANIO,
+            "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, COALESCE(p.NOMBRE, c.TITULAR) AS TITULAR, c.ANIO,
                     b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA
              FROM contrato c
              INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
              INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
              LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
+             LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN paso p ON p.ID_PASO = cp.ID_PASO AND p.ID_HERMANDAD = h.ID_HERMANDAD
              WHERE cl.LOCALIDAD = ?
              ORDER BY (h.ID_HERMANDAD IS NULL) ASC, h.DIA_ORDEN ASC, h.ORDEN ASC,
                       c.HERMANDAD_SLUG ASC, c.ANIO ASC",
