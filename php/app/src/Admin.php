@@ -791,7 +791,8 @@ final class Admin
     private static function volverAcomp(string $slug, string $qs): never
     {
         $anio = self::anioAcomp();
-        Http::redirect("/dashboard/acompanamientos/$slug?$qs" . ($anio !== null ? "&anio=$anio" : ''), 302);
+        $orden = ($_GET['orden'] ?? '') === 'asc' ? '&orden=asc' : '';
+        Http::redirect("/dashboard/acompanamientos/$slug?$qs" . ($anio !== null ? "&anio=$anio" : '') . $orden, 302);
     }
 
     public static function acompanamientosAddPost(array $p): void

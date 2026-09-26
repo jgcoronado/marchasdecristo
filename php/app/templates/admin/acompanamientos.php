@@ -13,7 +13,8 @@
  *  @var array|null $notice */
 $csrf = Auth::csrfToken($session);
 // Los formularios llevan el año en su action para volver a la misma vista tras guardar.
-$q = $anio !== null ? '?anio=' . $anio : '';
+$q = http_build_query(array_filter(['anio' => $anio, 'orden' => ($_GET['orden'] ?? '') === 'asc' ? 'asc' : null], static fn ($v) => $v !== null));
+$q = $q !== '' ? '?' . $q : '';
 
 // Pasos de la nómina para el alta y para "Mover…": un optgroup por hermandad.
 $gruposPaso = [];
@@ -51,6 +52,14 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
 </div>
 
 <h1>Acompañamientos — <?= V::e($localidad) ?><?= $anio !== null ? ' · ' . $anio : '' ?></h1>
+
+<?php // ?orden=asc: de más antiguo a más reciente (por defecto, más reciente primero)
+$asc = ($_GET['orden'] ?? '') === 'asc';
+$ord = static fn (array $rangos): array => $asc ? array_reverse($rangos) : $rangos;
+$qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? null : 'asc'], static fn ($v) => $v !== null)); ?>
+<?php if (!$esNueva): ?>
+<p><a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos/<?= V::e($slug) ?><?= $qsOrden !== '' ? '?' . V::e($qsOrden) : '' ?>"><?= $asc ? '↓ Ver de más reciente a más antiguo' : '↑ Ver de más antiguo a más reciente' ?></a></p>
+<?php endif; ?>
 
 <?php if (!$esNueva): ?>
 <form class="row acomp-vista" method="GET" action="/dashboard/acompanamientos/<?= V::e($slug) ?>" style="align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
@@ -212,7 +221,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             <div class="acomp-paso">
                 <div class="acomp-paso-cab"><?= $ps['ES_CRUZ_GUIA'] ? '<span class="badge">Cruz de guía</span> ' : '' ?><?= V::e($ps['NOMBRE']) ?></div>
                 <table class="table table-sm acomp-tabla"><tbody data-paso-drop data-id-paso="<?= (int) $ps['ID_PASO'] ?>">
-<?php foreach ($ps['rangos'] as $rg): ?>
+<?php foreach ($ord($ps['rangos']) as $rg): ?>
 <?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $ps['NOMBRE'], 'slug' => $slug, 'q' => $q, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
 <?php endforeach; ?>
 <?php if (!$ps['rangos']): ?>
@@ -254,7 +263,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             <div class="acomp-paso acomp-sin-paso">
                 <div class="acomp-paso-cab"><span class="badge badge-warn">Sin paso asignado</span> <?= V::e($t['titular']) ?></div>
                 <table class="table table-sm acomp-tabla"><tbody>
-<?php foreach ($t['rangos'] as $rg): ?>
+<?php foreach ($ord($t['rangos']) as $rg): ?>
 <?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $t['titular'], 'slug' => $slug, 'q' => $q, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
 <?php endforeach; ?>
                 </tbody></table>
@@ -278,7 +287,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
         <tbody>
 <?php foreach ($hermandades as $h): ?>
 <?php foreach ($h['titulares'] as $t): ?>
-<?php foreach ($t['rangos'] as $i => $rg): ?>
+<?php foreach ($ord($t['rangos']) as $i => $rg): ?>
 <?php $idsCsv = implode(',', $rg['contratos']);
       $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($rg['anioInicio'] . '–' . $rg['anioFin']); ?>
             <tr data-ids="<?= V::e($idsCsv) ?>">
