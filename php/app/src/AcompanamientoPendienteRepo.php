@@ -28,7 +28,8 @@ final class AcompanamientoPendienteRepo
                     GROUP_CONCAT(DISTINCT LOCALIDAD) AS LOCALIDADES,
                     GROUP_CONCAT(DISTINCT HERMANDAD_SLUG) AS HERMANDADES,
                     MIN(ANIO) || '-' || MAX(ANIO) AS ANIOS
-             FROM acompanamiento_pendiente
+             FROM acompanamiento_pendiente ap
+             WHERE " . self::sinCruzDeGuia() . "
              GROUP BY BANDA_TEXTO
              ORDER BY N DESC, BANDA_TEXTO ASC"
         );
@@ -41,7 +42,7 @@ final class AcompanamientoPendienteRepo
             "SELECT ap.*, p.NOMBRE AS PASO_NOMBRE
              FROM acompanamiento_pendiente ap
              JOIN paso p ON p.ID_PASO = ap.ID_PASO
-             WHERE ap.BANDA_TEXTO = ?
+             WHERE ap.BANDA_TEXTO = ? AND " . self::sinCruzDeGuia() . "
              ORDER BY ap.LOCALIDAD, ap.HERMANDAD_SLUG, ap.ANIO",
             [$bandaTexto]
         );
@@ -49,7 +50,13 @@ final class AcompanamientoPendienteRepo
 
     public static function count(): int
     {
-        $row = Db::one('SELECT COUNT(*) AS n FROM acompanamiento_pendiente');
+        $row = Db::one('SELECT COUNT(*) AS n FROM acompanamiento_pendiente ap WHERE ' . self::sinCruzDeGuia());
         return (int) ($row['n'] ?? 0);
+    }
+
+    /** Cruces de guía ocultas de momento (ver Repo::sqlSinCruzDeGuia). */
+    private static function sinCruzDeGuia(): string
+    {
+        return Repo::sqlSinCruzDeGuia('ap.TITULAR', 'ap.ID_PASO');
     }
 }

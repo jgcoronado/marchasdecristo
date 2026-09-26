@@ -446,7 +446,7 @@ final class NominaRepo
              LEFT JOIN paso p ON p.ID_PASO = cp.ID_PASO AND p.ID_HERMANDAD = h.ID_HERMANDAD
              LEFT JOIN contrato_tramo ct ON ct.ID_CONTRATO = c.ID_CONTRATO
              LEFT JOIN hermandad_ida_vuelta hiv ON hiv.ID_HERMANDAD = h.ID_HERMANDAD
-             WHERE cl.LOCALIDAD = ?$filtroAnio
+             WHERE cl.LOCALIDAD = ?$filtroAnio AND " . Repo::sqlContratoSinCruzDeGuia() . "
              ORDER BY c.HERMANDAD_SLUG ASC, c.ANIO ASC",
             $anio !== null ? [$localidad, $anio] : [$localidad]
         );
@@ -493,6 +493,8 @@ final class NominaRepo
         $dias = self::cargarLocalidad($localidad);
         foreach ($dias as &$d) {
             foreach ($d['hermandades'] as &$h) {
+                // Cruces de guía ocultas de momento (ver Repo::sqlSinCruzDeGuia).
+                $h['pasos'] = array_values(array_filter($h['pasos'], static fn(array $p): bool => !$p['ES_CRUZ_GUIA']));
                 foreach ($h['pasos'] as &$p) {
                     $g = isset($porPaso[$p['ID_PASO']]) ? Repo::agruparAcompanamientos($porPaso[$p['ID_PASO']]) : [];
                     $p['rangos'] = $g[0]['titulares'][0]['rangos'] ?? [];

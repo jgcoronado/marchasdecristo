@@ -1543,7 +1543,7 @@ final class Repo
         // Solo en portada, no en Db::counts() (pie de todas las páginas): la
         // tabla `contrato` se migra a mano y puede faltar en un host.
         try {
-            $estado['ACOMPANAMIENTOS'] = (int) (Db::one('SELECT COUNT(*) AS N FROM contrato')['N'] ?? 0);
+            $estado['ACOMPANAMIENTOS'] = (int) (Db::one('SELECT COUNT(*) AS N FROM contrato c WHERE ' . self::sqlContratoSinCruzDeGuia())['N'] ?? 0);
         } catch (\Throwable $e) {
             $estado['ACOMPANAMIENTOS'] = null;
         }
@@ -1757,6 +1757,7 @@ final class Repo
         return Db::all(
             "SELECT COALESCE(cl.LOCALIDAD, 'Sin localidad') AS LOCALIDAD, COUNT(*) AS N
              FROM contrato c LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             WHERE " . self::sqlContratoSinCruzDeGuia() . "
              GROUP BY COALESCE(cl.LOCALIDAD, 'Sin localidad')
              ORDER BY LOCALIDAD = 'Sin localidad', LOCALIDAD ASC"
         );
@@ -1804,7 +1805,7 @@ final class Repo
                  FROM contrato c
                  INNER JOIN banda b ON b.ID_BANDA = c.ID_BANDA
                  LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
-                 WHERE cl.ID_CONTRATO IS NULL
+                 WHERE cl.ID_CONTRATO IS NULL AND " . self::sqlContratoSinCruzDeGuia() . "
                  ORDER BY c.HERMANDAD_SLUG ASC, c.ANIO ASC"
             );
         }
@@ -1821,7 +1822,7 @@ final class Repo
              LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
              LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
              LEFT JOIN paso p ON p.ID_PASO = cp.ID_PASO AND p.ID_HERMANDAD = h.ID_HERMANDAD
-             WHERE cl.LOCALIDAD = ?
+             WHERE cl.LOCALIDAD = ? AND " . self::sqlContratoSinCruzDeGuia() . "
              ORDER BY (h.ID_HERMANDAD IS NULL) ASC, h.DIA_ORDEN ASC, h.ORDEN ASC,
                       c.HERMANDAD_SLUG ASC, c.ANIO ASC",
             [$localidad]
@@ -1835,7 +1836,7 @@ final class Repo
         return Db::all(
             'SELECT c.ANIO, COUNT(*) AS N FROM contrato c
              INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
-             WHERE cl.LOCALIDAD = ? GROUP BY c.ANIO ORDER BY c.ANIO DESC',
+             WHERE cl.LOCALIDAD = ? AND ' . self::sqlContratoSinCruzDeGuia() . ' GROUP BY c.ANIO ORDER BY c.ANIO DESC',
             [$localidad]
         );
     }
@@ -1882,6 +1883,27 @@ final class Repo
     {
         $t = str_replace(['í', 'Í'], ['i', 'I'], trim($titular));
         return strcasecmp($t, 'Cruz de Guia') === 0;
+    }
+
+    /**
+     * Condición SQL que deja FUERA las cruces de guía de las pantallas de
+     * acompañamientos (petición del 2026-09-26: ocultarlas "de momento", sin
+     * borrar nada de la BD). Es cruz de guía si su TITULAR lo dice (misma
+     * comparación que esCruzDeGuia()) o si cuelga de un paso ES_CRUZ_GUIA.
+     * Para volver a enseñarlas basta con que devuelva '1'.
+     * @param string $titular columna con el TITULAR (p. ej. 'c.TITULAR')
+     * @param string $pasos   expresión con los ID_PASO asociados, válida dentro de IN (…)
+     */
+    public static function sqlSinCruzDeGuia(string $titular, string $pasos): string
+    {
+        return "NOT (lower(replace(replace(trim(COALESCE($titular, '')), 'í', 'i'), 'Í', 'i')) = 'cruz de guia'"
+            . " OR EXISTS (SELECT 1 FROM paso pcg WHERE pcg.ID_PASO IN ($pasos) AND pcg.ES_CRUZ_GUIA = 1))";
+    }
+
+    /** sqlSinCruzDeGuia() para una consulta sobre `contrato c`. */
+    public static function sqlContratoSinCruzDeGuia(): string
+    {
+        return self::sqlSinCruzDeGuia('c.TITULAR', 'SELECT cpcg.ID_PASO FROM contrato_paso cpcg WHERE cpcg.ID_CONTRATO = c.ID_CONTRATO');
     }
 
     /**
