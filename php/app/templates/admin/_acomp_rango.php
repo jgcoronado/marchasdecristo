@@ -6,7 +6,7 @@
  *  engancha por [data-contratos-table] y closest('tr').
  *  Si la hermandad hace ida/vuelta con bandas distintas ($idaVuelta), cada
  *  línea lleva además su selector de tramo (016_ida_vuelta.sql).
- *  @var array $rg @var string $etiqueta @var string $slug @var string $csrf @var bool $idaVuelta */
+ *  @var array $rg @var string $etiqueta @var string $slug @var string $q @var string $csrf @var bool $idaVuelta */
 $idsCsv = implode(',', $rg['contratos']);
 $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($rg['anioInicio'] . '–' . $rg['anioFin']);
 ?>
@@ -18,9 +18,9 @@ $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($r
                data-etiqueta="<?= V::e($etiqueta . ' (' . $anios . ', ' . $rg['banda'] . ')') ?>">
     </td>
     <td style="white-space:nowrap">
-        <?= V::capture('admin/_acomp_anios', ['rg' => $rg, 'slug' => $slug, 'csrf' => $csrf]) ?>
+        <?= V::capture('admin/_acomp_anios', ['rg' => $rg, 'slug' => $slug, 'q' => $q ?? '', 'csrf' => $csrf]) ?>
 <?php if (!empty($idaVuelta)): ?>
-        <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/tramo-rango" method="POST">
+        <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/tramo-rango<?= V::e($q ?? '') ?>" method="POST">
             <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
             <input type="hidden" name="ids" value="<?= V::e($idsCsv) ?>">
             <select class="input acomp-tramo" name="TRAMO" onchange="this.form.submit()" aria-label="Ida o vuelta">
@@ -39,7 +39,7 @@ $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($r
             <a href="<?= V::e(S::buildDetailPath('banda', $rg['idBanda'], $rg['banda'])) ?>"><?= V::e($rg['banda']) ?></a>
             <button type="button" class="btn btn-sm btn-ghost" data-editar-banda>Editar</button>
         </span>
-        <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/banda-rango" method="POST" class="inline-form" data-banda-edit-form hidden>
+        <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/banda-rango<?= V::e($q ?? '') ?>" method="POST" class="inline-form" data-banda-edit-form hidden>
             <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
             <input type="hidden" name="ids" value="<?= V::e($idsCsv) ?>">
             <input type="hidden" name="ID_BANDA" value="<?= (int) $rg['idBanda'] ?>" data-banda-edit-hidden>
@@ -53,7 +53,7 @@ $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($r
     </td>
     <td style="width:9rem;white-space:nowrap;text-align:right">
         <button type="button" class="btn btn-sm btn-ghost" data-mover-paso data-etiqueta="<?= V::e($etiqueta . ' (' . $anios . ', ' . $rg['banda'] . ')') ?>">Mover…</button>
-        <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar <?= count($rg['contratos']) ?> acompañamiento(s) (<?= $anios ?>)?');">
+        <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango<?= V::e($q ?? '') ?>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar <?= count($rg['contratos']) ?> acompañamiento(s) (<?= $anios ?>)?');">
             <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
             <input type="hidden" name="ids" value="<?= V::e($idsCsv) ?>">
             <button class="btn btn-sm btn-ghost" type="submit">Borrar</button>

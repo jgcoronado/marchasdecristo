@@ -412,7 +412,6 @@ body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
    pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
    ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
 main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
-main.main-ancho .tableList { max-width: 100%; }
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
 
@@ -455,7 +454,7 @@ h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weig
 /* Cabecera de detalle (vistas aún no migradas a .record) */
 .headDetail {
     font-family: var(--serif); font-size: 1.55rem; font-weight: 600;
-    max-width: var(--wrap); margin: 0.75rem auto; padding: 0 0 0.6rem;
+    margin: 0.75rem auto; padding: 0 0 0.6rem;
     border-bottom: 1px solid var(--line); text-wrap: balance;
 }
 
@@ -469,7 +468,7 @@ h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weig
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1.05rem; color: var(--muted-c); margin: 0.5rem 0 0; line-height: 1.65; max-width: 46rem; text-wrap: pretty; }
+.asiento { font-size: 1.05rem; color: var(--muted-c); margin: 0.5rem 0 0; line-height: 1.65; text-wrap: pretty; }
 .asiento a { color: var(--acc); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
@@ -556,7 +555,7 @@ a.svc:hover { border-color: var(--acc); }
 .ytembed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 /* Notas del registro */
-.notas { font-size: 1rem; line-height: 1.7; margin: 0.8rem 0 0; max-width: 46rem; text-wrap: pretty; }
+.notas { font-size: 1rem; line-height: 1.7; margin: 0.8rem 0 0; text-wrap: pretty; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 
 /* Tabla de grabaciones / obra — ordenable, con fila alterna en vez de filete */
@@ -601,17 +600,156 @@ ul.vease { list-style: disc; margin: 0.5rem 0 0; padding: 0 0 0 1.15rem; }
 ul.vease li { padding: 0.34rem 0; font-size: 0.95rem; }
 ul.vease li::marker { color: var(--faint); }
 
-/* Acompañamientos (/acompanamientos): rangos de años colapsados por
-   hermandad/paso, más reciente primero — el primero de cada lista (actual)
-   se destaca en negrita, igual que en los programas de mano de referencia. */
-.acomp-jump { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin: 0.8rem 0 0.2rem; padding: 0.7rem 0.9rem; background: var(--s2); border-radius: var(--radius-sm); font-size: 0.86rem; }
-.acomp-jump a { color: var(--muted-c); text-decoration: none; }
-.acomp-jump a:hover { color: var(--acc); text-decoration: underline; }
+/* Acompañamientos del panel: nombre del paso sobre su tabla (ver también el
+   bloque "Acompañamientos sobre la nómina" más abajo). */
 .acomp-paso { font-weight: 600; margin: 1rem 0 0.15rem; font-size: 0.92rem; color: var(--muted-c); }
-ul.acomp-rangos { margin-top: 0.15rem; }
-ul.acomp-rangos li .anio { color: var(--faint); margin-right: 0.35rem; }
-ul.acomp-rangos li.acomp-actual { font-weight: 700; }
-ul.acomp-rangos li.acomp-actual .anio { color: var(--muted-c); }
+
+/* Acompañamientos públicos (/acompanamientos/{localidad}, rediseño C, sep-2026).
+   Misma gramática que la portada: cabecera en .record, y cada día un
+   .section-title sobre una lista con filas alternas (como .ultimas). Una fila
+   por hermandad: nombre a la izquierda, pasos al lado, en rejilla, para que
+   todas las tiras de un día arranquen en la misma vertical. Se retiraron las
+   fichas dentro de la ficha y las dos columnas de periódico: obligaban a bajar
+   por una columna y volver a subir por la otra.
+
+   Color: el índigo sigue reservado a lo que se pulsa (los nombres de banda).
+   La tira no es pulsable, así que no lo usa: cada día toma uno de los tonos
+   semánticos de la paleta (--juv, --nov, --rec, --est), en ciclo, para que al
+   bajar por la página se note el cambio de día y la barra de días sirva de
+   leyenda. Dentro del día, el tono no identifica bandas sino su posición: la
+   actual en tono pleno y las anteriores alternando dos claros. La muestra
+   (.sw) delante de cada banda de la serie repite el tono de su tramo en la
+   tira, que es lo que une la barra con la lista. */
+/* --foco: color del resaltado banda ↔ tramo (ver más abajo). Es otro tono de
+   la paleta, lejos del del día, para que destaque sobre la tira: sobre morado
+   y turquesa, el naranja de --pt-fuerte; sobre ámbar, turquesa; sobre verde,
+   morado. */
+.acs { --dia: var(--juv); --foco: var(--pt-fuerte); }
+.acs-dia:nth-of-type(4n+2), .acs-dias a:nth-child(4n+2), .acs-locs li:nth-child(4n+2) { --dia: var(--nov); --foco: var(--pt-fuerte); }
+.acs-dia:nth-of-type(4n+3), .acs-dias a:nth-child(4n+3), .acs-locs li:nth-child(4n+3) { --dia: var(--rec); --foco: var(--nov); }
+.acs-dia:nth-of-type(4n),   .acs-dias a:nth-child(4n),   .acs-locs li:nth-child(4n)   { --dia: var(--est); --foco: var(--juv); }
+.acs-dia:nth-of-type(4n+1), .acs-dias a:nth-child(4n+1), .acs-locs li:nth-child(4n+1) { --dia: var(--juv); --foco: var(--pt-fuerte); }
+/* Los claros se oscurecen hacia la tarjeta; en tema oscuro esa mezcla apaga
+   mucho más, así que ahí se sube la proporción. */
+.acs { --mz-acs-a: 20%; --mz-acs-c: 44%; --mz-acs-b: 72%; }
+@media (prefers-color-scheme: dark) { .acs { --mz-acs-a: 38%; --mz-acs-c: 60%; --mz-acs-b: 86%; } }
+/* v: banda actual. w: otra banda actual a la vez (ida y vuelta distintas hoy),
+   igual de intensa pero virada hacia la tinta para que no se confundan.
+   a, c, b: anteriores, de más claro a más oscuro; App\AcompSerie no repite
+   tono entre bandas que coinciden en años o van seguidas. */
+.acs .t-v { background: var(--dia); }
+.acs .t-w { background: color-mix(in srgb, var(--dia) 62%, var(--ink)); }
+.acs .t-b { background: color-mix(in srgb, var(--dia) var(--mz-acs-b), var(--card)); }
+.acs .t-c { background: color-mix(in srgb, var(--dia) var(--mz-acs-c), var(--card)); }
+.acs .t-a { background: color-mix(in srgb, var(--dia) var(--mz-acs-a), var(--card)); }
+
+/* Barra de días: fija arriba al bajar. En ancho se reparte en las líneas que
+   hagan falta; en móvil, una sola línea que se desliza. */
+.acs-dias {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; flex-wrap: wrap; gap: 0.2rem 0.25rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave);
+    font-size: 0.88rem;
+}
+.acs-dias a {
+    display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2rem;
+    padding: 0.15rem 0.6rem; border-radius: var(--radius-sm);
+    color: var(--muted-c); text-decoration: none; white-space: nowrap;
+}
+.acs-dias a::before { content: ""; flex: none; width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--dia); }
+.acs-dias a:hover { color: var(--acc); background: var(--s2); text-decoration: none; }
+@media (max-width: 719px) {
+    .acs-dias { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -1rem; border-radius: 0; }
+}
+
+.acs-dia { margin-top: var(--sp-4); }
+.acs-dia-t { display: flex; align-items: center; gap: 0.55rem; font-size: 1.35rem; scroll-margin-top: 6rem; }
+.acs-dia-t::before { content: ""; flex: none; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--dia); }
+.acs-h { scroll-margin-top: 6rem; }
+@media (max-width: 719px) { .acs-dia-t, .acs-h { scroll-margin-top: 3.4rem; } }
+
+.acs-lista { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.acs-h {
+    display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 0.4rem 2rem;
+    padding: 1.1rem 1.4rem 1.2rem;
+}
+.acs-h:nth-child(even) { background: var(--zebra); }
+.acs-h + .acs-h { border-top: 1px solid var(--line); }
+.acs-h h3 { margin: 0; font-family: var(--serif); font-size: 1.08rem; font-weight: 600; line-height: 1.3; text-wrap: balance; }
+/* Una sola columna de pasos: casi todas las hermandades tienen uno solo, y
+   con dos columnas la fila quedaba con media anchura vacía. La página va al
+   ancho de lectura (--wrap, ver layout.php), así que nombre + paso llenan la
+   tarjeta sin franjas en blanco a los lados; si hay varios pasos, van uno
+   bajo otro. */
+.acs-pasos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+@media (max-width: 719px) {
+    .acs-h { grid-template-columns: minmax(0, 1fr); padding: 0.9rem 1rem 1rem; }
+}
+
+.acs-paso { min-width: 0; }
+.acs-paso-t { margin: 0 0 0.4rem; font-size: 0.86rem; font-weight: 600; color: var(--muted-c); line-height: 1.35; }
+
+.acs-tira {
+    --carril: 0.45rem;
+    position: relative; height: calc(var(--carriles, 1) * var(--carril));
+    background-color: var(--s2);
+    background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px var(--dec));
+    background-position: var(--dec0) 0;
+    border-radius: 999px; overflow: hidden;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+.acs-tira i { position: absolute; height: var(--carril); }
+.acs-tira i + i { box-shadow: -1.5px 0 0 var(--card); }  /* separa dos bandas contiguas */
+/* Resaltado banda ↔ tramo (acompanamientos.js, solo con ratón): el tramo y la
+   muestra de la banda pasan a --foco pleno, el resto de la tira se apaga y la
+   banda de la serie toma un fondo tintado de --foco. */
+.acs-tira i { transition: opacity 0.12s ease, background-color 0.12s ease; }
+.acs-paso.foco .acs-tira i:not(.on) { opacity: 0.22; }
+.acs-paso.foco .acs-tira i.on,
+.acs-paso.foco ol.acs-serie .b.on .sw { background: var(--foco); }
+ol.acs-serie .b { border-radius: 2px; transition: background-color 0.12s ease, box-shadow 0.12s ease; }
+.acs-paso.foco ol.acs-serie .b.on { --foco-bg: color-mix(in srgb, var(--foco) 20%, var(--card)); background: var(--foco-bg); box-shadow: 0 0 0 0.25rem var(--foco-bg); }
+
+ol.acs-serie { list-style: none; margin: 0.45rem 0 0; padding: 0; font-size: 0.92rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
+ol.acs-serie li { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.75rem; padding: 0.28rem 0; }
+ol.acs-serie li + li { border-top: 1px solid var(--line); }
+ol.acs-serie .anio { color: var(--muted-c); white-space: nowrap; }
+ol.acs-serie .bandas { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+ol.acs-serie .b { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.acs .sw { flex: none; width: 0.6rem; height: 0.6rem; border-radius: 2px; transform: translateY(0.05rem); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+ol.acs-serie .tramo { color: var(--muted-c); font-size: 0.84rem; }
+ol.acs-serie .sub { color: var(--faint); font-size: 0.84rem; }
+ol.acs-serie li.sin { color: var(--faint); font-style: italic; }
+ol.acs-serie li.sin .sw { box-shadow: inset 0 0 0 1px var(--line-ctrl); }
+ol.acs-serie .b.vig a { font-weight: 600; }
+
+/* Índice (/acompanamientos): una fila por localidad, entera pulsable, como
+   .ultimas en la portada. El nombre es el enlace (índigo); la barra, que no se
+   pulsa por sí sola, toma el tono del ciclo de arriba. */
+.acs-locs { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.acs-locs li:nth-child(even) { background: var(--zebra); }
+.acs-locs li + li { border-top: 1px solid var(--line); }
+.acs-loc {
+    display: grid; grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) 11rem; align-items: center; gap: 0.5rem 1.5rem;
+    padding: 0.9rem 1.4rem; color: var(--ink); text-decoration: none;
+}
+.acs-loc:hover { background: var(--s2); text-decoration: none; }
+.acs-loc-t { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; color: var(--acc); }
+.acs-loc:hover .acs-loc-t { text-decoration: underline; }
+.acs-loc-barra { height: 0.5rem; border-radius: 999px; background: var(--s2); overflow: hidden; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.acs-loc-barra i { display: block; height: 100%; min-width: 0.5rem; border-radius: inherit; background: var(--dia); }
+.acs-loc-n { font-size: 0.9rem; color: var(--muted-c); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acs-loc-n b { color: var(--ink); font-weight: 600; }
+@media (max-width: 719px) {
+    .acs-loc { grid-template-columns: minmax(0, 1fr) auto; padding: 0.8rem 1rem; }
+    .acs-loc-barra { grid-column: 1 / -1; grid-row: 2; }
+}
+
+@media print {
+    .acs-dias { display: none; }
+    .acs-h { break-inside: avoid; }
+}
 
 /* Permalink del registro */
 .ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
@@ -673,26 +811,13 @@ details.adv[open] > summary::before { content: "▾"; }
 .adv-rango span { color: var(--faint); }
 .adv-actions { display: flex; align-items: center; gap: 1rem; margin-top: 0.9rem; }
 .adv-actions a { font-size: 0.88rem; color: var(--muted-c); }
-/* Varios bloques llevan su propio tope de --wrap porque se usan sueltos en
-   vistas estrechas (.tableList, .cdlist, .divider, .headDetail). En una página
-   de catálogo ese tope sobra: deja la tabla centrada con dos franjas vacías a
-   los lados y el ensanchado no se nota. El contenedor ya manda. */
-body.p-catalogo .tableList,
-body.p-catalogo .cdlist,
-body.p-catalogo .divider,
-body.p-catalogo .headDetail { max-width: 100%; }
-/* Una tabla de dos columnas no mejora por estirarse: el número acaba a media
-   pantalla del nombre al que pertenece. Donde la página entera puede estrecharse
-   se estrecha (ver $rutasCatalogo en layout.php); donde no —en /mapa manda el
-   ancho del SVG— se le pone tope a la tabla sola. */
-body.p-catalogo .tableList[data-cols="2"] { max-width: 48rem; margin: 0; }
-/* Lo que sí conserva tope es la PROSA: la longitud de línea cómoda no depende
-   del ancho del contenedor. A 76rem, el párrafo de entradilla de /rankings se
-   iba a 120 caracteres por línea. */
-body.p-catalogo .asiento,
-body.p-catalogo .notas,
-body.p-catalogo .welcome-text,
-body.p-catalogo .search-info { max-width: 46rem; }
+/* 2026-09-26: fuera los topes de ancho de la prosa (.asiento, .notas,
+   .welcome-text, .search-info), de la tabla de dos columnas de /mapa y los
+   de --wrap en .tableList, .cdlist, .divider y .headDetail (que en el panel
+   ancho recortaban igual). Dejaban
+   el texto recortado con una franja vacía a la derecha de su tarjeta; ahora
+   todo bloque llena su contenedor y el ancho de lectura lo da la página
+   (--wrap / --wrap-ancho), no cada párrafo. */
 /* Red de seguridad solo en móvil, donde cada .fgroup ocupa el ancho entero:
    el recuento baja de línea antes que salirse. En pantallas más anchas los
    grupos de .facet-groups quedan bastante más estrechos y el texto ya parte
@@ -722,18 +847,35 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .ico-col { width: 3.2rem; text-align: center; }
 
 /* ── Tablas (listados generales) ────────────────────────────────────────── */
-.tableList { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); width: 100%; max-width: var(--wrap); margin: 0 auto; }
+.tableList { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); width: 100%; margin: 0 auto; }
 .table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .table th, .table td { text-align: left; padding: 0.5rem 0.75rem; vertical-align: top; font-size: 0.95rem; }
 .table th { font-weight: 600; white-space: nowrap; }
 .table tbody tr:nth-child(even) > * { background: var(--zebra); }
 .table-zebra tbody tr:hover > * { background: var(--s2); }
 .table-sm th, .table-sm td { padding: 0.4rem 0.6rem; font-size: 0.9rem; }
+/* Ingesta (/dashboard/ingesta): la marcha y la banda se llevan el ancho; clasificación,
+   fuente y confianza son metadato y van en columnas estrechas. */
+.ingesta-table { table-layout: fixed; }
+.ingesta-table col.c-check { width: 2rem; }
+.ingesta-table col.c-titulo { width: 46%; }
+.ingesta-table col.c-banda { width: 32%; }
+.ingesta-table col.c-anio { width: 3.6rem; }
+.ingesta-table col.c-meta { width: 7.5rem; }
+.ingesta-table col.c-conf { width: 4.2rem; }
+.ingesta-table col.c-estado { width: 6rem; }
+.ingesta-table td { overflow-wrap: break-word; }
+.ingesta-titulo { font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.ingesta-disco { display: block; margin-top: 0.15rem; font-size: 0.82rem; color: var(--muted-c); }
+.ingesta-banda { font-size: 0.95rem; line-height: 1.3; }
+.ingesta-meta { font-size: 0.75rem; line-height: 1.5; }
+.ingesta-meta .badge { font-size: 0.72rem; padding: 0.05rem 0.4rem; }
+.ingesta-meta .muted { display: block; }
 .thead-neutral td { background: var(--s2); font-size: 0.9rem; color: var(--muted-c); font-weight: 600; }
 .table thead th { border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--muted-c); font-weight: 600; background: none; }
 
 /* ── Divider con texto ──────────────────────────────────────────────────── */
-.divider { display: flex; align-items: center; text-align: center; gap: 0.75rem; color: var(--muted-c); font-size: 0.9rem; margin: 2rem auto 0.8rem; max-width: var(--wrap); font-family: var(--serif); }
+.divider { display: flex; align-items: center; text-align: center; gap: 0.75rem; color: var(--muted-c); font-size: 0.9rem; margin: 2rem auto 0.8rem; font-family: var(--serif); }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
 /* ── Botones ────────────────────────────────────────────────────────────── */
@@ -794,12 +936,8 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
     letter-spacing: -0.025em; margin: 0 0 0.6rem; text-wrap: balance;
     text-align: center;
 }
-.welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; max-width: 42rem; color: var(--muted-c); text-wrap: pretty; }
-/* La home ensancha el bloque de bienvenida al ancho entero de .stack.home
-   (54rem, --wrap): a 42rem dejaba una franja vacía a la derecha que no
-   tiene la justificación de "línea de lectura cómoda" que sí tiene en las
-   páginas de catálogo (esas conservan el tope, ver body.p-catalogo abajo). */
-.stack.home .welcome-text { max-width: none; text-align: center; }
+.welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; color: var(--muted-c); text-wrap: pretty; }
+.stack.home .welcome-text { text-align: center; }
 /* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
    párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
    pasan a fila de cifras, con el número en serif al tamaño de un titular y la
@@ -811,7 +949,10 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
     display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3) var(--sp-4);
     font-variant-numeric: tabular-nums;
 }
+/* Quinta cifra (acompañamientos): en móvil ocupa la fila entera; en ancho van las cinco en fila */
+.welcome-counts .cifra:nth-child(5) { grid-column: 1 / -1; }
 @media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 720px) { .welcome-counts { grid-template-columns: repeat(5, 1fr); } .welcome-counts .cifra:nth-child(5) { grid-column: auto; } }
 .welcome-counts .cifra { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.1rem; }
 .welcome-counts .cifra b { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
 .welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }
@@ -837,7 +978,7 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
-.cdlist { list-style: none; margin: 0.5rem auto; padding: 0; max-width: var(--wrap); }
+.cdlist { list-style: none; margin: 0.5rem auto; padding: 0; }
 .cdlist-row { display: flex; align-items: center; gap: 0.9rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 0.45rem; }
 .cdlist-row:hover { background: var(--s2); }
 .cover-thumb { width: 3.2rem; height: 3.2rem; object-fit: cover; border-radius: var(--radius-sm); display: block; }
@@ -1043,6 +1184,8 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
     table.reg thead th .ar { display: none; }
     a.sortcol { white-space: normal; }
     .mobile-hide { display: none; }
+    .ingesta-table { table-layout: auto; }
+    .ingesta-titulo { font-size: 0.92rem; }
 }
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }

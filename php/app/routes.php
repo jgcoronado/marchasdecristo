@@ -258,6 +258,11 @@ $router->post('/dashboard/acompanamientos/{localidad}/anios-rango', [Admin::clas
 $router->get('/dashboard/acompanamientos-dudas', [Admin::class, 'acompanamientoDudasAdmin']);
 $router->post('/dashboard/acompanamientos-dudas/{id}/resolver', [Admin::class, 'acompanamientoDudaResolverPost']);
 $router->post('/dashboard/acompanamientos-dudas/{id}/descartar', [Admin::class, 'acompanamientoDudaDescartarPost']);
+$router->get('/dashboard/acompanamientos-pendientes', [Admin::class, 'acompanamientosPendientesAdmin']);
+$router->post('/dashboard/acompanamientos-pendientes/convertir', [Admin::class, 'acompanamientosPendienteConvertirPost']);
+$router->get('/dashboard/acompanamientos-malaga-blog', [Admin::class, 'malagaBlogAdmin']);
+$router->post('/dashboard/acompanamientos-malaga-blog/mapeo', [Admin::class, 'malagaBlogMapeoPost']);
+$router->post('/dashboard/acompanamientos-malaga-blog/cargar', [Admin::class, 'malagaBlogCargarPost']);
 
 // ── Nómina de Semana Santa (localidad → día → hermandad → paso), base sobre la
 // que luego se cuelgan los acompañamientos — ver 015_semana_santa_dia.sql y

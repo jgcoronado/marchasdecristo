@@ -500,10 +500,13 @@ final class AdminRepo
             $creados = 0;
             $existentes = 0;
             for ($anio = $anioInicio; $anio <= $anioFin; $anio++) {
+                // Por localidad: el mismo SLUG y TITULAR se repite entre
+                // ciudades (La Sed de Sevilla y la de Jerez) y no es duplicado.
                 $existe = Db::one(
-                    "SELECT ID_CONTRATO FROM contrato
-                     WHERE ID_BANDA = ? AND HERMANDAD_SLUG = ? AND ANIO = ? AND IFNULL(TITULAR,'') = ?",
-                    [$idBanda, $slug, $anio, $titularNorm ?? '']
+                    "SELECT c.ID_CONTRATO FROM contrato c
+                     INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                     WHERE c.ID_BANDA = ? AND c.HERMANDAD_SLUG = ? AND c.ANIO = ? AND IFNULL(c.TITULAR,'') = ? AND cl.LOCALIDAD = ?",
+                    [$idBanda, $slug, $anio, $titularNorm ?? '', $localidad]
                 );
                 if ($existe !== null) {
                     $existentes++;
@@ -596,6 +599,13 @@ final class AdminRepo
         $tpl = $rango[0];
         $idPaso = null;
         foreach ($rango as $r) { if ($r['ID_PASO'] !== null) { $idPaso = (int) $r['ID_PASO']; break; } }
+        // En el panel una línea es un paso aunque sus contratos tengan TITULAR
+        // con redacciones distintas: los años nuevos llevan el nombre del paso
+        // (convención de NominaRepo), no el TITULAR del contrato más reciente,
+        // o la página pública (que agrupa por TITULAR) pinta un paso de más.
+        if ($idPaso !== null) {
+            $tpl['TITULAR'] = Db::one('SELECT NOMBRE FROM paso WHERE ID_PASO = ?', [$idPaso])['NOMBRE'] ?? $tpl['TITULAR'];
+        }
 
         return Db::transaction(function () use ($rango, $tpl, $idPaso, $anioInicio, $anioFin) {
             $fuera = [];
@@ -694,6 +704,21 @@ final class AdminRepo
      * @param list<int> $autoresIds
      * @return array{code:string, marchaId?:int}
      */
+    /**
+     * Anota la URL del disco de origen de la importación DMP en DATOS_INT
+     * (uso interno, no se muestra en la ficha pública) sin machacar lo que
+     * ya hubiera — a diferencia de AUDIO/enlace_streaming, la marcha no
+     * tiene un campo dedicado para este origen.
+     */
+    private static function apuntarOrigenDmp(int $marchaId, string $url): void
+    {
+        $actual = Db::one('SELECT DATOS_INT FROM marcha WHERE ID_MARCHA = ?', [$marchaId]);
+        $datosInt = trim((string) ($actual['DATOS_INT'] ?? ''));
+        if ($datosInt !== '' && str_contains($datosInt, $url)) return;
+        $nota = 'Origen (discografiasdemarchasprocesionales.com): ' . $url;
+        self::editMarcha($marchaId, ['DATOS_INT'], [$datosInt !== '' ? $datosInt . "\n" . $nota : $nota]);
+    }
+
     public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true): array
     {
         $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA, ISRC, P_TITULO, VIDEO_TITULO FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
@@ -713,6 +738,8 @@ final class AdminRepo
                 self::editMarcha($r['marchaId'], ['AUDIO'], [$cand['VIDEO_URL']]);
             } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
                 self::setEnlaceStreaming('marcha', $r['marchaId'], $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
+            } elseif ($fuente === 'dmp') {
+                self::apuntarOrigenDmp($r['marchaId'], (string) $cand['VIDEO_URL']);
             }
         }
 
@@ -1693,6 +1720,8 @@ final class AdminRepo
                 self::editMarcha($marchaId, ['AUDIO'], [$cand['VIDEO_URL']]);
             } elseif (in_array($fuente, EnlaceRepo::SERVICIOS, true)) {
                 self::setEnlaceStreaming('marcha', $marchaId, $fuente, (string) $cand['VIDEO_URL'], $cand['ISRC'] ?? null);
+            } elseif ($fuente === 'dmp') {
+                self::apuntarOrigenDmp($marchaId, (string) $cand['VIDEO_URL']);
             }
         }
 
@@ -1799,5 +1828,66 @@ final class AdminRepo
         if ($changes === 0) return ['code' => 'NOT_FOUND_OR_NOT_PENDING'];
         Db::logAdmin('DISCARD', 'acompanamiento_duda', $id, ['nota' => $nota]);
         return ['code' => 'DISCARDED'];
+    }
+
+    /**
+     * Enlaza TODAS las filas de `acompanamiento_pendiente` con un mismo
+     * BANDA_TEXTO a una banda real, convirtiéndolas en contrato +
+     * contrato_localidad + contrato_paso (017_acompanamiento_pendiente.sql,
+     * ver cargar_acompanamientos_malaga_blog.php y
+     * docs/acompanamientos-nomina-2026.md). No enlaza por nombre solo: es el
+     * admin quien elige la banda en el panel, a propósito ("no enlazar a
+     * ciegas" — la resolución automática ya lo intentó al cargar).
+     *
+     * Idempotente igual que el resto de altas de contrato: salta las filas
+     * cuyo contrato ya existiera (mismo HERMANDAD_SLUG+TITULAR+ANIO+ID_BANDA).
+     *
+     * @return array{code:string, creados?:int, existentes?:int}
+     */
+    public static function convertirPendientesEnContratos(string $bandaTexto, int $idBanda): array
+    {
+        if (!self::bandaExiste($idBanda)) return ['code' => 'INVALID_BANDA'];
+        $filas = AcompanamientoPendienteRepo::porBanda($bandaTexto);
+        if ($filas === []) return ['code' => 'SIN_PENDIENTES'];
+
+        return Db::transaction(function () use ($filas, $idBanda, $bandaTexto) {
+            $creados = 0;
+            $existentes = 0;
+            foreach ($filas as $f) {
+                $hermandad = Db::one(
+                    'SELECT NOMBRE FROM hermandad WHERE LOCALIDAD = ? AND SLUG = ?',
+                    [$f['LOCALIDAD'], $f['HERMANDAD_SLUG']]
+                );
+                $hermandadNombre = $hermandad['NOMBRE'] ?? $f['HERMANDAD_SLUG'];
+
+                $existe = Db::one(
+                    "SELECT c.ID_CONTRATO FROM contrato c
+                     INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                     WHERE c.HERMANDAD_SLUG = ? AND c.ANIO = ? AND c.ID_BANDA = ? AND IFNULL(c.TITULAR,'') = ? AND cl.LOCALIDAD = ?",
+                    [$f['HERMANDAD_SLUG'], $f['ANIO'], $idBanda, $f['TITULAR'], $f['LOCALIDAD']]
+                );
+                if ($existe !== null) {
+                    $existentes++;
+                } else {
+                    Db::run(
+                        'INSERT INTO contrato (ID_BANDA, HERMANDAD, HERMANDAD_SLUG, TITULAR, ANIO, FUENTE, NOTA)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [$idBanda, $hermandadNombre, $f['HERMANDAD_SLUG'], $f['TITULAR'], $f['ANIO'], $f['FUENTE'], 'banda_texto=' . $bandaTexto]
+                    );
+                    $idContrato = Db::lastInsertId();
+                    Db::run('INSERT INTO contrato_localidad (ID_CONTRATO, LOCALIDAD) VALUES (?, ?)', [$idContrato, $f['LOCALIDAD']]);
+                    Db::run('INSERT INTO contrato_paso (ID_CONTRATO, ID_PASO) VALUES (?, ?)', [$idContrato, $f['ID_PASO']]);
+                    $creados++;
+                }
+                Db::run(
+                    'DELETE FROM acompanamiento_pendiente WHERE ID_PENDIENTE = ?',
+                    [$f['ID_PENDIENTE']]
+                );
+            }
+            Db::logAdmin('CONVERT', 'acompanamiento_pendiente', null, [
+                'banda_texto' => $bandaTexto, 'id_banda' => $idBanda, 'creados' => $creados, 'existentes' => $existentes,
+            ]);
+            return ['code' => 'CONVERTED', 'creados' => $creados, 'existentes' => $existentes];
+        });
     }
 }

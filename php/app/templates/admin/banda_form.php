@@ -199,6 +199,7 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 <?php endif; ?>
     </div>
 </div>
+<script src="/assets/admin.js" defer></script>
 <?php if ($showLinaje): ?>
 <script src="/assets/banda-relaciones.js" defer></script>
 <?php endif; ?>

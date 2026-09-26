@@ -8,8 +8,13 @@
  *  @var list<array>|null $nomina  días → hermandades → pasos (con 'rangos') y 'sinPaso'
  *       de NominaRepo::acompanamientosPorNomina(); null si la localidad no tiene nómina
  *       en /dashboard/semana-santa. Con nómina, $hermandades son solo las de fuera.
+ *  @var int|null $anio  vista por año (?anio=AAAA): solo los contratos de ese año
+ *  @var list<array{ANIO:int,N:int}> $anios  años con acompañamientos, para el selector
  *  @var array|null $notice */
 $csrf = Auth::csrfToken($session);
+// Los formularios llevan el año en su action para volver a la misma vista tras guardar.
+$q = http_build_query(array_filter(['anio' => $anio, 'orden' => ($_GET['orden'] ?? '') === 'asc' ? 'asc' : null], static fn ($v) => $v !== null));
+$q = $q !== '' ? '?' . $q : '';
 
 // Pasos de la nómina para el alta y para "Mover…": un optgroup por hermandad.
 $gruposPaso = [];
@@ -46,11 +51,50 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
     <span><a href="/dashboard">Panel</a> › <a href="/dashboard/acompanamientos">Acompañamientos</a> › <?= V::e($localidad) ?></span>
 </div>
 
-<h1>Acompañamientos — <?= V::e($localidad) ?></h1>
+<h1>Acompañamientos — <?= V::e($localidad) ?><?= $anio !== null ? ' · ' . $anio : '' ?></h1>
+
+<?php // ?orden=asc: de más antiguo a más reciente (por defecto, más reciente primero)
+$asc = ($_GET['orden'] ?? '') === 'asc';
+$ord = static fn (array $rangos): array => $asc ? array_reverse($rangos) : $rangos;
+$qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? null : 'asc'], static fn ($v) => $v !== null)); ?>
+<?php if (!$esNueva): ?>
+<p><a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos/<?= V::e($slug) ?><?= $qsOrden !== '' ? '?' . V::e($qsOrden) : '' ?>"><?= $asc ? '↓ Ver de más reciente a más antiguo' : '↑ Ver de más antiguo a más reciente' ?></a></p>
+<?php endif; ?>
+
+<?php if (!$esNueva): ?>
+<form class="row acomp-vista" method="GET" action="/dashboard/acompanamientos/<?= V::e($slug) ?>" style="align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+    <span class="muted small">Ver:</span>
+<?php if ($anio !== null): ?>
+    <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos/<?= V::e($slug) ?>">Por hermandad (todos los años)</a>
+    <a class="btn btn-sm btn-ghost" href="?anio=<?= $anio - 1 ?>" title="Año anterior">‹ <?= $anio - 1 ?></a>
+<?php else: ?>
+    <strong class="small">Por hermandad</strong>
+    <span class="muted small">· Por año:</span>
+<?php endif; ?>
+    <select class="input" name="anio" aria-label="Año" onchange="this.form.submit()" style="width:auto">
+        <option value="">— Año —</option>
+<?php $hayAnio = false; foreach ($anios as $a): $hayAnio = $hayAnio || (int) $a['ANIO'] === $anio; ?>
+        <option value="<?= (int) $a['ANIO'] ?>"<?= (int) $a['ANIO'] === $anio ? ' selected' : '' ?>><?= (int) $a['ANIO'] ?> (<?= (int) $a['N'] ?>)</option>
+<?php endforeach; ?>
+<?php if ($anio !== null && !$hayAnio): ?>
+        <option value="<?= $anio ?>" selected><?= $anio ?> (0)</option>
+<?php endif; ?>
+    </select>
+<?php if ($anio !== null): ?>
+    <a class="btn btn-sm btn-ghost" href="?anio=<?= $anio + 1 ?>" title="Año siguiente"><?= $anio + 1 ?> ›</a>
+<?php endif; ?>
+    <input class="input" type="number" name="anio" min="1900" max="2100" placeholder="Otro año" aria-label="Otro año" style="width:6.5rem" disabled data-otro-anio>
+    <button type="button" class="btn btn-sm btn-ghost" data-otro-anio-btn>Otro año…</button>
+</form>
+<?php endif; ?>
 <?php if ($nomina !== null): ?>
 <p class="muted">Los días, hermandades y pasos salen de <a href="/dashboard/semana-santa/<?= V::e($slug) ?>">Semana Santa de <?= V::e($localidad) ?></a>. Para corregir un acompañamiento mal colocado, arrástralo desde su asa (<span aria-hidden="true">⠿</span>) a otro paso o usa «Mover…» (si marcas varias casillas, arrastra una de ellas y se mueven todas juntas); al moverlo toma la hermandad y el paso de destino y no se pierde nada. Un alta cubre todo el rango de años con la misma banda de una vez; los años ya cargados se saltan sin duplicar.</p>
 <?php else: ?>
 <p class="muted">La hermandad y el paso son texto libre: escríbelos igual que ya están cargados (usa el desplegable) para que se agrupen bien en <a href="/acompanamientos/<?= V::e($slug) ?>">la página pública</a>. Un alta cubre todo el rango de años con la misma banda de una vez; los años ya cargados para esa banda+hermandad+paso se saltan sin duplicar.</p>
+<?php endif; ?>
+
+<?php if ($anio !== null): ?>
+<p class="muted small">Vista del año <strong><?= $anio ?></strong>: solo se muestran los acompañamientos de ese año (una línea por banda). Lo que añadas aquí se guarda solo para <?= $anio ?>; cambiar la banda o borrar una línea afecta solo a este año.</p>
 <?php endif; ?>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
@@ -64,7 +108,7 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
 <section>
     <h2 class="section-title">Añadir acompañamiento (rango de años)</h2>
 <?php endif; ?>
-    <form class="panel" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/add" method="POST" id="contratoForm">
+    <form class="panel" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/add<?= $q ?>" method="POST" id="contratoForm">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
 <?php if ($esNueva): ?>
         <input type="hidden" name="LOCALIDAD" value="<?= V::e($localidad) ?>">
@@ -101,6 +145,9 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
             </datalist>
         </div>
 
+<?php if ($anio !== null): /* vista por año: el alta es solo para ese año */ ?>
+        <input type="hidden" name="ANIO_INICIO" value="<?= $anio ?>">
+<?php else: ?>
         <div class="adv-grid">
             <div class="field">
                 <label class="field-label" for="ANIO_INICIO">Año inicio</label>
@@ -111,6 +158,7 @@ sort($titularesNombres, SORT_STRING | SORT_FLAG_CASE);
                 <input class="input" id="ANIO_FIN" name="ANIO_FIN" type="number" min="1900" max="2100">
             </div>
         </div>
+<?php endif; ?>
 
         <div class="field">
             <label class="field-label" for="FUENTE">Fuente (opcional, uso interno — no se muestra público)</label>
@@ -159,7 +207,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
     <div class="nomina-herm">
         <div class="nomina-herm-cab">
             <strong><?= V::e($h['NOMBRE']) ?></strong>
-            <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/hermandad/<?= (int) $h['ID_HERMANDAD'] ?>/ida-vuelta" method="POST" style="display:block;margin-top:0.35rem">
+            <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/hermandad/<?= (int) $h['ID_HERMANDAD'] ?>/ida-vuelta<?= $q ?>" method="POST" style="display:block;margin-top:0.35rem">
                 <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
                 <input type="hidden" name="activo" value="<?= $h['IDA_VUELTA'] ? '0' : '1' ?>">
                 <label class="small muted" title="Marca si a la ida y a la vuelta van bandas distintas detrás del mismo paso"><input type="checkbox"<?= $h['IDA_VUELTA'] ? ' checked' : '' ?> onchange="this.form.submit()"> Ida / vuelta</label>
@@ -173,8 +221,8 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             <div class="acomp-paso">
                 <div class="acomp-paso-cab"><?= $ps['ES_CRUZ_GUIA'] ? '<span class="badge">Cruz de guía</span> ' : '' ?><?= V::e($ps['NOMBRE']) ?></div>
                 <table class="table table-sm acomp-tabla"><tbody data-paso-drop data-id-paso="<?= (int) $ps['ID_PASO'] ?>">
-<?php foreach ($ps['rangos'] as $rg): ?>
-<?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $ps['NOMBRE'], 'slug' => $slug, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
+<?php foreach ($ord($ps['rangos']) as $rg): ?>
+<?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $ps['NOMBRE'], 'slug' => $slug, 'q' => $q, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
 <?php endforeach; ?>
 <?php if (!$ps['rangos']): ?>
                     <tr class="acomp-vacio"><td colspan="4" class="muted small">Sin acompañamientos — arrastra aquí para asignar.</td></tr>
@@ -183,7 +231,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
          edición de banda de admin.js (data-banda-edit-*, delegado por fila). */ ?>
                     <tr class="acomp-alta">
                         <td colspan="4">
-                            <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/add" method="POST" data-alta-rapida>
+                            <form class="inline-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/add<?= $q ?>" method="POST" data-alta-rapida>
                                 <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
                                 <input type="hidden" name="ID_PASO" value="<?= (int) $ps['ID_PASO'] ?>">
                                 <input type="hidden" name="ID_BANDA" value="" data-banda-edit-hidden>
@@ -191,8 +239,12 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
                                     <input class="input" type="text" placeholder="Añadir banda…" autocomplete="off" data-banda-edit-search aria-label="Banda" style="width:17rem">
                                     <div class="suggest" data-banda-edit-suggest hidden></div>
                                 </div>
+<?php if ($anio !== null): ?>
+                                <input type="hidden" name="ANIO_INICIO" value="<?= $anio ?>">
+<?php else: ?>
                                 <input class="input" type="number" name="ANIO_INICIO" min="1900" max="2100" placeholder="Desde" required style="width:5.5rem" aria-label="Año inicio">
                                 <input class="input" type="number" name="ANIO_FIN" min="1900" max="2100" placeholder="Hasta" style="width:5.5rem" aria-label="Año fin (vacío = solo el de inicio)">
+<?php endif; ?>
 <?php if ($h['IDA_VUELTA']): ?>
                                 <select class="input acomp-tramo" name="TRAMO" aria-label="Ida o vuelta">
                                     <option value="">Ida / vuelta…</option>
@@ -211,8 +263,8 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             <div class="acomp-paso acomp-sin-paso">
                 <div class="acomp-paso-cab"><span class="badge badge-warn">Sin paso asignado</span> <?= V::e($t['titular']) ?></div>
                 <table class="table table-sm acomp-tabla"><tbody>
-<?php foreach ($t['rangos'] as $rg): ?>
-<?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $t['titular'], 'slug' => $slug, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
+<?php foreach ($ord($t['rangos']) as $rg): ?>
+<?= V::capture('admin/_acomp_rango', ['rg' => $rg, 'etiqueta' => $h['NOMBRE'] . ' — ' . $t['titular'], 'slug' => $slug, 'q' => $q, 'csrf' => $csrf, 'idaVuelta' => $h['IDA_VUELTA']]) ?>
 <?php endforeach; ?>
                 </tbody></table>
             </div>
@@ -235,7 +287,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
         <tbody>
 <?php foreach ($hermandades as $h): ?>
 <?php foreach ($h['titulares'] as $t): ?>
-<?php foreach ($t['rangos'] as $i => $rg): ?>
+<?php foreach ($ord($t['rangos']) as $i => $rg): ?>
 <?php $idsCsv = implode(',', $rg['contratos']);
       $anios = $rg['anioInicio'] === $rg['anioFin'] ? (string) $rg['anioInicio'] : ($rg['anioInicio'] . '–' . $rg['anioFin']); ?>
             <tr data-ids="<?= V::e($idsCsv) ?>">
@@ -252,13 +304,13 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
                     <span class="badge badge-warn" title="Otro paso de esta hermandad tiene la misma banda en años que se solapan">⚠ posible duplicado</span>
 <?php endif; ?>
                 </td>
-                <td style="white-space:nowrap"><?= V::capture('admin/_acomp_anios', ['rg' => $rg, 'slug' => $slug, 'csrf' => $csrf]) ?></td>
+                <td style="white-space:nowrap"><?= V::capture('admin/_acomp_anios', ['rg' => $rg, 'slug' => $slug, 'q' => $q, 'csrf' => $csrf]) ?></td>
                 <td>
                     <span data-banda-display>
                         <a href="<?= V::e(S::buildDetailPath('banda', $rg['idBanda'], $rg['banda'])) ?>"><?= V::e($rg['banda']) ?></a>
                         <button type="button" class="btn btn-sm btn-ghost" data-editar-banda>Editar</button>
                     </span>
-                    <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/banda-rango" method="POST" class="inline-form" data-banda-edit-form hidden>
+                    <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/banda-rango<?= $q ?>" method="POST" class="inline-form" data-banda-edit-form hidden>
                         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
                         <input type="hidden" name="ids" value="<?= V::e($idsCsv) ?>">
                         <input type="hidden" name="ID_BANDA" value="<?= (int) $rg['idBanda'] ?>" data-banda-edit-hidden>
@@ -274,7 +326,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
 <?php if ($nomina !== null): ?>
                     <button type="button" class="btn btn-sm btn-ghost" data-mover-paso data-etiqueta="<?= V::e($h['nombre'] . ($t['titular'] !== null ? ' — ' . $t['titular'] : '') . ' (' . $anios . ', ' . $rg['banda'] . ')') ?>">Mover…</button>
 <?php endif; ?>
-                    <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar <?= count($rg['contratos']) ?> acompañamiento(s) (<?= $anios ?>)?');">
+                    <form action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango<?= $q ?>" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar <?= count($rg['contratos']) ?> acompañamiento(s) (<?= $anios ?>)?');">
                         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
                         <input type="hidden" name="ids" value="<?= V::e($idsCsv) ?>">
                         <button class="btn btn-sm btn-ghost" type="submit">Borrar</button>
@@ -296,7 +348,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
 
 <?php if ($nomina !== null): ?>
 <dialog id="dlgMoverPaso" class="panel">
-    <form id="moverPasoForm" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/mover-paso" method="POST">
+    <form id="moverPasoForm" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/mover-paso<?= $q ?>" method="POST">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ids" id="moverPasoIds">
         <p>Mover a otro paso:</p>
@@ -317,7 +369,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
 </dialog>
 <?php endif; ?>
 
-<form id="bulkBorrarForm" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango" method="POST" hidden>
+<form id="bulkBorrarForm" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/borrar-rango<?= $q ?>" method="POST" hidden>
     <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
     <input type="hidden" name="ids" id="bulkBorrarIds">
 </form>
@@ -392,6 +444,20 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             td.querySelector('[data-anios-display]').hidden = false;
         }
     });
+    // «Otro año…»: año sin acompañamientos todavía (p. ej. el próximo). El
+    // número va deshabilitado hasta pulsar el botón para no chocar con el select.
+    var btnOtro = document.querySelector('[data-otro-anio-btn]');
+    if (btnOtro) {
+        btnOtro.addEventListener('click', function () {
+            var f = btnOtro.form, n = f.querySelector('[data-otro-anio]');
+            if (n.disabled) {
+                n.disabled = false; f.querySelector('select[name="anio"]').disabled = true;
+                btnOtro.textContent = 'Ver'; n.focus();
+            } else if (n.value) {
+                f.submit();
+            }
+        });
+    }
     // Alta rápida sobre un paso: la banda tiene que salir del predictivo.
     document.addEventListener('submit', function (e) {
         var f = e.target.closest('[data-alta-rapida]');

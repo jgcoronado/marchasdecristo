@@ -428,8 +428,11 @@ final class NominaRepo
      * la nómina, con la forma de Repo::agruparAcompanamientos().
      * @return array{dias:list<array>, fuera:list<array>}
      */
-    public static function acompanamientosPorNomina(string $localidad): array
+    public static function acompanamientosPorNomina(string $localidad, ?int $anio = null): array
     {
+        // $anio: vista por año del panel — solo los contratos de ese año, pero
+        // la nómina entera (días, hermandades y pasos) se pinta igual.
+        $filtroAnio = $anio !== null ? ' AND c.ANIO = ?' : '';
         $rows = Db::all(
             "SELECT c.ID_CONTRATO, c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, c.ANIO,
                     b.ID_BANDA, (b.NOMBRE_BREVE || ' (' || b.LOCALIDAD || ')') AS BANDA,
@@ -443,9 +446,9 @@ final class NominaRepo
              LEFT JOIN paso p ON p.ID_PASO = cp.ID_PASO AND p.ID_HERMANDAD = h.ID_HERMANDAD
              LEFT JOIN contrato_tramo ct ON ct.ID_CONTRATO = c.ID_CONTRATO
              LEFT JOIN hermandad_ida_vuelta hiv ON hiv.ID_HERMANDAD = h.ID_HERMANDAD
-             WHERE cl.LOCALIDAD = ?
+             WHERE cl.LOCALIDAD = ?$filtroAnio AND " . Repo::sqlContratoSinCruzDeGuia() . "
              ORDER BY c.HERMANDAD_SLUG ASC, c.ANIO ASC",
-            [$localidad]
+            $anio !== null ? [$localidad, $anio] : [$localidad]
         );
 
         // Contratos sin fila en contrato_paso cuyo TITULAR es el nombre de un
@@ -487,12 +490,13 @@ final class NominaRepo
             [$localidad]
         ), 'ID_HERMANDAD')));
 
-        $sinSalida = Repo::aniosSinSalida($localidad);
         $dias = self::cargarLocalidad($localidad);
         foreach ($dias as &$d) {
             foreach ($d['hermandades'] as &$h) {
+                // Cruces de guía ocultas de momento (ver Repo::sqlSinCruzDeGuia).
+                $h['pasos'] = array_values(array_filter($h['pasos'], static fn(array $p): bool => !$p['ES_CRUZ_GUIA']));
                 foreach ($h['pasos'] as &$p) {
-                    $g = isset($porPaso[$p['ID_PASO']]) ? Repo::agruparAcompanamientos($porPaso[$p['ID_PASO']], $sinSalida) : [];
+                    $g = isset($porPaso[$p['ID_PASO']]) ? Repo::agruparAcompanamientos($porPaso[$p['ID_PASO']]) : [];
                     $p['rangos'] = $g[0]['titulares'][0]['rangos'] ?? [];
                 }
                 unset($p);
@@ -500,7 +504,7 @@ final class NominaRepo
                 $h['sinPaso'] = [];
                 if (isset($sinPaso[$h['ID_HERMANDAD']])) {
                     $filas = $sinPaso[$h['ID_HERMANDAD']];
-                    foreach (Repo::agruparAcompanamientos($filas, $sinSalida)[0]['titulares'] as $t) {
+                    foreach (Repo::agruparAcompanamientos($filas)[0]['titulares'] as $t) {
                         // Con un único TITULAR agruparAcompanamientos() lo deja en null: aquí sí se enseña.
                         if ($t['titular'] === null) {
                             $t['titular'] = trim((string) ($filas[0]['TITULAR'] ?? '')) ?: 'Sin especificar';
@@ -513,7 +517,7 @@ final class NominaRepo
         }
         unset($d);
 
-        return ['dias' => $dias, 'fuera' => Repo::agruparAcompanamientos($fuera, $sinSalida)];
+        return ['dias' => $dias, 'fuera' => Repo::agruparAcompanamientos($fuera)];
     }
 
     /** Paso + su hermandad, sólo si es de esta localidad. */

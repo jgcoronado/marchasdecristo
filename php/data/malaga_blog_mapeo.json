@@ -1,0 +1,35 @@
+{
+    "_comentario": "Correspondencia etiqueta de malagamusical.blogspot.com -> hermandad/paso de la BD, para cargar_acompanamientos_malaga_blog.php. Clave = slugify() de la etiqueta de la URL (.../search/label/<etiqueta>). Si falta una entrada, el script para en dry-run y no escribe nada (ver docs/acompanamientos-nomina-2026.md).",
+    "pollinica": {
+        "hermandad_slug": "pollinica",
+        "pasos": {
+            "cruz de guia": {
+                "nombre": "Cruz de Guía",
+                "es_cruz_guia": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús a su Entrada en Jerusalén"
+            },
+            "virgen": {
+                "descartar": true,
+                "motivo": "palio, fuera de alcance salvo CCTT/AM (no aparece ninguna en esta hermandad)"
+            }
+        }
+    },
+    "dulce-nombre": {
+        "hermandad_slug": "dulce-nombre",
+        "pasos": {
+            "cruz de guia": {
+                "nombre": "Cruz de Guía",
+                "es_cruz_guia": true
+            },
+            "cristo": {
+                "nombre": "Nuestro Padre Jesús de la Soledad"
+            },
+            "virgen": {
+                "descartar": true,
+                "motivo": "palio, fuera de alcance salvo CCTT/AM (no aparece ninguna en esta hermandad)"
+            }
+        }
+    }
+}

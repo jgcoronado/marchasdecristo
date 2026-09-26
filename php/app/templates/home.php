@@ -1,6 +1,6 @@
 <?php use App\View as V; use App\Slug as S; use App\Media as MD;
 /** @var list<array<string,mixed>> $ultimas */
-/** @var array{MARCHAS:int,AUTORES:int,BANDAS:int,DISCOS:int}|null $estado */
+/** @var array{MARCHAS:int,AUTORES:int,BANDAS:int,DISCOS:int,ACOMPANAMIENTOS:?int}|null $estado */
 /** @var array<string,mixed>|null $marchaDelDia */
 /** @var list<array{href:string,label:string,cnt:?int,note:?string}> $sugerencias */
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
@@ -27,6 +27,9 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             <span class="cifra"><b><?= $num($estado['AUTORES']) ?></b><span>compositores</span></span>
             <span class="cifra"><b><?= $num($estado['BANDAS']) ?></b><span>bandas</span></span>
             <span class="cifra"><b><?= $num($estado['DISCOS']) ?></b><span>discos</span></span>
+<?php if (!empty($estado['ACOMPANAMIENTOS'])): ?>
+            <span class="cifra"><b><?= $num($estado['ACOMPANAMIENTOS']) ?></b><span>acompañamientos</span></span>
+<?php endif; ?>
         </div>
 <?php endif; ?>
     </header>

@@ -108,18 +108,15 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 // de facetas sino listas de dos columnas. A 76rem la tabla de /rankings medía
 // 1.093px y el número quedaba a más de 800 del nombre al que pertenece; a
 // --wrap la tabla llena el panel y el dato vuelve al lado de su fila.
-$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'acompanamientos', 'buscar', 'mapa', 'estado-catalogo'];
+// /acompanamientos salió el 26-09-2026 (índice y localidades): son listas de
+// una columna (hermandad + paso) y a 76rem dejaban franjas en blanco a los
+// lados de cada fila; a --wrap la fila llena la tarjeta.
+$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'buscar', 'mapa', 'estado-catalogo'];
 $fichasEntidad = ['marcha', 'autor', 'banda', 'disco'];
-// Secciones cuyo índice (un solo segmento) no es un catálogo sino una portada
-// de lectura: /acompanamientos es un párrafo y siete enlaces, y a 76rem se
-// quedaba en una tarjeta de 1.216px con una lista de siete líneas dentro. Las
-// localidades (/acompanamientos/sevilla) sí son tabla y siguen anchas.
-$indicesLectura = ['acompanamientos'];
 $segs = array_values(array_filter(explode('/', trim($reqPath, '/')), static fn(string $x): bool => $x !== ''));
 $esCatalogo = $segs !== []
     && in_array($segs[0], $rutasCatalogo, true)
-    && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true))
-    && !(count($segs) === 1 && in_array($segs[0], $indicesLectura, true));
+    && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true));
 
 // La clase va en <body>, no en <main>: la cabecera y el pie tienen que
 // estrecharse y ensancharse con el contenido, o la marca y el menú dejan de

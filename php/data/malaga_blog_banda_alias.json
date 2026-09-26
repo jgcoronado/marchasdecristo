@@ -1,0 +1,33 @@
+{
+  "_comentario": "Alias manuales texto de banda -> ID_BANDA para cargar_acompanamientos_malaga_blog.php. Cada entrada se compara por el 'core' (nombre de la banda sin el prefijo de tipo: 'Banda de Cornetas y Tambores', 'C.T.', 'A.M.', 'Agrupación Musical'...) y, si se da, la localidad (primer trozo antes de la coma del paréntesis) con coincidencia por prefijo en ambos sentidos (para que 'Vejer' case con 'Vejer de la Frontera', 'Estepona' con 'Estepona, Málaga', etc.). Usar SOLO para casos confirmados a mano: bandas renombradas, abreviaturas que el emparejamiento automático por nombre completo no casa, y ambigüedades conocidas que NO hay que enlazar.",
+  "aliases": [
+    {
+      "core": "Lágrimas de Dolores",
+      "localidad": "San Fernando",
+      "id_banda": 69,
+      "nota": "Misma banda renombrada: banda.NOMBRE_COMPLETO = 'Agrupación Musical Virgen De Las Lágrimas'. Confirmado por el usuario 2026-09-24."
+    },
+    { "core": "Fusionadas", "id_banda": 97 },
+    { "core": "Lágrimas de San Pedro", "id_banda": 111 },
+    { "core": "Ntro. Padre Jesús Cautivo", "localidad": "Estepona", "id_banda": 117 },
+    { "core": "Virgen de la Oliva", "localidad": "Vejer", "id_banda": 30 },
+    { "core": "Mª Stma. de los Dolores El Rescate", "localidad": "Linares", "id_banda": 50 },
+    { "core": "María Stma. de Los Dolores El Rescate", "localidad": "Linares", "id_banda": 50 },
+    { "core": "Vera Cruz", "localidad": "Campillos", "id_banda": 110 },
+    { "core": "San Lorenzo Mártir", "id_banda": 338 },
+    { "core": "La Sentencia", "localidad": "Jerez", "id_banda": 28 },
+    { "core": "Santa Cruz", "localidad": "Huelva", "id_banda": 200 },
+    { "core": "Dulce Nombre de Jesús", "localidad": "Granada", "id_banda": 67 },
+    { "core": "Stmo. Cristo de la Clemencia", "localidad": "Jerez", "id_banda": 271 },
+    { "core": "Jesús Nazareno", "localidad": "Almogía", "id_banda": 335 },
+    { "core": "Cristo del Mar", "localidad": "Vélez", "id_banda": 46,
+      "nota": "El blog omite 'Santísimo' del NOMBRE_COMPLETO real; única banda con ese nombre en Vélez-Málaga." }
+  ],
+  "ambiguos": [
+    {
+      "core": "Virgen de la Cabeza",
+      "candidatos": [58, 322],
+      "nota": "banda #58 'Agrupación Musical María Santísima De La Cabeza' (Exfiliana) y #322 'Agrupación Musical Virgen de la Cabeza de Exfiliana' (Valle del Zalabí) — mismo pueblo, posibles duplicados. No enlazar sin que el usuario confirme cuál es la vigente/correcta."
+    }
+  ]
+}
