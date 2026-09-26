@@ -987,6 +987,10 @@ final class Pages
         } catch (\Throwable $e) {
             error_log('[acompanamientos] ' . $e->getMessage());
         }
+        foreach ($localidades as &$l) {
+            $l['NOMBRE'] = self::localidadConTildes((string) $l['LOCALIDAD']);
+        }
+        unset($l);
         $canonical = $base . '/acompanamientos';
         $h1 = 'Acompañamientos';
         $desc = 'Qué banda ha tocado cada año tras cada paso de Cristo, hermandad a hermandad — por localidad.';
@@ -1007,6 +1011,24 @@ final class Pages
                 ]),
             ],
         ]);
+    }
+
+    /**
+     * Nombre de localidad para pintar en pantalla. En la BD varias están sin
+     * tilde ("Cadiz", "Cordoba", "Malaga") y de ese valor sale la dirección
+     * (/acompanamientos/cadiz), así que no se toca: solo al mostrarla, si
+     * coincide sin tildes con una provincia de Mapa::PROVINCIAS (son
+     * capitales), se usa su forma escrita ("Cádiz"). Si no, tal cual.
+     */
+    private static function localidadConTildes(string $localidad): string
+    {
+        $slug = Slug::slugify($localidad);
+        foreach (Mapa::PROVINCIAS as $provincia) {
+            if (Slug::slugify($provincia) === $slug) {
+                return $provincia;
+            }
+        }
+        return $localidad;
     }
 
     public static function acompanamientos(array $p): void
@@ -1050,6 +1072,9 @@ final class Pages
 
         $base = self::base();
         $canonical = $base . '/acompanamientos/' . $slug;
+        // A partir de aquí solo se pinta: el nombre con tildes (la dirección
+        // sigue saliendo de $slug, que no las lleva).
+        $localidad = self::localidadConTildes($localidad);
         $h1 = "Acompañamientos — $localidad";
         $desc = "Qué banda ha tocado cada año tras cada $pieza de Cristo en $localidad, hermandad a hermandad, desde " . $serie['eje']['ini'] . '.';
 

@@ -158,20 +158,23 @@ final class AcompSerie
 
         // Tira: tono alterno dentro de cada carril (para que dos bandas
         // seguidas no se confundan) y desfasado entre carriles (para que ida y
-        // vuelta no se lean como un solo bloque); el vigente en acento pleno.
-        // Nada de un color por banda.
+        // vuelta no se lean como un solo bloque); el vigente en tono pleno.
+        // Nada de un color por banda. El tono se guarda en el rango porque la
+        // serie lo repite en la muestra de cada banda (lista ↔ tira).
         $tira = [];
         $alterno = [];
-        foreach ($rs as $r) {
+        foreach ($rs as &$r) {
             $n = $alterno[$r['carril']] = ($alterno[$r['carril']] ?? -1) + 1;
+            $r['tono'] = $r['vigente'] ? 'v' : (($n + $r['carril']) % 2 === 0 ? 'a' : 'b');
             $tira[] = [
                 'left' => round(($r['ini'] - $eje['ini']) / $eje['n'] * 100, 3),
                 'width' => round(($r['fin'] - $r['ini'] + 1) / $eje['n'] * 100, 3),
                 'carril' => $r['carril'],
-                'tono' => $r['vigente'] ? 'v' : (($n + $r['carril']) % 2 === 0 ? 'a' : 'b'),
+                'tono' => $r['tono'],
                 'title' => self::anios($r['ini'], $r['fin']) . ': ' . $r['banda'] . ($r['tramo'] !== null ? ' (' . $r['tramo'] . ')' : ''),
             ];
         }
+        unset($r);
 
         // Serie: una fila por tramo de años en que el conjunto de bandas no
         // cambia. Así solo se juntan bandas en los años que de verdad tienen
@@ -212,6 +215,7 @@ final class AcompSerie
                     'idBanda' => $r['idBanda'],
                     'anios' => null,
                     'vigente' => $r['vigente'],
+                    'tono' => $r['tono'],
                 ];
             }
             usort($lineas, static fn(array $x, array $y): int
