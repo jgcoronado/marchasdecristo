@@ -45,7 +45,7 @@ $dias = $serie['dias'];
                         <p class="acs-paso-t"><?= V::e($p['nombre']) ?></p>
                         <div class="acs-tira" style="--carriles:<?= (int) $p['carriles'] ?>;--dec:<?= $p['dec'] ?>%;--dec0:<?= $p['dec0'] ?>%" aria-hidden="true">
 <?php foreach ($p['tira'] as $t): ?>
-                            <i class="t-<?= $t['tono'] ?>" style="left:<?= $t['left'] ?>%;width:<?= $t['width'] ?>%;top:calc(<?= (int) $t['carril'] ?> * var(--carril))" title="<?= V::e($t['title']) ?>"></i>
+                            <i class="t-<?= $t['tono'] ?>" data-r="<?= (int) $t['id'] ?>" style="left:<?= $t['left'] ?>%;width:<?= $t['width'] ?>%;top:calc(<?= (int) $t['carril'] ?> * var(--carril))<?= $t['alto'] > 1 ? ';height:calc(' . (int) $t['alto'] . ' * var(--carril))' : '' ?>" title="<?= V::e($t['title']) ?>"></i>
 <?php endforeach; ?>
                         </div>
                         <ol class="acs-serie">
@@ -55,7 +55,7 @@ $dias = $serie['dias'];
 <?php else: ?>
                             <li<?= $f['vigente'] ? ' class="vig"' : '' ?>><span class="anio"><?= V::e(A::anios($f['ini'], $f['fin'])) ?></span><span class="bandas">
 <?php foreach ($f['lineas'] as $l): ?>
-                                <span class="b<?= $l['vigente'] ? ' vig' : '' ?>"><i class="sw t-<?= $l['tono'] ?>" aria-hidden="true"></i><span><?php if ($l['tramo'] !== null): ?><span class="tramo"><?= V::e($l['tramo']) ?></span> <?php endif; ?><a href="<?= V::e(S::buildDetailPath('banda', $l['idBanda'], $l['banda'])) ?>"><?= V::e($l['banda']) ?></a><?php if ($l['anios'] !== null): ?> <span class="sub"><?= V::e($l['anios']) ?></span><?php endif; ?></span></span>
+                                <span class="b<?= $l['vigente'] ? ' vig' : '' ?>" data-r="<?= (int) $l['id'] ?>"><i class="sw t-<?= $l['tono'] ?>" aria-hidden="true"></i><span><?php if ($l['tramo'] !== null): ?><span class="tramo"><?= V::e($l['tramo']) ?></span> <?php endif; ?><a href="<?= V::e(S::buildDetailPath('banda', $l['idBanda'], $l['banda'])) ?>"><?= V::e($l['banda']) ?></a><?php if ($l['anios'] !== null): ?> <span class="sub"><?= V::e($l['anios']) ?></span><?php endif; ?></span></span>
 <?php endforeach; ?>
                             </span></li>
 <?php endif; ?>
@@ -70,3 +70,4 @@ $dias = $serie['dias'];
         </section>
 <?php endforeach; ?>
 </div>
+<script src="/assets/acompanamientos.js?v=<?= (int) @filemtime(PUBLIC_DIR . '/assets/acompanamientos.js') ?>" defer></script>

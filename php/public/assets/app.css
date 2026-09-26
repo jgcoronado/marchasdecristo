@@ -620,17 +620,27 @@ ul.vease li::marker { color: var(--faint); }
    actual en tono pleno y las anteriores alternando dos claros. La muestra
    (.sw) delante de cada banda de la serie repite el tono de su tramo en la
    tira, que es lo que une la barra con la lista. */
-.acs { --dia: var(--juv); }
-.acs-dia:nth-of-type(4n+2), .acs-dias a:nth-child(4n+2), .acs-locs li:nth-child(4n+2) { --dia: var(--nov); }
-.acs-dia:nth-of-type(4n+3), .acs-dias a:nth-child(4n+3), .acs-locs li:nth-child(4n+3) { --dia: var(--rec); }
-.acs-dia:nth-of-type(4n),   .acs-dias a:nth-child(4n),   .acs-locs li:nth-child(4n)   { --dia: var(--est); }
-.acs-dia:nth-of-type(4n+1), .acs-dias a:nth-child(4n+1), .acs-locs li:nth-child(4n+1) { --dia: var(--juv); }
+/* --foco: color del resaltado banda ↔ tramo (ver más abajo). Es otro tono de
+   la paleta, lejos del del día, para que destaque sobre la tira: sobre morado
+   y turquesa, el naranja de --pt-fuerte; sobre ámbar, turquesa; sobre verde,
+   morado. */
+.acs { --dia: var(--juv); --foco: var(--pt-fuerte); }
+.acs-dia:nth-of-type(4n+2), .acs-dias a:nth-child(4n+2), .acs-locs li:nth-child(4n+2) { --dia: var(--nov); --foco: var(--pt-fuerte); }
+.acs-dia:nth-of-type(4n+3), .acs-dias a:nth-child(4n+3), .acs-locs li:nth-child(4n+3) { --dia: var(--rec); --foco: var(--nov); }
+.acs-dia:nth-of-type(4n),   .acs-dias a:nth-child(4n),   .acs-locs li:nth-child(4n)   { --dia: var(--est); --foco: var(--juv); }
+.acs-dia:nth-of-type(4n+1), .acs-dias a:nth-child(4n+1), .acs-locs li:nth-child(4n+1) { --dia: var(--juv); --foco: var(--pt-fuerte); }
 /* Los claros se oscurecen hacia la tarjeta; en tema oscuro esa mezcla apaga
    mucho más, así que ahí se sube la proporción. */
-.acs { --mz-acs-a: 30%; --mz-acs-b: 58%; }
-@media (prefers-color-scheme: dark) { .acs { --mz-acs-a: 50%; --mz-acs-b: 78%; } }
+.acs { --mz-acs-a: 20%; --mz-acs-c: 44%; --mz-acs-b: 72%; }
+@media (prefers-color-scheme: dark) { .acs { --mz-acs-a: 38%; --mz-acs-c: 60%; --mz-acs-b: 86%; } }
+/* v: banda actual. w: otra banda actual a la vez (ida y vuelta distintas hoy),
+   igual de intensa pero virada hacia la tinta para que no se confundan.
+   a, c, b: anteriores, de más claro a más oscuro; App\AcompSerie no repite
+   tono entre bandas que coinciden en años o van seguidas. */
 .acs .t-v { background: var(--dia); }
+.acs .t-w { background: color-mix(in srgb, var(--dia) 62%, var(--ink)); }
 .acs .t-b { background: color-mix(in srgb, var(--dia) var(--mz-acs-b), var(--card)); }
+.acs .t-c { background: color-mix(in srgb, var(--dia) var(--mz-acs-c), var(--card)); }
 .acs .t-a { background: color-mix(in srgb, var(--dia) var(--mz-acs-a), var(--card)); }
 
 /* Barra de días: fija arriba al bajar. En ancho se reparte en las líneas que
@@ -661,22 +671,20 @@ ul.vease li::marker { color: var(--faint); }
 
 .acs-lista { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
 .acs-h {
-    display: grid; grid-template-columns: 13rem minmax(0, 30rem); gap: 0.4rem 2.5rem;
-    justify-content: center;
+    display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 0.4rem 2rem;
     padding: 1.1rem 1.4rem 1.2rem;
 }
 .acs-h:nth-child(even) { background: var(--zebra); }
 .acs-h + .acs-h { border-top: 1px solid var(--line); }
 .acs-h h3 { margin: 0; font-family: var(--serif); font-size: 1.08rem; font-weight: 600; line-height: 1.3; text-wrap: balance; }
-/* Una sola columna de pasos, de 30rem: sitio para el año y el nombre de banda
-   más largo (~45 caracteres) en una línea. Antes eran dos columnas auto-fill,
-   pero casi todas las hermandades tienen un solo paso y la fila quedaba con
-   media anchura vacía a la derecha. Ahora todas las filas usan el mismo molde
-   (nombre + paso) centrado en la tarjeta, así los nombres de hermandad caen en
-   la misma vertical; si hay varios pasos, van uno bajo otro. */
+/* Una sola columna de pasos: casi todas las hermandades tienen uno solo, y
+   con dos columnas la fila quedaba con media anchura vacía. La página va al
+   ancho de lectura (--wrap, ver layout.php), así que nombre + paso llenan la
+   tarjeta sin franjas en blanco a los lados; si hay varios pasos, van uno
+   bajo otro. */
 .acs-pasos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
 @media (max-width: 719px) {
-    .acs-h { grid-template-columns: minmax(0, 1fr); justify-content: stretch; padding: 0.9rem 1rem 1rem; }
+    .acs-h { grid-template-columns: minmax(0, 1fr); padding: 0.9rem 1rem 1rem; }
 }
 
 .acs-paso { min-width: 0; }
@@ -693,6 +701,15 @@ ul.vease li::marker { color: var(--faint); }
 }
 .acs-tira i { position: absolute; height: var(--carril); }
 .acs-tira i + i { box-shadow: -1.5px 0 0 var(--card); }  /* separa dos bandas contiguas */
+/* Resaltado banda ↔ tramo (acompanamientos.js, solo con ratón): el tramo y la
+   muestra de la banda pasan a --foco pleno, el resto de la tira se apaga y la
+   banda de la serie toma un fondo tintado de --foco. */
+.acs-tira i { transition: opacity 0.12s ease, background-color 0.12s ease; }
+.acs-paso.foco .acs-tira i:not(.on) { opacity: 0.22; }
+.acs-paso.foco .acs-tira i.on,
+.acs-paso.foco ol.acs-serie .b.on .sw { background: var(--foco); }
+ol.acs-serie .b { border-radius: 2px; transition: background-color 0.12s ease, box-shadow 0.12s ease; }
+.acs-paso.foco ol.acs-serie .b.on { --foco-bg: color-mix(in srgb, var(--foco) 20%, var(--card)); background: var(--foco-bg); box-shadow: 0 0 0 0.25rem var(--foco-bg); }
 
 ol.acs-serie { list-style: none; margin: 0.45rem 0 0; padding: 0; font-size: 0.92rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
 ol.acs-serie li { display: grid; grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.75rem; padding: 0.28rem 0; }

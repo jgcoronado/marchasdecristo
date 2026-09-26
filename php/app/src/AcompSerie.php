@@ -156,25 +156,63 @@ final class AcompSerie
         }
         unset($r);
 
-        // Tira: tono alterno dentro de cada carril (para que dos bandas
-        // seguidas no se confundan) y desfasado entre carriles (para que ida y
-        // vuelta no se lean como un solo bloque); el vigente en tono pleno.
-        // Nada de un color por banda. El tono se guarda en el rango porque la
-        // serie lo repite en la muestra de cada banda (lista ↔ tira).
+        // Tira. Tonos: ningún rango comparte tono con los que coinciden con él
+        // en algún año (ida y vuelta, dos bandas el mismo año) ni con los que
+        // acaban justo antes o empiezan justo después (dos bandas seguidas).
+        // Se reparten en orden cronológico con el primer tono libre: 'a', 'b'
+        // o 'c' (claros) para los anteriores y 'v' (pleno) para el actual, o
+        // 'w' si ya hay otro actual a la vez (ida y vuelta con bandas
+        // distintas hoy). Nada de un color por banda. El tono se guarda en el
+        // rango porque la serie lo repite en la muestra de cada banda.
+        // Un rango sin tramo (la misma banda a la ida y a la vuelta) que no
+        // comparte ningún año con otro rango ocupa todos los carriles: en un
+        // paso con años de ida/vuelta separados, si no, dejaba el carril de
+        // abajo vacío como si fueran años sin registro.
+        $carriles = max(1, count($finCarril));
+        $solapa = static function (int $k) use ($rs): bool {
+            foreach ($rs as $j => $b) {
+                if ($j !== $k && $b['ini'] <= $rs[$k]['fin'] && $rs[$k]['ini'] <= $b['fin']) return true;
+            }
+            return false;
+        };
+        // Un rango "entero" (ver arriba) está en todos los carriles a la vez.
+        $entero = [];
+        foreach (array_keys($rs) as $k) {
+            $entero[$k] = $carriles > 1 && $rs[$k]['tramo'] === null && !$solapa($k);
+        }
+        $mismoCarril = static fn(int $j, int $k): bool
+            => $entero[$j] || $entero[$k] || $rs[$j]['carril'] === $rs[$k]['carril'];
+        foreach (array_keys($rs) as $k) {
+            // Fuerte: comparte años, o va justo antes en el mismo carril.
+            // Débil: va justo antes en otro carril (se tocan en diagonal); se
+            // respeta solo si queda algún tono libre.
+            $fuerte = [];
+            $debil = [];
+            for ($j = 0; $j < $k; $j++) {
+                if ($rs[$j]['ini'] <= $rs[$k]['fin'] && $rs[$k]['ini'] <= $rs[$j]['fin']) {
+                    $fuerte[$rs[$j]['tono']] = true;
+                } elseif ($rs[$j]['ini'] <= $rs[$k]['fin'] + 1 && $rs[$k]['ini'] <= $rs[$j]['fin'] + 1) {
+                    if ($mismoCarril($j, $k)) $fuerte[$rs[$j]['tono']] = true;
+                    else $debil[$rs[$j]['tono']] = true;
+                }
+            }
+            $opciones = $rs[$k]['vigente'] ? ['v', 'w'] : ['a', 'b', 'c'];
+            $libres = array_values(array_filter($opciones, static fn(string $t): bool => !isset($fuerte[$t]) && !isset($debil[$t])));
+            $libres = $libres ?: array_values(array_filter($opciones, static fn(string $t): bool => !isset($fuerte[$t])));
+            $rs[$k]['tono'] = $libres[0] ?? $opciones[0];
+        }
         $tira = [];
-        $alterno = [];
-        foreach ($rs as &$r) {
-            $n = $alterno[$r['carril']] = ($alterno[$r['carril']] ?? -1) + 1;
-            $r['tono'] = $r['vigente'] ? 'v' : (($n + $r['carril']) % 2 === 0 ? 'a' : 'b');
+        foreach ($rs as $k => $r) {
             $tira[] = [
+                'id' => $k,
                 'left' => round(($r['ini'] - $eje['ini']) / $eje['n'] * 100, 3),
                 'width' => round(($r['fin'] - $r['ini'] + 1) / $eje['n'] * 100, 3),
-                'carril' => $r['carril'],
+                'carril' => $entero[$k] ? 0 : $r['carril'],
+                'alto' => $entero[$k] ? $carriles : 1,
                 'tono' => $r['tono'],
                 'title' => self::anios($r['ini'], $r['fin']) . ': ' . $r['banda'] . ($r['tramo'] !== null ? ' (' . $r['tramo'] . ')' : ''),
             ];
         }
-        unset($r);
 
         // Serie: una fila por tramo de años en que el conjunto de bandas no
         // cambia. Así solo se juntan bandas en los años que de verdad tienen
@@ -210,6 +248,7 @@ final class AcompSerie
             foreach ($f['idx'] as $k) {
                 $r = $rs[$k];
                 $lineas[] = [
+                    'id' => $k,
                     'tramo' => $r['tramo'] ?? ($multiple ? '—' : null),
                     'banda' => $r['banda'],
                     'idBanda' => $r['idBanda'],
