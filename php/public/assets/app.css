@@ -901,7 +901,10 @@ body.p-ancho .tableList-ancho { max-width: 100%; }
     display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3) var(--sp-4);
     font-variant-numeric: tabular-nums;
 }
+/* Quinta cifra (acompañamientos): en móvil ocupa la fila entera; en ancho van las cinco en fila */
+.welcome-counts .cifra:nth-child(5) { grid-column: 1 / -1; }
 @media (min-width: 560px) { .welcome-counts { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 720px) { .welcome-counts { grid-template-columns: repeat(5, 1fr); } .welcome-counts .cifra:nth-child(5) { grid-column: auto; } }
 .welcome-counts .cifra { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.1rem; }
 .welcome-counts .cifra b { font-family: var(--serif); font-size: 1.85rem; font-weight: 600; line-height: 1.1; color: var(--ink); letter-spacing: -0.02em; }
 .welcome-counts .cifra span { font-size: 0.86rem; color: var(--muted-c); }

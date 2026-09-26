@@ -1539,7 +1539,15 @@ final class Repo
 
     public static function fetchEstado(): array
     {
-        return Db::counts();
+        $estado = Db::counts();
+        // Solo en portada, no en Db::counts() (pie de todas las páginas): la
+        // tabla `contrato` se migra a mano y puede faltar en un host.
+        try {
+            $estado['ACOMPANAMIENTOS'] = (int) (Db::one('SELECT COUNT(*) AS N FROM contrato')['N'] ?? 0);
+        } catch (\Throwable $e) {
+            $estado['ACOMPANAMIENTOS'] = null;
+        }
+        return $estado;
     }
 
     public static function fetchMasAutor(): array
