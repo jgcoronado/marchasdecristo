@@ -1,0 +1,165 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Autor de Marchas de Cristo (autor.ID_AUTOR) → su ficha en PatrimonioMusical.com
+ * (https://www.patrimoniomusical.com/bd-autor-{id}), web afín con los compositores
+ * de marchas de palio. Lo usa la ficha de autor para enlazar a esa web.
+ *
+ * Fuente: cruce por nombre y apellidos del volcado de autores de PatrimonioMusical
+ * (tautor.csv) con la tabla `autor` (2026-09-27). Su tabla tiene dos "Manuel
+ * Rodríguez Ruiz": el 49 de aquí es el de Arahal (1940–2013), su 277; el 450 es
+ * un homónimo de San Roque (1904–1983) que no está en esta BD.
+ */
+return [
+    1 => 730,  // Luis Manuel Catalán Núñez
+    7 => 1012,  // Miguel Ángel Font Morgado
+    13 => 839,  // Jesús Joaquín Espinosa de los Monteros Pérez
+    14 => 852,  // Antonio Moreno Pozo
+    18 => 17,  // Francisco Javier González Ríos
+    20 => 889,  // Francisco David Álvarez Barroso
+    21 => 703,  // Nicolás Miguel Barbero Rivas
+    22 => 351,  // Emilio Muñoz Serna
+    25 => 453,  // Pedro Manuel Pacheco Palomo
+    26 => 275,  // Israel Jiménez Chozas
+    28 => 1026,  // Manuel Alejandro González Cruz
+    31 => 432,  // Francisco José Carrasco Benítez
+    32 => 1338,  // Manuel Jesús Guerrero Marín
+    34 => 1202,  // David Álvarez García
+    38 => 56,  // José Manuel Mena Hervás
+    41 => 934,  // Antonio Moya Martínez
+    42 => 1066,  // Alejandro Blanco Hernández
+    44 => 763,  // Antonio Velasco Rodríguez
+    48 => 364,  // Manuel Herrera Raya
+    49 => 277,  // Manuel Rodríguez Ruiz
+    50 => 600,  // Rafael Soto Reyes
+    51 => 647,  // Germán García González
+    52 => 598,  // José Manuel Reina Romero
+    53 => 457,  // Rafael Vázquez Mateo
+    66 => 9,  // Abel Moreno Gómez
+    70 => 109,  // Manuel Hernández Garrido
+    74 => 72,  // Carlos Cerveró Alemany
+    77 => 174,  // Francisco del Toro Zamora
+    78 => 100,  // Angel Manuel Cebrero Miranda
+    84 => 226,  // Alberto Escámez López
+    86 => 760,  // Juan Carlos Cañada Gómez
+    87 => 1020,  // Alejandro Moreno Rodríguez
+    90 => 273,  // Antonio José López Escalante
+    91 => 4,  // Manuel López Farfán
+    100 => 349,  // Javier Calvo Gaviño
+    101 => 1280,  // Vicente Chazeta Doblas
+    120 => 875,  // Joaquín Caballero Payán
+    121 => 854,  // Cristóbal López Gándara
+    125 => 1328,  // David Peragón Romero
+    130 => 417,  // David Alba Pérez
+    132 => 101,  // José Julio Vera Cúder
+    138 => 55,  // Bienvenido Puelles Oliver
+    141 => 25,  // José Albero Francés
+    144 => 19,  // Fulgencio Morón Ródenas
+    164 => 1127,  // Juan Luis Jiménez Rodríguez
+    166 => 1252,  // Manuel Martín Molinero
+    169 => 1512,  // Francisco Antonio Rodríguez Márquez
+    170 => 680,  // Victoriano García Alonso
+    174 => 635,  // Raul Prieto Santos
+    196 => 716,  // José María Sánchez Berenguer
+    198 => 86,  // Miguel Vázquez Garfia
+    200 => 44,  // Pascual González Moreno
+    214 => 406,  // Juan Antonio Cuevas Muñoz
+    215 => 2,  // Pedro Gámez Laserna
+    216 => 352,  // Manuel Pérez Tejera
+    219 => 38,  // Ginés Sánchez Torres
+    221 => 424,  // Francisco José Artíguez Mejías
+    245 => 305,  // Miguel Hilarión Eslava Elizondo
+    247 => 868,  // Manuel Carmona Rodríguez
+    254 => 1425,  // Joaquín Eligio Brun
+    262 => 353,  // Francisco Javier Navarro Blanco
+    264 => 87,  // Juan de los Santos Sánchez Franco
+    266 => 348,  // José Ramón Pérez Soto
+    270 => 360,  // Jesús Gómez Rodríguez
+    273 => 26,  // Pedro Morales Muñoz
+    275 => 77,  // Manuel López-Quiroga Miguel
+    290 => 690,  // Alberto Toribio Díaz
+    299 => 98,  // José Blanco
+    303 => 797,  // Francisco Javier Parra Medina
+    311 => 171,  // Rafael Huertas Soria
+    314 => 421,  // Francisco Arnáiz González
+    315 => 177,  // Fernando Jesús Romero Triguero
+    316 => 306,  // Cesáreo Gabaraín Azurmendi
+    317 => 1002,  // Francisco Javier Torres Simón
+    323 => 1036,  // Juan García Sánchez
+    325 => 48,  // Francisco Cano Ruiz
+    327 => 27,  // Manuel Marvizón Carvallo
+    335 => 579,  // Ludwig van Beethoven
+    336 => 648,  // Rubén González Téllez
+    340 => 1423,  // Juan Antonio Fuentes Santoyo
+    350 => 316,  // Edvar Grieg
+    352 => 971,  // Carlos Puelles Cervantes
+    354 => 513,  // Juan Miguel Villalba García
+    356 => 117,  // Salvador Guerrero Reyes
+    367 => 165,  // Agripino Lozano Perea
+    370 => 57,  // José Ramón Lozano Garrido
+    372 => 12,  // Juan Velázquez Sánchez
+    374 => 599,  // Manuel Berraquero Vera
+    381 => 325,  // Juan Antonio Barros Jódar
+    406 => 477,  // Adolfo Gálvez González
+    411 => 29,  // Joan Manuel Serrat Teresa
+    416 => 350,  // Manuel Jesús Jurado
+    417 => 452,  // María Luisa Palomares Riera
+    430 => 1218,  // Raúl Moreno Gómez
+    441 => 422,  // Francisco de Asís Manzanero Osuna
+    442 => 39,  // Juan José Puntas Fernández
+    460 => 604,  // Saúl García González
+    480 => 41,  // Paco Lola
+    482 => 881,  // Paco Cepero
+    486 => 737,  // Alvaro López Morcillo
+    543 => 531,  // Sergio  Pastor González
+    555 => 6,  // Martín Salas Martínez
+    588 => 287,  // José Luis Carvajal Román
+    595 => 592,  // Antonio Jesús Cuevas Ortiz
+    596 => 1503,  // Francisco Javier Cebrero Arias
+    614 => 1008,  // Francisco Nogales Medina
+    616 => 748,  // Rafael  Bermúdez Medina
+    617 => 114,  // David Gómez Ramírez
+    621 => 734,  // Luis Megías García
+    624 => 246,  // Raúl Guirado Carmona
+    626 => 487,  // Arturo Cáceres Cansino
+    658 => 1024,  // Alfonso López Cortés
+    667 => 149,  // Francisco Javier Moreno Ramos
+    684 => 267,  // Juan Manuel Marrero Domínguez
+    689 => 1385,  // José Manuel Sánchez Crespillo
+    703 => 937,  // Wolfgang Amadeus Mozart
+    739 => 1499,  // Marco Frisina
+    1000 => 419,  // David Hurtado Torres
+    1012 => 110,  // Francisco Grau Vegara
+    1013 => 1329,  // Francisco José Sánchez Sutil
+    1015 => 1067,  // Jesús Diéguez García
+    1030 => 112,  // Perfecto Artola Prats
+    1039 => 1260,  // Jesús Barroso Navarro
+    1044 => 37,  // Ricardo Dorado Janeiro
+    1047 => 1389,  // Francisco Moyano García
+    1048 => 170,  // José Luis Expósito Polanco
+    1064 => 1296,  // Alberto Gómez Ruiz
+    1066 => 1223,  // Miguel Mateos Valdayo
+    1076 => 701,  // Francisco Javier Montero López
+    1082 => 718,  // Antonio Jesús Pérez Escribano
+    1093 => 1192,  // Pablo Perea Garrido
+    1104 => 614,  // José Lillo Tormo
+    1106 => 1125,  // Vladimir Fiodorovich Vavilov
+    1122 => 1359,  // Emilio Arroyo Fernández
+    1132 => 1032,  // Juan de Dios Ramírez Higueras
+    1138 => 89,  // José Manuel Delgado Rodríguez
+    1141 => 1305,  // Jorge Marcial Ortiz
+    1143 => 1371,  // Sergio Román Vázquez
+    1146 => 1522,  // Yeray López Vela
+    1151 => 1301,  // Elías Santiago Vico
+    1162 => 249,  // Benjamín Esparza Gil
+    1163 => 804,  // Óscar Navarro  González
+    1171 => 1222,  // Carlos Moreno Camacho
+    1175 => 1128,  // Jesús Manuel Perojil Villar
+    1181 => 1325,  // Pablo Picchi de Alba
+    1202 => 1421,  // Alejandro Soriano Lorenzo
+    1209 => 1379,  // Ezequiel González Cruz
+    1214 => 1064,  // Antonio González Écija
+    1243 => 1330,  // Álvaro Cruz Pérez
+];

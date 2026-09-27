@@ -639,7 +639,7 @@ final class Repo
         $autor['ACT_DESDE'] = $years !== [] ? min($years) : 0;
         $autor['ACT_HASTA'] = $years !== [] ? max($years) : 0;
         $autor['BANDA_PPAL'] = Db::one(
-            "SELECT b.ID_BANDA, b.NOMBRE_BREVE, COUNT(*) AS N
+            "SELECT b.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD, COUNT(*) AS N
              FROM marcha m
              INNER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              INNER JOIN marcha_autor ma ON ma.ID_MARCHA = m.ID_MARCHA

@@ -1,12 +1,10 @@
 <?php use App\View as V; use App\Slug as S;
-/** @var array<string,mixed> $a @var string $fullName @var string|null $url */
+/** @var array<string,mixed> $a @var string $fullName @var string|null $url @var int|null $pm */
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
 $aid = (int) $a['ID_AUTOR'];
 $ap = trim((string) ($a['APELLIDOS'] ?? ''));
-$no = trim((string) ($a['NOMBRE'] ?? ''));
-$autoridad = ($ap !== '' && $no !== '') ? "$ap, $no" : ($ap !== '' ? $ap : $no);
 $nac = (int) ($a['F_NAC'] ?? 0);
 $def = (int) ($a['F_DEF'] ?? 0);
 $letra = $ap !== '' ? mb_strtoupper(mb_substr($ap, 0, 1)) : '';
@@ -20,18 +18,7 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 </div>
 
 <article class="record">
-    <h1><?= V::e($autoridad) ?></h1>
-
-<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
-<?php if ($nM >= 12): ?>
-    <nav class="rectabs" aria-label="Secciones de la ficha">
-        <a href="#datos">Datos</a>
-<?php if ($t($a['BIO'])): ?>
-        <a href="#bio">Biografía</a>
-<?php endif; ?>
-        <a href="#obra">Obra (<?= $num($nM) ?>)</a>
-    </nav>
-<?php endif; ?>
+    <h1><?= V::e($fullName) ?></h1>
 
     <dl class="desc" id="datos">
 <?php if ($t($a['NOMBRE_ART'])): ?>
@@ -51,15 +38,20 @@ $ppal = $a['BANDA_PPAL'] ?? null;
         <div class="f"><dt>Grabaciones de su obra</dt><dd><?= $num($nG) ?></dd></div>
 <?php endif; ?>
 <?php if ($ppal && (int) $ppal['N'] > 1): ?>
-        <div class="f"><dt>Vinculación ppal.</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a> <span class="cnt">(<?= $num($ppal['N']) ?> estrenos)</span></dd></div>
+        <div class="f"><dt>Vinculación ppal.</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?> <span class="cnt">(<?= $num($ppal['N']) ?> estrenos)</span></dd></div>
 <?php endif; ?>
     </dl>
 
 <?php if ($t($a['BIO'])): ?>
     <div class="shead" id="bio"><h2>Biografía</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($a['BIO'])) ?></p>
-<?php else: ?>
-    <p class="bio-empty">Sin biografía documentada todavía.</p>
+<?php endif; ?>
+
+<?php if (!empty($pm)): ?>
+    <aside class="pm-banner">
+        <p>Consulta también la ficha de <?= V::e($fullName) ?> en <strong>Patrimonio Musical</strong>, web hermana dedicada a la música de palio.</p>
+        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver en Patrimonio Musical ↗</a>
+    </aside>
 <?php endif; ?>
 
     <div class="shead" id="obra">

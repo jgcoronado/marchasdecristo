@@ -522,9 +522,10 @@ final class Pages
 
         $base = self::base();
         $url = $base . $canonical;
+        $pm = (require APP_DIR . '/data/patrimonio_musical.php')[(int) $a['ID_AUTOR']] ?? null;
 
         Http::cachePublic(3600);
-        View::render('autor_detail', ['a' => $a, 'fullName' => $fullName, 'url' => $url], [
+        View::render('autor_detail', ['a' => $a, 'fullName' => $fullName, 'url' => $url, 'pm' => $pm], [
             'title' => $fullName . ' — Marchas de Cristo',
             'canonical' => $url,
             'description' => 'Compositor de música procesional. Ha compuesto ' . $a['marchasLength'] . ' marchas.'
