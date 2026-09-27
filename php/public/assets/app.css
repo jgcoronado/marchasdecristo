@@ -105,18 +105,21 @@
 /* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
 @media (prefers-color-scheme: dark) {
     :root {
-        /* 2026-09-27: fondo y tarjeta suben un escalón. Con #181614 / #211e1b
-           la tarjeta se quedaba a 1,09:1 del fondo —se fundían— y la página
-           entera se leía negra; ahora 1,18:1. */
-        --bg: #201e1b;
-        --card: #2e2b27;
-        --ink: #efebe4;
+        /* 2026-09-27 (2.ª vuelta): oscuro casi negro, en la línea de las apps
+           de Anthropic: neutros cálidos de su guía de marca (#141413 de fondo,
+           #faf9f5 / #b0aea5 de referencia para la tinta y el gris). La tarjeta
+           apenas se levanta del fondo (1,11:1); lo que la separa es el filete
+           de 1px (ver .card/.record), como en esas apps, no el salto de tono.
+           Cabecera y pie van del color de la página (ver más abajo). */
+        --bg: #141413;
+        --card: #1f1e1d;
+        --ink: #ece9e1;
         /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
            sobre marrón casi negro era el único color frío de la página y los
            enlaces se leían incómodos. Burdeos claro, de la familia del papel:
-           6,96:1 sobre --card, 8,22 sobre --bg, 5,59 sobre --s2 (medido). */
+           8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
         --acc: #eba59a;
-        --acc-fg: #201e1b;  /* el acento claro pide tinta oscura encima, no blanca */
+        --acc-fg: #141413;  /* el acento claro pide tinta oscura encima, no blanca */
         --est: #7cc39a;
         --nov: #5fc3cd;
         --rec: #d7a866;
@@ -138,26 +141,24 @@
            por encima. */
         /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar.
            2026-09-15: --mz-faint de 61% a 65%, por lo mismo que en claro (a 61%
-           daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). Con el papel
-           cálido de 2026-09-15 subió a 70%. 2026-09-27: con la tarjeta más
-           clara y el gris de apoyo neutro, 68% y --muted a 74%: --faint da
-           5,11:1 sobre --s2 y 4,80 sobre --acc-tint; --muted, 5,79 sobre --s2
-           (medido). */
-        --mz-muted: 74%;
-        --mz-faint: 68%;
+           daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). 2026-09-27,
+           con la paleta casi negra: --faint da 5,61:1 sobre --s2 y 4,69 sobre
+           --acc-tint (el peor caso); --muted, 6,62 sobre --s2 (medido). */
+        --mz-muted: 72%;
+        --mz-faint: 65%;
         /* Sin acento en el gris de apoyo: al 50% del claro el texto atenuado
            salía del mismo tono que los enlaces (con el índigo, 1,12:1 entre
            --muted-c y --acc, 227° frente a 229°) y no se distinguía qué se
            pulsa. La tinta sola ya es cálida. */
         --mz-tinta: 100%;
-        --mz-tint: 14%;
+        --mz-tint: 16%;
         --mz-borde: 30%;
-        /* Sobre fondo oscuro hace falta más tinta —aquí, más papel— para que la
-           superficie se despegue del fondo. */
-        --mz-s2: 8%;
-        --mz-zebra: 4.5%;
-        --mz-line: 18%;
-        --mz-ctrl: 50%;
+        /* Superficies y filetes discretos: sobre casi negro basta poco para
+           que una fila o un filete se note. */
+        --mz-s2: 6%;
+        --mz-zebra: 3%;
+        --mz-line: 13%;
+        --mz-ctrl: 45%;
     }
 }
 
@@ -173,9 +174,9 @@
        orden). --line se queda en 1,27:1 sobre la tarjeta, que es lo correcto
        para una raya que solo separa, pero el límite de algo que se pulsa o se
        escribe pide 3:1 (WCAG 1.4.11). Con --mz-ctrl da 3,71:1 sobre --card,
-       3,28 sobre --bg y 3,34 sobre --s2 en claro, y 4,16 / 4,91 / 3,34 en
-       oscuro (medido 2026-09-27: con 45% y la tarjeta nueva, sobre --s2 bajaba
-       a 2,92). Si se cambia --ink hay que volver a mirar el número. */
+       3,28 sobre --bg y 3,34 sobre --s2 en claro, y 3,83 / 4,24 / 3,30 en
+       oscuro (medido 2026-09-27). Si se cambia --ink hay que volver a mirar
+       el número. */
     --line-ctrl: color-mix(in srgb, var(--ink) var(--mz-ctrl), var(--card));
     /* Tinta atenuada. Se parte de la tinta teñida con el acento (--mz-tinta):
        en claro, a medias, para que el texto de apoyo tenga el matiz frío del
@@ -439,19 +440,14 @@ body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
 main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
-/* Solo en tema oscuro (2026-09-27): enlace dentro de texto corrido, con
-   subrayado discreto siempre, no solo al pasar el ratón (en móvil no hay
-   hover). WCAG 1.4.1 pide 3:1 contra el texto de alrededor y --acc frente a
-   --ink no llega. En tablas y listas de solo enlaces no hace falta: ahí todo
-   lo de esa columna es pulsable. */
+/* Solo en tema oscuro (2026-09-27): ningún enlace lleva subrayado, ni al
+   pasar el ratón. El enlace se distingue por el color (--acc frente al gris
+   neutro de la tinta) y, en escritorio, se aclara al pasar por encima.
+   !important porque hay una docena de reglas :hover con underline repartidas
+   por la hoja, cada una con su especificidad. */
 @media (prefers-color-scheme: dark) {
-    main :is(p, dd, .asiento, ul.vease li, .firma) a:not(.btn):not(.svc) {
-        text-decoration: underline;
-        text-decoration-thickness: 1px;
-        text-underline-offset: 0.2em;
-        text-decoration-color: color-mix(in srgb, var(--acc) 50%, transparent);
-    }
-    main :is(p, dd, .asiento, ul.vease li, .firma) a:not(.btn):not(.svc):hover { text-decoration-color: currentColor; }
+    a:any-link, a:any-link:hover, a:any-link:focus { text-decoration: none !important; }
+    main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
 }
 
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
@@ -534,13 +530,17 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 .rectabs { display: flex; flex-wrap: wrap; gap: 0 1.1rem; margin: 0.9rem 0 0; font-size: 0.9rem; }
 .rectabs a { text-decoration: none; color: var(--muted-c); }
 .rectabs a:hover { color: var(--acc); text-decoration: underline; }
-/* Solo en tema oscuro (2026-09-27). Va aquí, detrás de .card, .record, .crumbs
-   y .rectabs, para ganarles en cascada:
+/* Solo en tema oscuro (2026-09-27). Va aquí, detrás de la cabecera, el pie,
+   .card, .record, .crumbs y .rectabs, para ganarles en cascada:
+   - Cabecera y pie del color de la página, separados solo por su filete: con
+     el fondo casi negro, una franja de --card arriba y abajo partía la
+     pantalla en tres.
    - Migas y anclas de la ficha son enlaces y se pintan como tales; en
      --muted-c no se distinguía qué llevaba a algún sitio.
    - La tarjeta se despega con un filete de 1px: una sombra negra sobre un
      fondo casi negro no se ve. */
 @media (prefers-color-scheme: dark) {
+    body > header, footer { background: var(--bg); }
     .crumbs a, .rectabs a { color: var(--acc); }
     .card, .record { box-shadow: 0 0 0 1px var(--line); }
 }
