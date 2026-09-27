@@ -12,7 +12,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
          caja: la caja alrededor de un texto de bienvenida es lo que hace que una
          portada parezca una plantilla. */ ?>
     <header class="masthead">
-        <h1>Bienvenido a MarchasDeCristo</h1>
+        <h1>Bienvenido a Marchas de Cristo</h1>
         <p class="welcome-text">
             La más completa base de datos de música procesional para los estilos de cornetas 
             y tambores y agrupación musical de España. Desde los inicios del género hasta
