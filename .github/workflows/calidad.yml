@@ -18,10 +18,18 @@ jobs:
           php-version: '8.3'
           coverage: none
 
-      - run: composer install --prefer-dist --no-progress
+      # Sin composer.json no hay phpmd ni phpstan que instalar: el gate se
+      # salta con un aviso en vez de fallar en cada PR (fallaba siempre).
+      - name: Sin composer.json, gate omitido
+        if: hashFiles('composer.json') == ''
+        run: echo "::notice title=calidad::No hay composer.json en la raíz; PHPMD y phpstan omitidos."
+
+      - if: hashFiles('composer.json') != ''
+        run: composer install --prefer-dist --no-progress
 
       - name: Ficheros PHP modificados
         id: cambios
+        if: hashFiles('composer.json') != ''
         run: |
           FICHEROS=$(git diff --name-only --diff-filter=ACM \
             origin/${{ github.base_ref }}...HEAD -- '*.php' \
