@@ -235,11 +235,36 @@ final class Auth
     }
 
     // ── Rate limiting (persistido en fichero) ───────────────────────────────
+
+    /**
+     * IP del cliente para el rate limit, NO falseable por el atacante.
+     *
+     * REMOTE_ADDR es la IP de la conexión TCP: el cliente no la elige. Se usa
+     * tal cual salvo que sea de rango privado o loopback, lo que indica que hay
+     * un proxy de confianza delante (p.ej. el nginx de Plesk en el mismo host);
+     * solo entonces se toma la ÚLTIMA entrada de X-Forwarded-For, que es la que
+     * añade ese proxy. La PRIMERA la escribe el cliente y era el agujero: se
+     * podía rotar para tener intentos de login ilimitados (verificado en
+     * producción, 2026-09-27). Por eso ya NO se confía en X-Forwarded-For ni en
+     * X-Real-IP salvo tras un REMOTE_ADDR privado.
+     */
+    public static function clientIp(): string
+    {
+        $remote = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $publica = filter_var($remote, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        if ($publica === false && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $partes = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $ultima = trim((string) end($partes));
+            if (filter_var($ultima, FILTER_VALIDATE_IP) !== false) {
+                return $ultima;
+            }
+        }
+        return $remote !== '' ? $remote : 'unknown';
+    }
+
     public static function rateKey(string $username): string
     {
-        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $ip = trim(explode(',', (string) $ip)[0]);
-        return $ip . ':' . strtolower(trim($username));
+        return self::clientIp() . ':' . strtolower(trim($username));
     }
 
     private static function attemptsFile(): string
