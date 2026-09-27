@@ -61,7 +61,9 @@ return [
     166 => 1252,  // Manuel Martín Molinero
     169 => 1512,  // Francisco Antonio Rodríguez Márquez
     170 => 680,  // Victoriano García Alonso
+    171 => 684,  // Mariana Toral Sánchez
     174 => 635,  // Raul Prieto Santos
+    195 => 274,  // Ángel José Sánchez Berenguer
     196 => 716,  // José María Sánchez Berenguer
     198 => 86,  // Miguel Vázquez Garfia
     200 => 44,  // Pascual González Moreno
@@ -113,8 +115,10 @@ return [
     480 => 41,  // Paco Lola
     482 => 881,  // Paco Cepero
     486 => 737,  // Alvaro López Morcillo
+    537 => 383,  // Francisco J. Fraile Sánchez
     543 => 531,  // Sergio  Pastor González
     555 => 6,  // Martín Salas Martínez
+    579 => 292,  // Domingo Rodríguez Lagomazzini
     588 => 287,  // José Luis Carvajal Román
     595 => 592,  // Antonio Jesús Cuevas Ortiz
     596 => 1503,  // Francisco Javier Cebrero Arias
@@ -139,6 +143,7 @@ return [
     1044 => 37,  // Ricardo Dorado Janeiro
     1047 => 1389,  // Francisco Moyano García
     1048 => 170,  // José Luis Expósito Polanco
+    1053 => 1003,  // Daniel Albarrán Acosta
     1064 => 1296,  // Alberto Gómez Ruiz
     1066 => 1223,  // Miguel Mateos Valdayo
     1076 => 701,  // Francisco Javier Montero López
@@ -151,6 +156,7 @@ return [
     1138 => 89,  // José Manuel Delgado Rodríguez
     1141 => 1305,  // Jorge Marcial Ortiz
     1143 => 1371,  // Sergio Román Vázquez
+    1145 => 1309,  // Raúl Delgado Perera
     1146 => 1522,  // Yeray López Vela
     1151 => 1301,  // Elías Santiago Vico
     1162 => 249,  // Benjamín Esparza Gil
