@@ -558,7 +558,7 @@ a.svc:hover { border-color: var(--acc); }
 .notas { font-size: 1rem; line-height: 1.7; margin: 0.8rem 0 0; text-wrap: pretty; }
 .bio-empty { color: var(--faint); font-size: 0.95rem; margin: 0.7rem 0 0.2rem; }
 /* Enlace a la ficha del autor en PatrimonioMusical.com (web afín) */
-.pm-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; margin: 1.2rem 0 0.4rem; padding: 0.8rem 1.5rem; background: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.pm-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; margin: 1.2rem 0 0.4rem; padding: 0.8rem 2.5rem; background: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .pm-banner p { margin: 0; flex: 1 1 22rem; font-size: 0.95rem; }
 .pm-banner p span { white-space: nowrap; }
 
