@@ -135,9 +135,11 @@ if (!empty($meta['ancho'])) {
     <?php /* La barra del navegador en móvil acompaña al tema. Los dos valores
              son --bg de cada tema en app.css (BLOQUE 1 y BLOQUE 1-bis): si
              cambian allí, hay que cambiarlos aquí, que es el único sitio del
-             proyecto donde un color de la paleta se repite fuera de la hoja. */ ?>
+             proyecto donde un color de la paleta se repite fuera de la hoja.
+             El oscuro es --card (#2e2b27), el fondo de la cabecera, que es lo
+             que queda pegado a la barra (2026-09-27). */ ?>
     <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#12151c" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#2e2b27" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
