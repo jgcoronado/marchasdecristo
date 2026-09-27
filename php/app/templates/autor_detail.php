@@ -49,8 +49,8 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 
 <?php if (!empty($pm)): ?>
     <aside class="pm-banner">
-        <p>Consulta también la ficha de <?= V::e($fullName) ?> en la web para bandas de música <strong>Patrimonio Musical</strong>.</p>
-        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver marchas de palio</a>
+        <p>También puedes consultar las marchas procesionales de <span><?= V::e($fullName) ?></span> para banda de música.</p>
+        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver ficha en Patrimonio Musical</a>
     </aside>
 <?php endif; ?>
 

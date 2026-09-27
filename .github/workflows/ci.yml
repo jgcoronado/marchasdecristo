@@ -45,6 +45,11 @@ jobs:
       - name: Unit tests (cascada de enlaces)
         run: php php/tools/ci_enlaces_auto.php
 
+      # IP no falseable del rate limit de login (Auth::clientIp): que rotar
+      # X-Forwarded-For no esquive el límite de intentos.
+      - name: Unit tests (IP del rate limit de login)
+        run: php php/tools/ci_auth.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db
