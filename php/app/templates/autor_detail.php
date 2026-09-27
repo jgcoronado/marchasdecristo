@@ -49,14 +49,14 @@ $ppal = $a['BANDA_PPAL'] ?? null;
 
 <?php if (!empty($pm)): ?>
     <aside class="pm-banner">
-        <p>Consulta también la ficha de <?= V::e($fullName) ?> en <strong>Patrimonio Musical</strong>, web hermana dedicada a la música de palio.</p>
-        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver en Patrimonio Musical ↗</a>
+        <p>Consulta también la ficha de <?= V::e($fullName) ?> en la web para bandas de música <strong>Patrimonio Musical</strong>.</p>
+        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver marchas de palio</a>
     </aside>
 <?php endif; ?>
 
     <div class="shead" id="obra">
         <h2>Obra</h2>
-        <span class="n" id="obra-count"><?= $num($nM) ?> marchas · orden cronológico</span>
+        <span class="n" id="obra-count"><?= $num($nM) ?> marchas</span>
 <?php if ($nM >= 8): ?>
         <input class="filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas del compositor" data-filter="obra-table" data-count="obra-count" data-total="<?= $nM ?>">
 <?php endif; ?>
