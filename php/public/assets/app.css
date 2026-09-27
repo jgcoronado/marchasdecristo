@@ -15,13 +15,13 @@
      3. Nada por debajo de 0.8rem en texto que el visitante deba leer.
 
    El índigo se reserva para lo consultable (enlaces y acciones); en tema
-   oscuro ese papel lo hace el burdeos (ver BLOQUE 1-bis). */
+   oscuro ese papel lo hace el burdeos (ver BLOQUE 1-bis en dark.css). */
 
 /* ══════════════════════════════════════════════════════════════════════════
    PALETA — cómo probar colores nuevos
 
    Solo hay que tocar el BLOQUE 1 (tema claro) y el BLOQUE 1-bis (tema
-   oscuro). Son ~14 colores cada uno. Todo lo demás de la hoja —superficies
+   oscuro, en dark.css). Son ~14 colores cada uno. Todo lo demás de la hoja —superficies
    secundarias, filetes, texto atenuado, tintes de badge, la rampa del mapa,
    las sombras— se calcula a partir de ellos con color-mix() en el BLOQUE 3,
    así que se mueve solo. No hay ni un color escrito a mano fuera de estos
@@ -36,10 +36,13 @@
 
 /* ── BLOQUE 1 · Colores base, tema claro ─────────────────────────────────── */
 :root {
-    /* Los dos temas están definidos abajo con prefers-color-scheme; esto es lo
-       que hace que el navegador pinte con el mismo criterio lo que no es
-       nuestro: barra de scroll, controles nativos, autocompletado del
-       formulario. Sin esta línea el sitio salía oscuro con la barra en claro. */
+    /* El tema oscuro vive en dark.css, que se aplica según el sistema o el
+       botón de tema (ver layout.php); esto es lo que hace que el navegador
+       pinte con el mismo criterio lo que no es nuestro: barra de scroll,
+       controles nativos, autocompletado del formulario. Sin esta línea el
+       sitio salía oscuro con la barra en claro. dark.css lo fija a "dark"; si
+       el visitante elige claro en un sistema oscuro, [data-tema="claro"]
+       (abajo) lo fija a "light". */
     color-scheme: light dark;
     /* 2026-09-15: los neutros dejan de ser gris azulado. El azul frío en el
        fondo, la tarjeta y los filetes es lo que hacía que el sitio pareciera un
@@ -70,9 +73,12 @@
        de los neutros: una sombra azul sobre papel se ve enseguida. */
     --sombra-base: #2a2118;
     /* Hacia dónde se aclara u oscurece el fondo tenue de badges y avisos: la
-       propia tarjeta, en los dos temas (ver BLOQUE 1-bis). */
+       propia tarjeta, en los dos temas (ver BLOQUE 1-bis en dark.css). */
     --tinte-base: var(--card);
 }
+
+/* Claro elegido con el botón en un sistema oscuro: controles nativos en claro. */
+:root[data-tema="claro"] { color-scheme: light; }
 
 /* ── BLOQUE 2 · Proporciones de mezcla ───────────────────────────────────── */
 /* Cuánto de un color base se mezcla con su fondo para obtener el tono
@@ -102,65 +108,6 @@
     --mz-ctrl: 55%;    /* --line-ctrl: filete de lo que se pulsa o se escribe */
 }
 
-/* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-    :root {
-        /* 2026-09-27 (2.ª vuelta): oscuro casi negro, en la línea de las apps
-           de Anthropic: neutros cálidos de su guía de marca (#141413 de fondo,
-           #faf9f5 / #b0aea5 de referencia para la tinta y el gris). La tarjeta
-           apenas se levanta del fondo (1,11:1); lo que la separa es el filete
-           de 1px (ver .card/.record), como en esas apps, no el salto de tono.
-           Cabecera y pie van del color de la página (ver más abajo). */
-        --bg: #141413;
-        --card: #1f1e1d;
-        --ink: #ece9e1;
-        /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
-           sobre marrón casi negro era el único color frío de la página y los
-           enlaces se leían incómodos. Burdeos claro, de la familia del papel:
-           8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
-        --acc: #eba59a;
-        --acc-fg: #141413;  /* el acento claro pide tinta oscura encima, no blanca */
-        --est: #7cc39a;
-        --nov: #5fc3cd;
-        --rec: #d7a866;
-        --err: #e09a9a;
-        --juv: #b9a3e8;
-        /* Puntos del mapa de provincia: con el acento burdeos la rampa del
-           mapa (--acc) pasa a ser cálida, así que en oscuro los puntos cambian
-           de familia —turquesa— para no fundirse con el contorno (ver --pt en
-           el BLOQUE 1). El resaltado de acompañamientos, que usaba
-           --pt-fuerte, conserva su ámbar con --foco-calido (ver .acs). */
-        --pt: #2f7478;
-        --pt-fuerte: #5fc3cd;
-        --foco-calido: #d7a866;
-        --sombra-base: #000000;
-        /* --tinte-base ya no se redefine aquí: hasta 2026-09-27 el tinte se
-           mezclaba hacia negro porque la tarjeta era azulada, y con la tarjeta
-           cálida eso dejaba el fondo del badge y del segmento activo MÁS oscuro
-           que la tarjeta, como un agujero. Hacia la tarjeta queda un escalón
-           por encima. */
-        /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar.
-           2026-09-15: --mz-faint de 61% a 65%, por lo mismo que en claro (a 61%
-           daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). 2026-09-27,
-           con la paleta casi negra: --faint da 5,61:1 sobre --s2 y 4,69 sobre
-           --acc-tint (el peor caso); --muted, 6,62 sobre --s2 (medido). */
-        --mz-muted: 72%;
-        --mz-faint: 65%;
-        /* Sin acento en el gris de apoyo: al 50% del claro el texto atenuado
-           salía del mismo tono que los enlaces (con el índigo, 1,12:1 entre
-           --muted-c y --acc, 227° frente a 229°) y no se distinguía qué se
-           pulsa. La tinta sola ya es cálida. */
-        --mz-tinta: 100%;
-        --mz-tint: 16%;
-        --mz-borde: 30%;
-        /* Superficies y filetes discretos: sobre casi negro basta poco para
-           que una fila o un filete se note. */
-        --mz-s2: 6%;
-        --mz-zebra: 3%;
-        --mz-line: 13%;
-        --mz-ctrl: 45%;
-    }
-}
 
 /* ── BLOQUE 3 · Tonos derivados — no editar, se calculan solos ───────────── */
 :root {
@@ -180,8 +127,8 @@
     --line-ctrl: color-mix(in srgb, var(--ink) var(--mz-ctrl), var(--card));
     /* Tinta atenuada. Se parte de la tinta teñida con el acento (--mz-tinta):
        en claro, a medias, para que el texto de apoyo tenga el matiz frío del
-       resto de la página; en oscuro, sin acento (ver BLOQUE 1-bis). Desde ahí
-       se aclara hacia la superficie, que en tema oscuro es oscurecer — la
+       resto de la página; en oscuro, sin acento (ver BLOQUE 1-bis en
+       dark.css). Desde ahí se aclara hacia la superficie, que en tema oscuro es oscurecer — la
        misma fórmula sirve para los dos temas. */
     --tinta-suave: color-mix(in srgb, var(--ink) var(--mz-tinta), var(--acc));
     --muted-c: color-mix(in srgb, var(--tinta-suave) var(--mz-muted), var(--card));
@@ -419,6 +366,19 @@ body > header nav { margin: 0; padding: 0 1rem 0.55rem; }
 }
 .nav-mobile ul a { display: block; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--ink); font-size: 0.9rem; }
 .nav-mobile ul a:hover { background: var(--s2); }
+/* Botón de tema claro/oscuro: en la fila de arriba, detrás del buscador en
+   escritorio y junto al menú en móvil (el buscador baja a su propia línea).
+   Enseña la luna en claro y el sol en oscuro, el tema al que lleva; dark.css
+   cambia cuál se ve, así que el icono acierta aunque el tema venga del
+   sistema y no del botón. La lógica está en línea en layout.php. */
+.tema-toggle {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: var(--radius-sm);
+    background: none; color: var(--ink); cursor: pointer;
+}
+.tema-toggle:hover { background: var(--s2); }
+.tema-toggle svg { width: 1.25rem; height: 1.25rem; }
+.tema-toggle .tema-sol { display: none; }
 
 /* ── Main / footer ──────────────────────────────────────────────────────── */
 main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: var(--sp-4) 1rem var(--sp-6); }
@@ -440,15 +400,6 @@ body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
 main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
 main a { color: var(--acc); text-decoration: none; }
 main a:not(.btn):hover { text-decoration: underline; }
-/* Solo en tema oscuro (2026-09-27): ningún enlace lleva subrayado, ni al
-   pasar el ratón. El enlace se distingue por el color (--acc frente al gris
-   neutro de la tinta) y, en escritorio, se aclara al pasar por encima.
-   !important porque hay una docena de reglas :hover con underline repartidas
-   por la hoja, cada una con su especificidad. */
-@media (prefers-color-scheme: dark) {
-    a:any-link, a:any-link:hover, a:any-link:focus { text-decoration: none !important; }
-    main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
-}
 
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
    las páginas del host de pruebas para no confundir nunca PRE con PRO. */
@@ -530,20 +481,6 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
 .rectabs { display: flex; flex-wrap: wrap; gap: 0 1.1rem; margin: 0.9rem 0 0; font-size: 0.9rem; }
 .rectabs a { text-decoration: none; color: var(--muted-c); }
 .rectabs a:hover { color: var(--acc); text-decoration: underline; }
-/* Solo en tema oscuro (2026-09-27). Va aquí, detrás de la cabecera, el pie,
-   .card, .record, .crumbs y .rectabs, para ganarles en cascada:
-   - Cabecera y pie del color de la página, separados solo por su filete: con
-     el fondo casi negro, una franja de --card arriba y abajo partía la
-     pantalla en tres.
-   - Migas y anclas de la ficha son enlaces y se pintan como tales; en
-     --muted-c no se distinguía qué llevaba a algún sitio.
-   - La tarjeta se despega con un filete de 1px: una sombra negra sobre un
-     fondo casi negro no se ve. */
-@media (prefers-color-scheme: dark) {
-    body > header, footer { background: var(--bg); }
-    .crumbs a, .rectabs a { color: var(--acc); }
-    .card, .record { box-shadow: 0 0 0 1px var(--line); }
-}
 
 /* Cabecera de sección */
 .shead { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; margin-top: 1.8rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line); }
@@ -677,7 +614,7 @@ ul.vease li::marker { color: var(--faint); }
    la paleta, lejos del del día, para que destaque sobre la tira: sobre morado
    y turquesa, el naranja de --pt-fuerte; sobre ámbar, turquesa; sobre verde,
    morado. En oscuro --pt-fuerte es turquesa (puntos del mapa) y el naranja lo
-   da --foco-calido, que solo se define allí (ver BLOQUE 1-bis). */
+   da --foco-calido, que solo se define allí (ver BLOQUE 1-bis en dark.css). */
 .acs { --dia: var(--juv); --foco: var(--foco-calido, var(--pt-fuerte)); }
 .acs-dia:nth-of-type(4n+2), .acs-dias a:nth-child(4n+2), .acs-locs li:nth-child(4n+2) { --dia: var(--nov); --foco: var(--foco-calido, var(--pt-fuerte)); }
 .acs-dia:nth-of-type(4n+3), .acs-dias a:nth-child(4n+3), .acs-locs li:nth-child(4n+3) { --dia: var(--rec); --foco: var(--nov); }
@@ -686,7 +623,6 @@ ul.vease li::marker { color: var(--faint); }
 /* Los claros se oscurecen hacia la tarjeta; en tema oscuro esa mezcla apaga
    mucho más, así que ahí se sube la proporción. */
 .acs { --mz-acs-a: 20%; --mz-acs-c: 44%; --mz-acs-b: 72%; }
-@media (prefers-color-scheme: dark) { .acs { --mz-acs-a: 38%; --mz-acs-c: 60%; --mz-acs-b: 86%; } }
 /* v: banda actual. w: otra banda actual a la vez (ida y vuelta distintas hoy),
    igual de intensa pero virada hacia la tinta para que no se confundan.
    a, c, b: anteriores, de más claro a más oscuro; App\AcompSerie no repite
@@ -1400,7 +1336,7 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 
 /* ── Impresión (ficha de marcha y demás fichas de catálogo) ──────────────── */
 @media print {
-    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile,
+    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile, .tema-toggle,
     .site-search-row, footer, .crumbs, .rectabs,
     .listen, .svcs, .ids, .filter, .pagination { display: none !important; }
 
