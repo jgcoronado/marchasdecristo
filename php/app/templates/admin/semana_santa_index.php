@@ -7,7 +7,12 @@ $csrf = Auth::csrfToken($session);
     <span><a href="/dashboard">Panel</a> › Semana Santa</span>
 </div>
 
-<h1>Semana Santa</h1>
+<div class="admin-bar">
+    <h1>Semana Santa</h1>
+    <div class="row">
+        <a class="btn btn-sm btn-ghost" href="/dashboard/acompanamientos">Acompañamientos →</a>
+    </div>
+</div>
 <p class="muted">Días, hermandades y pasos de cada localidad. Sobre esta base se colocan luego los <a href="/dashboard/acompanamientos">acompañamientos</a>.</p>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>

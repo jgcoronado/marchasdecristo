@@ -7,7 +7,12 @@ $csrf = Auth::csrfToken($session);
     <span><a href="/dashboard">Panel</a> › Acompañamientos</span>
 </div>
 
-<h1>Acompañamientos</h1>
+<div class="admin-bar">
+    <h1>Acompañamientos</h1>
+    <div class="row">
+        <a class="btn btn-sm btn-ghost" href="/dashboard/semana-santa">Semana Santa →</a>
+    </div>
+</div>
 <p class="muted">Alta manual por rango de años (una localidad cada vez, ver convención del pipeline). Cada localidad tiene su propia página con las hermandades y el histórico ya cargado.</p>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>

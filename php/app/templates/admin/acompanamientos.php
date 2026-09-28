@@ -83,8 +83,7 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
 <?php if ($anio !== null): ?>
     <a class="btn btn-sm btn-ghost" href="?anio=<?= $anio + 1 ?>" title="Año siguiente"><?= $anio + 1 ?> ›</a>
 <?php endif; ?>
-    <input class="input" type="number" name="anio" min="1900" max="2100" placeholder="Otro año" aria-label="Otro año" style="width:6.5rem" disabled data-otro-anio>
-    <button type="button" class="btn btn-sm btn-ghost" data-otro-anio-btn>Otro año…</button>
+    <input class="input" type="number" min="1900" max="2100" placeholder="Otro año" aria-label="Otro año (Intro para verlo)" title="Escribe el año y pulsa Intro" style="width:6.5rem" data-otro-anio>
 </form>
 <?php endif; ?>
 <?php if ($nomina !== null): ?>
@@ -193,6 +192,7 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
         <button type="button" id="btnMoverSeleccionados" class="btn btn-sm btn-neutral" disabled>Mover seleccionados a un paso…</button>
 <?php endif; ?>
         <button type="button" id="btnBorrarSeleccionados" class="btn btn-sm btn-danger" disabled>Eliminar seleccionados (<span id="numSeleccionados">0</span>)</button>
+        <a class="btn btn-sm" href="/dashboard/banda/add" target="_blank" rel="noopener">+ Banda nueva</a>
     </div>
 <?php endif; ?>
 
@@ -444,17 +444,18 @@ foreach ($nomina ?? [] as $d) { foreach ($d['hermandades'] as $h) { foreach ($h[
             td.querySelector('[data-anios-display]').hidden = false;
         }
     });
-    // «Otro año…»: año sin acompañamientos todavía (p. ej. el próximo). El
-    // número va deshabilitado hasta pulsar el botón para no chocar con el select.
-    var btnOtro = document.querySelector('[data-otro-anio-btn]');
-    if (btnOtro) {
-        btnOtro.addEventListener('click', function () {
-            var f = btnOtro.form, n = f.querySelector('[data-otro-anio]');
-            if (n.disabled) {
-                n.disabled = false; f.querySelector('select[name="anio"]').disabled = true;
-                btnOtro.textContent = 'Ver'; n.focus();
-            } else if (n.value) {
-                f.submit();
+    // «Otro año»: año sin acompañamientos todavía (p. ej. el próximo), se
+    // escribe y se pulsa Intro. Va sin name para no pisar al select de año
+    // cuando es este el que envía el formulario.
+    var otroAnio = document.querySelector('[data-otro-anio]');
+    if (otroAnio) {
+        otroAnio.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (otroAnio.value && otroAnio.checkValidity()) {
+                location.href = otroAnio.form.action + '?anio=' + encodeURIComponent(otroAnio.value);
+            } else {
+                otroAnio.reportValidity();
             }
         });
     }
