@@ -224,4 +224,19 @@
         });
         initAutocomplete(q);
     }
+
+    // Correo ofuscado (/contacto): el HTML trae usuario y dominio invertidos en
+    // data-u/data-d para que los recolectores no encuentren la dirección; aquí
+    // se recompone y se convierte en mailto.
+    Array.prototype.forEach.call(document.querySelectorAll('[data-correo]'), function (el) {
+        var rev = function (s) { return (s || '').split('').reverse().join(''); };
+        var dir = rev(el.getAttribute('data-u')) + '@' + rev(el.getAttribute('data-d'));
+        var href = 'mailto:' + dir + (el.getAttribute('data-asunto') ? '?subject=' + encodeURIComponent(el.getAttribute('data-asunto')) : '');
+        if (el.tagName === 'A') {
+            el.href = href;
+            el.hidden = false;
+        } else {
+            el.textContent = dir;
+        }
+    });
 })();

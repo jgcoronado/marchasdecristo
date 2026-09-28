@@ -318,7 +318,7 @@ body > header nav { margin: 0; padding: 0 1rem 0.55rem; }
    padding y se baja un punto el cuerpo —siguen por encima del suelo de 0.8rem—
    para que quepan de verdad, y se deja flex-wrap con row-gap como red: cuando
    se publique una sección más, la fila se parte limpia en vez de desbordar. */
-.nav-links { list-style: none; display: flex; flex-wrap: wrap; gap: 0 0.05rem; row-gap: 0.15rem; margin: 0; padding: 0; font-size: 0.9rem; }
+.nav-links { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.05rem; row-gap: 0.15rem; margin: 0; padding: 0; font-size: 0.9rem; }
 .nav-links a { text-decoration: none; color: var(--muted-c); padding: 0.3rem 0.4rem; border-bottom: 2px solid transparent; display: inline-block; }
 .nav-links a:hover { color: var(--acc); }
 /* La sección activa se marca con tinta plena y filete, NO con negrita: la

@@ -1151,6 +1151,7 @@ final class Pages
             // años pasados siguen accesibles (y rastreables) vía prev/next.
             [$base . self::aniversariosAnioPath(gmdate('Y')), 'monthly', '0.6'],
             [$base . '/datos', 'monthly', '0.5'],
+            [$base . '/contacto', 'yearly', '0.3'],
         ];
         // Secciones aún no publicadas en este entorno (App\Secciones): no
         // anunciar una URL que la propia web responde con 404.
@@ -1322,6 +1323,38 @@ final class Pages
             'description' => 'Los datos de música procesional de marchasdecristo.com se publican bajo '
                 . 'licencia CC BY 4.0: API JSON, feeds de novedades y cómo citarlos.',
             'jsonld' => [$dataset],
+        ]);
+    }
+
+    public static function contacto(): void
+    {
+        Http::cachePublic(86400);
+        $base = self::base();
+        // Correo de contacto. Nunca sale literal en el HTML ni en el JSON-LD
+        // (anti-recolectores): la plantilla lo parte y catalog.js lo recompone.
+        $correo = 'contacto@marchasdecristo.com';
+
+        $persona = [
+            '@type' => 'Person',
+            'name' => 'Javier Guerra',
+            'url' => 'https://x.com/JaviWarSVQ',
+            'sameAs' => ['https://x.com/JaviWarSVQ'],
+        ];
+
+        View::render('contacto', [
+            'correo' => $correo,
+        ], [
+            'title' => 'Contacto — Marchas de Cristo',
+            'canonical' => $base . '/contacto',
+            'description' => 'Cómo contactar con Marchas de Cristo para aportar datos, correcciones '
+                . 'o sugerencias sobre marchas, bandas, discos y acompañamientos.',
+            'jsonld' => [[
+                '@context' => 'https://schema.org',
+                '@type' => 'ContactPage',
+                'url' => $base . '/contacto',
+                'inLanguage' => 'es',
+                'mainEntity' => $persona,
+            ]],
         ]);
     }
 

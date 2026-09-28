@@ -48,11 +48,11 @@ $nav = [
     '/autor' => 'Compositores',
     '/banda' => 'Bandas',
     '/disco' => 'Discos',
+    '/acompanamientos' => 'Acompañamientos',
     '/dedicatorias' => 'Dedicatorias',
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
     '/mapa' => 'Mapa',
-    '/acompanamientos' => 'Acompañamientos',
 ];
 $nav = array_filter(
     $nav,
@@ -299,6 +299,7 @@ if (!empty($meta['ancho'])) {
             <?= $siteName ?>
 <?php endif; ?>
             <span class="foot-sep">·</span> <a href="/datos">Datos y licencia (CC BY 4.0)</a>
+            <span class="foot-sep">·</span> <a href="/contacto">Contacto</a>
         </div>
     </footer>
     <script src="<?= $e($assetVer('/assets/catalog.js')) ?>" defer></script>

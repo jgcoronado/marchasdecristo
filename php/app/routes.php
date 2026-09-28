@@ -88,6 +88,9 @@ $router->get('/feed.xml', [Pages::class, 'feedRss']);
 $router->get('/feed.json', [Pages::class, 'feedJson']);
 $router->get('/llms.txt', [Pages::class, 'llms']);
 
+// ── Contacto: correo y perfil de X para aportes y correcciones ───────────────
+$router->get('/contacto', [Pages::class, 'contacto']);
+
 // API JSON de solo lectura (mismas lecturas que el HTML, forma estable + licencia).
 // El {id} admite número o slug-id; se extrae el id numérico en Api.
 $router->get('/api/marcha/{id}.json', [Api::class, 'marcha']);
