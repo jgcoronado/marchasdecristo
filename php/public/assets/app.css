@@ -1058,6 +1058,8 @@ a.ln-name:hover { text-decoration: underline; }
 .collapse-title::after { content: "▾"; color: var(--faint); transition: transform 0.15s; }
 .collapse[open] .collapse-title::after { transform: rotate(180deg); }
 .collapse-content { padding: 0 0.85rem 0.85rem; font-size: 0.95rem; }
+/* Ficha de banda: una barra por año (30+ en las bandas veteranas), más juntas que el .stack general. */
+.acomp-anios { gap: 0.5rem; margin-top: 0.9rem; }
 
 /* ── Detalle de disco ───────────────────────────────────────────────────── */
 .disco-detail { display: flex; flex-direction: column; align-items: center; }

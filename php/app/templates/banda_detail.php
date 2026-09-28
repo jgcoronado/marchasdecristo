@@ -1,5 +1,6 @@
 <?php use App\View as V; use App\Slug as S; use App\Html as H;
-/** @var array<string,mixed> $b @var string|null $url @var array<string,string> $enlaces */
+/** @var array<string,mixed> $b @var string|null $url @var array<string,string> $enlaces
+ *  @var array<int,list<array<string,mixed>>> $acomp Repo::acompanamientosDeBanda(), año → filas */
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
@@ -51,6 +52,8 @@ $nJuv = count(array_filter($filas, static fn(array $f): bool => $f[0] === 'juv')
 $nSuc = count($filas) - $nJuv;
 $nDiscos = (int) $b['discosLength'];
 $nMarchas = (int) $b['marchasLength'];
+$acomp ??= [];
+$nAcomp = array_sum(array_map('count', $acomp));
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> › <a href="/banda">Bandas</a><?php if ($t($b['LOCALIDAD'])): ?> › <a href="<?= V::e('/banda?localidad=' . rawurlencode((string) $b['LOCALIDAD'])) ?>"><?= V::e($b['LOCALIDAD']) ?></a><?php endif; ?> › B-<?= $bid ?></span>
@@ -60,7 +63,7 @@ $nMarchas = (int) $b['marchasLength'];
     <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
 
 <?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
-<?php if ($nMarchas + $nDiscos >= 12): ?>
+<?php if ($nMarchas + $nDiscos + count($acomp) >= 12): ?>
     <nav class="rectabs" aria-label="Secciones de la ficha">
         <a href="#datos">Datos</a>
         <a href="#formaciones">Formaciones</a>
@@ -68,6 +71,9 @@ $nMarchas = (int) $b['marchasLength'];
         <a href="#discografia">Discografía (<?= $num($nDiscos) ?>)</a>
 <?php endif; ?>
         <a href="#estrenos">Estrenos (<?= $num($nMarchas) ?>)</a>
+<?php if ($nAcomp > 0): ?>
+        <a href="#acompanamientos">Acompañamientos (<?= $num($nAcomp) ?>)</a>
+<?php endif; ?>
     </nav>
 <?php endif; ?>
 
@@ -181,6 +187,40 @@ $nMarchas = (int) $b['marchasLength'];
 <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
+<?php endif; ?>
+
+<?php if ($nAcomp > 0): ?>
+    <div class="shead" id="acompanamientos">
+        <h2>Acompañamientos</h2>
+        <span class="n"><?= $num($nAcomp) ?> · más recientes primero</span>
+    </div>
+    <div class="stack acomp-anios">
+<?php $abierto = true; foreach ($acomp as $anio => $filasAnio): ?>
+        <details class="collapse"<?= $abierto ? ' open' : '' ?>>
+            <summary class="collapse-title"><?= (int) $anio ?></summary>
+            <div class="collapse-content">
+                <div class="scrollx">
+                <table class="reg">
+                    <thead><tr>
+                        <th>Día</th>
+                        <th>Hermandad</th>
+                        <th>Localidad</th>
+                    </tr></thead>
+                    <tbody>
+<?php foreach ($filasAnio as $f): $locUrl = '/acompanamientos/' . S::slugify((string) $f['LOCALIDAD']); ?>
+                        <tr>
+                            <td><?= $f['DIA'] !== null ? V::e($f['DIA']) : '<span class="muted">—</span>' ?></td>
+                            <td><a href="<?= V::e($locUrl . ($f['EN_NOMINA'] ? '#h-' . $f['HERMANDAD_SLUG'] : '')) ?>"><?= V::e($f['HERMANDAD']) ?></a></td>
+                            <td><a href="<?= V::e($locUrl) ?>"><?= V::e($f['LOCALIDAD_NOMBRE']) ?></a></td>
+                        </tr>
+<?php endforeach; ?>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </details>
+<?php $abierto = false; endforeach; ?>
     </div>
 <?php endif; ?>
 

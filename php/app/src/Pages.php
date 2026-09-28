@@ -558,8 +558,24 @@ final class Pages
 
         $enlaces = EnlaceRepo::publicadosDe('banda', (int) $b['ID_BANDA']);
 
+        // Mismo fallback que /acompanamientos: las tablas de contratos pueden
+        // no estar migradas en un host, y eso no debe tumbar la ficha.
+        $acomp = [];
+        if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
+            try {
+                $acomp = Repo::acompanamientosDeBanda((int) $b['ID_BANDA']);
+            } catch (\Throwable $e) {
+                error_log('[banda acompanamientos] ' . $e->getMessage());
+            }
+            foreach ($acomp as &$filasAnio) {
+                foreach ($filasAnio as &$f) $f['LOCALIDAD_NOMBRE'] = self::localidadConTildes($f['LOCALIDAD']);
+                unset($f);
+            }
+            unset($filasAnio);
+        }
+
         Http::cachePublic(3600);
-        View::render('banda_detail', ['b' => $b, 'url' => $url, 'enlaces' => $enlaces], [
+        View::render('banda_detail', ['b' => $b, 'url' => $url, 'enlaces' => $enlaces, 'acomp' => $acomp], [
             'title' => $b['NOMBRE_BREVE'] . ' — Marchas de Cristo',
             'canonical' => $url,
             'description' => $b['NOMBRE_COMPLETO'] . ', banda de ' . $b['LOCALIDAD'] . '. Ha grabado ' . $b['discosLength'] . ' discos y estrenado ' . $b['marchasLength'] . ' marchas.',
