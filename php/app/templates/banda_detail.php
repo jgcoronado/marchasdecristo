@@ -156,14 +156,17 @@ $nAcomp = array_sum(array_map('count', $acomp));
         <h2>Marchas estrenadas</h2>
 <?php if ($nMarchas > 0): ?>
         <span class="n" id="est-count"><?= $num($nMarchas) ?> · más recientes primero</span>
-<?php if ($nMarchas >= 8): ?>
-        <input class="filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas estrenadas" data-filter="est-table" data-count="est-count" data-total="<?= $nMarchas ?>">
-<?php endif; ?>
 <?php endif; ?>
     </div>
 <?php if ($nMarchas === 0): ?>
     <p class="bio-empty">Sin estrenos documentados.</p>
 <?php else: ?>
+    <details class="collapse">
+    <summary class="collapse-title">Ver <?= $nMarchas === 1 ? 'la marcha' : 'las ' . $num($nMarchas) . ' marchas' ?></summary>
+    <div class="collapse-content">
+<?php if ($nMarchas >= 8): ?>
+    <input class="filter est-filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas estrenadas" data-filter="est-table" data-count="est-count" data-total="<?= $nMarchas ?>">
+<?php endif; ?>
     <div class="scrollx">
     <table class="reg" id="est-table" data-sortable>
         <thead><tr>
@@ -188,6 +191,8 @@ $nAcomp = array_sum(array_map('count', $acomp));
         </tbody>
     </table>
     </div>
+    </div>
+    </details>
 <?php endif; ?>
 
 <?php if ($nAcomp > 0): ?>
