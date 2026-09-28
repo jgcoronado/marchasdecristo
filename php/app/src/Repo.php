@@ -1744,6 +1744,22 @@ final class Repo
     // presentación, ver agruparAcompanamientos(). ────────────────────────────
 
     /**
+     * Slugs de las localidades de acompañamientos publicadas en todos los
+     * entornos (las 9 con datos a 2026-09-28). Cualquier otra que se cargue
+     * es "Otras localidades" y solo se ve donde lo esté
+     * Secciones::ACOMPANAMIENTOS_OTRAS.
+     */
+    public const ACOMP_LOCALIDADES_PRINCIPALES = [
+        'almeria', 'cadiz', 'cordoba', 'granada', 'huelva',
+        'jaen', 'jerez-de-la-frontera', 'malaga', 'sevilla',
+    ];
+
+    public static function esLocalidadAcompPrincipal(string $localidad): bool
+    {
+        return in_array(Slug::slugify($localidad), self::ACOMP_LOCALIDADES_PRINCIPALES, true);
+    }
+
+    /**
      * Localidades del ACOMPAÑAMIENTO (contrato_localidad.LOCALIDAD, no
      * banda.LOCALIDAD — ver 009_contrato_localidad.sql) con al menos un
      * contrato, para el índice de /acompanamientos y el sitemap. Las filas

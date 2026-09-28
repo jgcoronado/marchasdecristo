@@ -32,6 +32,7 @@ final class Secciones
     public const ESTADO_CATALOGO = 'estado-catalogo';
     public const MAPA = 'mapa';
     public const ACOMPANAMIENTOS = 'acompanamientos';
+    public const ACOMPANAMIENTOS_OTRAS = 'acompanamientos-otras';
 
     /**
      * Secciones no publicadas todavía fuera de local, con el motivo por el que
@@ -51,6 +52,11 @@ final class Secciones
         // N-10 · Pendiente de corregir el solape de dianas de clic entre
         // municipios próximos (Castilleja de la Cuesta / Tomares).
         self::MAPA => 'Mapa',
+        // Acompañamientos de localidades fuera de
+        // Repo::ACOMP_LOCALIDADES_PRINCIPALES ("Otras localidades"): se van
+        // cargando en local y no se enseñan (ni índice, ni su página, ni
+        // sitemap, ni ficha de banda) hasta que se decida publicarlas.
+        self::ACOMPANAMIENTOS_OTRAS => 'Acompañamientos · otras localidades',
     ];
 
     /** ¿Se muestra $seccion en este entorno? */

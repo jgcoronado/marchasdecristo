@@ -28,6 +28,12 @@ final class Pages
         return Secciones::visible($seccion);
     }
 
+    /** Principal, o de "Otras localidades" en un entorno donde se publican. */
+    private static function localidadAcompVisible(string $localidad): bool
+    {
+        return Repo::esLocalidadAcompPrincipal($localidad) || self::seccionVisible(Secciones::ACOMPANAMIENTOS_OTRAS);
+    }
+
     /** @return array{0:array<string,string>,1:bool,2:int,3:int} [criteria, hasQuery, page, limit] */
     private static function searchParams(): array
     {
@@ -567,11 +573,18 @@ final class Pages
             } catch (\Throwable $e) {
                 error_log('[banda acompanamientos] ' . $e->getMessage());
             }
-            foreach ($acomp as &$filasAnio) {
+            // Las filas de "Otras localidades" no se enseñan donde esa sección
+            // no está publicada; un año que se queda sin filas desaparece.
+            foreach ($acomp as $anio => $filasAnio) {
+                $filasAnio = array_values(array_filter($filasAnio, static fn(array $f): bool => self::localidadAcompVisible($f['LOCALIDAD'])));
+                if ($filasAnio === []) {
+                    unset($acomp[$anio]);
+                    continue;
+                }
                 foreach ($filasAnio as &$f) $f['LOCALIDAD_NOMBRE'] = self::localidadConTildes($f['LOCALIDAD']);
                 unset($f);
+                $acomp[$anio] = $filasAnio;
             }
-            unset($filasAnio);
         }
 
         Http::cachePublic(3600);
@@ -1004,10 +1017,18 @@ final class Pages
         } catch (\Throwable $e) {
             error_log('[acompanamientos] ' . $e->getMessage());
         }
-        foreach ($localidades as &$l) {
+        $otras = [];
+        foreach ($localidades as $i => $l) {
             $l['NOMBRE'] = self::localidadConTildes((string) $l['LOCALIDAD']);
+            $localidades[$i] = $l;
+            if (!Repo::esLocalidadAcompPrincipal((string) $l['LOCALIDAD'])) {
+                unset($localidades[$i]);
+                if (self::seccionVisible(Secciones::ACOMPANAMIENTOS_OTRAS)) {
+                    $otras[] = $l;
+                }
+            }
         }
-        unset($l);
+        $localidades = array_values($localidades);
         $canonical = $base . '/acompanamientos';
         $h1 = 'Acompañamientos';
         $desc = 'Qué banda ha tocado cada año tras cada paso de Cristo, hermandad a hermandad — por localidad.';
@@ -1016,6 +1037,7 @@ final class Pages
         View::render('acompanamientos_index', [
             'h1' => $h1,
             'localidades' => $localidades,
+            'otras' => $otras,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,
@@ -1079,7 +1101,7 @@ final class Pages
         // Slug que no resuelve a ninguna localidad con datos = 404, igual que
         // cualquier otro slug desconocido del sitio — no hay universo cerrado
         // de localidades válidas que listar aparte.
-        if ($localidad === null) {
+        if ($localidad === null || !self::localidadAcompVisible($localidad)) {
             Http::notFound();
         }
 
@@ -1237,7 +1259,7 @@ final class Pages
         if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
             try {
                 foreach (Repo::acompanamientosLocalidades() as $r) {
-                    if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
+                    if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS && self::localidadAcompVisible((string) $r['LOCALIDAD'])) {
                         $urls[] = [$base . '/acompanamientos/' . Slug::slugify((string) $r['LOCALIDAD']), 'weekly', '0.5'];
                     }
                 }
