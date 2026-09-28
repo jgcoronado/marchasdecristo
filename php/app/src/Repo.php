@@ -1842,6 +1842,76 @@ final class Repo
     }
 
     /**
+     * Jornadas de la nómina (slugify(hermandad.DIA)) → [etiqueta, orden común].
+     * Algunas cargas escriben los días sin tilde ("Miercoles Santo") y el
+     * DIA_ORDEN no es comparable entre ciudades, así que la ficha de banda, que
+     * mezcla localidades, pone la tilde y ordena con esta secuencia única. El
+     * nombre propio de cada ciudad se respeta: Madrugá (Sevilla, Cádiz, Huelva),
+     * Madrugada (Córdoba, Jaén) y Noche de Jesús (Jerez) ocupan el mismo hueco.
+     */
+    private const JORNADAS = [
+        'viernes-de-dolores'      => ['Viernes de Dolores', 1],
+        'sabado-de-pasion'        => ['Sábado de Pasión', 2],
+        'domingo-de-ramos'        => ['Domingo de Ramos', 3],
+        'lunes-santo'             => ['Lunes Santo', 4],
+        'martes-santo'            => ['Martes Santo', 5],
+        'miercoles-santo'         => ['Miércoles Santo', 6],
+        'jueves-santo'            => ['Jueves Santo', 7],
+        'madruga'                 => ['Madrugá', 8],
+        'madrugada'               => ['Madrugada', 8],
+        'noche-de-jesus'          => ['Noche de Jesús', 8],
+        'viernes-santo'           => ['Viernes Santo', 9],
+        'sabado-santo'            => ['Sábado Santo', 10],
+        'domingo-de-resurreccion' => ['Domingo de Resurrección', 11],
+    ];
+
+    /**
+     * Acompañamientos de una banda para su ficha: año → una fila por
+     * hermandad (varios pasos o ida y vuelta el mismo año cuentan una vez),
+     * años de más reciente a más antiguo y, dentro del año, por jornada,
+     * localidad y orden de carrera. DIA es la foto de la nómina actual, no el
+     * día de ese año; sin hermandad en la nómina, DIA es null y va al final.
+     * Cruces de guía fuera, como en el resto de pantallas de acompañamientos.
+     * @return array<int, list<array{DIA:?string,HERMANDAD:string,HERMANDAD_SLUG:string,
+     *                              LOCALIDAD:string,EN_NOMINA:bool}>>
+     */
+    public static function acompanamientosDeBanda(int $idBanda): array
+    {
+        $rows = Db::all(
+            "SELECT c.ANIO, cl.LOCALIDAD, c.HERMANDAD_SLUG,
+                    MIN(COALESCE(h.NOMBRE, c.HERMANDAD)) AS HERMANDAD,
+                    MIN(h.DIA) AS DIA, MIN(h.ORDEN) AS ORDEN, MIN(h.ID_HERMANDAD) AS ID_HERMANDAD
+             FROM contrato c
+             INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
+             WHERE c.ID_BANDA = ? AND " . self::sqlContratoSinCruzDeGuia() . "
+             GROUP BY c.ANIO, cl.LOCALIDAD, c.HERMANDAD_SLUG",
+            [$idBanda]
+        );
+
+        $porAnio = [];
+        foreach ($rows as $r) {
+            $jornada = $r['DIA'] !== null ? (self::JORNADAS[Slug::slugify((string) $r['DIA'])] ?? [(string) $r['DIA'], 99]) : [null, 100];
+            $porAnio[(int) $r['ANIO']][] = [
+                'DIA' => $jornada[0],
+                'HERMANDAD' => (string) $r['HERMANDAD'],
+                'HERMANDAD_SLUG' => (string) $r['HERMANDAD_SLUG'],
+                'LOCALIDAD' => (string) $r['LOCALIDAD'],
+                'EN_NOMINA' => $r['ID_HERMANDAD'] !== null,
+                '_k' => [$jornada[1], Slug::slugify((string) $r['LOCALIDAD']), (int) $r['ORDEN'], Slug::slugify((string) $r['HERMANDAD'])],
+            ];
+        }
+        krsort($porAnio);
+        foreach ($porAnio as &$filas) {
+            usort($filas, static fn(array $a, array $b): int => $a['_k'] <=> $b['_k']);
+            foreach ($filas as &$f) unset($f['_k']);
+            unset($f);
+        }
+        unset($filas);
+        return $porAnio;
+    }
+
+    /**
      * Agrupa las filas de acompanamientosPorLocalidad() en hermandad → paso →
      * rangos de años con la misma banda, más reciente primero (petición
      * expresa: al revés del orden habitual "más antiguo arriba" de este tipo

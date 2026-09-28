@@ -48,11 +48,12 @@ $nav = [
     '/autor' => 'Compositores',
     '/banda' => 'Bandas',
     '/disco' => 'Discos',
+    '/acompanamientos' => 'Acompañamientos',
     '/dedicatorias' => 'Dedicatorias',
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
     '/mapa' => 'Mapa',
-    '/acompanamientos' => 'Acompañamientos',
+    '/contacto' => 'Contacto',
 ];
 $nav = array_filter(
     $nav,
@@ -133,11 +134,14 @@ if (!empty($meta['ancho'])) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php /* La barra del navegador en móvil acompaña al tema. Los dos valores
-             son --bg de cada tema en app.css (BLOQUE 1 y BLOQUE 1-bis): si
-             cambian allí, hay que cambiarlos aquí, que es el único sitio del
-             proyecto donde un color de la paleta se repite fuera de la hoja. */ ?>
+             son --bg de cada tema (BLOQUE 1 de app.css y BLOQUE 1-bis de
+             dark.css): si cambian allí, hay que cambiarlos aquí y en COLOR del
+             script de tema de más abajo, que son los únicos sitios del
+             proyecto donde un color de la paleta se repite fuera de las hojas.
+             El oscuro es --bg (#141413), que desde 2026-09-27 es también el
+             fondo de la cabecera. */ ?>
     <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#12151c" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
@@ -172,6 +176,57 @@ if (!empty($meta['ancho'])) {
     <meta name="twitter:image:alt" content="<?= $e($ogImageAlt) ?>">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/app.css')) ?>">
+    <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
+             atributo media (ver la cabecera de dark.css). Por defecto sigue al
+             sistema; el script siguiente la fuerza si el visitante eligió un
+             tema con el botón. */ ?>
+    <link rel="stylesheet" id="css-oscuro" href="<?= $e($assetVer('/assets/dark.css')) ?>" media="screen and (prefers-color-scheme: dark)">
+    <?php /* Tema elegido con el botón (.tema-toggle). En línea y antes de
+             <body> para que la página no salga un instante con el tema del
+             sistema y luego cambie. La elección se guarda en localStorage
+             ('tema' = 'claro' | 'oscuro'), no en una cookie: no viaja al
+             servidor y el HTML es el mismo para todos, así que la caché
+             pública de las páginas (Http::cachePublic) no se ve afectada. Si
+             la elección coincide con el tema del sistema se borra, y la página
+             vuelve a seguir al sistema. Sin localStorage (navegación privada
+             estricta) el botón funciona igual, solo que no se recuerda. */ ?>
+    <script>
+    (function () {
+        var SISTEMA = 'screen and (prefers-color-scheme: dark)';
+        var COLOR = { claro: '#f4f5f8', oscuro: '#141413' };
+        var raiz = document.documentElement;
+        var hoja = document.getElementById('css-oscuro');
+        var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        function guardado() {
+            try { var t = localStorage.getItem('tema'); return t === 'claro' || t === 'oscuro' ? t : null; } catch (e) { return null; }
+        }
+        function sistema() { return mq && mq.matches ? 'oscuro' : 'claro'; }
+        var elegido = guardado();
+        function aplicar() {
+            hoja.media = elegido === 'oscuro' ? 'screen' : elegido === 'claro' ? 'not all' : SISTEMA;
+            if (elegido) { raiz.setAttribute('data-tema', elegido); } else { raiz.removeAttribute('data-tema'); }
+            var metas = document.querySelectorAll('meta[name="theme-color"]');
+            for (var i = 0; i < metas.length; i++) {
+                metas[i].content = COLOR[elegido || (metas[i].media.indexOf('dark') >= 0 ? 'oscuro' : 'claro')];
+            }
+            var boton = document.querySelector('.tema-toggle');
+            if (boton) { boton.setAttribute('aria-pressed', (elegido || sistema()) === 'oscuro' ? 'true' : 'false'); }
+        }
+        aplicar();
+        document.addEventListener('DOMContentLoaded', aplicar);
+        document.addEventListener('click', function (ev) {
+            if (!ev.target.closest || !ev.target.closest('.tema-toggle')) { return; }
+            var nuevo = (elegido || sistema()) === 'oscuro' ? 'claro' : 'oscuro';
+            elegido = nuevo === sistema() ? null : nuevo;
+            try { if (elegido) { localStorage.setItem('tema', elegido); } else { localStorage.removeItem('tema'); } } catch (e) {}
+            aplicar();
+        });
+        window.addEventListener('storage', function (ev) {
+            if (ev.key === 'tema') { elegido = guardado(); aplicar(); }
+        });
+        if (mq && mq.addEventListener) { mq.addEventListener('change', aplicar); }
+    })();
+    </script>
     <link rel="alternate" type="application/rss+xml" title="Marchas de Cristo — últimas incorporaciones" href="/feed.xml">
     <link rel="alternate" type="application/feed+json" title="Marchas de Cristo — últimas incorporaciones" href="/feed.json">
 <?php foreach ($jsonld as $schema): ?>
@@ -204,6 +259,10 @@ if (!empty($meta['ancho'])) {
                 </form>
             </div>
 <?php endif; ?>
+            <button type="button" class="tema-toggle" aria-pressed="false" aria-label="Modo oscuro" title="Cambiar entre modo claro y oscuro">
+                <svg class="tema-luna" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                <svg class="tema-sol" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </button>
             <details class="nav-mobile">
                 <summary aria-label="Menú">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>

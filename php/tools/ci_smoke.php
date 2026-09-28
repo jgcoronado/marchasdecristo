@@ -762,6 +762,12 @@ $tests['acompanamientos: el nav la enlaza'] = static fn() => assertContains('/',
 $tests['acompanamientos: índice enlaza a la localidad de la fixture'] = static fn() => assertContains('/acompanamientos', 'href="/acompanamientos/sevilla"', $base);
 $tests['acompanamientos: la localidad agrupa por hermandad'] = static fn() => assertContains('/acompanamientos/sevilla', 'Hdad de los Gitanos', $base);
 $tests['acompanamientos: localidad inexistente 404'] = static fn() => assertStatus('/acompanamientos/no-existe', 404, $base);
+// La ficha de banda lista sus acompañamientos y lleva a la localidad donde se
+// ven en contexto; si la sección desaparece o pierde el enlace, falla.
+$tests['acompanamientos: la ficha de banda los lista y enlaza a la localidad'] = static function () use ($base): void {
+    assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', 'id="acompanamientos"', $base);
+    assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', 'href="/acompanamientos/sevilla"', $base);
+};
 
 $failed = [];
 foreach ($tests as $name => $test) {

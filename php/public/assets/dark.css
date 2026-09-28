@@ -1,0 +1,108 @@
+/* Marchas de Cristo — tema oscuro.
+
+   Todo lo que cambia en oscuro vive aquí, sin envolver en @media: el <link>
+   de layout.php decide cuándo se aplica la hoja entera con su atributo media.
+     - Sin preferencia guardada: media="screen and (prefers-color-scheme: dark)",
+       es decir, sigue al sistema, como antes de que existiera el botón.
+     - Elegido oscuro con el botón: media="screen".
+     - Elegido claro con el botón: media="not all" (no se aplica).
+   Así el tema oscuro está escrito una sola vez y el botón no necesita
+   duplicarlo bajo un [data-tema="oscuro"]. Siempre "screen": al imprimir se
+   usa el tema claro y las reglas de impresión de app.css, elija lo que elija
+   el visitante.
+
+   Se carga DESPUÉS de app.css, así que a igual especificidad sus reglas ganan
+   sin tener que colocarlas detrás de la regla que corrigen.
+
+   Paleta: los BLOQUES 1 y 2 de app.css son el tema claro; esto es el
+   BLOQUE 1-bis. Los tonos derivados (BLOQUE 3 de app.css) se recalculan
+   solos. */
+
+/* ── BLOQUE 1-bis · Colores base, tema oscuro ────────────────────────────── */
+:root {
+    /* Controles nativos (scroll, formularios, autocompletado) en oscuro. */
+    color-scheme: dark;
+    /* 2026-09-27 (2.ª vuelta): oscuro casi negro, en la línea de las apps
+       de Anthropic: neutros cálidos de su guía de marca (#141413 de fondo,
+       #faf9f5 / #b0aea5 de referencia para la tinta y el gris). La tarjeta
+       apenas se levanta del fondo (1,11:1); lo que la separa es el filete
+       de 1px (ver .card/.record), como en esas apps, no el salto de tono.
+       Cabecera y pie van del color de la página (ver más abajo). */
+    --bg: #141413;
+    --card: #1f1e1d;
+    --ink: #ece9e1;
+    /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
+       sobre marrón casi negro era el único color frío de la página y los
+       enlaces se leían incómodos. Burdeos claro, de la familia del papel:
+       8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
+    --acc: #eba59a;
+    --acc-fg: #141413;  /* el acento claro pide tinta oscura encima, no blanca */
+    --est: #7cc39a;
+    --nov: #5fc3cd;
+    --rec: #d7a866;
+    --err: #e09a9a;
+    --juv: #b9a3e8;
+    /* Puntos del mapa de provincia: con el acento burdeos la rampa del
+       mapa (--acc) pasa a ser cálida, así que en oscuro los puntos cambian
+       de familia —turquesa— para no fundirse con el contorno (ver --pt en
+       el BLOQUE 1). El resaltado de acompañamientos, que usaba
+       --pt-fuerte, conserva su ámbar con --foco-calido (ver .acs). */
+    --pt: #2f7478;
+    --pt-fuerte: #5fc3cd;
+    --foco-calido: #d7a866;
+    --sombra-base: #000000;
+    /* --tinte-base ya no se redefine aquí: hasta 2026-09-27 el tinte se
+       mezclaba hacia negro porque la tarjeta era azulada, y con la tarjeta
+       cálida eso dejaba el fondo del badge y del segmento activo MÁS oscuro
+       que la tarjeta, como un agujero. Hacia la tarjeta queda un escalón
+       por encima. */
+    /* Mezclas: sobre fondo oscuro hace falta menos tinta para atenuar.
+       2026-09-15: --mz-faint de 61% a 65%, por lo mismo que en claro (a 61%
+       daba 4,34:1 sobre la fila alterna y 4,17 sobre --s2). 2026-09-27,
+       con la paleta casi negra: --faint da 5,61:1 sobre --s2 y 4,69 sobre
+       --acc-tint (el peor caso); --muted, 6,62 sobre --s2 (medido). */
+    --mz-muted: 72%;
+    --mz-faint: 65%;
+    /* Sin acento en el gris de apoyo: al 50% del claro el texto atenuado
+       salía del mismo tono que los enlaces (con el índigo, 1,12:1 entre
+       --muted-c y --acc, 227° frente a 229°) y no se distinguía qué se
+       pulsa. La tinta sola ya es cálida. */
+    --mz-tinta: 100%;
+    --mz-tint: 16%;
+    --mz-borde: 30%;
+    /* Superficies y filetes discretos: sobre casi negro basta poco para
+       que una fila o un filete se note. */
+    --mz-s2: 6%;
+    --mz-zebra: 3%;
+    --mz-line: 13%;
+    --mz-ctrl: 45%;
+}
+
+/* Enlaces (2026-09-27): ningún enlace lleva subrayado, ni al
+   pasar el ratón. El enlace se distingue por el color (--acc frente al gris
+   neutro de la tinta) y, en escritorio, se aclara al pasar por encima.
+   !important porque hay una docena de reglas :hover con underline repartidas
+   por la hoja, cada una con su especificidad. */
+a:any-link, a:any-link:hover, a:any-link:focus { text-decoration: none !important; }
+main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
+
+/* Cabecera, pie, tarjetas, migas y anclas de la ficha (2026-09-27):
+   - Cabecera y pie del color de la página, separados solo por su filete: con
+     el fondo casi negro, una franja de --card arriba y abajo partía la
+     pantalla en tres.
+   - Migas y anclas de la ficha son enlaces y se pintan como tales; en
+     --muted-c no se distinguía qué llevaba a algún sitio.
+   - La tarjeta se despega con un filete de 1px: una sombra negra sobre un
+     fondo casi negro no se ve. */
+body > header, footer { background: var(--bg); }
+.crumbs a, .rectabs a { color: var(--acc); }
+.card, .record { box-shadow: 0 0 0 1px var(--line); }
+
+/* Acompañamientos: los claros de la tira se oscurecen hacia la tarjeta y en
+   oscuro esa mezcla apaga mucho más, así que se sube la proporción (ver .acs
+   en app.css). */
+.acs { --mz-acs-a: 38%; --mz-acs-c: 60%; --mz-acs-b: 86%; }
+
+/* Botón de tema (ver .tema-toggle en app.css): en oscuro se ofrece el sol. */
+.tema-toggle .tema-luna { display: none; }
+.tema-toggle .tema-sol { display: block; }
