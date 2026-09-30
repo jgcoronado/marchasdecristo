@@ -473,6 +473,7 @@ if ($args['skipIndexNow']) {
     // máquina del admin) no debe hacer parecer que la sincronización falló.
     try {
         define('APP_DIR', __DIR__ . '/../php/app');
+        define('BASE_DIR', dirname(APP_DIR)); // config.php la usa para leer el .env de la raíz del repo.
         define('DATA_DIR', __DIR__ . '/../php/data'); // config.php la referencia para el db_path por defecto; no se usa aquí.
         $appConfig = require APP_DIR . '/config.php';
         $indexNowKey = (string) ($appConfig['indexnow_key'] ?? '');
