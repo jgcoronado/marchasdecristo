@@ -190,6 +190,10 @@ $router->post('/dashboard/banda/{id}', [Admin::class, 'bandaEditPost']);
 $router->post('/dashboard/banda/{id}/relacion', [Admin::class, 'bandaRelacionAddPost']);
 $router->post('/dashboard/banda/{id}/relacion/{rel}/borrar', [Admin::class, 'bandaRelacionDeletePost']);
 $router->post('/dashboard/banda/{id}/social', [Admin::class, 'bandaSocialPost']);
+$router->post('/dashboard/banda/{id}/acompanamiento', [Admin::class, 'bandaAcompanamientoAddPost']);
+$router->post('/dashboard/banda/{id}/acompanamiento/borrar', [Admin::class, 'bandaAcompanamientoBorrarPost']);
+$router->post('/dashboard/banda/{id}/acompanamiento/importar', [Admin::class, 'bandaAcompanamientoImportarPost']);
+$router->post('/dashboard/banda/{id}/acompanamiento/{contrato}/editar', [Admin::class, 'bandaAcompanamientoEditarPost']);
 // Discos: alta (con portada) y edición + pistas. 'add' antes que {id} para que
 // /dashboard/disco/add no se interprete como el disco de id 0.
 $router->get('/dashboard/disco/add', [Admin::class, 'discoAddForm']);
@@ -289,6 +293,12 @@ $router->post('/dashboard/semana-santa/{localidad}/paso/add', [Admin::class, 'se
 $router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/renombrar', [Admin::class, 'semanaSantaPasoRenombrarPost']);
 $router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/borrar', [Admin::class, 'semanaSantaPasoBorrarPost']);
 $router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/mover', [Admin::class, 'semanaSantaPasoMoverPost']);
+$router->post('/dashboard/semana-santa/{localidad}/paso/{idPaso}/dia', [Admin::class, 'semanaSantaPasoDiaPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/dia-extra/add', [Admin::class, 'semanaSantaDiaExtraAddPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/dia-extra/{idDia}/borrar', [Admin::class, 'semanaSantaDiaExtraBorrarPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/dia-extra/{idDia}/mover', [Admin::class, 'semanaSantaDiaExtraMoverPost']);
+$router->post('/dashboard/semana-santa/{localidad}/hermandad/{idHermandad}/historico/add', [Admin::class, 'semanaSantaHistoricoAddPost']);
+$router->post('/dashboard/semana-santa/{localidad}/historico/{idHistorico}/borrar', [Admin::class, 'semanaSantaHistoricoBorrarPost']);
 
 // ── Enlaces de streaming (curación de candidatos Spotify/Apple/Deezer) ───────
 $router->get('/dashboard/enlaces', [Admin::class, 'enlaceList']);

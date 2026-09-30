@@ -50,6 +50,17 @@ jobs:
       - name: Unit tests (IP del rate limit de login)
         run: php php/tools/ci_auth.php
 
+      # Alta de acompañamientos desde la ficha de banda: lo nuevo (día,
+      # hermandad, paso) tiene que acabar en la nómina de Semana Santa, sin
+      # duplicar por tildes ni cambiar en silencio el día de una hermandad.
+      - name: Unit tests (acompañamientos desde la ficha de banda)
+        run: php php/tools/ci_acomp_banda.php
+
+      # Hermandad en varios días (el mismo año o en años pasados): cada
+      # acompañamiento tiene que caer en el día en que salió de verdad.
+      - name: Unit tests (hermandad en varios días)
+        run: php php/tools/ci_nomina_dias.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db
