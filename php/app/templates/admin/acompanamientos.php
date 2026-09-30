@@ -2,6 +2,7 @@
 /** Acompañamientos de una localidad — alta en bloque por rango de años (N-04,
  *  rehecho 2026-08-29, reemplaza al panel de /dashboard/temporada por año).
  *  @var array $session @var string $slug @var string $localidad @var bool $esNueva
+ *  @var string|null $provincia la elegida en "Localidad nueva" (solo si $esNueva)
  *  @var list<array{slug:string,nombre:string,titulares:list<array{titular:?string,
  *       rangos:list<array{anioInicio:int,anioFin:int,idBanda:int,banda:string,actual:bool,
  *                          contratos:list<int>,posibleDuplicado:bool}>}>}> $hermandades
@@ -111,7 +112,8 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
 <?php if ($esNueva): ?>
         <input type="hidden" name="LOCALIDAD" value="<?= V::e($localidad) ?>">
-        <p class="muted small">Localidad nueva: <strong><?= V::e($localidad) ?></strong> (se crea al guardar el primer acompañamiento).</p>
+        <input type="hidden" name="PROVINCIA" value="<?= V::e($provincia) ?>">
+        <p class="muted small">Localidad nueva: <strong><?= V::e($localidad) ?></strong> (<?= V::e($provincia) ?>) — se crea al guardar el primer acompañamiento.</p>
 <?php endif; ?>
 
         <div class="field">

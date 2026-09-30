@@ -1885,8 +1885,10 @@ final class Repo
      * Acompañamientos de una banda para su ficha: año → una fila por
      * hermandad (varios pasos o ida y vuelta el mismo año cuentan una vez),
      * años de más reciente a más antiguo y, dentro del año, por jornada,
-     * localidad y orden de carrera. DIA es la foto de la nómina actual, no el
-     * día de ese año; sin hermandad en la nómina, DIA es null y va al final.
+     * localidad y orden de carrera. DIA es el de ese año (NominaRepo::sqlDiaDeContrato:
+     * día extra del paso, día histórico o el actual); una hermandad que ese
+     * año fue con la banda dos días distintos sale una vez por día. Sin
+     * hermandad en la nómina, DIA es null y va al final.
      * Cruces de guía fuera, como en el resto de pantallas de acompañamientos.
      * @return array<int, list<array{DIA:?string,HERMANDAD:string,HERMANDAD_SLUG:string,
      *                              LOCALIDAD:string,EN_NOMINA:bool}>>
@@ -1896,18 +1898,19 @@ final class Repo
         $rows = Db::all(
             "SELECT c.ANIO, cl.LOCALIDAD, c.HERMANDAD_SLUG,
                     MIN(COALESCE(h.NOMBRE, c.HERMANDAD)) AS HERMANDAD,
-                    MIN(h.DIA) AS DIA, MIN(h.ORDEN) AS ORDEN, MIN(h.ID_HERMANDAD) AS ID_HERMANDAD
+                    " . NominaRepo::sqlDiaDeContrato() . " AS DIA_SALIDA, MIN(h.ORDEN) AS ORDEN, MIN(h.ID_HERMANDAD) AS ID_HERMANDAD
              FROM contrato c
              INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
              LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
+             LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
              WHERE c.ID_BANDA = ? AND " . self::sqlContratoSinCruzDeGuia() . "
-             GROUP BY c.ANIO, cl.LOCALIDAD, c.HERMANDAD_SLUG",
+             GROUP BY c.ANIO, cl.LOCALIDAD, c.HERMANDAD_SLUG, DIA_SALIDA", // alias propio: «DIA» casaría con h.DIA
             [$idBanda]
         );
 
         $porAnio = [];
         foreach ($rows as $r) {
-            $jornada = $r['DIA'] !== null ? (self::JORNADAS[Slug::slugify((string) $r['DIA'])] ?? [(string) $r['DIA'], 99]) : [null, 100];
+            $jornada = $r['DIA_SALIDA'] !== null ? (self::JORNADAS[Slug::slugify((string) $r['DIA_SALIDA'])] ?? [(string) $r['DIA_SALIDA'], 99]) : [null, 100];
             $porAnio[(int) $r['ANIO']][] = [
                 'DIA' => $jornada[0],
                 'HERMANDAD' => (string) $r['HERMANDAD'],
@@ -1915,6 +1918,56 @@ final class Repo
                 'LOCALIDAD' => (string) $r['LOCALIDAD'],
                 'EN_NOMINA' => $r['ID_HERMANDAD'] !== null,
                 '_k' => [$jornada[1], Slug::slugify((string) $r['LOCALIDAD']), (int) $r['ORDEN'], Slug::slugify((string) $r['HERMANDAD'])],
+            ];
+        }
+        krsort($porAnio);
+        foreach ($porAnio as &$filas) {
+            usort($filas, static fn(array $a, array $b): int => $a['_k'] <=> $b['_k']);
+            foreach ($filas as &$f) unset($f['_k']);
+            unset($f);
+        }
+        unset($filas);
+        return $porAnio;
+    }
+
+    /**
+     * Acompañamientos de una banda para la pestaña del panel
+     * (/dashboard/banda/{id}): a diferencia de la ficha pública, una fila por
+     * contrato — con su paso y su id para poder borrarla — y con todas las
+     * localidades y las cruces de guía. Mismo orden que acompanamientosDeBanda().
+     * PASO: el de contrato_paso, o el TITULAR tal cual si no está enlazado.
+     * @return array<int, list<array{ID_CONTRATO:int,DIA:?string,HERMANDAD:string,PASO:?string,
+     *                              TRAMO:?string,LOCALIDAD:string,PROVINCIA:?string}>>
+     */
+    public static function acompanamientosDeBandaAdmin(int $idBanda): array
+    {
+        $rows = Db::all(
+            "SELECT c.ID_CONTRATO, c.ANIO, cl.LOCALIDAD, lp.PROVINCIA,
+                    COALESCE(h.NOMBRE, c.HERMANDAD) AS HERMANDAD, " . NominaRepo::sqlDiaDeContrato() . " AS DIA, h.ORDEN,
+                    COALESCE(p.NOMBRE, c.TITULAR) AS PASO, p.ORDEN AS PASO_ORDEN, ct.TRAMO
+             FROM contrato c
+             INNER JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN localidad_provincia lp ON lp.LOCALIDAD = cl.LOCALIDAD
+             LEFT JOIN hermandad h ON h.LOCALIDAD = cl.LOCALIDAD AND h.SLUG = c.HERMANDAD_SLUG
+             LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
+             LEFT JOIN paso p ON p.ID_PASO = cp.ID_PASO
+             LEFT JOIN contrato_tramo ct ON ct.ID_CONTRATO = c.ID_CONTRATO
+             WHERE c.ID_BANDA = ?",
+            [$idBanda]
+        );
+
+        $porAnio = [];
+        foreach ($rows as $r) {
+            $jornada = $r['DIA'] !== null ? (self::JORNADAS[Slug::slugify((string) $r['DIA'])][1] ?? 99) : 100;
+            $porAnio[(int) $r['ANIO']][] = [
+                'ID_CONTRATO' => (int) $r['ID_CONTRATO'],
+                'DIA' => $r['DIA'] !== null ? (string) $r['DIA'] : null,
+                'HERMANDAD' => (string) $r['HERMANDAD'],
+                'PASO' => $r['PASO'] !== null ? (string) $r['PASO'] : null,
+                'TRAMO' => $r['TRAMO'] !== null ? (string) $r['TRAMO'] : null,
+                'LOCALIDAD' => (string) $r['LOCALIDAD'],
+                'PROVINCIA' => $r['PROVINCIA'] !== null ? (string) $r['PROVINCIA'] : null,
+                '_k' => [$jornada, Slug::slugify((string) $r['LOCALIDAD']), (int) $r['ORDEN'], Slug::slugify((string) $r['HERMANDAD']), (int) $r['PASO_ORDEN']],
             ];
         }
         krsort($porAnio);
