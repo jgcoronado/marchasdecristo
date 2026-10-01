@@ -99,6 +99,8 @@ $router->get('/api/banda/{id}.json', [Api::class, 'banda']);
 $router->get('/api/disco/{id}.json', [Api::class, 'disco']);
 
 // og:image dinámica por entidad (M4): tarjeta social generada con GD y cacheada.
+$router->get('/og/{tipo}/{id}.jpg', [Og::class, 'render']);
+// URL antigua (PNG): la siguen pidiendo los enlaces ya compartidos.
 $router->get('/og/{tipo}/{id}.png', [Og::class, 'render']);
 
 // Verificación de IndexNow (C2): solo se registra si hay clave configurada.
