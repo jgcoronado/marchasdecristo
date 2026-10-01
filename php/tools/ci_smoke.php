@@ -632,14 +632,14 @@ $tests = [
         if (!str_contains($r['headers']['content-type'] ?? '', 'image/jpeg')) {
             throw new RuntimeException('/og/marcha/1.jpg → Content-Type no es image/jpeg');
         }
-        if (substr($r['body'], 0, 3) !== "ÿØÿ") {
+        if (substr($r['body'], 0, 3) !== "\xFF\xD8\xFF") {
             throw new RuntimeException('/og/marcha/1.jpg → el cuerpo no es un JPEG válido');
         }
     },
     'og de las 4 entidades 200 JPEG' => static function () use ($base): void {
         foreach (['autor/1', 'banda/1', 'disco/1'] as $ruta) {
             $r = httpGet($base . '/og/' . $ruta . '.jpg');
-            if ($r['status'] !== 200 || substr($r['body'], 0, 3) !== "ÿØÿ") {
+            if ($r['status'] !== 200 || substr($r['body'], 0, 3) !== "\xFF\xD8\xFF") {
                 throw new RuntimeException("/og/$ruta.jpg → no devolvió un JPEG 200 (status {$r['status']})");
             }
         }
