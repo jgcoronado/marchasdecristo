@@ -10,8 +10,7 @@ declare(strict_types=1);
  *   php app/tools/portadas_webp.php RUTA/cover --borrar-png # borra cada .png con su .webp válido
  *
  * La ruta se pasa a mano porque en el host el docroot (marchasdecristo.com/) no
- * cuelga de app/. Es idempotente: salta las que ya tienen .webp. Mientras
- * queden .png, el .htaccess sirve el .png al pedir el .webp.
+ * cuelga de app/. Es idempotente: salta las que ya tienen .webp.
  */
 
 $dir = $argv[1] ?? '';
