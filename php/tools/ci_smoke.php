@@ -622,25 +622,34 @@ $tests = [
     },
 
     // ── og:image dinámica por entidad (M4) ──────────────────────────────────
-    'og marcha .png generada' => static function () use ($base): void {
-        $r = httpGet($base . '/og/marcha/1.png');
+    // JPEG y no PNG: la caché private/og-cache pasó de 200 MB con PNG.
+    'og marcha .jpg generada' => static function () use ($base): void {
+        $r = httpGet($base . '/og/marcha/1.jpg');
         if ($r['status'] !== 200) {
-            throw new RuntimeException('/og/marcha/1.png → esperado 200, obtenido ' . $r['status']
+            throw new RuntimeException('/og/marcha/1.jpg → esperado 200, obtenido ' . $r['status']
                 . ' (¿GD/FreeType no cargado en el runner?)');
         }
-        if (!str_contains($r['headers']['content-type'] ?? '', 'image/png')) {
-            throw new RuntimeException('/og/marcha/1.png → Content-Type no es image/png');
+        if (!str_contains($r['headers']['content-type'] ?? '', 'image/jpeg')) {
+            throw new RuntimeException('/og/marcha/1.jpg → Content-Type no es image/jpeg');
         }
-        if (substr($r['body'], 0, 8) !== "\x89PNG\r\n\x1a\n") {
-            throw new RuntimeException('/og/marcha/1.png → el cuerpo no es un PNG válido');
+        if (substr($r['body'], 0, 3) !== "\xFF\xD8\xFF") {
+            throw new RuntimeException('/og/marcha/1.jpg → el cuerpo no es un JPEG válido');
         }
     },
-    'og de las 4 entidades 200 PNG' => static function () use ($base): void {
+    'og de las 4 entidades 200 JPEG' => static function () use ($base): void {
         foreach (['autor/1', 'banda/1', 'disco/1'] as $ruta) {
-            $r = httpGet($base . '/og/' . $ruta . '.png');
-            if ($r['status'] !== 200 || substr($r['body'], 0, 4) !== "\x89PNG") {
-                throw new RuntimeException("/og/$ruta.png → no devolvió un PNG 200 (status {$r['status']})");
+            $r = httpGet($base . '/og/' . $ruta . '.jpg');
+            if ($r['status'] !== 200 || substr($r['body'], 0, 3) !== "\xFF\xD8\xFF") {
+                throw new RuntimeException("/og/$ruta.jpg → no devolvió un JPEG 200 (status {$r['status']})");
             }
+        }
+    },
+    // Los enlaces compartidos antes del cambio apuntan a .png: deben seguir
+    // mostrando la tarjeta, no un 404.
+    'og URL .png antigua sigue sirviendo la tarjeta' => static function () use ($base): void {
+        $r = httpGet($base . '/og/marcha/1.png');
+        if ($r['status'] !== 200 || !str_contains($r['headers']['content-type'] ?? '', 'image/')) {
+            throw new RuntimeException('/og/marcha/1.png → la URL antigua ya no sirve la tarjeta (status ' . $r['status'] . ')');
         }
     },
     'og entidad inexistente → 302 a imagen de marca' => static function () use ($base): void {
@@ -653,7 +662,7 @@ $tests = [
         }
     },
     'og tipo desconocido → 404' => static fn() => assertStatus('/og/nope/1.png', 404, $base),
-    'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.png', $base),
+    'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.jpg', $base),
 ];
 
 // ── Secciones en maduración (App\Secciones) ─────────────────────────────────

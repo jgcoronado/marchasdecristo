@@ -164,7 +164,7 @@ if (!empty($meta['ancho'])) {
     <meta property="og:image" content="<?= $e($ogImage) ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:type" content="<?= str_ends_with($ogImage, '.jpg') ? 'image/jpeg' : 'image/png' ?>">
     <meta property="og:image:alt" content="<?= $e($ogImageAlt) ?>">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@JaviWarSVQ">

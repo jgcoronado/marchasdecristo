@@ -8,7 +8,7 @@ use Throwable;
 
 /**
  * Tarjetas sociales (og:image) dinámicas por entidad (M4). Ruta
- * /og/{tipo}/{id}.png. Replica el diseño de la og:image estática de marca
+ * /og/{tipo}/{id}.jpg (y la antigua .png). Replica el diseño de la og:image estática de marca
  * (fondo índigo noche, filete acento, serif) pero con el título, subtítulo y
  * tipo de la entidad. Se genera con GD/FreeType y se cachea a disco (una vez
  * por combinación de contenido); las siguientes peticiones sirven el fichero.
@@ -55,14 +55,14 @@ final class Og
 
         $hash = substr(sha1($tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub']), 0, 10);
         $cacheDir = dirname((string) ($GLOBALS['config']['db_path'] ?? '')) . '/og-cache';
-        $cacheFile = $cacheDir . '/' . $tipo . '-' . $id . '-' . $hash . '.png';
+        $cacheFile = $cacheDir . '/' . $tipo . '-' . $id . '-' . $hash . '.jpg';
 
         if (is_file($cacheFile)) {
             self::serveFile($cacheFile);
         }
 
         try {
-            $png = self::generar($datos);
+            $bytes = self::generar($datos);
         } catch (Throwable) {
             self::fallback();
         }
@@ -72,10 +72,15 @@ final class Og
             @mkdir($cacheDir, 0775, true);
         }
         if (is_dir($cacheDir) && is_writable($cacheDir)) {
-            @file_put_contents($cacheFile, $png);
+            // Una sola copia por ficha: al cambiar el contenido cambia el hash,
+            // y la versión anterior (o el PNG de antes de pasar a JPEG) sobra.
+            foreach (glob($cacheDir . '/' . $tipo . '-' . $id . '-*') ?: [] as $viejo) {
+                @unlink($viejo);
+            }
+            @file_put_contents($cacheFile, $bytes);
         }
 
-        self::serveBytes($png);
+        self::serveBytes($bytes);
     }
 
     private static function font(string $which): string
@@ -91,7 +96,7 @@ final class Og
 
     /**
      * @param array{overline:string,titulo:string,sub:string} $d
-     * @return string  bytes PNG
+     * @return string  bytes JPEG
      */
     private static function generar(array $d): string
     {
@@ -159,7 +164,7 @@ final class Og
         self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $cx, $footY + 26, 6, $faint);
 
         ob_start();
-        imagepng($img);
+        imagejpeg($img, null, 85);
         $bytes = (string) ob_get_clean();
         imagedestroy($img);
         return $bytes;
@@ -258,7 +263,7 @@ final class Og
 
     private static function serveFile(string $file): never
     {
-        header('Content-Type: image/png');
+        header('Content-Type: image/jpeg');
         Http::cachePublic(604800); // 7 días (el nombre incluye hash de contenido)
         header('Content-Length: ' . (string) filesize($file));
         readfile($file);
@@ -267,7 +272,7 @@ final class Og
 
     private static function serveBytes(string $bytes): never
     {
-        header('Content-Type: image/png');
+        header('Content-Type: image/jpeg');
         Http::cachePublic(604800);
         header('Content-Length: ' . (string) strlen($bytes));
         echo $bytes;
