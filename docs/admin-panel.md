@@ -545,24 +545,28 @@ alta escribe un fichero en el docroot.
 ### Portada
 
 Se sube en el mismo formulario (`enctype="multipart/form-data"`) y la guarda
-`Media::guardarPortada()` como `public/cover/{ID_DISCO}.png`, que es donde
+`Media::guardarPortada()` como `public/cover/{ID_DISCO}.webp`, que es donde
 `Html::coverSrc()` las busca. Tres decisiones que conviene no deshacer:
 
 - **El fichero no se mueve tal cual**: se descodifica con GD y se vuelve a
-  codificar a PNG. Eso normaliza el formato (entra JPEG/PNG/WebP/GIF, sale
-  siempre PNG) y descarta cualquier carga útil incrustada — un `.jpg` con PHP
+  codificar a WebP. Eso normaliza el formato (entra JPEG/PNG/WebP/GIF, sale
+  siempre WebP, ~8 veces más ligero que el PNG de antes) y descarta cualquier carga útil incrustada — un `.jpg` con PHP
   dentro deja de serlo al reencodificarlo.
 - **El tipo se decide por el contenido** (`getimagesize`), nunca por la
   extensión ni por el `Content-Type` del navegador, que el cliente controla.
   Además hay tope de bytes *y* de píxeles: una imagen de 20 000×20 000 pesa poco
   comprimida pero reventaría la memoria al descodificarla.
 - **Escritura atómica** (fichero temporal + `rename`): si el proceso muere a
-  medias, la portada anterior sigue intacta en vez de quedar un PNG truncado
+  medias, la portada anterior sigue intacta en vez de quedar un WebP truncado
   servido a todo el mundo.
 
 La portada se guarda **después** de crear el disco, porque el nombre del fichero
 es su ID. Si la subida falla, el disco ya existe: se avisa en la pantalla de
 edición en vez de deshacer el alta.
+
+Las portadas antiguas en `.png` se pasan a `.webp` con
+`app/tools/portadas_webp.php` (ver su cabecera); mientras quede algún `.png`,
+el `.htaccess` lo sirve al pedir el `.webp`.
 
 `public/cover/` está en `php/.gitignore`: las portadas viven solo en el
 servidor y el mirror del deploy excluye ese directorio

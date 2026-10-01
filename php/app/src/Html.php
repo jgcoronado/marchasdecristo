@@ -73,10 +73,10 @@ final class Html
     }
 
     // ── CoverImage ───────────────────────────────────────────────────────────
-    /** Los .png de las portadas solo viven en el docroot de producción (ver 'cover_base_url'). */
+    /** Los .webp de las portadas solo viven en el docroot de producción (ver 'cover_base_url'). */
     public static function coverSrc(int $idDisco): string
     {
-        return (string) ($GLOBALS['config']['cover_base_url'] ?? '') . '/cover/' . $idDisco . '.png';
+        return (string) ($GLOBALS['config']['cover_base_url'] ?? '') . '/cover/' . $idDisco . '.webp';
     }
 
     public static function cover(string $src, string $alt, string $class = ''): string
