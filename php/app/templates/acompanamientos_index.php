@@ -7,7 +7,9 @@
  *  $otras (fuera de Repo::ACOMP_LOCALIDADES_PRINCIPALES) llega vacía donde
  *  Secciones::ACOMPANAMIENTOS_OTRAS no está publicada.
  *  @var string $h1 @var list<array{LOCALIDAD:string,NOMBRE:string,N:int}> $localidades
- *  @var list<array{LOCALIDAD:string,NOMBRE:string,N:int}> $otras */
+ *  @var list<array{LOCALIDAD:string,NOMBRE:string,N:int}> $otras
+ *  @var array<string,list<array{LOCALIDAD:string,NOMBRE:string,N:int}>> $otrasPorProvincia
+ *       las mismas $otras por provincia ('' = sin provincia, la última) */
 $todas = array_merge($localidades, $otras);
 $max = $todas === [] ? 0 : max(array_map('intval', array_column($todas, 'N')));
 $lista = static function (array $filas) use ($max): void { ?>
@@ -40,6 +42,9 @@ $lista = static function (array $filas) use ($max): void { ?>
 
 <?php if ($otras !== []): ?>
     <div class="shead"><h2>Otras localidades</h2></div>
-<?php $lista($otras); ?>
+<?php foreach ($otrasPorProvincia as $prov => $filas): ?>
+    <h3><?= $prov === '' ? 'Sin provincia' : V::e((string) $prov) ?></h3>
+<?php $lista($filas); ?>
+<?php endforeach; ?>
 <?php endif; ?>
 </div>
