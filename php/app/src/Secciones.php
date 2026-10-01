@@ -30,7 +30,6 @@ final class Secciones
 {
     public const DEDICATORIAS = 'dedicatorias';
     public const ESTADO_CATALOGO = 'estado-catalogo';
-    public const MAPA = 'mapa';
     public const ACOMPANAMIENTOS = 'acompanamientos';
     public const ACOMPANAMIENTOS_OTRAS = 'acompanamientos-otras';
 
@@ -41,22 +40,8 @@ final class Secciones
      * @var array<string,string>
      */
     public const EN_MADURACION = [
-        // N-01/N-02 · La curación de advocaciones (alias, unificaciones,
-        // dedicatorias personales) sigue en marcha; hasta que el índice esté
-        // estable no se enseña fuera de local.
-        self::DEDICATORIAS => 'Dedicatorias',
-        // R-07 · El KPI de cobertura de audio se lee como una foto del estado
-        // real del catálogo: solo tiene sentido publicarlo cuando la campaña de
-        // audio (P1 · M2) haya dejado la cobertura en un número presentable.
-        self::ESTADO_CATALOGO => 'Estado del catálogo',
-        // N-10 · Pendiente de corregir el solape de dianas de clic entre
-        // municipios próximos (Castilleja de la Cuesta / Tomares).
-        self::MAPA => 'Mapa',
-        // Acompañamientos de localidades fuera de
-        // Repo::ACOMP_LOCALIDADES_PRINCIPALES ("Otras localidades"): se van
-        // cargando en local y no se enseñan (ni índice, ni su página, ni
-        // sitemap, ni ficha de banda) hasta que se decida publicarlas.
-        self::ACOMPANAMIENTOS_OTRAS => 'Acompañamientos · otras localidades',
+        // Vacía desde el 2026-10-01: dedicatorias, estado del catálogo y
+        // acompañamientos de otras localidades se publicaron en PRE y PRO.
     ];
 
     /** ¿Se muestra $seccion en este entorno? */

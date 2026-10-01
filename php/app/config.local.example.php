@@ -42,7 +42,7 @@ return [
     //                          // enlaces de Spotify; Apple Music y Deezer funcionan
     //                          // sin ellas. En el hosting no hay .env: ahí van aquí.
 
-    // 'secciones_publicadas' => ['mapa'], // secciones de App\Secciones::EN_MADURACION
+    // 'secciones_publicadas' => ['dedicatorias'], // secciones de App\Secciones::EN_MADURACION
     //                          // que este host enseña pese a no estar publicadas
     //                          // todavía. Sirve para sacarlas primero en PRE y
     //                          // validarlas antes de tocarlas en PRO. En local

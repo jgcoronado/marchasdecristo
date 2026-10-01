@@ -88,12 +88,11 @@ madurez (datos, curación o pulido) para enseñarlas fuera de local. **No se
 borran: se ocultan**, y se republican cuando toque. La lista, con el motivo de
 cada una, vive en `App\Secciones::EN_MADURACION`:
 
-| Sección | Rutas | Espera a… |
-|---|---|---|
-| Dedicatorias | `/dedicatorias`, `/dedicatoria/{slug-id}` | que la curación de advocaciones (alias, unificaciones) esté estable |
-| Estado del catálogo | `/estado-catalogo` | que la campaña de audio (P1 · M2) deje la cobertura en un número presentable |
-| Mapa | `/mapa`, `/mapa/provincia/{slug}` | corregir el solape de dianas de clic entre municipios próximos |
-| Temporada | `/temporada`, `/temporada/{año}` | que `contrato` tenga datos de calidad suficiente |
+**Desde el 2026-10-01 la lista está vacía**: dedicatorias, estado del catálogo
+y acompañamientos de otras localidades se publicaron en PRE y PRO a la vez
+(decisión del mantenedor), y se añadió `/acompanamientos` al `sitemap.xml`. El
+mapa (`/mapa`) no se publicó: se retiró del código ese mismo día por cambio de
+alcance (ver N-10 en [roadmap.md](roadmap.md), P3).
 
 Ocultar una sección la apaga a la vez en sus **cuatro superficies**: la ruta
 (404), el enlace del nav, el `sitemap.xml` y `llms.txt` — más los enlaces

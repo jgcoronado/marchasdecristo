@@ -203,7 +203,7 @@ $tests['feeds bien formados'] = static function () use ($base): void {
 $tests['secciones: lo anunciado responde 200 y lo oculto 404'] = static function () use ($base): void {
     $sitemap = get200('/sitemap.xml', $base)['body'];
     $home = get200('/', $base)['body'];
-    foreach (['/dedicatorias', '/estado-catalogo', '/mapa', '/temporada'] as $indice) {
+    foreach (['/dedicatorias', '/estado-catalogo', '/temporada'] as $indice) {
         $anunciada = str_contains($sitemap, '<loc>' . $base . $indice . '</loc>')
             || str_contains($home, 'href="' . $indice . '"');
         $status = httpGet($base . $indice)['status'];

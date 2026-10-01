@@ -9,9 +9,9 @@ declare(strict_types=1);
  *
  * Motivación: la carga histórica del catálogo dejó la misma localidad escrita
  * de formas distintas (p.ej. "Aguilar De La Frontera" / "Aguilar de la
- * Frontera"). App\Repo::hubLocalidades() ya las fusiona en tiempo de
- * petición para el mapa, pero el dato de origen sigue duplicado — esto lo
- * limpia en la propia BD.
+ * Frontera"). El /mapa (retirado el 2026-10-01) las fusionaba en tiempo de
+ * petición, pero el dato de origen sigue duplicado — esto lo limpia en la
+ * propia BD.
  *
  * Dos pasadas:
  *   1) Espacios: TRIM incondicional (sin esto, "Sevilla" y "Sevilla " con

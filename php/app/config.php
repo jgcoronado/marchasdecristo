@@ -74,7 +74,7 @@ $defaults = [
     // Las herramientas CLI no pasan por index.php, de ahí el defined().
     'preproduccion'      => defined('ENV_PREPRODUCCION') && ENV_PREPRODUCCION,
     // Secciones de App\Secciones::EN_MADURACION que ESTE host publica pese a
-    // no estar aún publicadas en general (lista de slugs, p.ej. ['mapa']). Es
+    // no estar aún publicadas en general (lista de slugs, p.ej. ['dedicatorias']). Es
     // el interruptor para enseñar una sección primero en PRE, validarla con
     // datos reales y publicarla luego en PRO sin desplegar código. Vacío = solo
     // se ven en local. Ver App\Secciones y docs/entornos.md.

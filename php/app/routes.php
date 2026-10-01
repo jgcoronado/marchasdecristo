@@ -65,9 +65,6 @@ $router->get('/aniversarios/{anio}', [Pages::class, 'aniversariosAnioHub']);
 // ── Estado del catálogo (R-07): KPI de cobertura de audio ────────────────────
 $router->get('/estado-catalogo', [Pages::class, 'estadoCatalogo']);
 
-// ── Mapa (N-10): coropleta SVG por provincia ──────────────────────────────────
-$router->get('/mapa', [Pages::class, 'mapa']);
-$router->get('/mapa/provincia/{slug}', [Pages::class, 'mapaProvincia']);
 
 // ── Acompañamientos (N-04, rehecho 2026-08-29): banda↔hermandad por localidad,
 // alta manual en bloque desde el panel (N-06, ingesta automática, pendiente) ──
