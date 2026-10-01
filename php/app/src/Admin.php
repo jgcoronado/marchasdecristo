@@ -1269,11 +1269,12 @@ final class Admin
      * Provincia → localidades; ambas en orden alfabético sin distinguir
      * tildes ("Écija" va con la E, no al final). Las que no tienen
      * provincia van en un grupo aparte (''), el último. Lo usan los índices
-     * de /dashboard/semana-santa y /dashboard/acompanamientos.
+     * de /dashboard/semana-santa y /dashboard/acompanamientos, y "Otras
+     * localidades" de /acompanamientos.
      * @param list<string> $localidades
      * @return array<string,list<string>>
      */
-    private static function localidadesPorProvincia(array $localidades): array
+    public static function localidadesPorProvincia(array $localidades): array
     {
         $porProvincia = NominaRepo::provinciasDeLocalidades();
         $cmp = static fn(string $a, string $b): int => strcmp(Db::noAcc($a), Db::noAcc($b)) ?: strcmp($a, $b);

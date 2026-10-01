@@ -939,6 +939,20 @@ final class Pages
             }
         }
         $localidades = array_values($localidades);
+        // "Otras localidades" agrupadas por provincia, como /dashboard/acompanamientos.
+        $otrasPorProvincia = [];
+        if ($otras !== []) {
+            $filas = array_column($otras, null, 'LOCALIDAD');
+            try {
+                $grupos = Admin::localidadesPorProvincia(array_keys($filas));
+            } catch (\Throwable $e) {
+                error_log('[acompanamientos] ' . $e->getMessage());
+                $grupos = ['' => array_keys($filas)];
+            }
+            foreach ($grupos as $prov => $ls) {
+                $otrasPorProvincia[(string) $prov] = array_map(static fn($l) => $filas[$l], $ls);
+            }
+        }
         $canonical = $base . '/acompanamientos';
         $h1 = 'Acompañamientos';
         $desc = 'Qué banda ha tocado cada año tras cada paso de Cristo, hermandad a hermandad — por localidad.';
@@ -948,6 +962,7 @@ final class Pages
             'h1' => $h1,
             'localidades' => $localidades,
             'otras' => $otras,
+            'otrasPorProvincia' => $otrasPorProvincia,
         ], [
             'title' => "$h1 — Marchas de Cristo",
             'description' => $desc,
