@@ -564,9 +564,9 @@ La portada se guarda **después** de crear el disco, porque el nombre del ficher
 es su ID. Si la subida falla, el disco ya existe: se avisa en la pantalla de
 edición en vez de deshacer el alta.
 
-Las portadas antiguas en `.png` se pasan a `.webp` con
-`app/tools/portadas_webp.php` (ver su cabecera); mientras quede algún `.png`,
-el `.htaccess` lo sirve al pedir el `.webp`.
+Las portadas antiguas en `.png` se pasaron a `.webp` con
+`app/tools/portadas_webp.php` el 2026-10-01 (398 portadas, 33,1 MB → 3,7 MB);
+en producción ya no queda ningún `.png`.
 
 `public/cover/` está en `php/.gitignore`: las portadas viven solo en el
 servidor y el mirror del deploy excluye ese directorio
