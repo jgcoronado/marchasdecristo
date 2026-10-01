@@ -18,7 +18,7 @@ final class Pages
 
     /**
      * Secciones aún no publicadas fuera de local (dedicatorias, estado del
-     * catálogo, mapa y acompañamientos): ver App\Secciones, que es donde se lista el
+     * catálogo y acompañamientos): ver App\Secciones, que es donde se lista el
      * porqué de cada una y desde donde se republican. Aquí solo se consulta,
      * en las cuatro superficies que hay que apagar a la vez: la ruta (404), el
      * nav (layout.php), el sitemap y llms.txt.
@@ -255,11 +255,6 @@ final class Pages
     public static function provinciaHubPath(string $provincia): string
     {
         return '/marcha/provincia/' . Slug::slugify($provincia);
-    }
-
-    public static function mapaProvinciaPath(string $provincia): string
-    {
-        return '/mapa/provincia/' . Slug::slugify($provincia);
     }
 
     /** Ruta del hub para un valor de BD ('CCTT'/'AM'), o null si no es un estilo conocido. */
@@ -917,91 +912,6 @@ final class Pages
         ]);
     }
 
-    // ── Mapa (N-10) ──────────────────────────────────────────────────────────
-    public static function mapa(): void
-    {
-        if (!self::seccionVisible(Secciones::MAPA)) {
-            Http::notFound();
-        }
-        $porProvincia = Repo::hubProvincias();
-        $svgMapa = Mapa::render($porProvincia);
-
-        $base = self::base();
-        $canonical = $base . '/mapa';
-        $desc = 'Mapa de España con el número de marchas procesionales del catálogo por provincia: pulsa una provincia para ver sus municipios.';
-
-        Http::cachePublic(3600);
-        View::render('mapa', [
-            'svgMapa' => $svgMapa,
-            // Ya viene ordenado N DESC (Repo::hubProvincias): la misma lista
-            // alimenta la tabla accesible bajo el mapa (sin JS ni SVG).
-            'porProvincia' => $porProvincia,
-        ], [
-            'title' => 'Mapa de provincias — Marchas de Cristo',
-            'description' => $desc,
-            'canonical' => $canonical,
-            'jsonld' => [
-                Seo::breadcrumbs([
-                    ['name' => 'Inicio', 'url' => $base],
-                    ['name' => 'Mapa', 'url' => $canonical],
-                ]),
-            ],
-        ]);
-    }
-
-    /** Mapa ampliado de una provincia: municipios clicables (self::mapaProvinciaPath). */
-    public static function mapaProvincia(array $p): void
-    {
-        if (!self::seccionVisible(Secciones::MAPA)) {
-            Http::notFound();
-        }
-        $raw = (string) $p['slug'];
-        $slug = Slug::slugify($raw);
-        $prov = null;
-        foreach (Repo::hubProvincias() as $r) {
-            if (Slug::slugify((string) $r['K']) === $slug) {
-                $prov = $r;
-                break;
-            }
-        }
-        if ($prov === null) {
-            Http::notFound();
-        }
-        if ($raw !== $slug) {
-            Http::redirect(self::mapaProvinciaPath((string) $prov['K']));
-        }
-        $nombre = (string) $prov['K'];
-
-        $porLocalidad = Repo::hubLocalidades($nombre);
-        $puntos = Mapa::puntos($porLocalidad);
-        $svgMapa = Mapa::renderProvincia($nombre, $puntos);
-        if ($svgMapa === null) {
-            Http::notFound();
-        }
-
-        $base = self::base();
-        $canonical = $base . self::mapaProvinciaPath($nombre);
-
-        Http::cachePublic(3600);
-        View::render('mapa_provincia', [
-            'svgMapa' => $svgMapa,
-            'provincia' => $nombre,
-            'porLocalidad' => $porLocalidad,
-            'total' => (int) $prov['N'],
-        ], [
-            'title' => 'Mapa de ' . $nombre . ' — Marchas de Cristo',
-            'description' => 'Localidades con marchas procesionales en la provincia de ' . $nombre . ': pulsa un municipio para ver su catálogo.',
-            'canonical' => $canonical,
-            'jsonld' => [
-                Seo::breadcrumbs([
-                    ['name' => 'Inicio', 'url' => $base],
-                    ['name' => 'Mapa', 'url' => $base . '/mapa'],
-                    ['name' => $nombre, 'url' => $canonical],
-                ]),
-            ],
-        ]);
-    }
-
     // ── Acompañamientos (N-04, rehecho 2026-08-29): históricos banda↔hermandad
     // por localidad y paso — reemplaza a /temporada, que agrupaba por año y
     // solo enseñaba una temporada cada vez. ─────────────────────────────────
@@ -1199,9 +1109,6 @@ final class Pages
         if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
             $urls[] = [$base . '/estado-catalogo', 'weekly', '0.6'];
         }
-        if (self::seccionVisible(Secciones::MAPA)) {
-            $urls[] = [$base . '/mapa', 'monthly', '0.6'];
-        }
 
         try {
             // Hubs de catálogo (C1): solo los que tienen sustancia (≥ HUB_MIN_MARCHAS).
@@ -1257,6 +1164,7 @@ final class Pages
         // App\Secciones): listar aquí una URL que el propio sitio responde
         // con 404 sería peor para el sitemap que omitirla.
         if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
+            $urls[] = [$base . '/acompanamientos', 'weekly', '0.6'];
             try {
                 foreach (Repo::acompanamientosLocalidades() as $r) {
                     if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS && self::localidadAcompVisible((string) $r['LOCALIDAD'])) {
@@ -1543,9 +1451,6 @@ final class Pages
         }
         if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
             $lines[] = '- [Estado del catálogo](' . $base . '/estado-catalogo)';
-        }
-        if (self::seccionVisible(Secciones::MAPA)) {
-            $lines[] = '- [Mapa](' . $base . '/mapa)';
         }
         if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
             $lines[] = '- [Acompañamientos](' . $base . '/acompanamientos)';

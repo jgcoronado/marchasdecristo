@@ -427,52 +427,6 @@ final class Repo
         );
     }
 
-    /**
-     * Localidades con marchas vivas, con recuento y su provincia, de más a
-     * menos marchas. Para el mapa por localidad (App\Mapa::puntos). Con
-     * $provincia, filtra a una sola provincia (mapa ampliado de provincia).
-     * @return list<array{LOCALIDAD:string,PROVINCIA:string,N:int}>
-     */
-    public static function hubLocalidades(?string $provincia = null): array
-    {
-        $where = "m.LOCALIDAD IS NOT NULL AND m.LOCALIDAD != ''
-               AND m.PROVINCIA IS NOT NULL AND m.PROVINCIA != ''
-               AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)";
-        $values = [];
-        if ($provincia !== null) {
-            $where .= ' AND m.PROVINCIA = ?';
-            $values[] = $provincia;
-        }
-        $rows = Db::all(
-            "SELECT m.LOCALIDAD, m.PROVINCIA, COUNT(*) AS N FROM marcha m
-             WHERE $where
-             GROUP BY m.LOCALIDAD, m.PROVINCIA",
-            $values
-        );
-
-        // Fusiona variantes de mayúsculas/acentos de una misma localidad —
-        // dato heredado sin capitalización consistente (p.ej. "Aguilar De La
-        // Frontera" y "Aguilar de la Frontera" en la misma provincia): sin
-        // esto, GROUP BY las trata como localidades distintas y el mapa
-        // acaba pintando dos puntos superpuestos en las mismas coordenadas
-        // (misma localidad real → mismo match en municipios_es.php), cada
-        // uno con su rótulo, ilegibles al solaparse.
-        $grupos = [];
-        foreach ($rows as $r) {
-            $key = Db::noAcc((string) $r['PROVINCIA']) . '|' . Db::noAcc((string) $r['LOCALIDAD']);
-            $grupos[$key]['provincia'] = $r['PROVINCIA'];
-            $grupos[$key]['total'] = ($grupos[$key]['total'] ?? 0) + (int) $r['N'];
-            $grupos[$key]['variantes'][$r['LOCALIDAD']] = (int) $r['N'];
-        }
-        $out = [];
-        foreach ($grupos as $g) {
-            arsort($g['variantes']);
-            $out[] = ['LOCALIDAD' => array_key_first($g['variantes']), 'PROVINCIA' => $g['provincia'], 'N' => $g['total']];
-        }
-        usort($out, static fn(array $a, array $b): int => $b['N'] <=> $a['N'] ?: strcmp((string) $a['LOCALIDAD'], (string) $b['LOCALIDAD']));
-        return $out;
-    }
-
     // ── Admin: cargadores en crudo (para formularios de edición) ─────────────
 
     /** Fila cruda de marcha (sin normalizar FECHA, sin filtrar por autores). */

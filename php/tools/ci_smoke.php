@@ -665,12 +665,9 @@ $tests = [
     'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.jpg', $base),
 ];
 
-// ── Secciones en maduración (App\Secciones) ─────────────────────────────────
-// Dedicatorias, estado del catálogo y mapa están terminadas pero no
-// se publican fuera de local hasta que maduren. Lo que se prueba depende del
-// entorno que simule el servidor, así que primero se confirma cuál es: si la
-// pasada corriera contra el entorno equivocado, el grupo entero comprobaría lo
-// contrario de lo que debe y pasaría igual.
+// ── Secciones (App\Secciones) ──────────────────────────────────────────────
+// Se confirma el entorno que simula el servidor: si una sección vuelve a
+// EN_MADURACION, las pruebas por entorno dependen de que esto sea cierto.
 $tests['health declara el entorno esperado por esta pasada'] = static function () use ($base, $modo): void {
     $esperado = 'entorno: ' . ($modo === 'local' ? 'local' : 'prod');
     $r = assertStatus('/health', 200, $base);
@@ -683,52 +680,12 @@ $tests['health declara el entorno esperado por esta pasada'] = static function (
 $secciones = [
     'dedicatorias'    => ['indice' => '/dedicatorias',    'internas' => ['/dedicatoria/hdad-de-los-gitanos-sevilla-1']],
     'estado-catalogo' => ['indice' => '/estado-catalogo', 'internas' => []],
-    'mapa'            => ['indice' => '/mapa',            'internas' => ['/mapa/provincia/sevilla']],
 ];
 
-if ($modo === 'pro') {
-    // Apagadas del todo: la ruta responde 404 y ninguna superficie las anuncia.
-    // Anunciar en el sitemap o en llms.txt una URL que el propio sitio responde
-    // con 404 es peor que no anunciarla.
-    foreach ($secciones as $slug => $s) {
-        $rutas = array_merge([$s['indice']], $s['internas']);
-        $tests["sección oculta en PRO: $slug → 404"] = static function () use ($base, $rutas): void {
-            foreach ($rutas as $ruta) {
-                assertStatus($ruta, 404, $base);
-            }
-        };
-        $tests["sección oculta en PRO: $slug fuera de nav, sitemap y llms.txt"] = static function () use ($base, $s): void {
-            $indice = $s['indice'];
-            $home = assertStatus('/', 200, $base)['body'];
-            if (str_contains($home, 'href="' . $indice . '"')) {
-                throw new RuntimeException("home → el nav no debería enlazar $indice mientras la sección está oculta");
-            }
-            // Ni el índice ni nada que cuelgue de él (fichas de dedicatoria,
-            // provincias del mapa, años de temporada).
-            if (anyUnder(sitemapPaths($base), $indice)) {
-                throw new RuntimeException("sitemap.xml → no debería listar $indice mientras la sección está oculta");
-            }
-            if (anyUnder(llmsPaths($base), $indice)) {
-                throw new RuntimeException("llms.txt → no debería listar $indice mientras la sección está oculta");
-            }
-        };
-    }
-    // Enlaces entrantes desde secciones que sí se publican: si el destino da
-    // 404, el enlace no puede quedarse puesto.
-    $tests['sección oculta en PRO: rankings no enlaza a estado-catalogo'] = static function () use ($base): void {
-        if (str_contains(assertStatus('/rankings', 200, $base)['body'], 'href="/estado-catalogo"')) {
-            throw new RuntimeException('/rankings → enlaza a /estado-catalogo, que está oculto (404)');
-        }
-    };
-    $tests['sección oculta en PRO: la home no sugiere dedicatorias'] = static function () use ($base): void {
-        if (str_contains(assertStatus('/', 200, $base)['body'], 'href="/dedicatorias"')) {
-            throw new RuntimeException('home → sugiere /dedicatorias, que está oculto (404)');
-        }
-    };
-} else {
-    // En local se ven enteras: es la única pasada donde se puede probar su
-    // contenido, así que aquí van las pruebas de verdad de cada una.
-    $tests['sección visible en local: todas responden 200'] = static function () use ($base, $secciones): void {
+{
+    // Publicadas en todos los entornos desde el 2026-10-01 (EN_MADURACION
+    // vacía): las dos pasadas comprueban lo mismo.
+    $tests['sección publicada: todas responden 200'] = static function () use ($base, $secciones): void {
         foreach ($secciones as $s) {
             $rutas = array_merge([$s['indice']], $s['internas']);
             foreach ($rutas as $ruta) {
@@ -736,16 +693,16 @@ if ($modo === 'pro') {
             }
         }
     };
-    $tests['sección visible en local: nav, sitemap y llms.txt las anuncian'] = static function () use ($base): void {
+    $tests['sección publicada: nav, sitemap y llms.txt las anuncian'] = static function () use ($base): void {
         $home = assertStatus('/', 200, $base)['body'];
-        foreach (['/dedicatorias', '/mapa'] as $indice) { // estado-catalogo no está en el nav
+        foreach (['/dedicatorias'] as $indice) { // estado-catalogo no está en el nav
             if (!str_contains($home, 'href="' . $indice . '"')) {
                 throw new RuntimeException("home → falta el enlace del nav a $indice");
             }
         }
         $sitemap = sitemapPaths($base);
         $llms = llmsPaths($base);
-        foreach (['/dedicatorias', '/estado-catalogo', '/mapa'] as $indice) {
+        foreach (['/dedicatorias', '/estado-catalogo'] as $indice) {
             if (!in_array($indice, $sitemap, true)) {
                 throw new RuntimeException("sitemap.xml → falta $indice");
             }
@@ -757,12 +714,26 @@ if ($modo === 'pro') {
         if (!anyUnder($sitemap, '/dedicatoria')) {
             throw new RuntimeException('sitemap.xml → faltan las fichas de dedicatoria');
         }
+        if (!in_array('/acompanamientos', $sitemap, true)) {
+            throw new RuntimeException('sitemap.xml → falta /acompanamientos');
+        }
     };
     $tests['dedicatorias: ficha con JSON-LD CollectionPage'] = static fn() => assertJsonLd('/dedicatoria/hdad-de-los-gitanos-sevilla-1', $base, 'CollectionPage');
     $tests['dedicatorias: ficha inexistente 404'] = static fn() => assertStatus('/dedicatoria/nada-999999', 404, $base);
     $tests['estado-catalogo: indexable'] = static fn() => assertNotNoIndex('/estado-catalogo', $base);
     $tests['estado-catalogo: rankings enlaza a él'] = static fn() => assertContains('/rankings', 'href="/estado-catalogo"', $base);
-    $tests['mapa: la provincia se enlaza desde el índice'] = static fn() => assertContains('/mapa', 'href="/mapa/provincia/sevilla"', $base);
+    // /mapa se retiró el 2026-10-01 (fuera de alcance a corto/medio plazo):
+    // si una ruta o un enlace vuelve a colarse sin querer, falla aquí.
+    $tests['mapa retirado: 404 y fuera de nav y sitemap'] = static function () use ($base): void {
+        assertStatus('/mapa', 404, $base);
+        assertStatus('/mapa/provincia/sevilla', 404, $base);
+        if (str_contains(assertStatus('/', 200, $base)['body'], 'href="/mapa"')) {
+            throw new RuntimeException('home → el nav sigue enlazando /mapa');
+        }
+        if (anyUnder(sitemapPaths($base), '/mapa')) {
+            throw new RuntimeException('sitemap.xml → sigue listando /mapa');
+        }
+    };
 }
 
 // Acompañamientos ya está publicada en todos los entornos: se prueba igual en

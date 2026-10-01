@@ -52,7 +52,6 @@ $nav = [
     '/dedicatorias' => 'Dedicatorias',
     '/rankings' => 'Estadísticas',
     '/aniversarios' => 'Aniversarios',
-    '/mapa' => 'Mapa',
     '/contacto' => 'Contacto',
 ];
 $nav = array_filter(
@@ -112,7 +111,7 @@ $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 // /acompanamientos salió el 26-09-2026 (índice y localidades): son listas de
 // una columna (hermandad + paso) y a 76rem dejaban franjas en blanco a los
 // lados de cada fila; a --wrap la fila llena la tarjeta.
-$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'buscar', 'mapa', 'estado-catalogo'];
+$rutasCatalogo = ['marcha', 'banda', 'disco', 'dedicatorias', 'aniversarios', 'buscar', 'estado-catalogo'];
 $fichasEntidad = ['marcha', 'autor', 'banda', 'disco'];
 $segs = array_values(array_filter(explode('/', trim($reqPath, '/')), static fn(string $x): bool => $x !== ''));
 $esCatalogo = $segs !== []
