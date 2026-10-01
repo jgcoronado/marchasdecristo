@@ -17,6 +17,12 @@ Options -MultiViews -Indexes
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
+    # TRANSITORIO (paso a WebP, 2026-09): mientras app/tools/portadas_webp.php
+    # no haya convertido una portada, /cover/N.webp sirve el N.png que queda.
+    # Quitar cuando cover/ ya no tenga .png.
+    RewriteCond %{DOCUMENT_ROOT}/cover/$1.png -f
+    RewriteRule ^cover/(\d+)\.webp$ cover/$1.png [L]
+
     # Todo lo demás → front controller.
     RewriteRule ^ index.php [L]
 </IfModule>

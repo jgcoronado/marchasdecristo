@@ -45,7 +45,7 @@ $maxMb = (int) round(Media::PORTADA_MAX_BYTES / 1024 / 1024);
             <label class="field-label" for="portada">Portada</label>
             <input class="input" id="portada" name="portada" type="file" accept="image/png,image/jpeg,image/webp">
             <p class="muted small field-help">PNG, JPG o WebP, hasta <?= $maxMb ?> MB. Se recorta al cuadrado
-                y se guarda como <code class="mono">/cover/{id}.png</code>, igual que el resto del catálogo.
+                y se guarda como <code class="mono">/cover/{id}.webp</code>, igual que el resto del catálogo.
                 Puedes subirla después desde la ficha del disco.</p>
         </div>
 

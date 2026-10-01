@@ -33,6 +33,7 @@ $erroresLegibles = [
     'PORTADA_NO_ES_IMAGEN' => 'El fichero de portada no es una imagen válida.',
     'PORTADA_DEMASIADO_GRANDE' => 'La portada supera el tamaño máximo (' . $maxMb . ' MB).',
     'PORTADA_DEMASIADO_PEQUENA' => 'La portada es demasiado pequeña (mínimo 50×50 px).',
+    'PORTADA_WEBP_NO_SOPORTADO' => 'El PHP del servidor no tiene soporte WebP en GD; no se puede guardar la portada.',
     'PORTADA_DIR_NO_ESCRIBIBLE' => 'No se puede escribir en la carpeta de portadas del servidor.',
     'PORTADA_ESCRITURA_FALLIDA' => 'No se pudo guardar la portada en el servidor.',
     'PORTADA_SUBIDA_FALLIDA' => 'La subida de la portada falló. Inténtalo de nuevo.',
@@ -123,7 +124,7 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
             <p class="muted small">Este disco todavía no tiene portada.</p>
 <?php endif; ?>
             <input class="input" id="portada" name="portada" type="file" accept="image/png,image/jpeg,image/webp">
-            <p class="muted small field-help">PNG, JPG o WebP, hasta <?= $maxMb ?> MB. Se recorta al cuadrado y se guarda como <code class="mono">/cover/<?= $id ?>.png</code>.</p>
+            <p class="muted small field-help">PNG, JPG o WebP, hasta <?= $maxMb ?> MB. Se recorta al cuadrado y se guarda como <code class="mono">/cover/<?= $id ?>.webp</code>.</p>
         </div>
 
         <div><button class="btn btn-neutral" type="submit">Guardar cambios</button></div>

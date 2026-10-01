@@ -104,18 +104,25 @@ final class Media
     /** Lado máximo de la portada guardada. Las fichas la pintan a 16rem. */
     private const PORTADA_LADO = 600;
 
-    /** Tope del fichero subido (los .png de producción rondan los 200 KB). */
+    /** Tope del fichero subido. */
     public const PORTADA_MAX_BYTES = 6 * 1024 * 1024;
 
-    /** Directorio donde viven las portadas: public/cover/{ID_DISCO}.png. */
+    /** Calidad WebP de la portada guardada: a 200 px pesa ~10 KB frente a ~80 KB en PNG. */
+    public const PORTADA_CALIDAD_WEBP = 80;
+
+    /**
+     * Directorio donde viven las portadas: {docroot}/cover/{ID_DISCO}.webp.
+     * PUBLIC_DIR y no una ruta relativa a app/: en el host el docroot
+     * (marchasdecristo.com/) es hermano de app/, no app/../public.
+     */
     public static function portadaDir(): string
     {
-        return dirname(__DIR__, 2) . '/public/cover';
+        return (defined('PUBLIC_DIR') ? PUBLIC_DIR : dirname(__DIR__, 2) . '/public') . '/cover';
     }
 
     public static function portadaPath(int $idDisco): string
     {
-        return self::portadaDir() . '/' . $idDisco . '.png';
+        return self::portadaDir() . '/' . $idDisco . '.webp';
     }
 
     public static function portadaExiste(int $idDisco): bool
@@ -124,11 +131,11 @@ final class Media
     }
 
     /**
-     * Guarda la portada subida como public/cover/{ID_DISCO}.png.
+     * Guarda la portada subida como public/cover/{ID_DISCO}.webp.
      *
      * El fichero NO se mueve tal cual: se descodifica con GD y se vuelve a
-     * codificar a PNG. Eso normaliza el formato (se aceptan JPEG/PNG/WebP/GIF y
-     * todos acaban en .png, que es lo que espera Html::coverSrc) y, de paso,
+     * codificar a WebP. Eso normaliza el formato (se aceptan JPEG/PNG/WebP/GIF y
+     * todos acaban en .webp, que es lo que espera Html::coverSrc) y, de paso,
      * descarta cualquier carga útil incrustada en el fichero original — un
      * .jpg con PHP dentro deja de serlo al reencodificarlo.
      *
@@ -144,6 +151,7 @@ final class Media
         $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) return 'PORTADA_DEMASIADO_GRANDE';
         if ($err !== UPLOAD_ERR_OK) return 'PORTADA_SUBIDA_FALLIDA';
+        if (!function_exists('imagewebp')) return 'PORTADA_WEBP_NO_SOPORTADO';
 
         $tmp = (string) ($file['tmp_name'] ?? '');
         if ($tmp === '' || !is_uploaded_file($tmp)) return 'PORTADA_SUBIDA_FALLIDA';
@@ -177,9 +185,9 @@ final class Media
         if (!is_writable($dir)) { imagedestroy($dst); return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
 
         // Escritura atómica: si el proceso muere a medias, la portada anterior
-        // sigue intacta en vez de quedar un PNG truncado servido a todo el mundo.
+        // sigue intacta en vez de quedar un WebP truncado servido a todo el mundo.
         $tmpOut = $dir . '/.' . $idDisco . '.' . bin2hex(random_bytes(4)) . '.tmp';
-        $guardado = imagepng($dst, $tmpOut, 6);
+        $guardado = imagewebp($dst, $tmpOut, self::PORTADA_CALIDAD_WEBP);
         imagedestroy($dst);
         if (!$guardado) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
         if (!@rename($tmpOut, self::portadaPath($idDisco))) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
