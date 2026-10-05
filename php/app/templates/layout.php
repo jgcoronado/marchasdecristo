@@ -50,7 +50,7 @@ $nav = [
     '/disco' => 'Discos',
     '/acompanamientos' => 'Acompañamientos',
     '/dedicatorias' => 'Dedicatorias',
-    '/rankings' => 'Estadísticas',
+    '/rankings' => 'Rankings',
     '/aniversarios' => 'Aniversarios',
     '/contacto' => 'Contacto',
 ];

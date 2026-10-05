@@ -19,7 +19,7 @@ $lista = static function (array $filas) use ($max): void { ?>
         <li><a class="acs-loc" href="/acompanamientos/<?= V::e(S::slugify((string) $l['LOCALIDAD'])) ?>">
             <span class="acs-loc-t"><?= V::e($l['NOMBRE']) ?></span>
             <span class="acs-loc-barra" aria-hidden="true"><i style="width:<?= $max > 0 ? round($n / $max * 100, 2) : 0 ?>%"></i></span>
-            <span class="acs-loc-n"><b><?= number_format($n, 0, ',', '.') ?></b> acompañamientos</span>
+            <span class="acs-loc-n"><b><?= number_format($n, 0, ',', '.') ?></b> <?= $n === 1 ? 'acompañamiento' : 'acompañamientos' ?></span>
         </a></li>
 <?php endforeach; ?>
         </ul>

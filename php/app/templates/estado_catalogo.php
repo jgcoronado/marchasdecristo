@@ -12,8 +12,8 @@ $nBandas = count($porBanda);
 
 <article class="record">
     <h1>Estado del catálogo</h1>
-    <p class="asiento">Cuántas marchas tienen ya una grabación enlazada para escuchar (audio propio o enlace de
-        streaming) y cuántas faltan todavía. Es la medida de cobertura de la campaña de audio del catálogo — se
+    <p class="asiento">Cuántas marchas tienen ya una grabación enlazada para escuchar (un vídeo de YouTube o un enlace
+        a una plataforma de streaming) y cuántas faltan todavía. Es la medida de cobertura de la campaña de audio del catálogo — se
         actualiza sola a medida que se revisan candidatos y se enlazan grabaciones, no hace falta rehacer este
         recuento a mano.</p>
 

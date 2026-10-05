@@ -38,8 +38,36 @@ final class Slug
         if ($safeId === '') {
             return "/{$page}";
         }
+        if ($page === 'banda') {
+            $label = self::nombresCompletosBanda()[(int) $safeId] ?? $label;
+        }
         $slug = self::slugify($label);
         return $slug !== '' ? "/{$page}/{$slug}-{$safeId}" : "/{$page}/{$safeId}";
+    }
+
+    /** @var array<int,string>|null */
+    private static ?array $nombresBanda = null;
+
+    /**
+     * ID_BANDA → NOMBRE_COMPLETO, una consulta por petición. La canónica de la
+     * ficha de banda sale de NOMBRE_COMPLETO (Pages::banda) y casi todos los
+     * listados solo traen NOMBRE_BREVE: sin esto enlazaban a /banda/am-…-ID y
+     * cada clic pasaba por un 308. Sin base de datos, se usa la etiqueta dada.
+     * @return array<int,string>
+     */
+    private static function nombresCompletosBanda(): array
+    {
+        if (self::$nombresBanda === null) {
+            self::$nombresBanda = [];
+            try {
+                foreach (Db::all('SELECT ID_BANDA, NOMBRE_COMPLETO FROM banda') as $r) {
+                    self::$nombresBanda[(int) $r['ID_BANDA']] = (string) ($r['NOMBRE_COMPLETO'] ?? '');
+                }
+            } catch (\Throwable $e) {
+                error_log('[slug banda] ' . $e->getMessage());
+            }
+        }
+        return self::$nombresBanda;
     }
 
     public static function extractId(string $slugAndId): ?string
