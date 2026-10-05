@@ -928,6 +928,9 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 }
 .welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; color: var(--muted-c); text-wrap: pretty; }
 .stack.home .welcome-text { text-align: center; }
+/* 404: misma cabecera que la portada, con la cifra encima en el serif de display. */
+.stack.error-page .welcome-text { text-align: center; }
+.error-code { font-family: var(--serif); font-size: clamp(3.5rem, 12vw, 5.5rem); font-weight: 600; line-height: 1; color: var(--faint); text-align: center; margin: 0 0 0.4rem; }
 /* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
    párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
    pasan a fila de cifras, con el número en serif al tamaño de un titular y la
