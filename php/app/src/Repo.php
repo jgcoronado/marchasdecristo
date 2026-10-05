@@ -1835,6 +1835,12 @@ final class Repo
         'domingo-de-resurreccion' => ['Domingo de Resurrección', 11],
     ];
 
+    /** Nombre de jornada con tildes ("Sabado de Pasion" → "Sábado de Pasión"); si no está en JORNADAS, tal cual. */
+    public static function nombreJornada(string $dia): string
+    {
+        return self::JORNADAS[Slug::slugify($dia)][0] ?? $dia;
+    }
+
     /**
      * Acompañamientos de una banda para su ficha: año → una fila por
      * hermandad (varios pasos o ida y vuelta el mismo año cuentan una vez),

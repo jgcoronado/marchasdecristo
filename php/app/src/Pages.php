@@ -992,6 +992,11 @@ final class Pages
                 return $provincia;
             }
         }
+        // Artículo pospuesto de algunas cargas ("Molares (Los)") en el orden
+        // en que se escriben las demás ("Los Palacios y Villafranca").
+        if (preg_match('/^(.+?)\s*\((El|La|Los|Las)\)$/u', $localidad, $m)) {
+            return $m[2] . ' ' . $m[1];
+        }
         return $localidad;
     }
 

@@ -56,7 +56,7 @@ final class AcompSerie
                 }
             }
             if ($hs !== []) {
-                $norm[] = ['nombre' => (string) $d['NOMBRE'], 'hermandades' => $hs];
+                $norm[] = ['nombre' => Repo::nombreJornada((string) $d['NOMBRE']), 'hermandades' => $hs];
             }
         }
         $hsFuera = [];
