@@ -117,6 +117,10 @@ $segs = array_values(array_filter(explode('/', trim($reqPath, '/')), static fn(s
 $esCatalogo = $segs !== []
     && in_array($segs[0], $rutasCatalogo, true)
     && !(count($segs) === 2 && in_array($segs[0], $fichasEntidad, true));
+// La ficha de autor va a ancho de catálogo (05-10-2026): su tabla de obra lleva
+// cinco columnas (marcha, año, banda y dedicatoria con localidad, grabaciones)
+// y a --wrap se partían en varias líneas. Las demás fichas siguen estrechas.
+$esCatalogo = $esCatalogo || (count($segs) === 2 && $segs[0] === 'autor');
 
 // La clase va en <body>, no en <main>: la cabecera y el pie tienen que
 // estrecharse y ensancharse con el contenido, o la marca y el menú dejan de

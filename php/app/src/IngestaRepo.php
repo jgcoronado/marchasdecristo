@@ -269,10 +269,12 @@ final class IngestaRepo
     }
 
     /**
-     * @param array{estado?:string,banda?:string,clasificacion?:string,disco?:string} $filters
-     * @return array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>}
+     * WHERE común a la lista y al <select> de bandas, para que ambos cuenten
+     * exactamente lo mismo.
+     * @param array{estado?:string,banda?:string,clasificacion?:string,disco?:string,fuente?:string} $filters
+     * @return array{0:string,1:list<mixed>}
      */
-    public static function listCandidatos(array $filters, int $page = 1, int $limit = 30): array
+    private static function whereCandidatos(array $filters): array
     {
         $conditions = [];
         $values = [];
@@ -298,7 +300,16 @@ final class IngestaRepo
             $conditions[] = 'c.FUENTE_ALBUM = ?';
             $values[] = (string) $filters['disco'];
         }
-        $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
+        return [$conditions !== [] ? implode(' AND ', $conditions) : '1=1', $values];
+    }
+
+    /**
+     * @param array{estado?:string,banda?:string,clasificacion?:string,disco?:string} $filters
+     * @return array{rowsReturned:int,totalRows:int,data:list<array<string,mixed>>}
+     */
+    public static function listCandidatos(array $filters, int $page = 1, int $limit = 30): array
+    {
+        [$where, $values] = self::whereCandidatos($filters);
 
         $countRow = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato c WHERE $where", $values);
         $total = (int) ($countRow['n'] ?? 0);
@@ -337,24 +348,19 @@ final class IngestaRepo
 
     /**
      * Bandas que tienen al menos un candidato (para el <select> de filtro),
-     * con el nº de candidatos que le corresponden (columna N). Si se pasa un
-     * $estado válido, solo cuenta/lista candidatos en ese estado — así el
-     * desplegable refleja la pestaña activa (p.ej. en Pendientes no aparecen
-     * bandas cuyo último pendiente se acaba de descartar, y el nº mostrado
-     * es justo lo que queda por resolver en esa banda).
+     * con el nº de candidatos que le corresponden (columna N), aplicando los
+     * mismos filtros activos que la lista (estado, fuente, clasificación,
+     * disco) — así el nº mostrado es justo lo que verá al elegir la banda.
      */
-    public static function bandasConCandidatos(?string $estado = null): array
+    public static function bandasConCandidatos(array $filters): array
     {
-        $where = '1=1';
-        $values = [];
-        if ($estado !== null && $estado !== '' && $estado !== 'todos' && in_array($estado, self::ESTADOS, true)) {
-            $where = 'c.ESTADO = ?';
-            $values[] = $estado;
-        }
+        // mismos filtros que la lista salvo la propia banda; los candidatos sin
+        // ID_BANDA (dmp) no se pueden filtrar por banda, así que no se ofrecen
+        [$where, $values] = self::whereCandidatos(['banda' => ''] + $filters);
         return Db::all(
             "SELECT c.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD, COUNT(*) AS N
              FROM ingest_candidato c LEFT JOIN banda b ON b.ID_BANDA = c.ID_BANDA
-             WHERE $where
+             WHERE $where AND c.ID_BANDA IS NOT NULL
              GROUP BY c.ID_BANDA
              ORDER BY b.NOMBRE_BREVE",
             $values

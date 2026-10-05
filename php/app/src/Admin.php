@@ -1768,7 +1768,7 @@ final class Admin
         if ($page > 1) $backParams['page'] = $page;
         View::render('admin/ingesta_list', [
             'session' => $session, 'filters' => $filters, 'page' => $page,
-            'result' => $result, 'bandas' => IngestaRepo::bandasConCandidatos($filters['estado']),
+            'result' => $result, 'bandas' => IngestaRepo::bandasConCandidatos($filters),
             'discos' => IngestaRepo::discosConCandidatos($filters['estado'], $filters['banda']),
             'counts' => IngestaRepo::counts(), 'backQs' => http_build_query($backParams),
             'ultimoDescarte' => IngestaRepo::ultimoDescarte(),

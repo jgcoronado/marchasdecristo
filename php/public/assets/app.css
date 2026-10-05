@@ -928,6 +928,9 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 }
 .welcome-text { margin: 0; font-size: 1.1rem; line-height: 1.6; color: var(--muted-c); text-wrap: pretty; }
 .stack.home .welcome-text { text-align: center; }
+/* 404: misma cabecera que la portada, con la cifra encima en el serif de display. */
+.stack.error-page .welcome-text { text-align: center; }
+.error-code { font-family: var(--serif); font-size: clamp(3.5rem, 12vw, 5.5rem); font-weight: 600; line-height: 1; color: var(--faint); text-align: center; margin: 0 0 0.4rem; }
 /* Las cuatro cifras del catálogo eran una línea de 0.88rem atenuada debajo del
    párrafo de bienvenida, repetida además en el pie. Son el activo del sitio:
    pasan a fila de cifras, con el número en serif al tamaño de un titular y la
@@ -965,6 +968,11 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .ultima-authors { display: block; font-size: 0.9rem; color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ultima-banda { display: block; font-size: 0.86rem; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ultima-date { font-size: 0.88rem; color: var(--faint); flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right; }
+/* Marcha del día: una sola fila con media columna de ancho; el título no se
+   recorta. Ocupa su propia línea y autor/banda + fecha bajan a la siguiente. */
+.marcha-dia .ultima-row { grid-template-columns: minmax(0, 1fr) auto; }
+.marcha-dia .ultima-title { grid-column: 1 / -1; white-space: normal; text-wrap: balance; }
+.marcha-dia .ultima-authors, .marcha-dia .ultima-banda { white-space: normal; }
 .firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
@@ -1058,6 +1066,8 @@ a.ln-name:hover { text-decoration: underline; }
 .collapse-title::after { content: "▾"; color: var(--faint); transition: transform 0.15s; }
 .collapse[open] .collapse-title::after { transform: rotate(180deg); }
 .collapse-content { padding: 0 0.85rem 0.85rem; font-size: 0.95rem; }
+/* El overflow:hidden recortaría los desplegables .suggest (formulario de acompañamientos). */
+.collapse:has(.suggest:not([hidden])) { overflow: visible; }
 /* Ficha de banda: una barra por año (30+ en las bandas veteranas), más juntas que el .stack general. */
 .acomp-anios { gap: 0.5rem; margin-top: 0.9rem; }
 .est-filter { margin: 0.75rem 0 0.5rem; }
