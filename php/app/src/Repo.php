@@ -570,8 +570,8 @@ final class Repo
             return null;
         }
         $marchas = Db::all(
-            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.DEDICATORIA, m.PROVINCIA,
-                    m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE,
+            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.DEDICATORIA, m.LOCALIDAD, m.PROVINCIA,
+                    m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE, b.LOCALIDAD AS BANDA_LOC,
                     (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB
              FROM marcha m
              INNER JOIN marcha_autor ma ON ma.ID_MARCHA = m.ID_MARCHA
