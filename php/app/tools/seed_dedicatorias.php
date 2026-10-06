@@ -162,6 +162,10 @@ try {
     $nuevasCanon = 0;
     $nuevosAlias = 0;
     foreach ($grupos as $clave => $g) {
+        // Grupo ya catalogado entero (p. ej. variantes movidas a otra canónica en el
+        // panel): no se crea su canónica, que nacería vacía.
+        $pendientes = array_filter($g['pares'], static fn(array $p): bool => !isset($yaExiste[$p[0] . "\x00" . $p[1]]));
+        if ($pendientes === []) continue;
         $idDedic = $canonPorClave[$clave] ?? null;
         if ($idDedic === null) {
             $nuevasCanon++;
