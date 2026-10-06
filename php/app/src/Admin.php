@@ -1689,6 +1689,30 @@ final class Admin
         echo json_encode(['estilo' => $row !== null ? (string) $row['ESTILO'] : null]);
     }
 
+    /**
+     * Hermandades de la nómina de Semana Santa de una localidad, para el
+     * desplegable de dedicatoria del formulario de marcha. Se compara sin
+     * tildes porque la nómina guarda algunas localidades sin ellas
+     * («Cordoba», «Malaga») y el formulario usa el nombre del municipio.
+     */
+    public static function hermandadesPorLocalidad(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (Auth::currentSession() === null) {
+            http_response_code(401);
+            echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
+            return;
+        }
+        $loc = trim((string) ($_GET['localidad'] ?? ''));
+        if ($loc === '') { echo json_encode(['data' => []]); return; }
+        $rows = Db::all(
+            'SELECT NOMBRE FROM hermandad WHERE NOACC(LOCALIDAD) = ? ORDER BY NOACC(NOMBRE) ASC',
+            [Db::noAcc($loc)]
+        );
+        echo json_encode(['data' => array_column($rows, 'NOMBRE')], JSON_UNESCAPED_UNICODE);
+    }
+
     // ── Dedicatorias: curación de advocaciones (hubs N-01 / N-02) ────────────
     public static function dedicatoriasList(): void
     {

@@ -206,9 +206,16 @@
 
     function close() { suggest.hidden = true; suggest.innerHTML = ''; }
 
-    function setChosen(id, label) {
+    // El estilo de la marcha se deduce del tipo de banda, que va como prefijo
+    // del nombre breve: «AM …» → AM, «BCT …» → CCTT.
+    const estiloSel = document.getElementById('ESTILO');
+    const ESTILO_POR_PREFIJO = { AM: 'AM', BCT: 'CCTT' };
+
+    function setChosen(id, label, nombreBreve) {
         hidden.value = id;
         search.value = label + ' (#' + id + ')';
+        const estilo = ESTILO_POR_PREFIJO[String(nombreBreve || '').split(' ')[0]];
+        if (estiloSel && estilo) estiloSel.value = estilo;
         close();
         search.focus();
     }
@@ -244,7 +251,7 @@
                     b.type = 'button';
                     b.className = 'suggest-item';
                     b.textContent = label;
-                    b.addEventListener('click', () => setChosen(r.ID_BANDA, label));
+                    b.addEventListener('click', () => setChosen(r.ID_BANDA, label, r.NOMBRE_BREVE));
                     suggest.appendChild(b);
                 });
                 suggest.hidden = false;
@@ -254,6 +261,61 @@
 
     document.addEventListener('mousedown', (e) => {
         if (!suggest.contains(e.target) && e.target !== search) close();
+    });
+})();
+
+/* Dedicatoria del formulario de marcha: al escribir «hdad» se despliegan las
+   hermandades de la Semana Santa de la localidad elegida (lo que siga a «hdad»
+   filtra la lista). Elegir una deja «Hdad <nombre>», el formato del catálogo;
+   cualquier otro texto se guarda tal cual. */
+(function () {
+    const input   = document.getElementById('DEDICATORIA');
+    const suggest = document.getElementById('dedicatoriaSuggest');
+    const locInput = document.getElementById('LOCALIDAD');
+    if (!input || !suggest || !locInput) return;
+
+    function close() { suggest.hidden = true; suggest.innerHTML = ''; }
+    const noAcc = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+    const cache = {};
+    async function hermandades(localidad) {
+        if (!cache[localidad]) {
+            cache[localidad] = fetch('/api/hermandad/porLocalidad?localidad=' + encodeURIComponent(localidad),
+                { credentials: 'same-origin' })
+                .then((res) => res.json())
+                .then((data) => (Array.isArray(data.data) ? data.data : []))
+                .catch(() => { delete cache[localidad]; return []; });
+        }
+        return cache[localidad];
+    }
+
+    input.addEventListener('input', async () => {
+        const m = input.value.match(/^\s*hdad\.?\s*(.*)$/i);
+        const localidad = locInput.value.trim();
+        if (!m || localidad === '') { close(); return; }
+        const filtro = noAcc(m[1].trim());
+        const valorPedido = input.value;
+        const nombres = (await hermandades(localidad)).filter((n) => noAcc(n).includes(filtro));
+        if (input.value !== valorPedido) return; // se siguió escribiendo
+        if (!nombres.length) { close(); return; }
+        suggest.innerHTML = '';
+        nombres.forEach((n) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'suggest-item';
+            b.textContent = n;
+            b.addEventListener('click', () => {
+                input.value = 'Hdad ' + n;
+                close();
+                input.focus();
+            });
+            suggest.appendChild(b);
+        });
+        suggest.hidden = false;
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        if (!suggest.contains(e.target) && e.target !== input) close();
     });
 })();
 
