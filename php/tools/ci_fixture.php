@@ -39,7 +39,7 @@ CREATE TABLE banda (
   FORMACION_ANT INTEGER, FORMACION_SIG INTEGER
 );
 CREATE TABLE disco (
-  ID_DISCO INTEGER PRIMARY KEY, NOMBRE_CD TEXT, FECHA_CD TEXT,
+  ID_DISCO INTEGER PRIMARY KEY, NOMBRE_CD TEXT, FECHA_CD INTEGER,
   BANDADISCO INTEGER, d_DETALLES TEXT,
   -- Intro de percusión del disco (espejo de migrate_ingest.php). Repo::marcha
   -- las lee en la consulta de grabaciones: si faltan aquí, la ficha de marcha

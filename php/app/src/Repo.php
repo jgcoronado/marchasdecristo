@@ -144,7 +144,7 @@ final class Repo
              INNER JOIN disco_marcha dm ON dm.ID_DISCO = d.ID_DISCO
              LEFT OUTER JOIN banda b  ON b.ID_BANDA  = d.BANDADISCO
              LEFT OUTER JOIN banda bi ON bi.ID_BANDA = dm.DM_BANDA
-             WHERE dm.IDMARCHA = ? ORDER BY CAST(d.FECHA_CD AS REAL) ASC, d.NOMBRE_CD ASC",
+             WHERE dm.IDMARCHA = ? ORDER BY d.FECHA_CD ASC, d.NOMBRE_CD ASC",
             [$id]
         );
         $marcha['discosLength'] = count($discos);
@@ -152,7 +152,7 @@ final class Repo
 
         $primera = null;
         foreach ($discos as $d) {
-            $y = (int) (float) ($d['FECHA_CD'] ?? 0);
+            $y = (int) ($d['FECHA_CD'] ?? 0);
             if ($y > 1800 && ($primera === null || $y < $primera)) $primera = $y;
         }
         $marcha['PRIMERA_GRABACION'] = $primera;
@@ -476,7 +476,7 @@ final class Repo
                        INNER JOIN disco d ON d.ID_DISCO = dm.ID_DISCO
                        LEFT OUTER JOIN banda bg ON bg.ID_BANDA = COALESCE(dm.DM_BANDA, d.BANDADISCO)
                       WHERE dm.IDMARCHA = m.ID_MARCHA
-                      ORDER BY CAST(d.FECHA_CD AS REAL) ASC, d.NOMBRE_CD ASC LIMIT 1) AS PRIMERA_GRAB_BANDA
+                      ORDER BY d.FECHA_CD ASC, d.NOMBRE_CD ASC LIMIT 1) AS PRIMERA_GRAB_BANDA
              FROM marcha m
              LEFT OUTER JOIN banda be ON be.ID_BANDA = m.BANDA_ESTRENO
              WHERE $where
@@ -701,9 +701,7 @@ final class Repo
         $nacHasta = $exclude !== 'nacHasta' ? self::normalizeAnio((string) ($params['nacHasta'] ?? '')) : null;
         if ($nacHasta !== null) { $conditions[] = 'a.F_NAC <= ?'; $values[] = $nacHasta; }
 
-        // Sentinelas heredados de la era MySQL: F_DEF llega como 0 cuando no
-        // hay fecha de defunción (mismo patrón que FECHA_FUND/FECHA_EXT de banda).
-        if ($on('fallecido')) { $conditions[] = '(a.F_DEF IS NOT NULL AND a.F_DEF != 0)'; }
+        if ($on('fallecido')) { $conditions[] = 'a.F_DEF IS NOT NULL'; }
 
         if ($on('minMarchas') && ctype_digit((string) $params['minMarchas'])) {
             $conditions[] = '(SELECT COUNT(*) FROM marcha_autor ma3 WHERE ma3.ID_AUTOR = a.ID_AUTOR) > ?';
@@ -1092,7 +1090,7 @@ final class Repo
         if ($nombre !== '') { $conditions[] = 'NOACC(d.NOMBRE_CD) LIKE ?'; $values[] = '%' . Db::noAcc($nombre) . '%'; }
         if ($exclude !== 'decada' && !empty($params['decada'])) {
             $d0 = (int) $params['decada'];
-            $conditions[] = 'CAST(d.FECHA_CD AS INTEGER) BETWEEN ? AND ?';
+            $conditions[] = 'd.FECHA_CD BETWEEN ? AND ?';
             $values[] = $d0; $values[] = $d0 + 9;
         }
         $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
@@ -1100,7 +1098,7 @@ final class Repo
     }
 
     /** Columnas ordenables del explorador de discos: clave pública → SQL. */
-    private const DISCO_ORDEN = ['nombre' => 'd.NOMBRE_CD', 'banda' => 'b.NOMBRE_BREVE', 'anio' => 'CAST(d.FECHA_CD AS INTEGER)'];
+    private const DISCO_ORDEN = ['nombre' => 'd.NOMBRE_CD', 'banda' => 'b.NOMBRE_BREVE', 'anio' => 'd.FECHA_CD'];
 
     public static function searchDiscos(string $query, int $page = 1, int $limit = 20): array
     {
@@ -1140,8 +1138,8 @@ final class Repo
     {
         parse_str($query, $params);
         [$w, $v] = self::discoWhere($params, 'decada');
-        $dec = Db::all("SELECT (CAST(d.FECHA_CD AS INTEGER) / 10) * 10 AS K, COUNT(*) AS N FROM disco d
-                        WHERE $w AND CAST(d.FECHA_CD AS INTEGER) > 1900
+        $dec = Db::all("SELECT (d.FECHA_CD / 10) * 10 AS K, COUNT(*) AS N FROM disco d
+                        WHERE $w AND d.FECHA_CD > 1900
                         GROUP BY K ORDER BY K DESC LIMIT 10", $v);
         return ['decada' => $dec];
     }
@@ -1306,7 +1304,7 @@ final class Repo
                     [$id]
                 );
                 if ($r === null) return null;
-                $anio = (!empty($r['FECHA_CD'])) ? (int) (float) $r['FECHA_CD'] : null;
+                $anio = (!empty($r['FECHA_CD'])) ? (int) $r['FECHA_CD'] : null;
                 $sub = trim(((string) ($r['BANDA'] ?? '')) . ($anio ? ' · ' . $anio : ''), ' ·');
                 return ['overline' => 'Disco', 'titulo' => (string) $r['NOMBRE_CD'], 'sub' => $sub];
         }

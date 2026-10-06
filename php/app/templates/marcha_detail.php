@@ -162,7 +162,7 @@ $ordenable = count($m['discos']) > 2; ?>
         </tr></thead>
         <tbody>
 <?php foreach ($m['discos'] as $d):
-    $anio = (int) (float) ($d['FECHA_CD'] ?? 0);
+    $anio = (int) ($d['FECHA_CD'] ?? 0);
 ?>
             <tr>
                 <td><?= $anio > 1800 ? $anio : '—' ?></td>

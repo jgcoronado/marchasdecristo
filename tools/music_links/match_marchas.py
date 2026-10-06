@@ -54,7 +54,7 @@ def main():
         for srv, (sc, cand) in best_by_srv.items():
             conf = 'ALTA' if sc >= 0.6 else ('MEDIA' if sc >= 0.45 else 'BAJA')
             db_rows.append(('marcha', mid, srv, cand['url'], cand['id_ext'], cand['title'],
-                            cand['artist'], cand.get('year') or '', sc, conf))
+                            cand['artist'], cand.get('year') or None, sc, conf))
         if (i + 1) % 50 == 0:
             print(f'  ...{i+1}/{len(marchas)} marchas', file=sys.stderr)
 

@@ -4,7 +4,7 @@ $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
 $did = (int) $d['ID_DISCO'];
-$anio = (int) (float) ($d['FECHA_CD'] ?? 0);
+$anio = (int) ($d['FECHA_CD'] ?? 0);
 $multi = (int) $d['DISCOS'] > 1;
 $nP = (int) $d['marchasLength'];
 $coverSrc = H::coverSrc($did);

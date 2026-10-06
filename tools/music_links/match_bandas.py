@@ -47,7 +47,7 @@ def main():
         for srv, (sc, cand, compartidos, reforzado) in best_by_srv.items():
             fiable = compartidos >= 2 or reforzado
             conf = 'ALTA' if (sc >= 0.6 and fiable) else ('MEDIA' if sc >= 0.4 else 'BAJA')
-            db_rows.append(('banda', bid, srv, cand['url'], cand['id_ext'], cand['name'], '', '', sc, conf))
+            db_rows.append(('banda', bid, srv, cand['url'], cand['id_ext'], cand['name'], '', None, sc, conf))
         if (idx + 1) % 20 == 0:
             print(f'  ...{idx+1}/{len(bandas)} bandas', file=sys.stderr)
 

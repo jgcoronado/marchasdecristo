@@ -301,7 +301,7 @@ final class Html
         $fund = (int) ($banda['FECHA_FUND'] ?? 0);
         $ext = $banda['FECHA_EXT'] ?? null;
         $path = Slug::buildDetailPath('banda', $banda['ID_BANDA'], (string) $banda['NOMBRE_BREVE']);
-        $endLabel = ($ext !== null && (int) $ext !== 0) ? self::e($ext) : 'Hoy';
+        $endLabel = $ext !== null ? self::e($ext) : 'Hoy';
 
         $out = '<ul class="timeline">';
         $out .= '<li><span class="tl-date">' . ($fund > 1800 ? $fund : 's/f') . '</span>'
@@ -309,7 +309,7 @@ final class Html
             . '<span class="tl-box"><a class="link" href="' . self::e($path) . '">' . self::e($banda['NOMBRE_BREVE']) . '</a></span></li>';
         $out .= '<li><span class="tl-date">' . $endLabel . '</span>'
             . '<span class="tl-dot"></span>'
-            . (($ext !== null && (int) $ext !== 0) ? '<span class="tl-box">Desaparece la banda</span>' : '') . '</li>';
+            . ($ext !== null ? '<span class="tl-box">Desaparece la banda</span>' : '') . '</li>';
         return $out . '</ul>';
     }
 
@@ -320,7 +320,7 @@ final class Html
 
     private static function lnYear(mixed $v): int
     {
-        return ($v !== null && $v !== '') ? (int) (float) $v : 0;
+        return (int) $v;
     }
 
     /** "1978–1986", "1991–", "s/f–2000"… */

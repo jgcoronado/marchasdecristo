@@ -6,8 +6,8 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
 /** "1978–1986", "1996–hoy", "s/f–2000"… */
 $yrs = static function ($fund, $ext): string {
-    $f = (int) (float) ($fund ?? 0);
-    $e = (int) (float) ($ext ?? 0);
+    $f = (int) ($fund ?? 0);
+    $e = (int) ($ext ?? 0);
     return ($f > 1800 ? $f : 's/f') . '–' . ($e > 1800 ? $e : 'hoy');
 };
 
@@ -18,8 +18,8 @@ $yrsDe = static fn(array $n): string => isset($etapasMap[(int) $n['ID']])
     : $yrs($n['FUND'], $n['EXT']);
 
 $bid = (int) $b['ID_BANDA'];
-$fund = (int) (float) ($b['FECHA_FUND'] ?? 0);
-$ext = (int) (float) ($b['FECHA_EXT'] ?? 0);
+$fund = (int) ($b['FECHA_FUND'] ?? 0);
+$ext = (int) ($b['FECHA_EXT'] ?? 0);
 $estrenos = $b['ESTRENOS_MAP'] ?? [];
 $nEst = (int) ($estrenos[$bid] ?? $b['marchasLength']);
 
@@ -46,7 +46,7 @@ $sucesoras = [];
 if ($lin !== null) {
     foreach ($lin['down'] as $lvl) {
         foreach ($lvl as $n) {
-            $sucesoras[] = [(int) (float) ($n['FUND'] ?? 0), ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrsDe($n), $estrenos[(int) $n['ID']] ?? null]];
+            $sucesoras[] = [(int) ($n['FUND'] ?? 0), ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrsDe($n), $estrenos[(int) $n['ID']] ?? null]];
         }
     }
 }
@@ -180,7 +180,7 @@ $nAcomp = array_sum(array_map('count', $acomp));
             <th class="num" data-type="num">Pistas <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
-<?php foreach ($b['discos'] as $d): $anio = (int) (float) ($d['FECHA_CD'] ?? 0); ?>
+<?php foreach ($b['discos'] as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
             <tr>
                 <td><?= $anio > 1800 ? $anio : '—' ?></td>
                 <td><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></td>
@@ -219,7 +219,7 @@ $nAcomp = array_sum(array_map('count', $acomp));
 <?php foreach ($b['marchas'] as $m): ?>
             <tr>
                 <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td><?= $t($m['FECHA']) ? (int) (float) $m['FECHA'] : '—' ?></td>
+                <td><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '—' ?></td>
                 <td>
 <?php foreach ($m['AUTOR'] as $a): ?>
                     <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>

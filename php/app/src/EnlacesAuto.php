@@ -284,8 +284,8 @@ final class EnlacesAuto
         // EnlaceRepo::versionDeAnio): un corte de un CD de 1996 de una marcha de
         // 1990 es de época; el mismo título en un disco de 2020, no.
         $anioDisco = Db::one('SELECT FECHA_CD FROM disco WHERE ID_DISCO = ?', [$idDisco]);
-        $anioGrab = ($anioDisco !== null && (int) (float) $anioDisco['FECHA_CD'] > 1800)
-            ? (int) (float) $anioDisco['FECHA_CD'] : null;
+        $anioGrab = ($anioDisco !== null && (int) $anioDisco['FECHA_CD'] > 1800)
+            ? (int) $anioDisco['FECHA_CD'] : null;
 
         // Qué servicios tiene ya cada marcha: una marcha vive en varios discos,
         // así que puede venir enlazada de otro.

@@ -278,6 +278,7 @@ final class AdminRepo
         foreach ($keys as $k) {
             if (!in_array($k, self::EDITABLE_AUTOR, true)) return ['code' => 'BAD_REQUEST'];
         }
+        if (!self::aniosAutorValidos(array_combine($keys, $values))) return ['code' => 'INVALID_FECHA'];
         $set = implode(', ', array_map(static fn(string $k): string => "$k = ?", $keys));
         Db::run("UPDATE autor SET $set WHERE ID_AUTOR = ?", [...$values, $autorId]);
         Db::logAdmin('UPDATE', 'autor', $autorId, ['keysToUpdate' => $keys, 'valuesToUpdate' => $values]);
@@ -292,12 +293,22 @@ final class AdminRepo
     public static function addAutor(array $autor): array
     {
         $values = array_map(static fn(string $f) => self::normalize($autor[$f] ?? null), self::EDITABLE_AUTOR);
+        if (!self::aniosAutorValidos(array_combine(self::EDITABLE_AUTOR, $values))) return ['code' => 'INVALID_FECHA'];
         $ph = implode(', ', array_fill(0, count(self::EDITABLE_AUTOR), '?'));
         Db::run('INSERT INTO autor (' . implode(', ', self::EDITABLE_AUTOR) . ") VALUES ($ph)", $values);
         $autorId = Db::lastInsertId();
         if (!$autorId) return ['code' => 'INTERNAL_ERROR'];
         Db::logAdmin('INSERT', 'autor', $autorId);
         return ['code' => 'CREATED', 'autorId' => $autorId];
+    }
+
+    /** F_NAC / F_DEF: vacío o año de 4 cifras, como las fechas de banda. @param array<string,mixed> $campos */
+    private static function aniosAutorValidos(array $campos): bool
+    {
+        foreach (['F_NAC', 'F_DEF'] as $f) {
+            if (($campos[$f] ?? null) !== null && !preg_match('/^\d{4}$/', (string) $campos[$f])) return false;
+        }
+        return true;
     }
 
     // ── editBanda ──────────────────────────────────────────────────────────
@@ -328,7 +339,7 @@ final class AdminRepo
         if ((array_key_exists('FECHA_FUND', $safe) || array_key_exists('FECHA_EXT', $safe)) && Repo::bandaEtapas($bandaId) !== []) {
             foreach (['FECHA_FUND', 'FECHA_EXT'] as $f) {
                 if (!array_key_exists($f, $safe)) continue;
-                if ((int) (float) ($safe[$f] ?? 0) !== (int) (float) ($actual[$f] ?? 0)) return ['code' => 'FECHAS_POR_ETAPAS'];
+                if ((int) ($safe[$f] ?? 0) !== (int) ($actual[$f] ?? 0)) return ['code' => 'FECHAS_POR_ETAPAS'];
                 unset($safe[$f]);
             }
             if ($safe === []) return ['code' => 'UPDATED'];
@@ -404,9 +415,8 @@ final class AdminRepo
         return Db::transaction(static function () use ($idBanda, $banda, $iIni, $iFin, $nota): array {
             $etapas = Repo::bandaEtapas($idBanda);
             if ($etapas === []) {
-                // Datos heredados guardan "1992.0": se toma la parte entera.
-                $fund = (int) (float) ($banda['FECHA_FUND'] ?? 0);
-                $ext = (int) (float) ($banda['FECHA_EXT'] ?? 0);
+                $fund = (int) ($banda['FECHA_FUND'] ?? 0);
+                $ext = (int) ($banda['FECHA_EXT'] ?? 0);
                 if ($fund > 1800) {
                     $etapas[] = ['ANIO_INICIO' => $fund, 'ANIO_FIN' => $ext > 1800 ? $ext : null, 'semilla' => true];
                 }
@@ -1080,7 +1090,7 @@ final class AdminRepo
         // Versión (original / actual) derivada del año que devolvió el servicio
         // frente al año de la marcha. Solo aplica a marchas: para banda y disco
         // el concepto no significa nada y todo se queda en 'actual'.
-        $anio = ($c['ANIO_ENC'] ?? '') !== '' ? (int) (float) $c['ANIO_ENC'] : null;
+        $anio = ($c['ANIO_ENC'] ?? '') !== '' ? (int) $c['ANIO_ENC'] : null;
         $version = $c['TIPO_ENT'] === 'marcha'
             ? EnlaceRepo::versionDeAnio($anio, EnlaceRepo::anioDeMarcha((int) $c['ID_ENT']))
             : 'actual';
@@ -1565,7 +1575,7 @@ final class AdminRepo
         foreach (self::EDITABLE_DISCO as $f) {
             if (array_key_exists($f, $disco)) $safe[$f] = self::normalize($disco[$f]);
         }
-        // FECHA_CD es TEXT en el esquema heredado, pero solo guarda años.
+        // FECHA_CD: año de 4 cifras (la columna lo exige con un CHECK, ver tools/normalizar_anios.php).
         if (($safe['FECHA_CD'] ?? null) !== null && preg_match('/^\d{4}$/', (string) $safe['FECHA_CD']) !== 1) {
             return ['code' => 'INVALID_FECHA'];
         }

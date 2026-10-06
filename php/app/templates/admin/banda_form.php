@@ -34,11 +34,7 @@ $acompMunicipio = static function (string $pref) use ($provincias): string {
 $id = (int) $banda['ID_BANDA'];
 
 // Los años se guardan como "1980.0" en datos heredados; se muestran como año limpio.
-$val = static function (string $k) use ($banda): string {
-    $v = (string) ($banda[$k] ?? '');
-    if (in_array($k, ['FECHA_FUND', 'FECHA_EXT'], true)) $v = preg_replace('/\.0+$/', '', $v) ?? $v;
-    return V::e($v);
-};
+$val = static fn(string $k): string => V::e((string) ($banda[$k] ?? ''));
 
 $fields = [
     ['NOMBRE_BREVE', 'Nombre breve', 'text'],

@@ -466,7 +466,7 @@ foreach ($discos as $d) {
                     if ($commit) {
                         $stCand->execute([
                             'disco', $idDisco, $srv, $hit['url'], (string) $hit['id'],
-                            (string) $hit['titulo'], (string) $hit['artista'], (string) $d['FECHA_CD'],
+                            (string) $hit['titulo'], (string) $hit['artista'], $d['FECHA_CD'],
                             $simU, $simU >= 0.40 ? 'MEDIA' : 'BAJA', $runId,
                         ]);
                     }
