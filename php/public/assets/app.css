@@ -576,13 +576,11 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
-/* Grabación que abre con intro de percusión: la duración mostrada es la real y
-   la marca explica por qué esa toma es ~40 s más larga que las demás.
-   2026-09-15: era un emoji de tambor —el único glifo en color de todo el sitio,
-   dibujado distinto por cada sistema operativo, y dentro de una columna de
-   duraciones—. Pasa a badge, que es la gramática que la hoja ya usa para marcar
-   una fila (ver .badge-1a, mismo cuerpo y mismo radio). */
-.perc { margin-left: 0.4rem; font-size: 0.76rem; font-weight: 600; cursor: help; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.08rem 0.4rem; white-space: nowrap; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real,
+   el icono explica por qué esa toma es ~40 s más larga que las demás.
+   2026-10-06: vuelve el emoji de tambor (el 2026-09-15 se había cambiado por un
+   badge «perc»); decisión del usuario. */
+.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
 /* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
    porque son enlaces y ya se ve que lo son. */
