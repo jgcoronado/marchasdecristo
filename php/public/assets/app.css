@@ -1009,6 +1009,10 @@ ul.lnB li.focus .nm { color: var(--ink); font-weight: 700; }
 ul.lnB .cnt2 { font-size: 0.82rem; color: var(--faint); }
 ul.lnB .lead { flex: 1; border-bottom: 1px solid var(--line); min-width: 1rem; }
 ul.lnB .yr { font-size: 0.86rem; color: var(--muted-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Hueco entre dos etapas de la misma banda (banda_etapa): carril punteado, sin nodo. */
+ul.lnB > li.gap::before { border-left-style: dashed; }
+ul.lnB > li.gap::after { display: none; }
+ul.lnB li.gap .nm, ul.lnB li.gap .yr { color: var(--faint); font-style: italic; font-size: 0.82rem; }
 ul.lnB > li.juv { padding-left: 2.9rem; }
 ul.lnB > li.juv::before { left: 0.4rem; top: 0; bottom: 50%; width: 1.15rem; border-left: 1.5px dashed var(--muted-c); border-bottom: 1.5px dashed var(--muted-c); border-bottom-left-radius: 9px; }
 ul.lnB > li.juv::after { left: 1.8rem; border-style: dashed; }

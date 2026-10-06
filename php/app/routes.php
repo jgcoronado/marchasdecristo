@@ -188,6 +188,9 @@ $router->get('/dashboard/banda/{id}', [Admin::class, 'bandaEditForm']);
 $router->post('/dashboard/banda/{id}', [Admin::class, 'bandaEditPost']);
 $router->post('/dashboard/banda/{id}/relacion', [Admin::class, 'bandaRelacionAddPost']);
 $router->post('/dashboard/banda/{id}/relacion/{rel}/borrar', [Admin::class, 'bandaRelacionDeletePost']);
+// Etapas de actividad (banda_etapa): banda que desaparece y se refunda.
+$router->post('/dashboard/banda/{id}/etapa', [Admin::class, 'bandaEtapaAddPost']);
+$router->post('/dashboard/banda/{id}/etapa/{etapa}/borrar', [Admin::class, 'bandaEtapaDeletePost']);
 $router->post('/dashboard/banda/{id}/social', [Admin::class, 'bandaSocialPost']);
 $router->post('/dashboard/banda/{id}/acompanamiento', [Admin::class, 'bandaAcompanamientoAddPost']);
 $router->post('/dashboard/banda/{id}/acompanamiento/borrar', [Admin::class, 'bandaAcompanamientoBorrarPost']);

@@ -780,6 +780,7 @@ final class Repo
 
         $banda['timeline'] = $timeline;
         $banda['linaje'] = self::bandaLinaje($id);
+        $banda['etapas'] = self::bandaEtapas((int) $id);
         $banda['discosLength'] = count($discos);
         $banda['discos'] = $discos;
         $banda['marchasLength'] = count($marchas);
@@ -801,6 +802,15 @@ final class Repo
             $map[(int) $r['B']] = (int) $r['N'];
         }
         $banda['ESTRENOS_MAP'] = $map;
+        // Etapas de las otras formaciones del linaje: una predecesora refundada
+        // no debe salir como "1992–hoy" (su resumen) sino con sus tramos.
+        $etapasMap = [];
+        foreach (array_unique($ids) as $otra) {
+            if ($otra === (int) $banda['ID_BANDA']) continue;
+            $et = self::bandaEtapas($otra);
+            if (count($et) > 1) $etapasMap[$otra] = $et;
+        }
+        $banda['ETAPAS_MAP'] = $etapasMap;
         $banda['REG_TOTAL'] = (int) (Db::one('SELECT COUNT(*) AS n FROM banda')['n'] ?? 0);
         $banda['REG_POS'] = (int) (Db::one('SELECT COUNT(*) AS n FROM banda WHERE ID_BANDA <= ?', [$id])['n'] ?? 0);
         return $banda;
@@ -926,6 +936,33 @@ final class Repo
              ORDER BY r.TIPO ASC, r.FECHA_INICIO ASC",
             [$id, $id]
         );
+    }
+
+    /**
+     * Etapas de actividad de una banda (021_banda_etapa.sql), de la más antigua
+     * a la más reciente. Vacío si la banda tiene una sola etapa (la de
+     * FECHA_FUND/FECHA_EXT) o si el host aún no tiene la tabla: el código puede
+     * llegar a PRO antes que la BD con la migración, y la ficha no debe dar 500.
+     *
+     * @return list<array{ID_ETAPA:int,ANIO_INICIO:int,ANIO_FIN:int|null,NOTA:string|null}>
+     */
+    public static function bandaEtapas(int $id): array
+    {
+        try {
+            $rows = Db::all(
+                'SELECT ID_ETAPA, ANIO_INICIO, ANIO_FIN, NOTA FROM banda_etapa WHERE ID_BANDA = ? ORDER BY ANIO_INICIO ASC',
+                [$id]
+            );
+        } catch (\PDOException $e) {
+            error_log('[banda_etapa] ' . $e->getMessage());
+            return [];
+        }
+        return array_map(static fn(array $r): array => [
+            'ID_ETAPA' => (int) $r['ID_ETAPA'],
+            'ANIO_INICIO' => (int) $r['ANIO_INICIO'],
+            'ANIO_FIN' => $r['ANIO_FIN'] !== null ? (int) $r['ANIO_FIN'] : null,
+            'NOTA' => $r['NOTA'],
+        ], $rows);
     }
 
     /**

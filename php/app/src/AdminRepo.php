@@ -320,7 +320,20 @@ final class AdminRepo
                 return ['code' => 'INVALID_FECHA'];
             }
         }
-        $actual = Db::one('SELECT LOCALIDAD, PROVINCIA FROM banda WHERE ID_BANDA = ?', [$bandaId]) ?? [];
+        $actual = Db::one('SELECT LOCALIDAD, PROVINCIA, FECHA_FUND, FECHA_EXT FROM banda WHERE ID_BANDA = ?', [$bandaId]) ?? [];
+        // Con etapas (021_banda_etapa.sql), FECHA_FUND/FECHA_EXT las calculan los
+        // triggers: escribirlas a mano dejaría el resumen contradiciendo a las etapas.
+        // Las propuestas de editor traen todos los campos, también estos sin tocar:
+        // si no cambian se descartan en vez de rechazar la propuesta entera.
+        if ((array_key_exists('FECHA_FUND', $safe) || array_key_exists('FECHA_EXT', $safe)) && Repo::bandaEtapas($bandaId) !== []) {
+            foreach (['FECHA_FUND', 'FECHA_EXT'] as $f) {
+                if (!array_key_exists($f, $safe)) continue;
+                if ((int) (float) ($safe[$f] ?? 0) !== (int) (float) ($actual[$f] ?? 0)) return ['code' => 'FECHAS_POR_ETAPAS'];
+                unset($safe[$f]);
+            }
+            if ($safe === []) return ['code' => 'UPDATED'];
+        }
+        unset($actual['FECHA_FUND'], $actual['FECHA_EXT']);
         if (($err = self::aplicarMunicipio($safe, $actual)) !== null) {
             return ['code' => $err];
         }
@@ -362,6 +375,66 @@ final class AdminRepo
         if (!$bandaId) return ['code' => 'INTERNAL_ERROR'];
         Db::logAdmin('INSERT', 'banda', $bandaId, ['campos' => $cols]);
         return ['code' => 'CREATED', 'bandaId' => $bandaId];
+    }
+
+    // ── Etapas de actividad de una banda (banda_etapa) ─────────────────────
+    /**
+     * Alta de una etapa. Al añadir la PRIMERA, el periodo que ya tenía la banda
+     * (FECHA_FUND–FECHA_EXT) se guarda antes como etapa propia: si no, los
+     * triggers recalcularían el resumen solo con la etapa nueva y se perdería
+     * la fundación original. Las etapas no se solapan (años incluidos), así
+     * que como mucho hay una abierta y es la última.
+     *
+     * @return array{code:string, etapaId?:int}
+     */
+    public static function addEtapa(int $idBanda, ?string $inicio, ?string $fin, ?string $nota): array
+    {
+        $banda = Db::one('SELECT FECHA_FUND, FECHA_EXT FROM banda WHERE ID_BANDA = ?', [$idBanda]);
+        if ($banda === null) return ['code' => 'INVALID_BANDA'];
+        $ini = self::normalize($inicio);
+        $fn = self::normalize($fin);
+        if ($ini === null) return ['code' => 'INICIO_REQUERIDO'];
+        foreach ([$ini, $fn] as $f) {
+            if ($f !== null && !preg_match('/^\d{4}$/', (string) $f)) return ['code' => 'INVALID_FECHA'];
+        }
+        $iIni = (int) $ini;
+        $iFin = $fn !== null ? (int) $fn : null;
+        if ($iFin !== null && $iFin < $iIni) return ['code' => 'FECHA_FIN_ANTERIOR'];
+
+        return Db::transaction(static function () use ($idBanda, $banda, $iIni, $iFin, $nota): array {
+            $etapas = Repo::bandaEtapas($idBanda);
+            if ($etapas === []) {
+                // Datos heredados guardan "1992.0": se toma la parte entera.
+                $fund = (int) (float) ($banda['FECHA_FUND'] ?? 0);
+                $ext = (int) (float) ($banda['FECHA_EXT'] ?? 0);
+                if ($fund > 1800) {
+                    $etapas[] = ['ANIO_INICIO' => $fund, 'ANIO_FIN' => $ext > 1800 ? $ext : null, 'semilla' => true];
+                }
+            }
+            foreach ($etapas as $e) {
+                $finE = $e['ANIO_FIN'] ?? PHP_INT_MAX;
+                if ($iIni <= $finE && $e['ANIO_INICIO'] <= ($iFin ?? PHP_INT_MAX)) {
+                    return ['code' => 'ETAPA_SOLAPADA'];
+                }
+            }
+            $insert = 'INSERT INTO banda_etapa (ID_BANDA, ANIO_INICIO, ANIO_FIN, NOTA) VALUES (?, ?, ?, ?)';
+            foreach ($etapas as $e) {
+                if (!empty($e['semilla'])) Db::run($insert, [$idBanda, $e['ANIO_INICIO'], $e['ANIO_FIN'], null]);
+            }
+            Db::run($insert, [$idBanda, $iIni, $iFin, self::normalize($nota)]);
+            $etapaId = Db::lastInsertId();
+            Db::logAdmin('INSERT', 'banda_etapa', $etapaId, ['banda' => $idBanda, 'inicio' => $iIni, 'fin' => $iFin]);
+            return ['code' => 'CREATED', 'etapaId' => $etapaId];
+        });
+    }
+
+    /** @return array{code:string} */
+    public static function deleteEtapa(int $idBanda, int $idEtapa): array
+    {
+        $changes = Db::run('DELETE FROM banda_etapa WHERE ID_ETAPA = ? AND ID_BANDA = ?', [$idEtapa, $idBanda]);
+        if ($changes === 0) return ['code' => 'NOT_FOUND'];
+        Db::logAdmin('DELETE', 'banda_etapa', $idEtapa, ['banda' => $idBanda]);
+        return ['code' => 'DELETED'];
     }
 
     // ── Relaciones de linaje entre bandas (banda_relacion) ──────────────────
