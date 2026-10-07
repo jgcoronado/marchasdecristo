@@ -75,6 +75,7 @@ final class Pages
             ),
         ], [
             'title' => 'Marchas de Cristo — Música procesional',
+            'canonical' => self::base() . '/',
             'description' => 'Descubre marchas procesionales, compositores, bandas y discos de música de Semana Santa.',
         ]);
     }
@@ -527,14 +528,15 @@ final class Pages
         $base = self::base();
         $url = $base . $canonical;
         $pm = (require APP_DIR . '/data/patrimonio_musical.php')[(int) $a['ID_AUTOR']] ?? null;
+        $nMarchas = (int) $a['marchasLength'] . ((int) $a['marchasLength'] === 1 ? ' marcha' : ' marchas');
 
         Http::cachePublic(3600);
         View::render('autor_detail', ['a' => $a, 'fullName' => $fullName, 'url' => $url, 'pm' => $pm], [
             'title' => $fullName . ' — Marchas de Cristo',
             'canonical' => $url,
-            'description' => 'Compositor de música procesional. Ha compuesto ' . $a['marchasLength'] . ' marchas.'
+            'description' => 'Compositor de música procesional. Ha compuesto ' . $nMarchas . '.'
                 . (!empty($a['LUGAR_NAC']) ? ' Natural de ' . $a['LUGAR_NAC'] . '.' : ''),
-            'og' => ['type' => 'profile', 'title' => $fullName, 'description' => 'Compositor de ' . $a['marchasLength'] . ' marchas de música procesional', 'url' => $url,
+            'og' => ['type' => 'profile', 'title' => $fullName, 'description' => 'Compositor de ' . $nMarchas . ' de música procesional', 'url' => $url,
                      'image' => $base . Og::url('autor', (int) $a['ID_AUTOR']), 'imageAlt' => 'Compositor ' . $fullName],
             'jsonld' => [
                 Seo::autor($a, $url),
@@ -589,7 +591,9 @@ final class Pages
         View::render('banda_detail', ['b' => $b, 'url' => $url, 'enlaces' => $enlaces, 'acomp' => $acomp], [
             'title' => $b['NOMBRE_BREVE'] . ' — Marchas de Cristo',
             'canonical' => $url,
-            'description' => $b['NOMBRE_COMPLETO'] . ', banda de ' . $b['LOCALIDAD'] . '. Ha grabado ' . $b['discosLength'] . ' discos y estrenado ' . $b['marchasLength'] . ' marchas.',
+            // ID 0 es el comodín «Varias bandas» (fuera del sitemap): sin indexar.
+            'noindex' => (int) $b['ID_BANDA'] === 0,
+            'description' => $b['NOMBRE_COMPLETO'] . ', banda de ' . $b['LOCALIDAD'] . '. Ha grabado ' . (int) $b['discosLength'] . ((int) $b['discosLength'] === 1 ? ' disco' : ' discos') . ' y estrenado ' . (int) $b['marchasLength'] . ((int) $b['marchasLength'] === 1 ? ' marcha.' : ' marchas.'),
             'og' => ['type' => 'music.playlist', 'title' => $b['NOMBRE_BREVE'], 'description' => rtrim('Banda de música procesional' . (trim((string) $b['LOCALIDAD']) !== '' ? ' de ' : ' · ') . Repo::bandaLocEstrenos((string) $b['LOCALIDAD'], (int) $b['marchasLength']), ' ·'), 'url' => $url,
                      'image' => $base . Og::url('banda', (int) $b['ID_BANDA']), 'imageAlt' => 'Banda ' . $b['NOMBRE_BREVE']],
             'jsonld' => [
@@ -622,7 +626,7 @@ final class Pages
         View::render('disco_detail', ['d' => $d, 'url' => $url, 'enlaces' => $enlaces], [
             'title' => $d['NOMBRE_CD'] . ' — Marchas de Cristo',
             'canonical' => $url,
-            'description' => 'Disco de música procesional "' . $d['NOMBRE_CD'] . '" de ' . $d['BANDA'] . '. Contiene ' . $d['marchasLength'] . ' marchas.',
+            'description' => 'Disco de música procesional "' . $d['NOMBRE_CD'] . '" de ' . $d['BANDA'] . '. Contiene ' . (int) $d['marchasLength'] . ((int) $d['marchasLength'] === 1 ? ' marcha.' : ' marchas.'),
             'og' => ['type' => 'music.album', 'title' => $d['NOMBRE_CD'], 'description' => 'Álbum de música procesional de ' . $d['BANDA'] . ((int) $d['FECHA_CD'] > 1800 ? ', ' . (int) $d['FECHA_CD'] : ''), 'url' => $url,
                      'image' => $base . Og::url('disco', (int) $d['ID_DISCO']), 'imageAlt' => 'Disco «' . $d['NOMBRE_CD'] . '»'],
             'jsonld' => [
@@ -659,6 +663,7 @@ final class Pages
             'description' => 'Directorio de advocaciones y hermandades a las que están dedicadas '
                 . 'las marchas procesionales del catálogo, con el número de marchas de cada una.',
             'noindex' => $hasQuery,
+            'canonical' => $hasQuery ? null : $base . '/dedicatorias',
             'jsonld' => $hasQuery ? [] : [
                 Seo::breadcrumbs([
                     ['name' => 'Inicio', 'url' => $base],
@@ -1161,7 +1166,8 @@ final class Pages
             }
             // NOMBRE_COMPLETO para que el slug coincida con la canónica del detalle
             // (el detalle usa NOMBRE_COMPLETO; con NOMBRE_BREVE el sitemap daba 308).
-            foreach (Db::all('SELECT ID_BANDA AS id, NOMBRE_COMPLETO AS label FROM banda') as $r) {
+            // ID 0 es el comodín «Varias bandas», no una banda real.
+            foreach (Db::all('SELECT ID_BANDA AS id, NOMBRE_COMPLETO AS label FROM banda WHERE ID_BANDA != 0') as $r) {
                 $urls[] = [$base . Slug::buildDetailPath('banda', $r['id'], (string) $r['label']), 'monthly', '0.6'];
             }
             foreach (Db::all('SELECT ID_DISCO AS id, NOMBRE_CD AS label FROM disco') as $r) {

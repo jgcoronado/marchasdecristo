@@ -394,6 +394,31 @@ $tests = [
     'marcha solo-ID → 308 canónica' => static fn() => assertRedirect('/marcha/1', '/marcha/consuelo-gitano-1', $base),
     'marcha slug incorrecto → 308 canónica' => static fn() => assertRedirect('/marcha/titulo-erroneo-1', '/marcha/consuelo-gitano-1', $base),
     'marcha inexistente 404' => static fn() => assertStatus('/marcha/nada-999999', 404, $base),
+    // Rastreadores y monitores de caída preguntan con HEAD: si el router solo
+    // atiende GET, la web entera les parece caída (404).
+    'HEAD responde como GET' => static function () use ($base): void {
+        foreach (['/' => 200, '/marcha/consuelo-gitano-1' => 200, '/sitemap.xml' => 200, '/marcha/nada-999999' => 404] as $path => $esperado) {
+            $ch = curl_init($base . $path);
+            curl_setopt_array($ch, [CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10]);
+            curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if ($status !== $esperado) {
+                throw new RuntimeException("HEAD $path → esperado $esperado, obtenido $status");
+            }
+        }
+    },
+    // ID 0 («Varias bandas») es un comodín, no una banda: fuera de Google.
+    'banda comodín 0 fuera del sitemap y con noindex' => static function () use ($base): void {
+        foreach (sitemapPaths($base) as $path) {
+            if (preg_match('#^/banda/.*-0$#', $path)) {
+                throw new RuntimeException("/sitemap.xml → anuncia el comodín $path");
+            }
+        }
+        $r = assertStatus('/banda/varias-bandas-0', 200, $base);
+        if (!str_contains($r['body'], 'name="robots" content="noindex"')) {
+            throw new RuntimeException('/banda/varias-bandas-0 → debería llevar noindex');
+        }
+    },
     'marcha coherencia canónica ↔ JSON-LD (M8)' => static fn() => assertJsonLdUrlsCanonical('/marcha/costalero-bueno-3', $base),
 
     // ── Escuchar: botonera única y pestañas por versión ─────────────────────

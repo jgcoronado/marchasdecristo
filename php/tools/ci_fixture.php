@@ -178,6 +178,9 @@ $ins = static function (string $sql, array $rows) use ($pdo): void {
 $ins('INSERT INTO banda (ID_BANDA, NOMBRE_BREVE, NOMBRE_COMPLETO, LOCALIDAD, PROVINCIA, FECHA_FUND) VALUES (?,?,?,?,?,?)', [
     [1, 'Las Cigarreras', 'Banda de CCTT Ntra. Sra. de la Victoria (Las Cigarreras)', 'Sevilla', 'Sevilla', 1977],
     [2, 'Tres Caídas', 'Agrupación Musical Ntro. Padre Jesús de las Tres Caídas', 'Sevilla', 'Sevilla', 1984],
+    // Comodín de la BD real para discos y estrenos colectivos: no es una banda
+    // y no debe indexarse (ver Pages::sitemap / bandaDetail).
+    [0, 'Varias bandas', 'Varias bandas', '', '', null],
 ]);
 
 $ins('INSERT INTO autor (ID_AUTOR, NOMBRE, APELLIDOS, F_NAC, F_DEF, LUGAR_NAC) VALUES (?,?,?,?,?,?)', [
