@@ -92,6 +92,13 @@ if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta
 
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 
+// Botón de compartir junto al <h1> (lo inserta catalog.js; sin JS no hay
+// nada que compartir, así que tampoco botón). Fuera: portada, resultados de
+// búsqueda, panel/login y las páginas de error o mantenimiento (pasan
+// $meta['compartir'] = false desde App\Http).
+$compartir = ($meta['compartir'] ?? true) !== false
+    && $showSearch && $reqPath !== '/' && $current !== '/buscar';
+
 // Ancho de la página. Dos anchos, no uno (ver --wrap / --wrap-ancho en
 // app.css): las pantallas de catálogo son tabla + facetas y a 54rem se
 // recortan, mientras que las fichas y la prosa se leen mejor estrechas. La
@@ -293,7 +300,7 @@ if (!empty($meta['ancho'])) {
              (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
              .main-catalogo hace lo propio, más contenido, con los listados
              públicos: ver RUTAS_CATALOGO arriba. */ ?>
-    <main id="main-content"><?= $content ?></main>
+    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?>><?= $content ?></main>
 
     <footer>
         <div class="inner">

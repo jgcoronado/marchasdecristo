@@ -1264,18 +1264,19 @@ final class Repo
         switch ($tipo) {
             case 'marcha':
                 $r = Db::one(
-                    "SELECT m.TITULO, m.FECHA,
-                            (SELECT a.NOMBRE || ' ' || a.APELLIDOS
-                             FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
-                             WHERE ma.ID_MARCHA = m.ID_MARCHA ORDER BY a.APELLIDOS LIMIT 1) AS COMPOSITOR
+                    "SELECT m.TITULO, m.FECHA
                      FROM marcha m
                      WHERE m.ID_MARCHA = ?
                        AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)",
                     [$id]
                 );
                 if ($r === null) return null;
+                // Todos los compositores, en el orden de la ficha; si no caben,
+                // Og recorta el subtítulo con «…».
+                $autores = self::autoresFor([$id])[$id] ?? [];
+                $compositores = View::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $autores));
                 $anio = (!empty($r['FECHA'])) ? (int) $r['FECHA'] : null;
-                $sub = trim(((string) ($r['COMPOSITOR'] ?? '')) . ($anio ? ' · ' . $anio : ''), ' ·');
+                $sub = trim($compositores . ($anio ? ' · ' . $anio : ''), ' ·');
                 return ['overline' => 'Marcha procesional', 'titulo' => (string) $r['TITULO'], 'sub' => $sub];
 
             case 'autor':
@@ -1291,10 +1292,20 @@ final class Repo
                         'sub' => $n === 1 ? '1 marcha' : $n . ' marchas'];
 
             case 'banda':
-                $r = Db::one('SELECT NOMBRE_BREVE, NOMBRE_COMPLETO, LOCALIDAD FROM banda WHERE ID_BANDA = ?', [$id]);
+                // Estrenos con el mismo criterio que la ficha (fetchBanda →
+                // marchasLength): solo marchas vivas (con autor).
+                $r = Db::one(
+                    "SELECT b.NOMBRE_BREVE, b.NOMBRE_COMPLETO, b.LOCALIDAD,
+                            (SELECT COUNT(*) FROM marcha m
+                             WHERE m.BANDA_ESTRENO = b.ID_BANDA
+                               AND EXISTS (SELECT 1 FROM marcha_autor am WHERE am.ID_MARCHA = m.ID_MARCHA)) AS N
+                     FROM banda b WHERE b.ID_BANDA = ?",
+                    [$id]
+                );
                 if ($r === null) return null;
                 $titulo = (string) ($r['NOMBRE_BREVE'] ?: $r['NOMBRE_COMPLETO']);
-                return ['overline' => 'Banda', 'titulo' => $titulo, 'sub' => (string) ($r['LOCALIDAD'] ?? '')];
+                return ['overline' => 'Banda', 'titulo' => $titulo,
+                        'sub' => self::bandaLocEstrenos((string) ($r['LOCALIDAD'] ?? ''), (int) $r['N'])];
 
             case 'disco':
                 $r = Db::one(
@@ -1309,6 +1320,16 @@ final class Repo
                 return ['overline' => 'Disco', 'titulo' => (string) $r['NOMBRE_CD'], 'sub' => $sub];
         }
         return null;
+    }
+
+    /**
+     * «Sevilla · 124 estrenos» para la tarjeta social de una banda (imagen y
+     * og:description). Sin estrenos, solo la localidad.
+     */
+    public static function bandaLocEstrenos(string $localidad, int $estrenos): string
+    {
+        $n = $estrenos > 0 ? number_format($estrenos, 0, ',', '.') . ($estrenos === 1 ? ' estreno' : ' estrenos') : '';
+        return trim(trim($localidad) . ($n !== '' ? ' · ' . $n : ''), ' ·');
     }
 
     // ── Últimas incorporaciones ──────────────────────────────────────────────

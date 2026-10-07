@@ -487,6 +487,9 @@ final class Pages
         $base = self::base();
         $url = $base . $canonical;
         $autores = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR']));
+        // Tarjeta social (og:description): mismos datos que la og:image.
+        $ogDesc = 'Marcha procesional compuesta por ' . View::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR']))
+            . (preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1 ? ' (' . $m['FECHA'] . ')' : '');
         // La ficha de marcha separa versión original y actual (ver Html::escuchar),
         // así que necesita los enlaces agrupados, no aplanados.
         $enlaces = EnlaceRepo::publicadosPorVersionDe('marcha', (int) $m['ID_MARCHA']);
@@ -497,7 +500,7 @@ final class Pages
             'canonical' => $url,
             'description' => 'Marcha procesional "' . $m['TITULO'] . '" compuesta por ' . $autores . '.'
                 . (!empty($m['DEDICATORIA']) ? ' Dedicada a ' . $m['DEDICATORIA'] . '.' : ''),
-            'og' => ['type' => 'music.song', 'title' => $m['TITULO'], 'description' => 'Marcha procesional compuesta por ' . $autores, 'url' => $url,
+            'og' => ['type' => 'music.song', 'title' => $m['TITULO'], 'description' => $ogDesc, 'url' => $url,
                      'image' => $base . '/og/marcha/' . $m['ID_MARCHA'] . '.jpg', 'imageAlt' => 'Marcha procesional «' . $m['TITULO'] . '»'],
             'jsonld' => [
                 Seo::marcha($m, $url),
@@ -587,7 +590,7 @@ final class Pages
             'title' => $b['NOMBRE_BREVE'] . ' — Marchas de Cristo',
             'canonical' => $url,
             'description' => $b['NOMBRE_COMPLETO'] . ', banda de ' . $b['LOCALIDAD'] . '. Ha grabado ' . $b['discosLength'] . ' discos y estrenado ' . $b['marchasLength'] . ' marchas.',
-            'og' => ['type' => 'music.playlist', 'title' => $b['NOMBRE_BREVE'], 'description' => 'Banda de música procesional de ' . $b['LOCALIDAD'], 'url' => $url,
+            'og' => ['type' => 'music.playlist', 'title' => $b['NOMBRE_BREVE'], 'description' => rtrim('Banda de música procesional' . (trim((string) $b['LOCALIDAD']) !== '' ? ' de ' : ' · ') . Repo::bandaLocEstrenos((string) $b['LOCALIDAD'], (int) $b['marchasLength']), ' ·'), 'url' => $url,
                      'image' => $base . '/og/banda/' . $b['ID_BANDA'] . '.jpg', 'imageAlt' => 'Banda ' . $b['NOMBRE_BREVE']],
             'jsonld' => [
                 Seo::banda($b, $url),
@@ -620,7 +623,7 @@ final class Pages
             'title' => $d['NOMBRE_CD'] . ' — Marchas de Cristo',
             'canonical' => $url,
             'description' => 'Disco de música procesional "' . $d['NOMBRE_CD'] . '" de ' . $d['BANDA'] . '. Contiene ' . $d['marchasLength'] . ' marchas.',
-            'og' => ['type' => 'music.album', 'title' => $d['NOMBRE_CD'], 'description' => 'Álbum de música procesional de ' . $d['BANDA'], 'url' => $url,
+            'og' => ['type' => 'music.album', 'title' => $d['NOMBRE_CD'], 'description' => 'Álbum de música procesional de ' . $d['BANDA'] . ((int) $d['FECHA_CD'] > 1800 ? ', ' . (int) $d['FECHA_CD'] : ''), 'url' => $url,
                      'image' => $base . '/og/disco/' . $d['ID_DISCO'] . '.jpg', 'imageAlt' => 'Disco «' . $d['NOMBRE_CD'] . '»'],
             'jsonld' => [
                 Seo::disco($d, $url),

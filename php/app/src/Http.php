@@ -17,7 +17,7 @@ final class Http
     public static function notFound(): never
     {
         http_response_code(404);
-        View::render('404', [], ['title' => 'Página no encontrada — Marchas de Cristo']);
+        View::render('404', [], ['title' => 'Página no encontrada — Marchas de Cristo', 'compartir' => false]);
         exit;
     }
 
@@ -26,7 +26,7 @@ final class Http
     {
         http_response_code(403);
         self::noStore();
-        View::render('403', [], ['title' => 'Acceso restringido — Marchas de Cristo', 'noindex' => true]);
+        View::render('403', [], ['title' => 'Acceso restringido — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
     }
 
@@ -35,7 +35,7 @@ final class Http
     {
         http_response_code(503);
         self::noStore();
-        View::render('readonly', [], ['title' => 'Solo lectura — Marchas de Cristo', 'noindex' => true]);
+        View::render('readonly', [], ['title' => 'Solo lectura — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
     }
 
@@ -50,7 +50,7 @@ final class Http
         http_response_code(503);
         header('Retry-After: 120');
         self::noStore();
-        View::render('maintenance', [], ['title' => 'Actualizando — Marchas de Cristo', 'noindex' => true]);
+        View::render('maintenance', [], ['title' => 'Actualizando — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
     }
 

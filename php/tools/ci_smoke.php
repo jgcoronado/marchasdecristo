@@ -663,6 +663,29 @@ $tests = [
     },
     'og tipo desconocido → 404' => static fn() => assertStatus('/og/nope/1.png', 404, $base),
     'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.jpg', $base),
+
+    // ── Compartir: datos de la tarjeta y botón ──────────────────────────────
+    // Lo que se ve en WhatsApp al pegar el enlace. Una marcha a cuatro manos
+    // debe acreditar a TODOS sus compositores (antes salía solo el primero).
+    'compartir: marcha acredita a todos sus compositores y el año' => static fn() => assertContains('/marcha/costalero-bueno-3',
+        'content="Marcha procesional compuesta por Manuel López Ruiz y Rafael O&#039;Donnell (1995)"', $base),
+    // La banda se presenta por sus estrenos, no solo por la localidad.
+    'compartir: banda lleva localidad y estrenos' => static fn() => assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1',
+        'content="Banda de música procesional de Sevilla · 3 estrenos"', $base),
+    'compartir: disco lleva banda y año' => static fn() => assertContains('/disco/sevilla-cofrade-vol-1-1',
+        'content="Álbum de música procesional de Las Cigarreras (Sevilla), 1996"', $base),
+    // El botón (catalog.js) solo se monta donde <main> lo permite: en fichas y
+    // listados sí; en portada, búsqueda y errores no hay nada útil que compartir.
+    'compartir: botón en fichas y listados, no en portada/búsqueda/404' => static function () use ($base): void {
+        foreach (['/marcha/costalero-bueno-3', '/marcha', '/contacto'] as $ruta) {
+            assertContains($ruta, '<main id="main-content" data-compartir>', $base);
+        }
+        foreach (['/', '/buscar?q=garcia', '/no-existe-esta-ruta'] as $ruta) {
+            if (str_contains(httpGet($base . $ruta)['body'], 'data-compartir')) {
+                throw new RuntimeException("$ruta → no debería ofrecer el botón de compartir");
+            }
+        }
+    },
 ];
 
 // ── Secciones (App\Secciones) ──────────────────────────────────────────────
