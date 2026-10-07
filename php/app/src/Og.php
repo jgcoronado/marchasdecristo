@@ -22,6 +22,12 @@ final class Og
     private const W = 1200;
     private const H = 630;
     private const ALLOWED = ['marcha', 'autor', 'banda', 'disco'];
+    /**
+     * Versión del diseño de las tarjetas. Entra en la clave de caché: la clave
+     * solo dependía de los datos, así que un cambio de diseño seguía sirviendo
+     * las tarjetas viejas. Súbela al tocar cómo se pintan.
+     */
+    private const DISENO = 2;
 
     public static function render(array $p): void
     {
@@ -68,7 +74,7 @@ final class Og
             }
         }
 
-        $hash = substr(sha1($tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
+        $hash = substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
         $cacheDir = dirname((string) ($GLOBALS['config']['db_path'] ?? '')) . '/og-cache';
         $cacheFile = $cacheDir . '/' . $tipo . '-' . $id . '-' . $hash . '.jpg';
 
