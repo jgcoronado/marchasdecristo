@@ -166,7 +166,6 @@ final class Og
         ob_start();
         imagejpeg($img, null, 85);
         $bytes = (string) ob_get_clean();
-        imagedestroy($img);
         return $bytes;
     }
 

@@ -177,18 +177,16 @@ final class Media
         // Recorte central al cuadrado, sin deformar la imagen original.
         $corte = min($w, $h);
         $ok = imagecopyresampled($dst, $src, 0, 0, (int) (($w - $corte) / 2), (int) (($h - $corte) / 2), $lado, $lado, $corte, $corte);
-        imagedestroy($src);
-        if (!$ok) { imagedestroy($dst); return 'PORTADA_NO_ES_IMAGEN'; }
+        if (!$ok) { return 'PORTADA_NO_ES_IMAGEN'; }
 
         $dir = self::portadaDir();
-        if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) { imagedestroy($dst); return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
-        if (!is_writable($dir)) { imagedestroy($dst); return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
+        if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
+        if (!is_writable($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
 
         // Escritura atómica: si el proceso muere a medias, la portada anterior
         // sigue intacta en vez de quedar un WebP truncado servido a todo el mundo.
         $tmpOut = $dir . '/.' . $idDisco . '.' . bin2hex(random_bytes(4)) . '.tmp';
         $guardado = imagewebp($dst, $tmpOut, self::PORTADA_CALIDAD_WEBP);
-        imagedestroy($dst);
         if (!$guardado) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
         if (!@rename($tmpOut, self::portadaPath($idDisco))) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
         @chmod(self::portadaPath($idDisco), 0o644);
