@@ -100,7 +100,7 @@ $tests['home: 200 + og/twitter'] = static function () use ($base): void {
 if ($esPre) {
     $tests['pre: noindex + X-Robots-Tag + cinta visible'] = static function () use ($base): void {
         $r = get200('/', $base);
-        if (!str_contains($r['body'], 'name="robots" content="noindex"')) {
+        if (!str_contains($r['body'], 'name="robots" content="noindex')) {
             throw new RuntimeException('home PRE → falta <meta name="robots" content="noindex">');
         }
         if (!str_contains($r['body'], 'pre-ribbon')) {
@@ -122,7 +122,7 @@ if ($esPre) {
 } else {
     $tests['prod: home indexable (sin noindex)'] = static function () use ($base): void {
         $r = get200('/', $base);
-        if (str_contains($r['body'], 'name="robots" content="noindex"')) {
+        if (str_contains($r['body'], 'name="robots" content="noindex')) {
             throw new RuntimeException('home PROD → lleva noindex (¿config de PRE en el host de PRO?)');
         }
         if (str_contains($r['body'], 'pre-ribbon')) {
