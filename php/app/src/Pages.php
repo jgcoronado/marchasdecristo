@@ -52,6 +52,29 @@ final class Pages
         return [$criteria, $hasQuery, $page, $limit];
     }
 
+    /**
+     * Robots y canonical de los exploradores: indexable solo la versión limpia y
+     * su ?page=N dentro de rango. Cualquier otro parámetro (filtros, orden, limit…)
+     * genera combinaciones infinitas → noindex, follow (los enlaces a fichas se
+     * siguen rastreando).
+     * @return array{noindex:bool,canonical?:string}
+     */
+    private static function listadoMeta(string $path, int $page, int $totalRows, int $limit): array
+    {
+        $extra = array_diff(array_keys($_GET), ['page']);
+        $paginas = max(1, (int) ceil($totalRows / max(1, $limit)));
+        $pageRaw = $_GET['page'] ?? null;
+        $pageOk = $pageRaw === null
+            || (is_string($pageRaw) && ctype_digit($pageRaw) && (int) $pageRaw >= 1 && $page <= $paginas);
+        if ($extra !== [] || !$pageOk) {
+            return ['noindex' => true];
+        }
+        return [
+            'noindex' => false,
+            'canonical' => self::base() . $path . ($page > 1 ? '?page=' . $page : ''),
+        ];
+    }
+
     // ── Home ──────────────────────────────────────────────────────────────────
     public static function home(): void
     {
@@ -174,7 +197,7 @@ final class Pages
         View::render('marcha_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
             'title' => 'Buscador de marchas procesionales — Marchas de Cristo',
             'description' => 'Busca marchas procesionales por título, fecha, dedicatoria, localidad y provincia.',
-            'noindex' => true,
+            ...self::listadoMeta('/marcha', $page, (int) $result['totalRows'], $limit),
         ]);
     }
 
@@ -190,7 +213,7 @@ final class Pages
         View::render('autor_list', compact('criteria', 'result', 'page', 'limit'), [
             'title' => 'Buscador de compositores — Marchas de Cristo',
             'description' => 'Busca compositores de música procesional por nombre.',
-            'noindex' => true,
+            ...self::listadoMeta('/autor', $page, (int) $result['totalRows'], $limit),
         ]);
     }
 
@@ -205,7 +228,7 @@ final class Pages
         View::render('banda_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
             'title' => 'Buscador de bandas — Marchas de Cristo',
             'description' => 'Busca bandas de cornetas y tambores y agrupaciones musicales por nombre, localidad y provincia.',
-            'noindex' => true,
+            ...self::listadoMeta('/banda', $page, (int) $result['totalRows'], $limit),
         ]);
     }
 
@@ -220,12 +243,12 @@ final class Pages
         View::render('disco_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
             'title' => 'Buscador de discos — Marchas de Cristo',
             'description' => 'Busca discos de música procesional de Semana Santa por nombre.',
-            'noindex' => true,
+            ...self::listadoMeta('/disco', $page, (int) $result['totalRows'], $limit),
         ]);
     }
 
     // ── Hubs de catálogo indexables: año / estilo / provincia (C1) ───────────
-    // A diferencia del explorador /marcha (noindex: combinaciones de query
+    // A diferencia del explorador /marcha con filtros (noindex: combinaciones de query
     // infinitas), cada hub tiene URL propia estable, título/description propios
     // y entra en el sitemap. Son la escalera de indexación hacia las fichas.
 

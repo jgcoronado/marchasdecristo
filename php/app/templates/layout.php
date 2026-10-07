@@ -157,7 +157,7 @@ if (!empty($meta['ancho'])) {
     <meta name="description" content="<?= $e($description) ?>">
 <?php endif; ?>
 <?php if ($noindex): ?>
-    <meta name="robots" content="noindex">
+    <meta name="robots" content="noindex, follow">
 <?php endif; ?>
 <?php if ($canonical !== null): ?>
     <link rel="canonical" href="<?= $e($canonical) ?>">

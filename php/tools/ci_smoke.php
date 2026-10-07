@@ -316,7 +316,7 @@ function assertHeader(string $path, string $headerName, string $needle, string $
 function assertNoIndex(string $path, string $base): void
 {
     $r = assertStatus($path, 200, $base);
-    if (!str_contains($r['body'], 'name="robots" content="noindex"')) {
+    if (!str_contains($r['body'], 'name="robots" content="noindex')) {
         throw new RuntimeException("$path → esperaba <meta name=\"robots\" content=\"noindex\">");
     }
 }
@@ -324,8 +324,37 @@ function assertNoIndex(string $path, string $base): void
 function assertNotNoIndex(string $path, string $base): void
 {
     $r = assertStatus($path, 200, $base);
-    if (str_contains($r['body'], 'name="robots" content="noindex"')) {
+    if (str_contains($r['body'], 'name="robots" content="noindex')) {
         throw new RuntimeException("$path → no debería llevar noindex");
+    }
+}
+
+/** Explorador limpio: indexable y con canonical propio que termina en $canonicalSuffix. */
+function assertIndexableCanonical(string $path, string $canonicalSuffix, string $base): void
+{
+    $r = assertStatus($path, 200, $base);
+    if (str_contains($r['body'], 'name="robots"')) {
+        throw new RuntimeException("$path → no debería llevar <meta name=\"robots\">");
+    }
+    if (!preg_match('#<link rel="canonical" href="([^"]*)"#', $r['body'], $m)) {
+        throw new RuntimeException("$path → falta <link rel=\"canonical\">");
+    }
+    $href = html_entity_decode($m[1]);
+    $qs = parse_url($href, PHP_URL_QUERY);
+    if (parse_url($href, PHP_URL_PATH) . ($qs !== null ? '?' . $qs : '') !== $canonicalSuffix) {
+        throw new RuntimeException("$path → canonical '$href', se esperaba '…$canonicalSuffix'");
+    }
+}
+
+/** Explorador con filtros: noindex, follow (los enlaces a fichas se siguen) y sin canonical. */
+function assertNoIndexFollowSinCanonical(string $path, string $base): void
+{
+    $r = assertStatus($path, 200, $base);
+    if (!str_contains($r['body'], '<meta name="robots" content="noindex, follow">')) {
+        throw new RuntimeException("$path → esperaba <meta name=\"robots\" content=\"noindex, follow\">");
+    }
+    if (str_contains($r['body'], 'rel="canonical"')) {
+        throw new RuntimeException("$path → no debería llevar canonical");
     }
 }
 
@@ -383,9 +412,28 @@ $tests = [
     },
     'og-image.png servida' => static fn() => assertStatus('/assets/og-image.png', 200, $base),
 
-    // ── Explorador (noindex, sin caché con query) ──────────────────────────
+    // ── Exploradores: la versión limpia (y su ?page=N) es la vía de rastreo
+    // hacia las fichas, así que se indexa; con filtros las combinaciones son
+    // infinitas → noindex, follow ───────────────────────────────────────────
     'marcha explorador 200' => static fn() => assertStatus('/marcha', 200, $base),
-    'marcha explorador noindex' => static fn() => assertNoIndex('/marcha', $base),
+    'exploradores limpios indexables con canonical propio' => static function () use ($base): void {
+        foreach (['/marcha', '/autor', '/banda', '/disco'] as $path) {
+            assertIndexableCanonical($path, $path, $base);
+        }
+    },
+    // La fixture no llega a 2 páginas de 20: se prueba que ?page=1 explícito
+    // apunta a la ruta limpia (sin duplicado).
+    'explorador ?page=1 → canonical limpio' => static fn() => assertIndexableCanonical('/marcha?page=1', '/marcha', $base),
+    'explorador con filtros → noindex, follow sin canonical' => static function () use ($base): void {
+        foreach (['/marcha?q=x', '/marcha?limit=50', '/marcha?titulo=', '/banda?provincia=Sevilla', '/marcha?limit=10&page=2'] as $path) {
+            assertNoIndexFollowSinCanonical($path, $base);
+        }
+    },
+    'explorador página fuera de rango o no numérica → noindex, follow' => static function () use ($base): void {
+        foreach (['/marcha?page=999', '/marcha?page=abc', '/marcha?page=0'] as $path) {
+            assertNoIndexFollowSinCanonical($path, $base);
+        }
+    },
     'marcha búsqueda no-store' => static fn() => assertHeader('/marcha?titulo=consuelo', 'Cache-Control', 'no-store', $base),
 
     // ── Ficha de marcha: canónica, redirecciones, JSON-LD ──────────────────
@@ -415,7 +463,7 @@ $tests = [
             }
         }
         $r = assertStatus('/banda/varias-bandas-0', 200, $base);
-        if (!str_contains($r['body'], 'name="robots" content="noindex"')) {
+        if (!str_contains($r['body'], 'name="robots" content="noindex')) {
             throw new RuntimeException('/banda/varias-bandas-0 → debería llevar noindex');
         }
     },
