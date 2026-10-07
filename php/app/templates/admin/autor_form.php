@@ -10,9 +10,9 @@ $fields = [
     ['NOMBRE', 'Nombre', 'text'],
     ['APELLIDOS', 'Apellidos', 'text'],
     ['NOMBRE_ART', 'Nombre artístico', 'text'],
-    ['F_NAC', 'Fecha de nacimiento', 'text'],
+    ['F_NAC', 'Año de nacimiento', 'number'],
     ['LUGAR_NAC', 'Lugar de nacimiento', 'text'],
-    ['F_DEF', 'Fecha de defunción', 'text'],
+    ['F_DEF', 'Año de defunción', 'number'],
 ];
 ?>
 <div class="stack admin-form">

@@ -41,7 +41,6 @@ foreach (glob(rtrim($dir, '/') . '/*.png') ?: [] as $png) {
         imagesavealpha($img, true);
         $tmp = $webp . '.tmp';
         $ok = imagewebp($img, $tmp, $calidad) && @rename($tmp, $webp);
-        imagedestroy($img);
         if (!$ok) { @unlink($tmp); fwrite(STDERR, "ERROR escribiendo $webp\n"); $errores++; continue; }
         @chmod($webp, 0o644);
         $convertidas++;

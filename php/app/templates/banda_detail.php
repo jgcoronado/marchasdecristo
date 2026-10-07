@@ -6,14 +6,20 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
 /** "1978–1986", "1996–hoy", "s/f–2000"… */
 $yrs = static function ($fund, $ext): string {
-    $f = (int) (float) ($fund ?? 0);
-    $e = (int) (float) ($ext ?? 0);
+    $f = (int) ($fund ?? 0);
+    $e = (int) ($ext ?? 0);
     return ($f > 1800 ? $f : 's/f') . '–' . ($e > 1800 ? $e : 'hoy');
 };
 
+/** Años de otra formación del linaje: sus etapas si se refundó, si no fundación–extinción. */
+$etapasMap = $b['ETAPAS_MAP'] ?? [];
+$yrsDe = static fn(array $n): string => isset($etapasMap[(int) $n['ID']])
+    ? implode(' · ', array_map(static fn(array $e): string => $yrs($e['ANIO_INICIO'], $e['ANIO_FIN']), $etapasMap[(int) $n['ID']]))
+    : $yrs($n['FUND'], $n['EXT']);
+
 $bid = (int) $b['ID_BANDA'];
-$fund = (int) (float) ($b['FECHA_FUND'] ?? 0);
-$ext = (int) (float) ($b['FECHA_EXT'] ?? 0);
+$fund = (int) ($b['FECHA_FUND'] ?? 0);
+$ext = (int) ($b['FECHA_EXT'] ?? 0);
 $estrenos = $b['ESTRENOS_MAP'] ?? [];
 $nEst = (int) ($estrenos[$bid] ?? $b['marchasLength']);
 
@@ -28,18 +34,47 @@ if ($lin !== null) {
     }
     for ($i = count($lin['up']) - 1; $i >= 0; $i--) {
         foreach ($lin['up'][$i] as $n) {
-            $filas[] = ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrs($n['FUND'], $n['EXT']), $estrenos[(int) $n['ID']] ?? null];
+            $filas[] = ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrsDe($n), $estrenos[(int) $n['ID']] ?? null];
         }
     }
 }
 $esMadre = $lin !== null && $lin['madres'] !== [];
-$filas[] = [$esMadre ? 'focus juv' : 'focus', null, (string) $b['NOMBRE_BREVE'], $yrs($b['FECHA_FUND'], $b['FECHA_EXT']), $nEst];
+// Sucesoras (fusión, renombrado…) en orden, con su año de inicio para
+// colocarlas tras la etapa de la que salen. Sin fundación conocida, salen de
+// la primera etapa (el año 0 las pone antes de cualquier refundación).
+$sucesoras = [];
 if ($lin !== null) {
     foreach ($lin['down'] as $lvl) {
         foreach ($lvl as $n) {
-            $filas[] = ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrs($n['FUND'], $n['EXT']), $estrenos[(int) $n['ID']] ?? null];
+            $sucesoras[] = [(int) ($n['FUND'] ?? 0), ['normal', (int) $n['ID'], (string) $n['NOMBRE'], $yrsDe($n), $estrenos[(int) $n['ID']] ?? null]];
         }
     }
+}
+// Varias etapas (banda_etapa): una fila de foco por etapa. Antes de cada
+// etapa posterior van las sucesoras que empezaron antes que ella (BCT Caído y
+// Fuensanta, 2008, sale de la etapa 1992–2008, no de la refundación de 2022).
+// Si nada se interpone, el hueco entre etapas es una fila "sin actividad"; si
+// hay sucesoras en medio, la etapa se marca "(refundada)" para que no parezca
+// que viene de ellas. Los estrenos van una sola vez, en la primera.
+$etapas = $b['etapas'] ?? [];
+if (count($etapas) > 1) {
+    foreach ($etapas as $i => $e) {
+        $previas = 0;
+        while ($i > 0 && $sucesoras !== [] && $sucesoras[0][0] < $e['ANIO_INICIO']) {
+            $filas[] = array_shift($sucesoras)[1];
+            $previas++;
+        }
+        if ($i > 0 && $previas === 0) {
+            $filas[] = ['gap', null, 'sin actividad', $etapas[$i - 1]['ANIO_FIN'] . '–' . $e['ANIO_INICIO'], null];
+        }
+        $nombre = (string) $b['NOMBRE_BREVE'] . ($i > 0 && $previas > 0 ? ' (refundada)' : '');
+        $filas[] = [($esMadre ? 'focus juv' : 'focus') . ($i > 0 ? ' etapa' : ''), null, $nombre, $yrs($e['ANIO_INICIO'], $e['ANIO_FIN']), $i === 0 ? $nEst : null];
+    }
+} else {
+    $filas[] = [$esMadre ? 'focus juv' : 'focus', null, (string) $b['NOMBRE_BREVE'], $yrs($b['FECHA_FUND'], $b['FECHA_EXT']), $nEst];
+}
+foreach ($sucesoras as [, $fila]) $filas[] = $fila;
+if ($lin !== null) {
     foreach ($lin['juveniles'] as $j) {
         $filas[] = ['juv', (int) $j['ID_BANDA'], $j['NOMBRE_BREVE'] . ' (juvenil)', $yrs($j['FECHA_INICIO'] ?? null, $j['FECHA_FIN'] ?? null), $estrenos[(int) $j['ID_BANDA']] ?? null];
     }
@@ -49,7 +84,8 @@ $last = count($filas) - 1;
 if (!str_contains($filas[$last][0], 'juv')) $filas[$last][0] .= ' last';
 
 $nJuv = count(array_filter($filas, static fn(array $f): bool => $f[0] === 'juv'));
-$nSuc = count($filas) - $nJuv;
+// Las etapas posteriores y los huecos son la misma formación, no cuentan aparte.
+$nSuc = count(array_filter($filas, static fn(array $f): bool => $f[0] !== 'juv' && $f[0] !== 'gap' && !str_contains($f[0], 'etapa')));
 $nDiscos = (int) $b['discosLength'];
 $nMarchas = (int) $b['marchasLength'];
 $acomp ??= [];
@@ -84,11 +120,15 @@ $nAcomp = array_sum(array_map('count', $acomp));
 <?php if ($t($b['LOCALIDAD'])): ?>
         <div class="f"><dt>Localidad</dt><dd><?= V::e($b['LOCALIDAD']) ?><?php if ($t($b['PROVINCIA'])): ?> (<?= V::e($b['PROVINCIA']) ?>)<?php endif; ?></dd></div>
 <?php endif; ?>
+<?php if (count($etapas) > 1): ?>
+        <div class="f"><dt>Actividad</dt><dd><?= V::e(implode(' · ', array_map(static fn(array $e): string => $yrs($e['ANIO_INICIO'], $e['ANIO_FIN']), $etapas))) ?></dd></div>
+<?php else: ?>
 <?php if ($fund > 1800): ?>
         <div class="f"><dt>Fundación</dt><dd><?= $fund ?></dd></div>
 <?php endif; ?>
 <?php if ($ext > 1800): ?>
         <div class="f"><dt>Extinción</dt><dd><?= $ext ?></dd></div>
+<?php endif; ?>
 <?php endif; ?>
 <?php if ($t($b['DIR_MUS_ACTUAL'])): ?>
         <div class="f"><dt>Dir. musical</dt><dd><?= V::e($b['DIR_MUS_ACTUAL']) ?></dd></div>
@@ -140,7 +180,7 @@ $nAcomp = array_sum(array_map('count', $acomp));
             <th class="num" data-type="num">Pistas <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
-<?php foreach ($b['discos'] as $d): $anio = (int) (float) ($d['FECHA_CD'] ?? 0); ?>
+<?php foreach ($b['discos'] as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
             <tr>
                 <td><?= $anio > 1800 ? $anio : '—' ?></td>
                 <td><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></td>
@@ -179,7 +219,7 @@ $nAcomp = array_sum(array_map('count', $acomp));
 <?php foreach ($b['marchas'] as $m): ?>
             <tr>
                 <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td><?= $t($m['FECHA']) ? (int) (float) $m['FECHA'] : '—' ?></td>
+                <td><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '—' ?></td>
                 <td>
 <?php foreach ($m['AUTOR'] as $a): ?>
                     <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>

@@ -82,6 +82,7 @@ final class Admin
             return ['type' => 'ok', 'msg' => $n === 1 ? '1 contrato creado a partir de la pendiente.' : "$n contratos creados a partir de la pendiente."];
         }
         if (isset($_GET['deleted'])) return ['type' => 'ok', 'msg' => 'Relación eliminada.'];
+        if (isset($_GET['etapaBorrada'])) return ['type' => 'ok', 'msg' => 'Etapa eliminada.'];
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
         if (isset($_GET['unified'])) return ['type' => 'ok', 'msg' => 'Variantes unificadas · ' . (int) $_GET['unified'] . ' marchas reescritas.'];
@@ -603,6 +604,7 @@ final class Admin
         View::render('admin/banda_form', [
             'session' => $session, 'banda' => $banda, 'action' => "/dashboard/banda/$id",
             'relaciones' => $showLinaje ? Repo::bandaRelaciones($id) : [],
+            'etapas' => Repo::bandaEtapas((int) $id), // también editor: le bloquea las fechas calculadas
             'tipos' => AdminRepo::RELACION_TIPOS,
             'showLinaje' => $showLinaje, 'proposalMode' => self::proposalMode($session),
             'enlaces' => $showLinaje ? EnlaceRepo::publicadosDe('banda', (int) $id) : [],
@@ -707,6 +709,27 @@ final class Admin
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
         $r = AdminRepo::deleteRelacion($rel);
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/banda/$id?deleted=1", 302);
+        Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function bandaEtapaAddPost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
+        $str = static fn(string $k): ?string => is_string($_POST[$k] ?? null) ? (string) $_POST[$k] : null;
+        $r = AdminRepo::addEtapa($id, $str('anio_inicio'), $str('anio_fin'), $str('nota'));
+        if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/banda/$id?created=1", 302);
+        Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
+    }
+
+    public static function bandaEtapaDeletePost(array $p): void
+    {
+        $session = Auth::requireAdmin();
+        $id = (int) $p['id'];
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
+        $r = AdminRepo::deleteEtapa($id, (int) $p['etapa']);
+        if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/banda/$id?etapaBorrada=1", 302);
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
@@ -1664,6 +1687,30 @@ final class Admin
             [$id]
         );
         echo json_encode(['estilo' => $row !== null ? (string) $row['ESTILO'] : null]);
+    }
+
+    /**
+     * Hermandades de la nómina de Semana Santa de una localidad, para el
+     * desplegable de dedicatoria del formulario de marcha. Se compara sin
+     * tildes porque la nómina guarda algunas localidades sin ellas
+     * («Cordoba», «Malaga») y el formulario usa el nombre del municipio.
+     */
+    public static function hermandadesPorLocalidad(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (Auth::currentSession() === null) {
+            http_response_code(401);
+            echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
+            return;
+        }
+        $loc = trim((string) ($_GET['localidad'] ?? ''));
+        if ($loc === '') { echo json_encode(['data' => []]); return; }
+        $rows = Db::all(
+            'SELECT NOMBRE FROM hermandad WHERE NOACC(LOCALIDAD) = ? ORDER BY NOACC(NOMBRE) ASC',
+            [Db::noAcc($loc)]
+        );
+        echo json_encode(['data' => array_column($rows, 'NOMBRE')], JSON_UNESCAPED_UNICODE);
     }
 
     // ── Dedicatorias: curación de advocaciones (hubs N-01 / N-02) ────────────

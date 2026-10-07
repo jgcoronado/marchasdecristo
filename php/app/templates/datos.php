@@ -65,7 +65,7 @@ $num = static fn(int $n): string => number_format($n, 0, ',', '.');
             <p class="notas">Guía de uso y citación en formato legible por máquinas, más el mapa completo del sitio:</p>
             <p class="svcs">
                 <a class="svc" href="<?= V::e($base) ?>/llms.txt">llms.txt</a>
-                <a class="svc" href="<?= V::e($base) ?>/sitemap.xml">sitemap.xml</a>
+                <a class="svc" href="<?= V::e($base) ?>/sitemap_index.xml">sitemap_index.xml</a>
             </p>
         </section>
     </div>

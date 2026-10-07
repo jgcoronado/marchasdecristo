@@ -24,7 +24,7 @@ declare(strict_types=1);
  *      IndexNow (Bing/Yandex/…) con la lista completa de URLs del sitemap ya
  *      publicado — requiere 'indexnow_key' en config.local.php (ver
  *      config.local.example.php). Google deprecó su ping de sitemaps en
- *      2023; para Google el <lastmod> del propio sitemap.xml es la señal.
+ *      2023; para Google la señal es el propio sitemap (sitemap_index.xml).
  *
  * Requiere .env.ftp en la raíz del repo (gitignored) con:
  *   FTP_HOST, FTP_PORT, FTP_USER, FTP_PASSWORD, FTP_REMOTE_DIR (puede ir vacío)
@@ -224,8 +224,11 @@ function ftpDownload(string $baseUrl, string $user, string $pass, string $remote
     return $ok;
 }
 
-/** Descarga y parsea un sitemap.xml, devolviendo la lista de <loc>. [] si falla. */
-function fetchSitemapUrls(string $sitemapUrl): array
+/**
+ * Descarga y parsea un sitemap, devolviendo la lista de <loc> de página. Si es
+ * un índice (<sitemapindex>), baja cada sitemap hijo (un nivel). [] si falla.
+ */
+function fetchSitemapUrls(string $sitemapUrl, bool $seguirIndice = true): array
 {
     $ch = curl_init($sitemapUrl);
     curl_setopt_array($ch, [
@@ -241,6 +244,14 @@ function fetchSitemapUrls(string $sitemapUrl): array
     $urls = [];
     foreach ($dom->getElementsByTagName('loc') as $node) {
         $urls[] = $node->textContent;
+    }
+    if ($dom->documentElement?->localName === 'sitemapindex') {
+        if (!$seguirIndice) return [];
+        $hijos = $urls;
+        $urls = [];
+        foreach ($hijos as $hijo) {
+            $urls = array_merge($urls, fetchSitemapUrls($hijo, false));
+        }
     }
     return $urls;
 }
@@ -483,8 +494,8 @@ if ($args['skipIndexNow']) {
         } else {
             $siteUrl = rtrim((string) $appConfig['site_url'], '/');
             $host = (string) parse_url($siteUrl, PHP_URL_HOST);
-            echo "Avisando a IndexNow ($siteUrl/sitemap.xml)…\n";
-            $urls = fetchSitemapUrls($siteUrl . '/sitemap.xml');
+            echo "Avisando a IndexNow ($siteUrl/sitemap_index.xml)…\n";
+            $urls = fetchSitemapUrls($siteUrl . '/sitemap_index.xml');
             if ($urls === []) {
                 fwrite(STDERR, "  ⚠ No se pudo leer el sitemap recién publicado — no se avisa a IndexNow esta vez.\n");
             } else {

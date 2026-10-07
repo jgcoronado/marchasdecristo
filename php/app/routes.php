@@ -76,7 +76,10 @@ $router->get('/buscar', [Pages::class, 'buscar']);
 $router->get('/api/buscar', [Api::class, 'buscar']);
 
 // ── SEO ────────────────────────────────────────────────────────────────────────
-$router->get('/sitemap.xml', [Pages::class, 'sitemap']);
+$router->get('/sitemap_index.xml', [Pages::class, 'sitemapIndex']);
+$router->get('/sitemaps/{tipo}.xml', [Pages::class, 'sitemapTipo']);
+// URL antigua: ya enviada a Search Console; redirige al índice.
+$router->get('/sitemap.xml', [Pages::class, 'sitemapLegacy']);
 $router->get('/robots.txt', [Pages::class, 'robots']);
 
 // ── Datos abiertos (M1): página «Datos», feeds y llms.txt ────────────────────
@@ -188,6 +191,9 @@ $router->get('/dashboard/banda/{id}', [Admin::class, 'bandaEditForm']);
 $router->post('/dashboard/banda/{id}', [Admin::class, 'bandaEditPost']);
 $router->post('/dashboard/banda/{id}/relacion', [Admin::class, 'bandaRelacionAddPost']);
 $router->post('/dashboard/banda/{id}/relacion/{rel}/borrar', [Admin::class, 'bandaRelacionDeletePost']);
+// Etapas de actividad (banda_etapa): banda que desaparece y se refunda.
+$router->post('/dashboard/banda/{id}/etapa', [Admin::class, 'bandaEtapaAddPost']);
+$router->post('/dashboard/banda/{id}/etapa/{etapa}/borrar', [Admin::class, 'bandaEtapaDeletePost']);
 $router->post('/dashboard/banda/{id}/social', [Admin::class, 'bandaSocialPost']);
 $router->post('/dashboard/banda/{id}/acompanamiento', [Admin::class, 'bandaAcompanamientoAddPost']);
 $router->post('/dashboard/banda/{id}/acompanamiento/borrar', [Admin::class, 'bandaAcompanamientoBorrarPost']);
@@ -213,6 +219,7 @@ $router->get('/api/marcha/fastSearch', [Admin::class, 'marchaFastSearch']);
 $router->get('/api/autor/fastSearch', [Admin::class, 'autorFastSearch']);
 $router->get('/api/banda/fastSearch', [Admin::class, 'bandaFastSearch']);
 $router->get('/api/banda/estilo', [Admin::class, 'bandaEstiloSugerido']);
+$router->get('/api/hermandad/porLocalidad', [Admin::class, 'hermandadesPorLocalidad']);
 $router->get('/api/municipio/fastSearch', [Admin::class, 'municipioFastSearch']);
 $router->post('/dashboard/municipio/add', [Admin::class, 'municipioAddPost']);
 $router->get('/api/marcha/checkDuplicate', [Admin::class, 'marchaCheckDuplicate']);

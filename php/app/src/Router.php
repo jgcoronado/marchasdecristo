@@ -57,6 +57,12 @@ final class Router
             $path = '/';
         }
 
+        // HEAD se atiende como GET (rastreadores y monitores de caída lo usan);
+        // el servidor descarta el cuerpo de la respuesta.
+        if ($method === 'HEAD') {
+            $method = 'GET';
+        }
+
         foreach ($this->routes as $route) {
             if ($route['method'] !== $method) {
                 continue;

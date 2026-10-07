@@ -380,6 +380,26 @@ body > header nav { margin: 0; padding: 0 1rem 0.55rem; }
 .tema-toggle svg { width: 1.25rem; height: 1.25rem; }
 .tema-toggle .tema-sol { display: none; }
 
+/* Compartir (catalog.js): el botón va en la misma fila que el <h1>, pegado a
+   su derecha, para no añadir una fila más encima del contenido. catalog.js
+   envuelve el <h1> en .h1-compartir; las reglas de .toolbar más abajo pasan
+   a ese envoltorio lo que antes hacía el propio .rescount. */
+.h1-compartir { position: relative; display: flex; align-items: flex-start; gap: var(--sp-2); }
+.h1-compartir h1 { flex: 1 1 auto; min-width: 0; }
+.compartir {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: var(--radius-sm);
+    background: none; color: var(--muted); cursor: pointer;
+}
+.compartir:hover { background: var(--s2); color: var(--ink); }
+.compartir svg { width: 1.2rem; height: 1.2rem; }
+.compartir-aviso {
+    position: absolute; right: 0; top: 100%; z-index: 5; white-space: nowrap;
+    padding: 0.25rem 0.6rem; border-radius: var(--radius-sm);
+    background: var(--ink); color: var(--bg); font-size: 0.85rem;
+}
+.compartir-aviso:empty { display: none; }
+
 /* ── Main / footer ──────────────────────────────────────────────────────── */
 main { flex: 1; width: 100%; max-width: var(--wrap); margin: 0 auto; padding: var(--sp-4) 1rem var(--sp-6); }
 /* Páginas de catálogo (explorador de marchas, bandas, discos, dedicatorias,
@@ -576,13 +596,11 @@ table.reg tbody tr:nth-child(even) td { background: var(--zebra); }
 table.reg tbody tr:hover td { background: var(--s2); }
 table.reg td.num, table.reg th.num { text-align: right; }
 .badge-1a { font-size: 0.76rem; font-weight: 600; color: var(--est); background: var(--est-bg); border-radius: 3px; padding: 0.08rem 0.42rem; white-space: nowrap; margin-left: 0.45rem; }
-/* Grabación que abre con intro de percusión: la duración mostrada es la real y
-   la marca explica por qué esa toma es ~40 s más larga que las demás.
-   2026-09-15: era un emoji de tambor —el único glifo en color de todo el sitio,
-   dibujado distinto por cada sistema operativo, y dentro de una columna de
-   duraciones—. Pasa a badge, que es la gramática que la hoja ya usa para marcar
-   una fila (ver .badge-1a, mismo cuerpo y mismo radio). */
-.perc { margin-left: 0.4rem; font-size: 0.76rem; font-weight: 600; cursor: help; color: var(--rec); background: var(--rec-bg); border-radius: 3px; padding: 0.08rem 0.4rem; white-space: nowrap; }
+/* Grabación que abre con intro de percusión: la duración mostrada es la real,
+   el icono explica por qué esa toma es ~40 s más larga que las demás.
+   2026-10-06: vuelve el emoji de tambor (el 2026-09-15 se había cambiado por un
+   badge «perc»); decisión del usuario. */
+.perc { margin-left: 0.35rem; font-size: 0.82rem; cursor: help; opacity: 0.75; }
 
 /* Véase también: lista con viñeta normal; las flechas "→" se eliminaron
    porque son enlaces y ya se ve que lo son. */
@@ -760,6 +778,8 @@ ol.acs-serie .b.vig a { font-weight: 600; }
    menor que el de un título de ficha a propósito —aquí el dato manda. */
 .toolbar .rescount { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin: 0 auto 0 0; }
 .toolbar .rescount b { color: var(--acc); font-variant-numeric: tabular-nums; }
+.toolbar .h1-compartir { margin: 0 auto 0 0; }
+.toolbar .h1-compartir .rescount { margin: 0; flex: 1 1 auto; }
 .toolbar .sortby {
     font-size: 0.86rem;
     display: inline-flex; align-items: stretch;
@@ -1009,6 +1029,10 @@ ul.lnB li.focus .nm { color: var(--ink); font-weight: 700; }
 ul.lnB .cnt2 { font-size: 0.82rem; color: var(--faint); }
 ul.lnB .lead { flex: 1; border-bottom: 1px solid var(--line); min-width: 1rem; }
 ul.lnB .yr { font-size: 0.86rem; color: var(--muted-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Hueco entre dos etapas de la misma banda (banda_etapa): carril punteado, sin nodo. */
+ul.lnB > li.gap::before { border-left-style: dashed; }
+ul.lnB > li.gap::after { display: none; }
+ul.lnB li.gap .nm, ul.lnB li.gap .yr { color: var(--faint); font-style: italic; font-size: 0.82rem; }
 ul.lnB > li.juv { padding-left: 2.9rem; }
 ul.lnB > li.juv::before { left: 0.4rem; top: 0; bottom: 50%; width: 1.15rem; border-left: 1.5px dashed var(--muted-c); border-bottom: 1.5px dashed var(--muted-c); border-bottom-left-radius: 9px; }
 ul.lnB > li.juv::after { left: 1.8rem; border-style: dashed; }
@@ -1161,6 +1185,7 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
     /* La barra de orden/página no cabe al lado del recuento: pasa a línea
        propia y el recuento deja de reservarle el hueco con margin-right. */
     .toolbar .rescount { margin-right: 0; flex: 1 0 100%; font-size: 1.2rem; }
+    .toolbar .h1-compartir { margin-right: 0; flex: 1 0 100%; }
     /* En móvil la etiqueta no cabe al lado del valor sin partir palabras:
        pasa a ir encima, con la misma fila alterna de fondo. */
     dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }
@@ -1246,7 +1271,7 @@ table.reg thead th[aria-sort="descending"] .ar { color: var(--acc); }
 
 /* ── Impresión (ficha de marcha y demás fichas de catálogo) ──────────────── */
 @media print {
-    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile, .tema-toggle,
+    .skip-link, .pre-ribbon, .danger-ribbon, .nav-links, .nav-mobile, .tema-toggle, .compartir, .compartir-aviso,
     .site-search-row, footer, .crumbs, .rectabs,
     .listen, .svcs, .ids, .filter, .pagination { display: none !important; }
 

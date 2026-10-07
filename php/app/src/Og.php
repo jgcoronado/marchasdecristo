@@ -22,6 +22,12 @@ final class Og
     private const W = 1200;
     private const H = 630;
     private const ALLOWED = ['marcha', 'autor', 'banda', 'disco'];
+    /**
+     * Versión del diseño de las tarjetas. Entra en la clave de caché: la clave
+     * solo dependía de los datos, así que un cambio de diseño seguía sirviendo
+     * las tarjetas viejas. Súbela al tocar cómo se pintan.
+     */
+    private const DISENO = 2;
 
     public static function render(array $p): void
     {
@@ -53,7 +59,8 @@ final class Og
             self::fallback();
         }
 
-        $hash = substr(sha1($tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub']), 0, 10);
+        $claveCover = self::claveCover($tipo, (int) $id);
+        $hash = self::huella($tipo, (int) $id, $datos, $claveCover);
         $cacheDir = dirname((string) ($GLOBALS['config']['db_path'] ?? '')) . '/og-cache';
         $cacheFile = $cacheDir . '/' . $tipo . '-' . $id . '-' . $hash . '.jpg';
 
@@ -62,7 +69,8 @@ final class Og
         }
 
         try {
-            $bytes = self::generar($datos);
+            $cover = $claveCover !== '' ? self::portada((int) $id) : null;
+            $bytes = $cover !== null ? self::generarConPortada($datos, $cover) : self::generar($datos);
         } catch (Throwable) {
             self::fallback();
         }
@@ -92,6 +100,184 @@ final class Og
             'mono'         => $dir . 'IBMPlexMono-Regular.ttf',
             default        => $dir . 'IBMPlexSerif-Bold.ttf',
         };
+    }
+
+    /**
+     * Ruta pública de la tarjeta, con su huella de contenido (?v=). La imagen
+     * se sirve con caché de 7 días y la ruta sin versión no cambiaba al cambiar
+     * la tarjeta: WhatsApp, navegadores y proxies seguían con la vieja. Con la
+     * misma huella que la caché interna, la ruta cambia justo cuando cambia la
+     * imagen. Sin datos (entidad sin tarjeta), la ruta sin versión.
+     */
+    public static function url(string $tipo, int $id): string
+    {
+        $ruta = '/og/' . $tipo . '/' . $id . '.jpg';
+        try {
+            $datos = Repo::ogDatos($tipo, $id);
+        } catch (Throwable) {
+            $datos = null;
+        }
+        return $datos === null ? $ruta : $ruta . '?v=' . self::huella($tipo, $id, $datos, self::claveCover($tipo, $id));
+    }
+
+    /**
+     * Huella de la tarjeta: diseño + datos + portada. Nombra el fichero de
+     * caché y versiona la ruta pública (url()).
+     *
+     * @param array{overline:string,titulo:string,sub:string} $datos
+     */
+    private static function huella(string $tipo, int $id, array $datos, string $claveCover): string
+    {
+        return substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
+    }
+
+    /**
+     * Disco con portada: la tarjeta la lleva a la izquierda. La portada entra
+     * en la huella (fecha y tamaño del fichero), así que subir o cambiar una
+     * portada regenera la tarjeta. Si solo se puede descargar (PRE, ver
+     * portadaRemota), la huella no la conoce y la tarjeta se renueva solo
+     * cuando cambian los textos. '' = sin portada.
+     */
+    private static function claveCover(string $tipo, int $id): string
+    {
+        if ($tipo !== 'disco') {
+            return '';
+        }
+        $local = Media::portadaPath($id);
+        if (is_file($local)) {
+            return 'L' . (string) @filemtime($local) . '-' . (string) @filesize($local);
+        }
+        return self::coverRemotaBase() !== '' ? 'R' : '';
+    }
+
+    /** Origen remoto de portadas (solo PRE: 'cover_base_url'); '' si no hay. */
+    private static function coverRemotaBase(): string
+    {
+        return rtrim((string) ($GLOBALS['config']['cover_base_url'] ?? ''), '/');
+    }
+
+    /**
+     * Portada del disco como imagen GD: del disco del servidor si está (PRO) o,
+     * si no, descargada del origen de portadas (PRE no las tiene en disco).
+     * null si no hay portada o no se puede leer: la tarjeta sale sin ella.
+     */
+    private static function portada(int $idDisco): ?\GdImage
+    {
+        $local = Media::portadaPath($idDisco);
+        $bytes = is_file($local) ? (string) @file_get_contents($local) : self::portadaRemota($idDisco);
+        if ($bytes === '') {
+            return null;
+        }
+        $img = @imagecreatefromstring($bytes);
+        return $img instanceof \GdImage ? $img : null;
+    }
+
+    /** Descarga corta (4 s, ≤ 2 MB): la pide un rastreador que no espera mucho. */
+    private static function portadaRemota(int $idDisco): string
+    {
+        $base = self::coverRemotaBase();
+        if ($base === '' || !function_exists('curl_init')) {
+            return '';
+        }
+        $ch = curl_init($base . '/cover/' . $idDisco . '.webp');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 4,
+            CURLOPT_CONNECTTIMEOUT => 3,
+        ]);
+        $body = curl_exec($ch);
+        // PHP en Windows (local) no trae curl.cainfo: mismo recurso que
+        // MalagaBlogImporter, el bundle de CA de Git for Windows.
+        if ($body === false && str_contains(curl_error($ch), 'certificate')) {
+            foreach (['C:/Program Files/Git/mingw64/etc/ssl/certs/ca-bundle.crt', 'C:/Program Files/Git/usr/ssl/certs/ca-bundle.crt'] as $ca) {
+                if (is_file($ca)) {
+                    curl_setopt($ch, CURLOPT_CAINFO, $ca);
+                    $body = curl_exec($ch);
+                    break;
+                }
+            }
+        }
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        if (!is_string($body) || $code !== 200 || strlen($body) > 2_000_000) {
+            return '';
+        }
+        return $body;
+    }
+
+    /**
+     * Variante de disco con portada: portada cuadrada a la izquierda y, a su
+     * derecha, el mismo bloque de texto (sobretítulo, filete, título,
+     * subtítulo, pie) alineado a la izquierda.
+     *
+     * @param array{overline:string,titulo:string,sub:string} $d
+     * @return string  bytes JPEG
+     */
+    private static function generarConPortada(array $d, \GdImage $cover): string
+    {
+        $img = imagecreatetruecolor(self::W, self::H);
+        imagealphablending($img, true);
+
+        $bg    = imagecolorallocate($img, 0x12, 0x14, 0x1d);
+        $ink   = imagecolorallocate($img, 0xe7, 0xea, 0xf4);
+        $muted = imagecolorallocate($img, 0xaa, 0xb3, 0xca);
+        $faint = imagecolorallocate($img, 0x6a, 0x74, 0x88);
+        $acc   = imagecolorallocate($img, 0x55, 0x66, 0xb0);
+        imagefilledrectangle($img, 0, 0, self::W, self::H, $bg);
+
+        // Portada: recorte central al cuadrado (ya lo son, por si acaso).
+        // 320 y no más: casi todas las portadas miden 200 px y, ampliadas
+        // al doble, se veían blandas.
+        $lado = 320;
+        $px = 80;
+        $py = intdiv(self::H - $lado, 2);
+        $cw = imagesx($cover);
+        $ch = imagesy($cover);
+        $corte = min($cw, $ch);
+        imagecopyresampled($img, $cover, $px, $py, intdiv($cw - $corte, 2), intdiv($ch - $corte, 2), $lado, $lado, $corte, $corte);
+
+        $serifBold   = self::font('serif-bold');
+        $serifItalic = self::font('serif-italic');
+        $mono        = self::font('mono');
+        $x = $px + $lado + 60;
+        $maxW = self::W - $x - 70;
+
+        $titSize = 54;
+        $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 3);
+        if (count($lines) > 1) {
+            $titSize = 44;
+            $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 3);
+        }
+        $lineH = (int) round($titSize * 1.16);
+
+        $overSize = 19;
+        $subSize  = 28;
+        $gOver = 18; $gRule = 34; $gSub = 26;
+        $ruleH = 4;
+        $sub = trim((string) $d['sub']);
+        $block = $overSize + $gOver + $ruleH + $gRule + (count($lines) * $lineH)
+            + ($sub !== '' ? $gSub + $subSize : 0);
+        $y = intdiv(self::H - $block, 2) - 20;
+
+        self::tracked($img, $mono, $overSize, mb_strtoupper((string) $d['overline'], 'UTF-8'), $x, $y, 6, $faint, true);
+        $y += $overSize + $gOver;
+        imagefilledrectangle($img, $x, $y, $x + 90, $y + $ruleH, $acc);
+        $y += $ruleH + $gRule;
+        foreach ($lines as $line) {
+            self::leftText($img, $serifBold, $titSize, $line, $x, $y, $ink);
+            $y += $lineH;
+        }
+        if ($sub !== '') {
+            $y += $gSub;
+            self::leftText($img, $serifItalic, $subSize, self::ellipsize($serifItalic, $subSize, $sub, $maxW), $x, $y, $muted);
+        }
+
+        // Pie en la columna de texto, a la misma altura que en la tarjeta sin
+        // portada (no a ras de la portada: un título de tres líneas lo pisaba).
+        self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $x, self::H - 56, 6, $faint, true);
+
+        ob_start();
+        imagejpeg($img, null, 85);
+        return (string) ob_get_clean();
     }
 
     /**
@@ -166,7 +352,6 @@ final class Og
         ob_start();
         imagejpeg($img, null, 85);
         $bytes = (string) ob_get_clean();
-        imagedestroy($img);
         return $bytes;
     }
 
@@ -179,8 +364,18 @@ final class Og
         imagettftext($img, $size, 0, $cx - intdiv($w, 2), $topY + $ascent, $color, $font, $text);
     }
 
-    /** Texto centrado con tracking (espaciado entre caracteres); mono. */
-    private static function tracked($img, string $font, int $size, string $text, int $cx, int $topY, int $track, int $color): void
+    /** Dibuja texto alineado a la izquierda en $x; $topY es el borde superior. */
+    private static function leftText($img, string $font, int $size, string $text, int $x, int $topY, int $color): void
+    {
+        $bbox = imagettfbbox($size, 0, $font, $text);
+        imagettftext($img, $size, 0, $x - $bbox[0], $topY - $bbox[7], $color, $font, $text);
+    }
+
+    /**
+     * Texto con tracking (espaciado entre caracteres); mono. Centrado en $cx,
+     * o empezando en $cx si $izquierda.
+     */
+    private static function tracked($img, string $font, int $size, string $text, int $cx, int $topY, int $track, int $color, bool $izquierda = false): void
     {
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         // Avance por carácter (mono → constante): ancho de "MM" menos "M".
@@ -192,7 +387,7 @@ final class Og
         }
         $total = count($chars) * $adv + (count($chars) - 1) * $track;
         $ascent = -$b1[7];
-        $x = $cx - intdiv($total, 2);
+        $x = $izquierda ? $cx : $cx - intdiv($total, 2);
         $baseY = $topY + $ascent;
         foreach ($chars as $ch) {
             imagettftext($img, $size, 0, $x, $baseY, $color, $font, $ch);

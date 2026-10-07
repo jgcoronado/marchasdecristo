@@ -6,7 +6,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
 $showDate = static function ($fund, $ext): string {
     $funRes = ((int) $fund) > 1800 ? (string) $fund : 's/f';
-    $extRes = ($ext === null || (int) $ext === 0) ? '' : ' – ' . $ext;
+    $extRes = $ext === null ? '' : ' – ' . $ext;
     return $funRes . $extRes;
 };
 // Los sentinelas heredados de la era MySQL llegan como 0 o "0"; los dos son

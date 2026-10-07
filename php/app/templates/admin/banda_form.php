@@ -1,6 +1,7 @@
 <?php use App\View as V; use App\Auth; use App\Slug as S; use App\EnlaceRepo; use App\Html as H;
 /** @var array $session @var array<string,mixed> $banda @var string $action
  *  @var list<array<string,mixed>> $relaciones @var list<string> $tipos
+ *  @var list<array<string,mixed>> $etapas Repo::bandaEtapas() — con etapas, fundación/extinción se calculan
  *  @var bool $showLinaje @var bool $proposalMode @var array|null $notice @var string|null $error
  *  @var array<string,string> $enlaces
  *  @var array<int,list<array<string,mixed>>> $acomp Repo::acompanamientosDeBandaAdmin(), año → filas
@@ -14,6 +15,8 @@ $acomp = $acomp ?? [];
 $acompNomina = $acompNomina ?? [];
 $provincias = $provincias ?? [];
 $anioAbierto = $anioAbierto ?? 0;
+$etapas = $etapas ?? [];
+$conEtapas = $etapas !== [];
 
 // Provincia → localidad con el predictivo del catálogo de municipios (admin.js,
 // data-municipio-picker), como en bandas y dedicatorias. No se usa
@@ -31,11 +34,7 @@ $acompMunicipio = static function (string $pref) use ($provincias): string {
 $id = (int) $banda['ID_BANDA'];
 
 // Los años se guardan como "1980.0" en datos heredados; se muestran como año limpio.
-$val = static function (string $k) use ($banda): string {
-    $v = (string) ($banda[$k] ?? '');
-    if (in_array($k, ['FECHA_FUND', 'FECHA_EXT'], true)) $v = preg_replace('/\.0+$/', '', $v) ?? $v;
-    return V::e($v);
-};
+$val = static fn(string $k): string => V::e((string) ($banda[$k] ?? ''));
 
 $fields = [
     ['NOMBRE_BREVE', 'Nombre breve', 'text'],
@@ -91,7 +90,10 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 <?php foreach ($fields as [$key, $label, $type]): ?>
         <div class="field">
             <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
-            <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>"<?= $type === 'number' ? ' min="1800" max="2100"' : '' ?> value="<?= $val($key) ?>">
+            <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>"<?= $type === 'number' ? ' min="1800" max="2100"' : '' ?> value="<?= $val($key) ?>"<?= $conEtapas && $type === 'number' ? ' readonly' : '' ?>>
+<?php if ($conEtapas && $type === 'number'): ?>
+            <p class="muted small">Se calcula a partir de las etapas de actividad<?= $showLinaje ? ' (más abajo)' : '' ?>.</p>
+<?php endif; ?>
         </div>
 <?php if ($key === 'NOMBRE_COMPLETO'): ?>
 <?= H::municipioFields((string) ($banda['LOCALIDAD'] ?? ''), $banda['PROVINCIA'] ?? null) ?>
@@ -100,6 +102,49 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : 'Guardar cambios' ?></button></div>
     </form>
 <?php if ($showLinaje): ?>
+
+    <section>
+        <h2 class="section-title">Etapas de actividad</h2>
+        <p class="muted small">Solo para una banda que desaparece y vuelve a crearse con el mismo nombre. Con etapas, la fundación y la extinción se calculan solas. Al añadir la primera, el periodo actual (fundación–extinción) se guarda como etapa.</p>
+<?php if ($etapas): ?>
+        <div class="tableList"><table class="table table-zebra table-sm">
+            <thead class="thead-neutral"><tr><td>Desde</td><td>Hasta</td><td>Nota</td><td></td></tr></thead>
+            <tbody>
+<?php foreach ($etapas as $e): ?>
+                <tr>
+                    <td class="small nums"><?= (int) $e['ANIO_INICIO'] ?></td>
+                    <td class="small nums"><?= $e['ANIO_FIN'] !== null ? (int) $e['ANIO_FIN'] : 'hoy' ?></td>
+                    <td class="small"><?= V::e($e['NOTA'] ?? '') ?></td>
+                    <td>
+                        <form action="/dashboard/banda/<?= $id ?>/etapa/<?= (int) $e['ID_ETAPA'] ?>/borrar" method="POST" class="inline-form" onsubmit="return confirm('¿Eliminar esta etapa?');">
+                            <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+                            <button class="btn btn-sm btn-ghost" type="submit">Borrar</button>
+                        </form>
+                    </td>
+                </tr>
+<?php endforeach; ?>
+            </tbody>
+        </table></div>
+<?php endif; ?>
+        <form class="panel" action="/dashboard/banda/<?= $id ?>/etapa" method="POST">
+            <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+            <div class="row">
+                <div class="field">
+                    <label class="field-label" for="etapa_inicio">Desde (año)</label>
+                    <input class="input" id="etapa_inicio" name="anio_inicio" type="number" min="1800" max="2100" required>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="etapa_fin">Hasta (año)</label>
+                    <input class="input" id="etapa_fin" name="anio_fin" type="number" min="1800" max="2100" placeholder="vacío = en activo">
+                </div>
+            </div>
+            <div class="field">
+                <label class="field-label" for="etapa_nota">Nota (opcional)</label>
+                <input class="input" id="etapa_nota" name="nota" type="text" value="">
+            </div>
+            <div><button class="btn btn-neutral" type="submit">Añadir etapa</button></div>
+        </form>
+    </section>
 
     <section>
         <h2 class="section-title">Linaje: predecesoras, sucesoras y juveniles</h2>

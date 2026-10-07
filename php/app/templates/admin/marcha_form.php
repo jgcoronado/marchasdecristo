@@ -23,6 +23,7 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
         <div class="row">
 <?php if ($isEdit): ?>
             <a class="btn btn-sm btn-ghost" href="<?= V::e(S::buildDetailPath('marcha', $marcha['ID_MARCHA'], (string) ($marcha['TITULO'] ?? ''))) ?>" target="_blank">Ver ↗</a>
+            <a class="btn btn-sm btn-neutral" href="/dashboard/marcha/add">+ Nueva marcha</a>
 <?php endif; ?>
             <a class="btn btn-sm btn-ghost" href="/dashboard">← Panel</a>
         </div>
@@ -51,18 +52,39 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
         </div>
 
         <div class="field">
+            <label class="field-label">Autor(es) <span class="muted small">· al menos uno obligatorio</span></label>
+            <div id="autoresBox" class="chips">
+<?php foreach ($authors as $a): ?>
+                <span class="chip" data-id="<?= (int) $a['ID_AUTOR'] ?>">
+                    <input type="hidden" name="autoresIds[]" value="<?= (int) $a['ID_AUTOR'] ?>">
+                    <span><?= V::e($a['NOMBRE_COMPLETO']) ?></span>
+                    <button type="button" class="chip-x" aria-label="Quitar">×</button>
+                </span>
+<?php endforeach; ?>
+            </div>
+            <div class="autocomplete">
+                <input class="input" id="autorSearch" type="text" placeholder="Buscar compositor (mín. 3 caracteres)…" autocomplete="off">
+                <div id="autorSuggest" class="suggest" hidden></div>
+            </div>
+            <p class="field-help muted small">Compositor(es) de la marcha. Si hay varios (partitura a dos, adaptación…), añádelos todos. El orden no es relevante.</p>
+        </div>
+
+        <div class="field">
             <label class="field-label" for="FECHA">Año de composición</label>
             <input class="input" id="FECHA" name="FECHA" type="text" value="<?= $val('FECHA') ?>" placeholder="p. ej. 1987">
             <p class="field-help muted small">Cuatro dígitos. Si no se conoce el año exacto, déjalo en blanco o usa el año más probable según las fuentes disponibles.</p>
         </div>
 
+<?= H::municipioFields((string) ($marcha['LOCALIDAD'] ?? ''), $marcha['PROVINCIA'] ?? null) ?>
+
         <div class="field">
             <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
-            <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text" value="<?= $val('DEDICATORIA') ?>" placeholder="p. ej. «A la Hdad. del Gran Poder de Sevilla»">
-            <p class="field-help muted small">A quién está dedicada la marcha (hermandad, paso, persona…). Copia el texto original de la partitura o del disco si está disponible.</p>
+            <div class="autocomplete">
+                <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text" autocomplete="off" value="<?= $val('DEDICATORIA') ?>" placeholder="p. ej. «A la Hdad. del Gran Poder de Sevilla»">
+                <div id="dedicatoriaSuggest" class="suggest" hidden></div>
+            </div>
+            <p class="field-help muted small">A quién está dedicada la marcha (hermandad, paso, persona…). Copia el texto original de la partitura o del disco si está disponible. Escribe «hdad» para elegir entre las hermandades de la Semana Santa de la localidad.</p>
         </div>
-
-<?= H::municipioFields((string) ($marcha['LOCALIDAD'] ?? ''), $marcha['PROVINCIA'] ?? null) ?>
 
 <?php if ($isEdit): ?>
         <div class="field">
@@ -126,24 +148,6 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
             <label class="field-label" for="DATOS_INT">Datos internos</label>
             <textarea class="input" id="DATOS_INT" name="DATOS_INT" rows="4"><?= $val('DATOS_INT') ?></textarea>
             <p class="field-help muted small">Uso interno, no se muestra en la ficha pública: investigación sobre datación, fuentes o dudas pendientes de confirmar.</p>
-        </div>
-
-        <div class="field">
-            <label class="field-label">Autor(es) <span class="muted small">· al menos uno obligatorio</span></label>
-            <div id="autoresBox" class="chips">
-<?php foreach ($authors as $a): ?>
-                <span class="chip" data-id="<?= (int) $a['ID_AUTOR'] ?>">
-                    <input type="hidden" name="autoresIds[]" value="<?= (int) $a['ID_AUTOR'] ?>">
-                    <span><?= V::e($a['NOMBRE_COMPLETO']) ?></span>
-                    <button type="button" class="chip-x" aria-label="Quitar">×</button>
-                </span>
-<?php endforeach; ?>
-            </div>
-            <div class="autocomplete">
-                <input class="input" id="autorSearch" type="text" placeholder="Buscar compositor (mín. 3 caracteres)…" autocomplete="off">
-                <div id="autorSuggest" class="suggest" hidden></div>
-            </div>
-            <p class="field-help muted small">Compositor(es) de la marcha. Si hay varios (partitura a dos, adaptación…), añádelos todos. El orden no es relevante.</p>
         </div>
 
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : ($isEdit ? 'Guardar cambios' : 'Crear marcha') ?></button></div>

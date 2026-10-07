@@ -17,7 +17,7 @@ final class Http
     public static function notFound(): never
     {
         http_response_code(404);
-        View::render('404', [], ['title' => 'Página no encontrada — Marchas de Cristo']);
+        View::render('404', [], ['title' => 'Página no encontrada — Marchas de Cristo', 'compartir' => false]);
         exit;
     }
 
@@ -26,7 +26,7 @@ final class Http
     {
         http_response_code(403);
         self::noStore();
-        View::render('403', [], ['title' => 'Acceso restringido — Marchas de Cristo', 'noindex' => true]);
+        View::render('403', [], ['title' => 'Acceso restringido — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
     }
 
@@ -35,7 +35,7 @@ final class Http
     {
         http_response_code(503);
         self::noStore();
-        View::render('readonly', [], ['title' => 'Solo lectura — Marchas de Cristo', 'noindex' => true]);
+        View::render('readonly', [], ['title' => 'Solo lectura — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
     }
 
@@ -50,8 +50,40 @@ final class Http
         http_response_code(503);
         header('Retry-After: 120');
         self::noStore();
-        View::render('maintenance', [], ['title' => 'Actualizando — Marchas de Cristo', 'noindex' => true]);
+        View::render('maintenance', [], ['title' => 'Actualizando — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
         exit;
+    }
+
+    /**
+     * 500 ante una excepción o error fatal no capturado (ver bootstrap.php).
+     * Descarta la salida a medias; si las cabeceras ya salieron no se puede
+     * cambiar el código, así que no se pinta nada más. Si el propio layout
+     * falla, cae a un HTML mínimo sin dependencias.
+     */
+    public static function serverError(): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (headers_sent()) {
+            return;
+        }
+        http_response_code(500);
+        self::noStore();
+        try {
+            ob_start();
+            View::render('500', [], ['title' => 'Error del servidor — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
+            ob_end_flush();
+        } catch (\Throwable) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('Content-Type: text/html; charset=UTF-8');
+            echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="robots" content="noindex">'
+                . '<title>Error del servidor — Marchas de Cristo</title>'
+                . '<h1>Algo ha fallado</h1><p>Ha ocurrido un error en el servidor. Prueba de nuevo en unos minutos '
+                . 'o vuelve a la <a href="/">página de inicio</a>.</p></html>';
+        }
     }
 
     /** Cacheable por navegador/proxy (páginas públicas estables). */

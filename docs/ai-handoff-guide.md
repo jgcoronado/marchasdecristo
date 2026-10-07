@@ -497,7 +497,9 @@ Definidas en `php/app/routes.php`. La clase `Router` registra rutas con `{param}
 
 ### SEO y feeds
 
-| GET | `/sitemap.xml` | `Pages::sitemap` |
+| GET | `/sitemap_index.xml` | `Pages::sitemapIndex` (índice) |
+| GET | `/sitemaps/{tipo}.xml` | `Pages::sitemapTipo` (paginas, marchas, autores, bandas, discos, dedicatorias) |
+| GET | `/sitemap.xml` | `Pages::sitemapLegacy` (301 al índice) |
 | GET | `/robots.txt` | `Pages::robots` |
 | GET | `/feed.xml` | `Pages::feedXml` (RSS) |
 | GET | `/feed.json` | `Pages::feedJson` |

@@ -9,8 +9,7 @@ $anio = static function ($a): string {
     return $n > 0 ? (string) $n : '—';
 };
 $defuncion = static function ($d): string {
-    if ($d === null || (int) $d === 0) return '—';
-    return (string) (int) $d;
+    return $d === null ? '—' : (string) $d;
 };
 /** "PROVINCIA|N" del subselect → "Sevilla (12)", sin la etiqueta "mayoría de marchas para:". */
 $mayoria = static function (?string $topProvinciaN): string {
@@ -73,7 +72,7 @@ $hayFiltro = $val('nombre') !== '' || $hayFiltroAvanzado;
     </form>
 
 <?php if ($result !== null): $total = (int) $result['totalRows'];
-    $hayDefuncion = array_reduce($result['data'] ?? [], static fn(bool $c, array $a): bool => $c || ($a['F_DEF'] !== null && (int) $a['F_DEF'] !== 0), false); ?>
+    $hayDefuncion = array_reduce($result['data'] ?? [], static fn(bool $c, array $a): bool => $c || $a['F_DEF'] !== null, false); ?>
     <section>
 <?php if ($total === 0): ?>
         <p class="bio-empty">No se han encontrado compositores con esos criterios.</p>

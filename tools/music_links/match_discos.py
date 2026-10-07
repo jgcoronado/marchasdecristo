@@ -45,7 +45,7 @@ def main():
             for srv, (sc, cand) in best_by_srv.items():
                 conf = 'ALTA' if sc >= 0.55 else ('MEDIA' if sc >= 0.4 else 'BAJA')
                 db_rows.append(('disco', did, srv, cand['url'], cand.get('id_ext'),
-                                cand['album'], cand['artist'], cand.get('year') or '', sc, conf))
+                                cand['album'], cand['artist'], cand.get('year') or None, sc, conf))
         if (idx + 1) % 20 == 0:
             print(f'  ...{idx+1}/{len(bandas)} bandas', file=sys.stderr)
 

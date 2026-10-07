@@ -144,7 +144,7 @@ final class Repo
              INNER JOIN disco_marcha dm ON dm.ID_DISCO = d.ID_DISCO
              LEFT OUTER JOIN banda b  ON b.ID_BANDA  = d.BANDADISCO
              LEFT OUTER JOIN banda bi ON bi.ID_BANDA = dm.DM_BANDA
-             WHERE dm.IDMARCHA = ? ORDER BY CAST(d.FECHA_CD AS REAL) ASC, d.NOMBRE_CD ASC",
+             WHERE dm.IDMARCHA = ? ORDER BY d.FECHA_CD ASC, d.NOMBRE_CD ASC",
             [$id]
         );
         $marcha['discosLength'] = count($discos);
@@ -152,7 +152,7 @@ final class Repo
 
         $primera = null;
         foreach ($discos as $d) {
-            $y = (int) (float) ($d['FECHA_CD'] ?? 0);
+            $y = (int) ($d['FECHA_CD'] ?? 0);
             if ($y > 1800 && ($primera === null || $y < $primera)) $primera = $y;
         }
         $marcha['PRIMERA_GRABACION'] = $primera;
@@ -195,6 +195,67 @@ final class Repo
             $marcha['VIDEO_UPLOAD'] = $row['PUBLICADO_AT'] ?? null;
         }
         return $marcha;
+    }
+
+    /**
+     * Marchas relacionadas para la ficha: mismo compositor, después misma
+     * dedicatoria literal y después misma banda de estreno. Solo coincidencias
+     * exactas de datos catalogados. Dentro de cada grupo, más grabadas primero.
+     * @param list<int> $autorIds
+     * @return list<array<string,mixed>> ID_MARCHA, TITULO, FECHA, AUTOR
+     */
+    public static function marchasRelacionadas(int $id, array $autorIds, ?string $dedicatoria, ?int $bandaEstreno, int $max = 8): array
+    {
+        $valid = 'EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)';
+        $orden = '(SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) DESC, m.TITULO';
+        $out = [];
+        $add = static function (array $rows, int $cupo) use (&$out, $id, $max): void {
+            $n = 0;
+            foreach ($rows as $r) {
+                $mid = (int) $r['ID_MARCHA'];
+                if ($mid === $id || isset($out[$mid])) continue;
+                if ($n >= $cupo || count($out) >= $max) break;
+                $out[$mid] = $r;
+                $n++;
+            }
+        };
+
+        if ($autorIds !== []) {
+            $ph = implode(',', array_fill(0, count($autorIds), '?'));
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.ID_MARCHA IN (SELECT ma.ID_MARCHA FROM marcha_autor ma WHERE ma.ID_AUTOR IN ($ph))
+                   AND m.ID_MARCHA != ?
+                 ORDER BY $orden LIMIT 12",
+                [...$autorIds, $id]
+            ), 4);
+        }
+        $dedic = trim((string) $dedicatoria);
+        if ($dedic !== '' && $dedic !== '0') {
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.DEDICATORIA = ? AND m.ID_MARCHA != ? AND $valid
+                 ORDER BY $orden LIMIT 12",
+                [$dedic, $id]
+            ), 4);
+        }
+        if (($bandaEstreno ?? 0) > 0) {
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.BANDA_ESTRENO = ? AND m.ID_MARCHA != ? AND $valid
+                 ORDER BY $orden LIMIT 16",
+                [$bandaEstreno, $id]
+            ), $max);
+        }
+
+        if ($out === []) return [];
+        $autores = self::autoresFor(array_keys($out));
+        foreach ($out as $mid => &$r) {
+            self::normalizeFecha($r);
+            $r['AUTOR'] = $autores[$mid] ?? [];
+        }
+        unset($r);
+        return array_values($out);
     }
 
     /**
@@ -476,7 +537,7 @@ final class Repo
                        INNER JOIN disco d ON d.ID_DISCO = dm.ID_DISCO
                        LEFT OUTER JOIN banda bg ON bg.ID_BANDA = COALESCE(dm.DM_BANDA, d.BANDADISCO)
                       WHERE dm.IDMARCHA = m.ID_MARCHA
-                      ORDER BY CAST(d.FECHA_CD AS REAL) ASC, d.NOMBRE_CD ASC LIMIT 1) AS PRIMERA_GRAB_BANDA
+                      ORDER BY d.FECHA_CD ASC, d.NOMBRE_CD ASC LIMIT 1) AS PRIMERA_GRAB_BANDA
              FROM marcha m
              LEFT OUTER JOIN banda be ON be.ID_BANDA = m.BANDA_ESTRENO
              WHERE $where
@@ -701,9 +762,7 @@ final class Repo
         $nacHasta = $exclude !== 'nacHasta' ? self::normalizeAnio((string) ($params['nacHasta'] ?? '')) : null;
         if ($nacHasta !== null) { $conditions[] = 'a.F_NAC <= ?'; $values[] = $nacHasta; }
 
-        // Sentinelas heredados de la era MySQL: F_DEF llega como 0 cuando no
-        // hay fecha de defunción (mismo patrón que FECHA_FUND/FECHA_EXT de banda).
-        if ($on('fallecido')) { $conditions[] = '(a.F_DEF IS NOT NULL AND a.F_DEF != 0)'; }
+        if ($on('fallecido')) { $conditions[] = 'a.F_DEF IS NOT NULL'; }
 
         if ($on('minMarchas') && ctype_digit((string) $params['minMarchas'])) {
             $conditions[] = '(SELECT COUNT(*) FROM marcha_autor ma3 WHERE ma3.ID_AUTOR = a.ID_AUTOR) > ?';
@@ -780,6 +839,7 @@ final class Repo
 
         $banda['timeline'] = $timeline;
         $banda['linaje'] = self::bandaLinaje($id);
+        $banda['etapas'] = self::bandaEtapas((int) $id);
         $banda['discosLength'] = count($discos);
         $banda['discos'] = $discos;
         $banda['marchasLength'] = count($marchas);
@@ -801,6 +861,15 @@ final class Repo
             $map[(int) $r['B']] = (int) $r['N'];
         }
         $banda['ESTRENOS_MAP'] = $map;
+        // Etapas de las otras formaciones del linaje: una predecesora refundada
+        // no debe salir como "1992–hoy" (su resumen) sino con sus tramos.
+        $etapasMap = [];
+        foreach (array_unique($ids) as $otra) {
+            if ($otra === (int) $banda['ID_BANDA']) continue;
+            $et = self::bandaEtapas($otra);
+            if (count($et) > 1) $etapasMap[$otra] = $et;
+        }
+        $banda['ETAPAS_MAP'] = $etapasMap;
         $banda['REG_TOTAL'] = (int) (Db::one('SELECT COUNT(*) AS n FROM banda')['n'] ?? 0);
         $banda['REG_POS'] = (int) (Db::one('SELECT COUNT(*) AS n FROM banda WHERE ID_BANDA <= ?', [$id])['n'] ?? 0);
         return $banda;
@@ -926,6 +995,33 @@ final class Repo
              ORDER BY r.TIPO ASC, r.FECHA_INICIO ASC",
             [$id, $id]
         );
+    }
+
+    /**
+     * Etapas de actividad de una banda (021_banda_etapa.sql), de la más antigua
+     * a la más reciente. Vacío si la banda tiene una sola etapa (la de
+     * FECHA_FUND/FECHA_EXT) o si el host aún no tiene la tabla: el código puede
+     * llegar a PRO antes que la BD con la migración, y la ficha no debe dar 500.
+     *
+     * @return list<array{ID_ETAPA:int,ANIO_INICIO:int,ANIO_FIN:int|null,NOTA:string|null}>
+     */
+    public static function bandaEtapas(int $id): array
+    {
+        try {
+            $rows = Db::all(
+                'SELECT ID_ETAPA, ANIO_INICIO, ANIO_FIN, NOTA FROM banda_etapa WHERE ID_BANDA = ? ORDER BY ANIO_INICIO ASC',
+                [$id]
+            );
+        } catch (\PDOException $e) {
+            error_log('[banda_etapa] ' . $e->getMessage());
+            return [];
+        }
+        return array_map(static fn(array $r): array => [
+            'ID_ETAPA' => (int) $r['ID_ETAPA'],
+            'ANIO_INICIO' => (int) $r['ANIO_INICIO'],
+            'ANIO_FIN' => $r['ANIO_FIN'] !== null ? (int) $r['ANIO_FIN'] : null,
+            'NOTA' => $r['NOTA'],
+        ], $rows);
     }
 
     /**
@@ -1055,7 +1151,7 @@ final class Repo
         if ($nombre !== '') { $conditions[] = 'NOACC(d.NOMBRE_CD) LIKE ?'; $values[] = '%' . Db::noAcc($nombre) . '%'; }
         if ($exclude !== 'decada' && !empty($params['decada'])) {
             $d0 = (int) $params['decada'];
-            $conditions[] = 'CAST(d.FECHA_CD AS INTEGER) BETWEEN ? AND ?';
+            $conditions[] = 'd.FECHA_CD BETWEEN ? AND ?';
             $values[] = $d0; $values[] = $d0 + 9;
         }
         $where = $conditions !== [] ? implode(' AND ', $conditions) : '1=1';
@@ -1063,7 +1159,7 @@ final class Repo
     }
 
     /** Columnas ordenables del explorador de discos: clave pública → SQL. */
-    private const DISCO_ORDEN = ['nombre' => 'd.NOMBRE_CD', 'banda' => 'b.NOMBRE_BREVE', 'anio' => 'CAST(d.FECHA_CD AS INTEGER)'];
+    private const DISCO_ORDEN = ['nombre' => 'd.NOMBRE_CD', 'banda' => 'b.NOMBRE_BREVE', 'anio' => 'd.FECHA_CD'];
 
     public static function searchDiscos(string $query, int $page = 1, int $limit = 20): array
     {
@@ -1103,8 +1199,8 @@ final class Repo
     {
         parse_str($query, $params);
         [$w, $v] = self::discoWhere($params, 'decada');
-        $dec = Db::all("SELECT (CAST(d.FECHA_CD AS INTEGER) / 10) * 10 AS K, COUNT(*) AS N FROM disco d
-                        WHERE $w AND CAST(d.FECHA_CD AS INTEGER) > 1900
+        $dec = Db::all("SELECT (d.FECHA_CD / 10) * 10 AS K, COUNT(*) AS N FROM disco d
+                        WHERE $w AND d.FECHA_CD > 1900
                         GROUP BY K ORDER BY K DESC LIMIT 10", $v);
         return ['decada' => $dec];
     }
@@ -1229,18 +1325,19 @@ final class Repo
         switch ($tipo) {
             case 'marcha':
                 $r = Db::one(
-                    "SELECT m.TITULO, m.FECHA,
-                            (SELECT a.NOMBRE || ' ' || a.APELLIDOS
-                             FROM marcha_autor ma INNER JOIN autor a ON a.ID_AUTOR = ma.ID_AUTOR
-                             WHERE ma.ID_MARCHA = m.ID_MARCHA ORDER BY a.APELLIDOS LIMIT 1) AS COMPOSITOR
+                    "SELECT m.TITULO, m.FECHA
                      FROM marcha m
                      WHERE m.ID_MARCHA = ?
                        AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)",
                     [$id]
                 );
                 if ($r === null) return null;
+                // Todos los compositores, en el orden de la ficha; si no caben,
+                // Og recorta el subtítulo con «…».
+                $autores = self::autoresFor([$id])[$id] ?? [];
+                $compositores = View::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $autores));
                 $anio = (!empty($r['FECHA'])) ? (int) $r['FECHA'] : null;
-                $sub = trim(((string) ($r['COMPOSITOR'] ?? '')) . ($anio ? ' · ' . $anio : ''), ' ·');
+                $sub = trim($compositores . ($anio ? ' · ' . $anio : ''), ' ·');
                 return ['overline' => 'Marcha procesional', 'titulo' => (string) $r['TITULO'], 'sub' => $sub];
 
             case 'autor':
@@ -1256,10 +1353,20 @@ final class Repo
                         'sub' => $n === 1 ? '1 marcha' : $n . ' marchas'];
 
             case 'banda':
-                $r = Db::one('SELECT NOMBRE_BREVE, NOMBRE_COMPLETO, LOCALIDAD FROM banda WHERE ID_BANDA = ?', [$id]);
+                // Estrenos con el mismo criterio que la ficha (fetchBanda →
+                // marchasLength): solo marchas vivas (con autor).
+                $r = Db::one(
+                    "SELECT b.NOMBRE_BREVE, b.NOMBRE_COMPLETO, b.LOCALIDAD,
+                            (SELECT COUNT(*) FROM marcha m
+                             WHERE m.BANDA_ESTRENO = b.ID_BANDA
+                               AND EXISTS (SELECT 1 FROM marcha_autor am WHERE am.ID_MARCHA = m.ID_MARCHA)) AS N
+                     FROM banda b WHERE b.ID_BANDA = ?",
+                    [$id]
+                );
                 if ($r === null) return null;
                 $titulo = (string) ($r['NOMBRE_BREVE'] ?: $r['NOMBRE_COMPLETO']);
-                return ['overline' => 'Banda', 'titulo' => $titulo, 'sub' => (string) ($r['LOCALIDAD'] ?? '')];
+                return ['overline' => 'Banda', 'titulo' => $titulo,
+                        'sub' => self::bandaLocEstrenos((string) ($r['LOCALIDAD'] ?? ''), (int) $r['N'])];
 
             case 'disco':
                 $r = Db::one(
@@ -1269,11 +1376,21 @@ final class Repo
                     [$id]
                 );
                 if ($r === null) return null;
-                $anio = (!empty($r['FECHA_CD'])) ? (int) (float) $r['FECHA_CD'] : null;
+                $anio = (!empty($r['FECHA_CD'])) ? (int) $r['FECHA_CD'] : null;
                 $sub = trim(((string) ($r['BANDA'] ?? '')) . ($anio ? ' · ' . $anio : ''), ' ·');
                 return ['overline' => 'Disco', 'titulo' => (string) $r['NOMBRE_CD'], 'sub' => $sub];
         }
         return null;
+    }
+
+    /**
+     * «Sevilla · 124 estrenos» para la tarjeta social de una banda (imagen y
+     * og:description). Sin estrenos, solo la localidad.
+     */
+    public static function bandaLocEstrenos(string $localidad, int $estrenos): string
+    {
+        $n = $estrenos > 0 ? number_format($estrenos, 0, ',', '.') . ($estrenos === 1 ? ' estreno' : ' estrenos') : '';
+        return trim(trim($localidad) . ($n !== '' ? ' · ' . $n : ''), ' ·');
     }
 
     // ── Últimas incorporaciones ──────────────────────────────────────────────

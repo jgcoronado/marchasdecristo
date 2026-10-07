@@ -92,6 +92,13 @@ if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta
 
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 
+// Botón de compartir junto al <h1> (lo inserta catalog.js; sin JS no hay
+// nada que compartir, así que tampoco botón). Fuera: portada, resultados de
+// búsqueda, panel/login y las páginas de error o mantenimiento (pasan
+// $meta['compartir'] = false desde App\Http).
+$compartir = ($meta['compartir'] ?? true) !== false
+    && $showSearch && $reqPath !== '/' && $current !== '/buscar';
+
 // Ancho de la página. Dos anchos, no uno (ver --wrap / --wrap-ancho en
 // app.css): las pantallas de catálogo son tabla + facetas y a 54rem se
 // recortan, mientras que las fichas y la prosa se leen mejor estrechas. La
@@ -150,7 +157,7 @@ if (!empty($meta['ancho'])) {
     <meta name="description" content="<?= $e($description) ?>">
 <?php endif; ?>
 <?php if ($noindex): ?>
-    <meta name="robots" content="noindex">
+    <meta name="robots" content="noindex, follow">
 <?php endif; ?>
 <?php if ($canonical !== null): ?>
     <link rel="canonical" href="<?= $e($canonical) ?>">
@@ -167,7 +174,7 @@ if (!empty($meta['ancho'])) {
     <meta property="og:image" content="<?= $e($ogImage) ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:type" content="<?= str_ends_with($ogImage, '.jpg') ? 'image/jpeg' : 'image/png' ?>">
+    <meta property="og:image:type" content="<?= str_ends_with((string) parse_url($ogImage, PHP_URL_PATH), '.jpg') ? 'image/jpeg' : 'image/png' ?>">
     <meta property="og:image:alt" content="<?= $e($ogImageAlt) ?>">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@JaviWarSVQ">
@@ -178,6 +185,7 @@ if (!empty($meta['ancho'])) {
     <meta name="twitter:image" content="<?= $e($ogImage) ?>">
     <meta name="twitter:image:alt" content="<?= $e($ogImageAlt) ?>">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/app.css')) ?>">
     <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
              atributo media (ver la cabecera de dark.css). Por defecto sigue al
@@ -293,7 +301,7 @@ if (!empty($meta['ancho'])) {
              (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
              .main-catalogo hace lo propio, más contenido, con los listados
              públicos: ver RUTAS_CATALOGO arriba. */ ?>
-    <main id="main-content"><?= $content ?></main>
+    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?>><?= $content ?></main>
 
     <footer>
         <div class="inner">

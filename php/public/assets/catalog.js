@@ -239,4 +239,66 @@
             el.textContent = dir;
         }
     });
+
+    // Compartir: botón junto al <h1> de las páginas que lo admiten (<main
+    // data-compartir>, ver layout.php). Abre el menú de compartir del sistema
+    // (WhatsApp, Telegram…); donde no existe (casi todo escritorio Firefox),
+    // copia el enlace. Se comparte solo la URL: la tarjeta (og:*) ya lleva
+    // título y datos.
+    var mainEl = document.getElementById('main-content');
+    var h1 = mainEl && mainEl.hasAttribute('data-compartir') ? mainEl.querySelector('h1') : null;
+    if (h1) {
+        var fila = document.createElement('div');
+        fila.className = 'h1-compartir';
+        h1.parentNode.insertBefore(fila, h1);
+        fila.appendChild(h1);
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'compartir';
+        btn.setAttribute('aria-label', 'Compartir');
+        btn.title = 'Compartir';
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+        var aviso = document.createElement('span');
+        aviso.className = 'compartir-aviso';
+        aviso.setAttribute('role', 'status');
+        fila.appendChild(btn);
+        fila.appendChild(aviso);
+
+        var avisar = function (txt) {
+            aviso.textContent = txt;
+            setTimeout(function () { aviso.textContent = ''; }, 2500);
+        };
+        var copiar = function (url) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(url);
+            }
+            var ta = document.createElement('textarea');
+            ta.value = url;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok ? Promise.resolve() : Promise.reject();
+        };
+
+        var copiarYAvisar = function (url) {
+            copiar(url).then(
+                function () { avisar('Enlace copiado'); },
+                function () { avisar('No se pudo copiar el enlace'); }
+            );
+        };
+
+        btn.addEventListener('click', function () {
+            var url = location.href.split('#')[0];
+            if (!navigator.share) { copiarYAvisar(url); return; }
+            navigator.share({ url: url }).catch(function (err) {
+                // AbortError = el usuario cerró el menú: no es un fallo.
+                if (!err || err.name !== 'AbortError') copiarYAvisar(url);
+            });
+        });
+    }
 })();

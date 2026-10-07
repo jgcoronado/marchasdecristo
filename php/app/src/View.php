@@ -35,4 +35,22 @@ final class View
     {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
+
+    /**
+     * Enumeración en castellano: «A», «A y B», «A, B y C». La conjunción pasa
+     * a «e» ante sonido /i/ («Pedro Morales e Ignacio…»), no ante diptongo
+     * («… y Hierro»).
+     *
+     * @param list<string> $items
+     */
+    public static function listaY(array $items): string
+    {
+        $items = array_values(array_filter(array_map('trim', $items), static fn(string $s): bool => $s !== ''));
+        if (count($items) < 2) {
+            return $items[0] ?? '';
+        }
+        $ultimo = array_pop($items);
+        $conj = preg_match('/^h?[ií](?![aeiouáéíóú])/iu', $ultimo) === 1 ? ' e ' : ' y ';
+        return implode(', ', $items) . $conj . $ultimo;
+    }
 }

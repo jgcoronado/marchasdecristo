@@ -122,7 +122,8 @@ final class Seo
         if (!empty($data['LUGAR_NAC'])) {
             $schema['birthPlace'] = ['@type' => 'Place', 'name' => $data['LUGAR_NAC']];
         }
-        $schema['description'] = 'Compositor de música procesional. Ha compuesto ' . $data['marchasLength'] . ' marchas.';
+        $n = (int) $data['marchasLength'];
+        $schema['description'] = 'Compositor de música procesional. Ha compuesto ' . $n . ($n === 1 ? ' marcha.' : ' marchas.');
         if (!empty($data['BIO'])) $schema['knowsAbout'] = $data['BIO'];
         return $schema;
     }

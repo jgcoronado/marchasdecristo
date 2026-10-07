@@ -39,7 +39,7 @@ CREATE TABLE banda (
   FORMACION_ANT INTEGER, FORMACION_SIG INTEGER
 );
 CREATE TABLE disco (
-  ID_DISCO INTEGER PRIMARY KEY, NOMBRE_CD TEXT, FECHA_CD TEXT,
+  ID_DISCO INTEGER PRIMARY KEY, NOMBRE_CD TEXT, FECHA_CD INTEGER,
   BANDADISCO INTEGER, d_DETALLES TEXT,
   -- Intro de percusión del disco (espejo de migrate_ingest.php). Repo::marcha
   -- las lee en la consulta de grabaciones: si faltan aquí, la ficha de marcha
@@ -178,6 +178,9 @@ $ins = static function (string $sql, array $rows) use ($pdo): void {
 $ins('INSERT INTO banda (ID_BANDA, NOMBRE_BREVE, NOMBRE_COMPLETO, LOCALIDAD, PROVINCIA, FECHA_FUND) VALUES (?,?,?,?,?,?)', [
     [1, 'Las Cigarreras', 'Banda de CCTT Ntra. Sra. de la Victoria (Las Cigarreras)', 'Sevilla', 'Sevilla', 1977],
     [2, 'Tres Caídas', 'Agrupación Musical Ntro. Padre Jesús de las Tres Caídas', 'Sevilla', 'Sevilla', 1984],
+    // Comodín de la BD real para discos y estrenos colectivos: no es una banda
+    // y no debe indexarse (ver Pages::sitemap / bandaDetail).
+    [0, 'Varias bandas', 'Varias bandas', '', '', null],
 ]);
 
 $ins('INSERT INTO autor (ID_AUTOR, NOMBRE, APELLIDOS, F_NAC, F_DEF, LUGAR_NAC) VALUES (?,?,?,?,?,?)', [
@@ -188,6 +191,8 @@ $ins('INSERT INTO autor (ID_AUTOR, NOMBRE, APELLIDOS, F_NAC, F_DEF, LUGAR_NAC) V
     // unificarse con Slug.php, este nombre generaba una URL de JSON-LD
     // distinta de la canónica real.
     [3, 'Rafael', "O'Donnell", null, null, null],
+    // Autor de una sola marcha sin dedicatoria ni banda: ficha sin «Marchas relacionadas».
+    [4, 'Antonio', 'Ruiz Sanz', null, null, null],
 ]);
 
 $ins('INSERT INTO marcha (ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, AUDIO, FECHA, BANDA_ESTRENO, TIPO, ESTILO, DURACION_SEG) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [
@@ -196,10 +201,11 @@ $ins('INSERT INTO marcha (ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, 
     [3, 'Costalero Bueno', null, 'Cádiz', 'Cádiz', null, 1995, 2, 'MARCHA', 'AM', 180],
     [4, 'Cristo de la Sangre', null, 'Sevilla', 'Sevilla', null, 1990, 2, 'MARCHA', 'AM', 200],
     [5, 'Reina de San Román', null, 'Sevilla', 'Sevilla', null, null, 1, 'MARCHA', null, null],
+    [6, 'Saeta Sola', null, null, null, null, null, null, 'MARCHA', null, null],
 ]);
 
 $ins('INSERT INTO marcha_autor (ID_MARCHA, ID_AUTOR) VALUES (?,?)', [
-    [1, 1], [2, 1], [3, 2], [3, 3], [4, 2], [5, 1],
+    [1, 1], [2, 1], [3, 2], [3, 3], [4, 2], [5, 1], [6, 4],
 ]);
 
 $ins('INSERT INTO disco (ID_DISCO, NOMBRE_CD, FECHA_CD, BANDADISCO) VALUES (?,?,?,?)', [

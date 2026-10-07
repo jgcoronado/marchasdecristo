@@ -2,6 +2,7 @@
 /** @var array<string,mixed> $m
  *  @var array{original: array<string,string>, actual: array<string,string>} $enlaces */
 /** @var string|null $url  URL canónica absoluta (permalink) */
+/** @var list<array<string,mixed>> $relacionadas  Repo::marchasRelacionadas */
 
 // "truthy" al estilo JS: null, '', 0, 0.0 y false son falsos; '0' (string) es verdadero.
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
@@ -162,7 +163,7 @@ $ordenable = count($m['discos']) > 2; ?>
         </tr></thead>
         <tbody>
 <?php foreach ($m['discos'] as $d):
-    $anio = (int) (float) ($d['FECHA_CD'] ?? 0);
+    $anio = (int) ($d['FECHA_CD'] ?? 0);
 ?>
             <tr>
                 <td><?= $anio > 1800 ? $anio : '—' ?></td>
@@ -173,13 +174,22 @@ $ordenable = count($m['discos']) > 2; ?>
                          con el icono para explicar por qué es más larga que las
                          demás; el descuento solo se aplica al calcular la mediana. */ ?>
                 <td class="mobile-hide"><?php if (!empty($d['DURACION_SEG'])): ?>
-                    <?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?><span class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)" aria-label="Con introducción de percusión">perc</span><?php endif; ?>
+                    <?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?><span class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)" aria-label="Con introducción de percusión">🥁</span><?php endif; ?>
                 <?php else: ?><span class="muted">—</span><?php endif; ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
     </table>
     </div>
+<?php endif; ?>
+
+<?php if (!empty($relacionadas)): ?>
+    <div class="shead"><h2>Marchas relacionadas</h2></div>
+    <ul class="vease">
+<?php foreach ($relacionadas as $r): ?>
+        <li><a href="<?= V::e(S::buildDetailPath('marcha', $r['ID_MARCHA'], (string) $r['TITULO'])) ?>"><?= V::e($r['TITULO']) ?></a><?php if ($r['AUTOR'] !== []): ?> — <?= V::e(V::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $r['AUTOR']))) ?><?php endif; ?><?php if (preg_match('/^\d{4}$/', (string) $r['FECHA']) === 1): ?> <span class="cnt"><?= V::e($r['FECHA']) ?></span><?php endif; ?></li>
+<?php endforeach; ?>
+    </ul>
 <?php endif; ?>
 
 <?php

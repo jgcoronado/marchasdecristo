@@ -202,7 +202,7 @@ function insertCandidato(PDO $db, bool $commit, string $runId,
             (TIPO_ENT, ID_ENT, SERVICIO, URL, ID_EXT, TITULO_ENC, ARTISTA_ENC, ANIO_ENC, SCORE, CONFIANZA, ESTADO, RUN_ID)
         VALUES (?, ?, 'spotify', ?, ?, ?, ?, ?, ?, 'MEDIA', 'pendiente', ?)
     ");
-    $st->execute([$tipo, $idEnt, $url, $idExt, $tituloSp, $artistaSp, $anioSp, $score, $runId]);
+    $st->execute([$tipo, $idEnt, $url, $idExt, $tituloSp, $artistaSp, $anioSp !== '' ? $anioSp : null, $score, $runId]);
 }
 
 // ── Proceso principal ─────────────────────────────────────────────────────────

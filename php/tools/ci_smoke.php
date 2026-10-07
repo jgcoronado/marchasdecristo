@@ -199,7 +199,8 @@ function assertJsonLdUrlsCanonical(string $path, string $base): void
 }
 
 /**
- * Paths (sin host) de todos los <loc> del sitemap.
+ * Paths (sin host) de todas las URLs de página: los <loc> de cada sitemap hijo
+ * que anuncia /sitemap_index.xml.
  *
  * Por path y no por URL completa a propósito: el sitemap se construye siempre
  * con 'site_url' (producción), no con el $base del servidor de pruebas, así que
@@ -210,12 +211,19 @@ function assertJsonLdUrlsCanonical(string $path, string $base): void
  */
 function sitemapPaths(string $base): array
 {
-    $r = assertStatus('/sitemap.xml', 200, $base);
+    $paths = [];
+    foreach (sitemapLocs('/sitemap_index.xml', $base) as $hijo) {
+        $paths = array_merge($paths, sitemapLocs((string) parse_url($hijo, PHP_URL_PATH), $base));
+    }
+    return array_map(static fn(string $u): string => (string) parse_url($u, PHP_URL_PATH), $paths);
+}
+
+/** <loc> (URL completa) de un sitemap o índice. */
+function sitemapLocs(string $path, string $base): array
+{
+    $r = assertStatus($path, 200, $base);
     preg_match_all('#<loc>(.*?)</loc>#', $r['body'], $m);
-    return array_map(
-        static fn(string $u): string => (string) parse_url(html_entity_decode($u), PHP_URL_PATH),
-        $m[1]
-    );
+    return array_map(static fn(string $u): string => html_entity_decode($u), $m[1]);
 }
 
 /**
@@ -316,7 +324,7 @@ function assertHeader(string $path, string $headerName, string $needle, string $
 function assertNoIndex(string $path, string $base): void
 {
     $r = assertStatus($path, 200, $base);
-    if (!str_contains($r['body'], 'name="robots" content="noindex"')) {
+    if (!str_contains($r['body'], 'name="robots" content="noindex')) {
         throw new RuntimeException("$path → esperaba <meta name=\"robots\" content=\"noindex\">");
     }
 }
@@ -324,44 +332,91 @@ function assertNoIndex(string $path, string $base): void
 function assertNotNoIndex(string $path, string $base): void
 {
     $r = assertStatus($path, 200, $base);
-    if (str_contains($r['body'], 'name="robots" content="noindex"')) {
+    if (str_contains($r['body'], 'name="robots" content="noindex')) {
         throw new RuntimeException("$path → no debería llevar noindex");
     }
 }
 
-function assertSitemap(string $base): void
+/** Explorador limpio: indexable y con canonical propio que termina en $canonicalSuffix. */
+function assertIndexableCanonical(string $path, string $canonicalSuffix, string $base): void
 {
-    $r = assertStatus('/sitemap.xml', 200, $base);
+    $r = assertStatus($path, 200, $base);
+    if (str_contains($r['body'], 'name="robots"')) {
+        throw new RuntimeException("$path → no debería llevar <meta name=\"robots\">");
+    }
+    if (!preg_match('#<link rel="canonical" href="([^"]*)"#', $r['body'], $m)) {
+        throw new RuntimeException("$path → falta <link rel=\"canonical\">");
+    }
+    $href = html_entity_decode($m[1]);
+    $qs = parse_url($href, PHP_URL_QUERY);
+    if (parse_url($href, PHP_URL_PATH) . ($qs !== null ? '?' . $qs : '') !== $canonicalSuffix) {
+        throw new RuntimeException("$path → canonical '$href', se esperaba '…$canonicalSuffix'");
+    }
+}
+
+/** Explorador con filtros: noindex, follow (los enlaces a fichas se siguen) y sin canonical. */
+function assertNoIndexFollowSinCanonical(string $path, string $base): void
+{
+    $r = assertStatus($path, 200, $base);
+    if (!str_contains($r['body'], '<meta name="robots" content="noindex, follow">')) {
+        throw new RuntimeException("$path → esperaba <meta name=\"robots\" content=\"noindex, follow\">");
+    }
+    if (str_contains($r['body'], 'rel="canonical"')) {
+        throw new RuntimeException("$path → no debería llevar canonical");
+    }
+}
+
+/** Carga un sitemap como XML bien formado con la raíz esperada. */
+function sitemapDom(string $path, string $raiz, string $base): DOMDocument
+{
+    $r = assertStatus($path, 200, $base);
     libxml_use_internal_errors(true);
     $dom = new DOMDocument();
-    $ok = $dom->loadXML($r['body']);
-    if (!$ok) {
+    if (!$dom->loadXML($r['body'])) {
         $errs = array_map(static fn($e) => trim($e->message), libxml_get_errors());
-        throw new RuntimeException('/sitemap.xml → XML mal formado: ' . implode('; ', $errs));
+        throw new RuntimeException("$path → XML mal formado: " . implode('; ', $errs));
     }
-    $locs = [];
-    foreach ($dom->getElementsByTagName('loc') as $node) {
-        $locs[] = $node->textContent;
+    if ($dom->documentElement?->localName !== $raiz) {
+        throw new RuntimeException("$path → la raíz debería ser <$raiz>");
     }
-    if (count($locs) < 5) {
-        throw new RuntimeException('/sitemap.xml → se esperaban al menos 5 <loc>, hay ' . count($locs));
+    return $dom;
+}
+
+function assertSitemap(string $base): void
+{
+    $indice = sitemapDom('/sitemap_index.xml', 'sitemapindex', $base);
+    $hijos = [];
+    foreach ($indice->getElementsByTagName('loc') as $node) {
+        $hijos[] = (string) parse_url($node->textContent, PHP_URL_PATH);
     }
-    $lastmods = $dom->getElementsByTagName('lastmod');
-    if ($lastmods->length !== count($locs)) {
-        throw new RuntimeException('/sitemap.xml → cada <url> debería llevar su <lastmod> (C2)');
+    if (!in_array('/sitemaps/paginas.xml', $hijos, true) || !in_array('/sitemaps/marchas.xml', $hijos, true)) {
+        throw new RuntimeException('/sitemap_index.xml → faltan los sitemaps de páginas o de marchas');
     }
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmods->item(0)->textContent ?? '')) {
-        throw new RuntimeException('/sitemap.xml → <lastmod> no tiene forma YYYY-MM-DD');
-    }
-    // Muestra: home + primeras 4 URLs de detalle/hub, comprobadas con GET real.
-    $sample = array_slice($locs, 0, 5);
-    foreach ($sample as $loc) {
-        $path = (string) parse_url($loc, PHP_URL_PATH);
-        $qs = parse_url($loc, PHP_URL_QUERY);
-        $rel = $path . ($qs ? '?' . $qs : '');
-        $s = httpGet($base . $rel)['status'];
-        if ($s !== 200) {
-            throw new RuntimeException("/sitemap.xml → muestra '$rel' devolvió $s (se esperaba 200)");
+    foreach ($hijos as $hijo) {
+        $dom = sitemapDom($hijo, 'urlset', $base);
+        // Sin lastmod (no hay fecha por fila; el mtime del .db es ruido que
+        // Google aprende a ignorar) ni changefreq/priority (Google no los usa).
+        foreach (['lastmod', 'changefreq', 'priority'] as $tag) {
+            if ($dom->getElementsByTagName($tag)->length > 0) {
+                throw new RuntimeException("$hijo → no debería llevar <$tag>");
+            }
+        }
+        $locs = [];
+        foreach ($dom->getElementsByTagName('loc') as $node) {
+            $locs[] = $node->textContent;
+        }
+        if ($locs === []) {
+            throw new RuntimeException("$hijo → sin <loc>");
+        }
+        // Muestra: primeras 5 URLs de cada hijo, comprobadas con GET real.
+        foreach (array_slice($locs, 0, 5) as $loc) {
+            $path = (string) parse_url($loc, PHP_URL_PATH);
+            $qs = parse_url($loc, PHP_URL_QUERY);
+            $rel = $path . ($qs ? '?' . $qs : '');
+            $s = httpGet($base . $rel)['status'];
+            if ($s !== 200) {
+                throw new RuntimeException("$hijo → muestra '$rel' devolvió $s (se esperaba 200)");
+            }
         }
     }
 }
@@ -383,9 +438,28 @@ $tests = [
     },
     'og-image.png servida' => static fn() => assertStatus('/assets/og-image.png', 200, $base),
 
-    // ── Explorador (noindex, sin caché con query) ──────────────────────────
+    // ── Exploradores: la versión limpia (y su ?page=N) es la vía de rastreo
+    // hacia las fichas, así que se indexa; con filtros las combinaciones son
+    // infinitas → noindex, follow ───────────────────────────────────────────
     'marcha explorador 200' => static fn() => assertStatus('/marcha', 200, $base),
-    'marcha explorador noindex' => static fn() => assertNoIndex('/marcha', $base),
+    'exploradores limpios indexables con canonical propio' => static function () use ($base): void {
+        foreach (['/marcha', '/autor', '/banda', '/disco'] as $path) {
+            assertIndexableCanonical($path, $path, $base);
+        }
+    },
+    // La fixture no llega a 2 páginas de 20: se prueba que ?page=1 explícito
+    // apunta a la ruta limpia (sin duplicado).
+    'explorador ?page=1 → canonical limpio' => static fn() => assertIndexableCanonical('/marcha?page=1', '/marcha', $base),
+    'explorador con filtros → noindex, follow sin canonical' => static function () use ($base): void {
+        foreach (['/marcha?q=x', '/marcha?limit=50', '/marcha?titulo=', '/banda?provincia=Sevilla', '/marcha?limit=10&page=2'] as $path) {
+            assertNoIndexFollowSinCanonical($path, $base);
+        }
+    },
+    'explorador página fuera de rango o no numérica → noindex, follow' => static function () use ($base): void {
+        foreach (['/marcha?page=999', '/marcha?page=abc', '/marcha?page=0'] as $path) {
+            assertNoIndexFollowSinCanonical($path, $base);
+        }
+    },
     'marcha búsqueda no-store' => static fn() => assertHeader('/marcha?titulo=consuelo', 'Cache-Control', 'no-store', $base),
 
     // ── Ficha de marcha: canónica, redirecciones, JSON-LD ──────────────────
@@ -394,6 +468,31 @@ $tests = [
     'marcha solo-ID → 308 canónica' => static fn() => assertRedirect('/marcha/1', '/marcha/consuelo-gitano-1', $base),
     'marcha slug incorrecto → 308 canónica' => static fn() => assertRedirect('/marcha/titulo-erroneo-1', '/marcha/consuelo-gitano-1', $base),
     'marcha inexistente 404' => static fn() => assertStatus('/marcha/nada-999999', 404, $base),
+    // Rastreadores y monitores de caída preguntan con HEAD: si el router solo
+    // atiende GET, la web entera les parece caída (404).
+    'HEAD responde como GET' => static function () use ($base): void {
+        foreach (['/' => 200, '/marcha/consuelo-gitano-1' => 200, '/sitemap_index.xml' => 200, '/marcha/nada-999999' => 404] as $path => $esperado) {
+            $ch = curl_init($base . $path);
+            curl_setopt_array($ch, [CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10]);
+            curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if ($status !== $esperado) {
+                throw new RuntimeException("HEAD $path → esperado $esperado, obtenido $status");
+            }
+        }
+    },
+    // ID 0 («Varias bandas») es un comodín, no una banda: fuera de Google.
+    'banda comodín 0 fuera del sitemap y con noindex' => static function () use ($base): void {
+        foreach (sitemapPaths($base) as $path) {
+            if (preg_match('#^/banda/.*-0$#', $path)) {
+                throw new RuntimeException("/sitemap.xml → anuncia el comodín $path");
+            }
+        }
+        $r = assertStatus('/banda/varias-bandas-0', 200, $base);
+        if (!str_contains($r['body'], 'name="robots" content="noindex')) {
+            throw new RuntimeException('/banda/varias-bandas-0 → debería llevar noindex');
+        }
+    },
     'marcha coherencia canónica ↔ JSON-LD (M8)' => static fn() => assertJsonLdUrlsCanonical('/marcha/costalero-bueno-3', $base),
 
     // ── Escuchar: botonera única y pestañas por versión ─────────────────────
@@ -417,6 +516,34 @@ $tests = [
         }
     },
     // Sin año de composición no hay "época" que distinguir: botonera única.
+    // Enlaces de ficha a ficha para que el rastreo no dependa solo de los
+    // exploradores. Consuelo Gitano comparte compositor con La Madrugá (1
+    // grabación) y Reina de San Román (ninguna): la más grabada va primero.
+    'marcha: relacionadas por compositor, más grabadas primero' => static function () use ($base): void {
+        $body = assertStatus('/marcha/consuelo-gitano-1', 200, $base)['body'];
+        $ini = strpos($body, '<h2>Marchas relacionadas</h2>');
+        if ($ini === false) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → falta el bloque «Marchas relacionadas»');
+        }
+        $bloque = substr($body, $ini, (int) strpos($body, '</ul>', $ini) - $ini);
+        $a = strpos($bloque, 'href="/marcha/la-madruga-2"');
+        $b = strpos($bloque, 'href="/marcha/reina-de-san-roman-5"');
+        if ($a === false || $b === false) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → faltan las marchas del mismo compositor en el bloque');
+        }
+        if ($a > $b) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → la marcha más grabada debería ir primero');
+        }
+        if (str_contains($bloque, 'href="/marcha/consuelo-gitano-1"')) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → el bloque no debe enlazar a la propia marcha');
+        }
+    },
+    // Sin coincidencias exactas no se inventa afinidad: no hay bloque.
+    'marcha sin coincidencias: sin bloque de relacionadas' => static function () use ($base): void {
+        if (str_contains(assertStatus('/marcha/saeta-sola-6', 200, $base)['body'], 'Marchas relacionadas')) {
+            throw new RuntimeException('/marcha/saeta-sola-6 → no debería mostrar «Marchas relacionadas»');
+        }
+    },
     'marcha sin año no separa versiones' => static function () use ($base): void {
         $r = assertStatus('/marcha/reina-de-san-roman-5', 200, $base);
         if (str_contains($r['body'], 'Versión original')) {
@@ -536,7 +663,23 @@ $tests = [
     'hub provincia canónica 200' => static fn() => assertStatus('/marcha/provincia/sevilla', 200, $base),
     'hub provincia desconocida 404' => static fn() => assertStatus('/marcha/provincia/nada', 404, $base),
 
-    'sitemap.xml bien formado + muestra 200' => static fn() => assertSitemap($base),
+    'sitemap índice + hijos bien formados, sin lastmod/changefreq/priority, muestra 200' => static fn() => assertSitemap($base),
+    // URL antigua, ya enviada a Search Console.
+    'sitemap.xml → 301 al índice' => static function () use ($base): void {
+        $ch = curl_init($base . '/sitemap.xml');
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10]);
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        if ($status !== 301) {
+            throw new RuntimeException("/sitemap.xml → esperado 301, obtenido $status");
+        }
+        if (!str_ends_with($location, '/sitemap_index.xml')) {
+            throw new RuntimeException("/sitemap.xml → Location '$location' no apunta a /sitemap_index.xml");
+        }
+    },
+    'sitemap de tipo inexistente → 404' => static fn() => assertStatus('/sitemaps/nada.xml', 404, $base),
+    'robots.txt anuncia el índice' => static fn() => assertContains('/robots.txt', '/sitemap_index.xml', $base),
 
     // ── Datos abiertos: API JSON, feeds, página «Datos», llms.txt (M1) ──────
     'API marcha .json + licencia + coherencia' => static fn() => assertApi('/api/marcha/1.json', 'marcha', $base),
@@ -663,6 +806,74 @@ $tests = [
     },
     'og tipo desconocido → 404' => static fn() => assertStatus('/og/nope/1.png', 404, $base),
     'ficha de marcha referencia su og dinámica' => static fn() => assertContains('/marcha/consuelo-gitano-1', '/og/marcha/1.jpg', $base),
+
+    // ── Compartir: datos de la tarjeta y botón ──────────────────────────────
+    // Lo que se ve en WhatsApp al pegar el enlace. Una marcha a cuatro manos
+    // debe acreditar a TODOS sus compositores (antes salía solo el primero).
+    'compartir: marcha acredita a todos sus compositores y el año' => static fn() => assertContains('/marcha/costalero-bueno-3',
+        'content="Marcha procesional compuesta por Manuel López Ruiz y Rafael O&#039;Donnell (1995)"', $base),
+    // La banda se presenta por sus estrenos, no solo por la localidad.
+    'compartir: banda lleva localidad y estrenos' => static fn() => assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1',
+        'content="Banda de música procesional de Sevilla · 3 estrenos"', $base),
+    'compartir: disco lleva banda y año' => static fn() => assertContains('/disco/sevilla-cofrade-vol-1-1',
+        'content="Álbum de música procesional de Las Cigarreras (Sevilla), 1996"', $base),
+    // Un disco con portada se comparte CON su portada: es lo primero que se
+    // reconoce de un disco. Se pinta una portada roja de prueba y se mira un
+    // píxel de la zona izquierda de la tarjeta: sin portada sería el fondo
+    // índigo. El servidor de esta pasada es local y comparte public/cover/.
+    'compartir: tarjeta de disco con portada la muestra' => static function () use ($base): void {
+        if (!function_exists('imagewebp')) {
+            throw new RuntimeException('el runner necesita GD con WebP para esta prueba');
+        }
+        $dir = dirname(__DIR__) . '/public/cover';
+        $f = $dir . '/1.webp';
+        if (is_file($f)) {
+            throw new RuntimeException("$f ya existe: esta prueba no pisa portadas reales");
+        }
+        // La ficha anuncia la tarjeta con una ruta versionada (?v=): si no
+        // cambiara al cambiar la imagen, WhatsApp y los navegadores seguirían
+        // enseñando la vieja durante los 7 días de caché.
+        $ogDe = static function () use ($base): string {
+            $html = assertStatus('/disco/sevilla-cofrade-vol-1-1', 200, $base)['body'];
+            return preg_match('/property="og:image" content="([^"]*)"/', $html, $mm) === 1 ? $mm[1] : '';
+        };
+        $antes = $ogDe();
+        if (!str_contains($antes, '/og/disco/1.jpg?v=')) {
+            throw new RuntimeException("ficha de disco → og:image sin versión: '$antes'");
+        }
+        @mkdir($dir, 0775, true);
+        $img = imagecreatetruecolor(300, 300);
+        imagefilledrectangle($img, 0, 0, 300, 300, imagecolorallocate($img, 220, 20, 20));
+        imagewebp($img, $f);
+        try {
+            if ($ogDe() === $antes) {
+                throw new RuntimeException('ficha de disco → la ruta de la og:image no cambia al añadir la portada');
+            }
+            $r = httpGet($base . '/og/disco/1.jpg');
+            $card = $r['status'] === 200 ? @imagecreatefromstring($r['body']) : false;
+            if ($card === false) {
+                throw new RuntimeException('/og/disco/1.jpg → no devolvió una imagen (status ' . $r['status'] . ')');
+            }
+            $rgb = imagecolorat($card, 300, 315);
+            if ((($rgb >> 16) & 0xFF) < 180 || (($rgb >> 8) & 0xFF) > 80) {
+                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece a la izquierda de la tarjeta');
+            }
+        } finally {
+            @unlink($f);
+        }
+    },
+    // El botón (catalog.js) solo se monta donde <main> lo permite: en fichas y
+    // listados sí; en portada, búsqueda y errores no hay nada útil que compartir.
+    'compartir: botón en fichas y listados, no en portada/búsqueda/404' => static function () use ($base): void {
+        foreach (['/marcha/costalero-bueno-3', '/marcha', '/contacto'] as $ruta) {
+            assertContains($ruta, '<main id="main-content" data-compartir>', $base);
+        }
+        foreach (['/', '/buscar?q=garcia', '/no-existe-esta-ruta'] as $ruta) {
+            if (str_contains(httpGet($base . $ruta)['body'], 'data-compartir')) {
+                throw new RuntimeException("$ruta → no debería ofrecer el botón de compartir");
+            }
+        }
+    },
 ];
 
 // ── Secciones (App\Secciones) ──────────────────────────────────────────────
