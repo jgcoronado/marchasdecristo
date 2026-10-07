@@ -687,11 +687,25 @@ $tests = [
         if (is_file($f)) {
             throw new RuntimeException("$f ya existe: esta prueba no pisa portadas reales");
         }
+        // La ficha anuncia la tarjeta con una ruta versionada (?v=): si no
+        // cambiara al cambiar la imagen, WhatsApp y los navegadores seguirían
+        // enseñando la vieja durante los 7 días de caché.
+        $ogDe = static function () use ($base): string {
+            $html = assertStatus('/disco/sevilla-cofrade-vol-1-1', 200, $base)['body'];
+            return preg_match('/property="og:image" content="([^"]*)"/', $html, $mm) === 1 ? $mm[1] : '';
+        };
+        $antes = $ogDe();
+        if (!str_contains($antes, '/og/disco/1.jpg?v=')) {
+            throw new RuntimeException("ficha de disco → og:image sin versión: '$antes'");
+        }
         @mkdir($dir, 0775, true);
         $img = imagecreatetruecolor(300, 300);
         imagefilledrectangle($img, 0, 0, 300, 300, imagecolorallocate($img, 220, 20, 20));
         imagewebp($img, $f);
         try {
+            if ($ogDe() === $antes) {
+                throw new RuntimeException('ficha de disco → la ruta de la og:image no cambia al añadir la portada');
+            }
             $r = httpGet($base . '/og/disco/1.jpg');
             $card = $r['status'] === 200 ? @imagecreatefromstring($r['body']) : false;
             if ($card === false) {

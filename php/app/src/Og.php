@@ -59,22 +59,8 @@ final class Og
             self::fallback();
         }
 
-        // Disco con portada: la tarjeta la lleva a la izquierda. La portada
-        // entra en la clave de caché (fecha y tamaño del fichero), así que
-        // subir o cambiar una portada regenera la tarjeta. Si solo se puede
-        // descargar (PRE, ver portadaRemota), la clave no la conoce y la
-        // tarjeta se renueva solo cuando cambian los textos.
-        $claveCover = '';
-        if ($tipo === 'disco') {
-            $local = Media::portadaPath((int) $id);
-            if (is_file($local)) {
-                $claveCover = 'L' . (string) @filemtime($local) . '-' . (string) @filesize($local);
-            } elseif (self::coverRemotaBase() !== '') {
-                $claveCover = 'R';
-            }
-        }
-
-        $hash = substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
+        $claveCover = self::claveCover($tipo, (int) $id);
+        $hash = self::huella($tipo, (int) $id, $datos, $claveCover);
         $cacheDir = dirname((string) ($GLOBALS['config']['db_path'] ?? '')) . '/og-cache';
         $cacheFile = $cacheDir . '/' . $tipo . '-' . $id . '-' . $hash . '.jpg';
 
@@ -114,6 +100,54 @@ final class Og
             'mono'         => $dir . 'IBMPlexMono-Regular.ttf',
             default        => $dir . 'IBMPlexSerif-Bold.ttf',
         };
+    }
+
+    /**
+     * Ruta pública de la tarjeta, con su huella de contenido (?v=). La imagen
+     * se sirve con caché de 7 días y la ruta sin versión no cambiaba al cambiar
+     * la tarjeta: WhatsApp, navegadores y proxies seguían con la vieja. Con la
+     * misma huella que la caché interna, la ruta cambia justo cuando cambia la
+     * imagen. Sin datos (entidad sin tarjeta), la ruta sin versión.
+     */
+    public static function url(string $tipo, int $id): string
+    {
+        $ruta = '/og/' . $tipo . '/' . $id . '.jpg';
+        try {
+            $datos = Repo::ogDatos($tipo, $id);
+        } catch (Throwable) {
+            $datos = null;
+        }
+        return $datos === null ? $ruta : $ruta . '?v=' . self::huella($tipo, $id, $datos, self::claveCover($tipo, $id));
+    }
+
+    /**
+     * Huella de la tarjeta: diseño + datos + portada. Nombra el fichero de
+     * caché y versiona la ruta pública (url()).
+     *
+     * @param array{overline:string,titulo:string,sub:string} $datos
+     */
+    private static function huella(string $tipo, int $id, array $datos, string $claveCover): string
+    {
+        return substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
+    }
+
+    /**
+     * Disco con portada: la tarjeta la lleva a la izquierda. La portada entra
+     * en la huella (fecha y tamaño del fichero), así que subir o cambiar una
+     * portada regenera la tarjeta. Si solo se puede descargar (PRE, ver
+     * portadaRemota), la huella no la conoce y la tarjeta se renueva solo
+     * cuando cambian los textos. '' = sin portada.
+     */
+    private static function claveCover(string $tipo, int $id): string
+    {
+        if ($tipo !== 'disco') {
+            return '';
+        }
+        $local = Media::portadaPath($id);
+        if (is_file($local)) {
+            return 'L' . (string) @filemtime($local) . '-' . (string) @filesize($local);
+        }
+        return self::coverRemotaBase() !== '' ? 'R' : '';
     }
 
     /** Origen remoto de portadas (solo PRE: 'cover_base_url'); '' si no hay. */
