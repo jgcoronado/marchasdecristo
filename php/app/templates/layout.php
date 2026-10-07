@@ -185,6 +185,7 @@ if (!empty($meta['ancho'])) {
     <meta name="twitter:image" content="<?= $e($ogImage) ?>">
     <meta name="twitter:image:alt" content="<?= $e($ogImageAlt) ?>">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/app.css')) ?>">
     <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
              atributo media (ver la cabecera de dark.css). Por defecto sigue al
