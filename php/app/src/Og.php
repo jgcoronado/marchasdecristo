@@ -185,7 +185,9 @@ final class Og
         imagefilledrectangle($img, 0, 0, self::W, self::H, $bg);
 
         // Portada: recorte central al cuadrado (ya lo son, por si acaso).
-        $lado = 440;
+        // 320 y no más: casi todas las portadas miden 200 px y, ampliadas
+        // al doble, se veían blandas.
+        $lado = 320;
         $px = 80;
         $py = intdiv(self::H - $lado, 2);
         $cw = imagesx($cover);
@@ -229,8 +231,9 @@ final class Og
             self::leftText($img, $serifItalic, $subSize, self::ellipsize($serifItalic, $subSize, $sub, $maxW), $x, $y, $muted);
         }
 
-        // Pie en la columna de texto, a ras del borde inferior de la portada.
-        self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $x, $py + $lado - 18, 6, $faint, true);
+        // Pie en la columna de texto, a la misma altura que en la tarjeta sin
+        // portada (no a ras de la portada: un título de tres líneas lo pisaba).
+        self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $x, self::H - 56, 6, $faint, true);
 
         ob_start();
         imagejpeg($img, null, 85);
