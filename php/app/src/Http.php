@@ -54,6 +54,38 @@ final class Http
         exit;
     }
 
+    /**
+     * 500 ante una excepción o error fatal no capturado (ver bootstrap.php).
+     * Descarta la salida a medias; si las cabeceras ya salieron no se puede
+     * cambiar el código, así que no se pinta nada más. Si el propio layout
+     * falla, cae a un HTML mínimo sin dependencias.
+     */
+    public static function serverError(): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (headers_sent()) {
+            return;
+        }
+        http_response_code(500);
+        self::noStore();
+        try {
+            ob_start();
+            View::render('500', [], ['title' => 'Error del servidor — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
+            ob_end_flush();
+        } catch (\Throwable) {
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            header('Content-Type: text/html; charset=UTF-8');
+            echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="robots" content="noindex">'
+                . '<title>Error del servidor — Marchas de Cristo</title>'
+                . '<h1>Algo ha fallado</h1><p>Ha ocurrido un error en el servidor. Prueba de nuevo en unos minutos '
+                . 'o vuelve a la <a href="/">página de inicio</a>.</p></html>';
+        }
+    }
+
     /** Cacheable por navegador/proxy (páginas públicas estables). */
     public static function cachePublic(int $seconds): void
     {

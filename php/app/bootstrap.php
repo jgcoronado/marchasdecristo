@@ -24,6 +24,19 @@ if (!empty($config['debug'])) {
 } else {
     ini_set('display_errors', '0');
     error_reporting(E_ALL & ~E_DEPRECATED);
+
+    // Página 500 en vez de una respuesta en blanco. En debug no se registra:
+    // ahí interesa ver el error tal cual.
+    set_exception_handler(static function (\Throwable $e): void {
+        error_log('[500] ' . $e);
+        App\Http::serverError();
+    });
+    register_shutdown_function(static function (): void {
+        $err = error_get_last();
+        if ($err !== null && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+            App\Http::serverError(); // el fatal ya lo ha anotado PHP en el log
+        }
+    });
 }
 
 // Preproducción: además del noindex por página (layout) y del robots.txt en
