@@ -198,6 +198,67 @@ final class Repo
     }
 
     /**
+     * Marchas relacionadas para la ficha: mismo compositor, después misma
+     * dedicatoria literal y después misma banda de estreno. Solo coincidencias
+     * exactas de datos catalogados. Dentro de cada grupo, más grabadas primero.
+     * @param list<int> $autorIds
+     * @return list<array<string,mixed>> ID_MARCHA, TITULO, FECHA, AUTOR
+     */
+    public static function marchasRelacionadas(int $id, array $autorIds, ?string $dedicatoria, ?int $bandaEstreno, int $max = 8): array
+    {
+        $valid = 'EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)';
+        $orden = '(SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) DESC, m.TITULO';
+        $out = [];
+        $add = static function (array $rows, int $cupo) use (&$out, $id, $max): void {
+            $n = 0;
+            foreach ($rows as $r) {
+                $mid = (int) $r['ID_MARCHA'];
+                if ($mid === $id || isset($out[$mid])) continue;
+                if ($n >= $cupo || count($out) >= $max) break;
+                $out[$mid] = $r;
+                $n++;
+            }
+        };
+
+        if ($autorIds !== []) {
+            $ph = implode(',', array_fill(0, count($autorIds), '?'));
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.ID_MARCHA IN (SELECT ma.ID_MARCHA FROM marcha_autor ma WHERE ma.ID_AUTOR IN ($ph))
+                   AND m.ID_MARCHA != ?
+                 ORDER BY $orden LIMIT 12",
+                [...$autorIds, $id]
+            ), 4);
+        }
+        $dedic = trim((string) $dedicatoria);
+        if ($dedic !== '' && $dedic !== '0') {
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.DEDICATORIA = ? AND m.ID_MARCHA != ? AND $valid
+                 ORDER BY $orden LIMIT 12",
+                [$dedic, $id]
+            ), 4);
+        }
+        if (($bandaEstreno ?? 0) > 0) {
+            $add(Db::all(
+                "SELECT m.ID_MARCHA, m.TITULO, m.FECHA FROM marcha m
+                 WHERE m.BANDA_ESTRENO = ? AND m.ID_MARCHA != ? AND $valid
+                 ORDER BY $orden LIMIT 16",
+                [$bandaEstreno, $id]
+            ), $max);
+        }
+
+        if ($out === []) return [];
+        $autores = self::autoresFor(array_keys($out));
+        foreach ($out as $mid => &$r) {
+            self::normalizeFecha($r);
+            $r['AUTOR'] = $autores[$mid] ?? [];
+        }
+        unset($r);
+        return array_values($out);
+    }
+
+    /**
      * WHERE + values de la búsqueda de marchas. $exclude omite un criterio
      * (para calcular facetas sin su propio filtro; 'fecha' excluye desde+hasta).
      * @return array{0:string,1:list<mixed>}

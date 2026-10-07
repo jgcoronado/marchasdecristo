@@ -517,9 +517,16 @@ final class Pages
         // La ficha de marcha separa versión original y actual (ver Html::escuchar),
         // así que necesita los enlaces agrupados, no aplanados.
         $enlaces = EnlaceRepo::publicadosPorVersionDe('marcha', (int) $m['ID_MARCHA']);
+        // Enlaces internos de ficha a ficha: el rastreo no depende solo de los exploradores.
+        $relacionadas = Repo::marchasRelacionadas(
+            (int) $m['ID_MARCHA'],
+            array_map(static fn(array $a): int => (int) $a['ID_AUTOR'], $m['AUTORES_FICHA'] ?? []),
+            isset($m['DEDICATORIA']) ? (string) $m['DEDICATORIA'] : null,
+            !empty($m['BANDA_ESTRENO']) ? (int) $m['BANDA_ESTRENO'] : null
+        );
 
         Http::cachePublic(3600);
-        View::render('marcha_detail', ['m' => $m, 'url' => $url, 'enlaces' => $enlaces], [
+        View::render('marcha_detail', ['m' => $m, 'url' => $url, 'enlaces' => $enlaces, 'relacionadas' => $relacionadas], [
             'title' => $m['TITULO'] . ' — Marchas de Cristo',
             'canonical' => $url,
             'description' => 'Marcha procesional "' . $m['TITULO'] . '" compuesta por ' . $autores . '.'

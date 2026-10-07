@@ -516,6 +516,34 @@ $tests = [
         }
     },
     // Sin año de composición no hay "época" que distinguir: botonera única.
+    // Enlaces de ficha a ficha para que el rastreo no dependa solo de los
+    // exploradores. Consuelo Gitano comparte compositor con La Madrugá (1
+    // grabación) y Reina de San Román (ninguna): la más grabada va primero.
+    'marcha: relacionadas por compositor, más grabadas primero' => static function () use ($base): void {
+        $body = assertStatus('/marcha/consuelo-gitano-1', 200, $base)['body'];
+        $ini = strpos($body, '<h2>Marchas relacionadas</h2>');
+        if ($ini === false) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → falta el bloque «Marchas relacionadas»');
+        }
+        $bloque = substr($body, $ini, (int) strpos($body, '</ul>', $ini) - $ini);
+        $a = strpos($bloque, 'href="/marcha/la-madruga-2"');
+        $b = strpos($bloque, 'href="/marcha/reina-de-san-roman-5"');
+        if ($a === false || $b === false) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → faltan las marchas del mismo compositor en el bloque');
+        }
+        if ($a > $b) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → la marcha más grabada debería ir primero');
+        }
+        if (str_contains($bloque, 'href="/marcha/consuelo-gitano-1"')) {
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → el bloque no debe enlazar a la propia marcha');
+        }
+    },
+    // Sin coincidencias exactas no se inventa afinidad: no hay bloque.
+    'marcha sin coincidencias: sin bloque de relacionadas' => static function () use ($base): void {
+        if (str_contains(assertStatus('/marcha/saeta-sola-6', 200, $base)['body'], 'Marchas relacionadas')) {
+            throw new RuntimeException('/marcha/saeta-sola-6 → no debería mostrar «Marchas relacionadas»');
+        }
+    },
     'marcha sin año no separa versiones' => static function () use ($base): void {
         $r = assertStatus('/marcha/reina-de-san-roman-5', 200, $base);
         if (str_contains($r['body'], 'Versión original')) {

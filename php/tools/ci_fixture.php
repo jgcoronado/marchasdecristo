@@ -191,6 +191,8 @@ $ins('INSERT INTO autor (ID_AUTOR, NOMBRE, APELLIDOS, F_NAC, F_DEF, LUGAR_NAC) V
     // unificarse con Slug.php, este nombre generaba una URL de JSON-LD
     // distinta de la canónica real.
     [3, 'Rafael', "O'Donnell", null, null, null],
+    // Autor de una sola marcha sin dedicatoria ni banda: ficha sin «Marchas relacionadas».
+    [4, 'Antonio', 'Ruiz Sanz', null, null, null],
 ]);
 
 $ins('INSERT INTO marcha (ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, AUDIO, FECHA, BANDA_ESTRENO, TIPO, ESTILO, DURACION_SEG) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [
@@ -199,10 +201,11 @@ $ins('INSERT INTO marcha (ID_MARCHA, TITULO, DEDICATORIA, LOCALIDAD, PROVINCIA, 
     [3, 'Costalero Bueno', null, 'Cádiz', 'Cádiz', null, 1995, 2, 'MARCHA', 'AM', 180],
     [4, 'Cristo de la Sangre', null, 'Sevilla', 'Sevilla', null, 1990, 2, 'MARCHA', 'AM', 200],
     [5, 'Reina de San Román', null, 'Sevilla', 'Sevilla', null, null, 1, 'MARCHA', null, null],
+    [6, 'Saeta Sola', null, null, null, null, null, null, 'MARCHA', null, null],
 ]);
 
 $ins('INSERT INTO marcha_autor (ID_MARCHA, ID_AUTOR) VALUES (?,?)', [
-    [1, 1], [2, 1], [3, 2], [3, 3], [4, 2], [5, 1],
+    [1, 1], [2, 1], [3, 2], [3, 3], [4, 2], [5, 1], [6, 4],
 ]);
 
 $ins('INSERT INTO disco (ID_DISCO, NOMBRE_CD, FECHA_CD, BANDADISCO) VALUES (?,?,?,?)', [

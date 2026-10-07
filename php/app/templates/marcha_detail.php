@@ -2,6 +2,7 @@
 /** @var array<string,mixed> $m
  *  @var array{original: array<string,string>, actual: array<string,string>} $enlaces */
 /** @var string|null $url  URL canónica absoluta (permalink) */
+/** @var list<array<string,mixed>> $relacionadas  Repo::marchasRelacionadas */
 
 // "truthy" al estilo JS: null, '', 0, 0.0 y false son falsos; '0' (string) es verdadero.
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
@@ -180,6 +181,15 @@ $ordenable = count($m['discos']) > 2; ?>
         </tbody>
     </table>
     </div>
+<?php endif; ?>
+
+<?php if (!empty($relacionadas)): ?>
+    <div class="shead"><h2>Marchas relacionadas</h2></div>
+    <ul class="vease">
+<?php foreach ($relacionadas as $r): ?>
+        <li><a href="<?= V::e(S::buildDetailPath('marcha', $r['ID_MARCHA'], (string) $r['TITULO'])) ?>"><?= V::e($r['TITULO']) ?></a><?php if ($r['AUTOR'] !== []): ?> — <?= V::e(V::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $r['AUTOR']))) ?><?php endif; ?><?php if (preg_match('/^\d{4}$/', (string) $r['FECHA']) === 1): ?> <span class="cnt"><?= V::e($r['FECHA']) ?></span><?php endif; ?></li>
+<?php endforeach; ?>
+    </ul>
 <?php endif; ?>
 
 <?php
