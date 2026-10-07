@@ -674,6 +674,37 @@ $tests = [
         'content="Banda de música procesional de Sevilla · 3 estrenos"', $base),
     'compartir: disco lleva banda y año' => static fn() => assertContains('/disco/sevilla-cofrade-vol-1-1',
         'content="Álbum de música procesional de Las Cigarreras (Sevilla), 1996"', $base),
+    // Un disco con portada se comparte CON su portada: es lo primero que se
+    // reconoce de un disco. Se pinta una portada roja de prueba y se mira un
+    // píxel de la zona izquierda de la tarjeta: sin portada sería el fondo
+    // índigo. El servidor de esta pasada es local y comparte public/cover/.
+    'compartir: tarjeta de disco con portada la muestra' => static function () use ($base): void {
+        if (!function_exists('imagewebp')) {
+            throw new RuntimeException('el runner necesita GD con WebP para esta prueba');
+        }
+        $dir = dirname(__DIR__) . '/public/cover';
+        $f = $dir . '/1.webp';
+        if (is_file($f)) {
+            throw new RuntimeException("$f ya existe: esta prueba no pisa portadas reales");
+        }
+        @mkdir($dir, 0775, true);
+        $img = imagecreatetruecolor(300, 300);
+        imagefilledrectangle($img, 0, 0, 300, 300, imagecolorallocate($img, 220, 20, 20));
+        imagewebp($img, $f);
+        try {
+            $r = httpGet($base . '/og/disco/1.jpg');
+            $card = $r['status'] === 200 ? @imagecreatefromstring($r['body']) : false;
+            if ($card === false) {
+                throw new RuntimeException('/og/disco/1.jpg → no devolvió una imagen (status ' . $r['status'] . ')');
+            }
+            $rgb = imagecolorat($card, 300, 315);
+            if ((($rgb >> 16) & 0xFF) < 180 || (($rgb >> 8) & 0xFF) > 80) {
+                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece a la izquierda de la tarjeta');
+            }
+        } finally {
+            @unlink($f);
+        }
+    },
     // El botón (catalog.js) solo se monta donde <main> lo permite: en fichas y
     // listados sí; en portada, búsqueda y errores no hay nada útil que compartir.
     'compartir: botón en fichas y listados, no en portada/búsqueda/404' => static function () use ($base): void {
