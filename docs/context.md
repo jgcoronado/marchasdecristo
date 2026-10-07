@@ -71,7 +71,7 @@ Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N
 
 - URLs **slug-id** (`/marcha/consuelo-gitano-330`) con redirect **308** a la canónica si el slug no coincide o falta.
 - JSON-LD (`App\Seo`) en todas las fichas de detalle y en los hubs de catálogo.
-- `sitemap.xml` dinámico con `<lastmod>` real (derivado del último sync/edición) y `robots.txt`.
+- Sitemap dinámico: índice `/sitemap_index.xml` con un hijo por tipo, sin `lastmod`/`changefreq`/`priority` (no hay fecha por fila); `/sitemap.xml` → 301 al índice. Y `robots.txt`.
 - **Ping IndexNow** tras cada sync a producción (`scripts/sync_db_to_prod.php`), más verificación de clave servida en `/{indexnow_key}.txt` (ruta condicional en `routes.php`, solo si `config['indexnow_key']` está definida).
 - **Hubs indexables** de catálogo: `/marcha/ano/{yyyy}`, `/marcha/estilo/{slug}`, `/marcha/provincia/{slug}` — con `noindex` automático si el hub tiene menos de `Repo::HUB_MIN_MARCHAS` (2) resultados, para no publicar páginas finas.
 - **`og:image` dinámica por entidad** (`App\Og`, ruta `/og/{tipo}/{id}.png`): tarjeta social generada con GD+FreeType a partir de los datos reales de la ficha (título, autor, banda…), cacheada a disco. El `og-image.png` de marca es solo el **fallback** — se usa cuando la generación falla o la entidad no existe (redirect 302), no el caso normal.

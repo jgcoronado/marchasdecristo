@@ -1124,120 +1124,165 @@ final class Pages
         ]);
     }
 
-    // ── sitemap.xml ───────────────────────────────────────────────────────────
-    public static function sitemap(): void
+    // ── Sitemaps: índice + un hijo por tipo ──────────────────────────────────
+    // Sin <lastmod>: marcha/autor/banda/disco no tienen fecha de modificación
+    // por fila, y el mtime del .db (cambia en cada sync, para las 7.700 URLs a
+    // la vez) es una señal que Google aprende a ignorar. Si algún día hay
+    // UPDATED_AT por fila, se emite por entidad. Tampoco changefreq/priority,
+    // que Google no usa. Dividido por tipo para ver en Search Console la
+    // cobertura de cada uno.
+
+    /** Tipos de sitemap hijo, en el orden del índice. */
+    private const SITEMAP_TIPOS = ['paginas', 'marchas', 'autores', 'bandas', 'discos', 'dedicatorias'];
+
+    /** @return list<string> */
+    private static function sitemapTiposVisibles(): array
+    {
+        // 'dedicatorias' es el último: filtrarlo no deja huecos en la lista.
+        return array_filter(
+            self::SITEMAP_TIPOS,
+            static fn(string $t): bool => $t !== 'dedicatorias' || self::seccionVisible(Secciones::DEDICATORIAS)
+        );
+    }
+
+    /** URL antigua, ya enviada a Search Console: redirige al índice. */
+    public static function sitemapLegacy(): void
+    {
+        header('Location: ' . self::base() . '/sitemap_index.xml', true, 301);
+        exit;
+    }
+
+    public static function sitemapIndex(): void
     {
         header('Content-Type: application/xml; charset=UTF-8');
         Http::cachePublic(3600);
         $base = self::base();
-
-        // Todo el catálogo se actualiza de golpe (scripts/sync_db_to_prod.php
-        // reemplaza el .db entero), así que el mtime del fichero es un lastmod
-        // honesto y uniforme para las 5.700+ URLs — no hay tracking por fila.
-        $dbPath = (string) ($GLOBALS['config']['db_path'] ?? '');
-        $lastmod = is_file($dbPath) ? gmdate('Y-m-d', (int) filemtime($dbPath)) : null;
-
-        $urls = [
-            [$base . '/', 'daily', '1.0'],
-            [$base . '/marcha', 'weekly', '0.9'],
-            [$base . '/autor', 'weekly', '0.8'],
-            [$base . '/banda', 'weekly', '0.8'],
-            [$base . '/disco', 'weekly', '0.8'],
-            [$base . '/rankings', 'weekly', '0.7'],
-            // Solo el año en curso (N-09): a diferencia de los hubs de año, no
-            // hay un universo cerrado de "años válidos" para aniversarios —
-            // cualquier año lo es — así que solo se anuncia el vigente; los
-            // años pasados siguen accesibles (y rastreables) vía prev/next.
-            [$base . self::aniversariosAnioPath(gmdate('Y')), 'monthly', '0.6'],
-            [$base . '/datos', 'monthly', '0.5'],
-            [$base . '/contacto', 'yearly', '0.3'],
-        ];
-        // Secciones aún no publicadas en este entorno (App\Secciones): no
-        // anunciar una URL que la propia web responde con 404.
-        if (self::seccionVisible(Secciones::DEDICATORIAS)) {
-            $urls[] = [$base . '/dedicatorias', 'weekly', '0.8'];
+        echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        foreach (self::sitemapTiposVisibles() as $t) {
+            echo '<sitemap><loc>' . htmlspecialchars($base . '/sitemaps/' . $t . '.xml', ENT_XML1, 'UTF-8') . '</loc></sitemap>' . "\n";
         }
-        if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
-            $urls[] = [$base . '/estado-catalogo', 'weekly', '0.6'];
-        }
+        echo '</sitemapindex>' . "\n";
+    }
 
-        try {
-            // Hubs de catálogo (C1): solo los que tienen sustancia (≥ HUB_MIN_MARCHAS).
-            foreach (Repo::hubAnios() as $r) {
-                if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
-                    $urls[] = [$base . self::anioHubPath($r['K']), 'monthly', '0.7'];
-                    // Rankings por año (N-07): mismo umbral de sustancia que el hub.
-                    $urls[] = [$base . self::rankingsAnioPath($r['K']), 'monthly', '0.6'];
-                }
-            }
-            foreach (Repo::hubEstilos() as $r) {
-                $path = self::estiloHubPath((string) $r['K']);
-                if ($path !== null && (int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
-                    $urls[] = [$base . $path, 'weekly', '0.7'];
-                }
-            }
-            foreach (Repo::hubProvincias() as $r) {
-                if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
-                    $urls[] = [$base . self::provinciaHubPath((string) $r['K']), 'weekly', '0.7'];
-                }
-            }
-            foreach (Db::all('SELECT ID_MARCHA AS id, TITULO AS label FROM marcha') as $r) {
-                $urls[] = [$base . Slug::buildDetailPath('marcha', $r['id'], (string) $r['label']), 'monthly', '0.7'];
-            }
-            foreach (Db::all("SELECT ID_AUTOR AS id, (NOMBRE || ' ' || APELLIDOS) AS label FROM autor") as $r) {
-                $urls[] = [$base . Slug::buildDetailPath('autor', $r['id'], (string) $r['label']), 'monthly', '0.6'];
-            }
-            // NOMBRE_COMPLETO para que el slug coincida con la canónica del detalle
-            // (el detalle usa NOMBRE_COMPLETO; con NOMBRE_BREVE el sitemap daba 308).
-            // ID 0 es el comodín «Varias bandas», no una banda real.
-            foreach (Db::all('SELECT ID_BANDA AS id, NOMBRE_COMPLETO AS label FROM banda WHERE ID_BANDA != 0') as $r) {
-                $urls[] = [$base . Slug::buildDetailPath('banda', $r['id'], (string) $r['label']), 'monthly', '0.6'];
-            }
-            foreach (Db::all('SELECT ID_DISCO AS id, NOMBRE_CD AS label FROM disco') as $r) {
-                $urls[] = [$base . Slug::buildDetailPath('disco', $r['id'], (string) $r['label']), 'monthly', '0.6'];
-            }
-            // Hubs de dedicatoria con sustancia (≥ DEDIC_MIN_MARCHAS marchas).
-            // Van con el índice: si la sección no está publicada aquí, sus
-            // fichas también responden 404.
-            if (self::seccionVisible(Secciones::DEDICATORIAS)) {
-                foreach (Repo::dedicatoriaIndex() as $r) {
-                    $label = $r['NOMBRE'] . ($r['LOCALIDAD'] !== '' ? ' ' . $r['LOCALIDAD'] : '');
-                    $urls[] = [$base . Slug::buildDetailPath('dedicatoria', $r['ID_DEDIC'], $label), 'monthly', '0.6'];
-                }
-            }
-        } catch (Throwable $e) {
-            error_log('[sitemap] ' . $e->getMessage());
+    public static function sitemapTipo(array $p): void
+    {
+        $tipo = (string) ($p['tipo'] ?? '');
+        if (!in_array($tipo, self::sitemapTiposVisibles(), true)) {
+            Http::notFound();
         }
-
-        // Acompañamientos (N-04) en su propio try: misma razón que antes con
-        // /temporada — tabla nueva que necesita migración manual en el host
-        // (ver docs/pendientes-post-cutover.md), no debe tumbar el resto del
-        // sitemap si aún no se ha aplicado. Sin publicar fuera de local (ver
-        // App\Secciones): listar aquí una URL que el propio sitio responde
-        // con 404 sería peor para el sitemap que omitirla.
-        if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
-            $urls[] = [$base . '/acompanamientos', 'weekly', '0.6'];
-            try {
-                foreach (Repo::acompanamientosLocalidades() as $r) {
-                    if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS && self::localidadAcompVisible((string) $r['LOCALIDAD'])) {
-                        $urls[] = [$base . '/acompanamientos/' . Slug::slugify((string) $r['LOCALIDAD']), 'weekly', '0.5'];
-                    }
-                }
-            } catch (Throwable $e) {
-                error_log('[sitemap:acompanamientos] ' . $e->getMessage());
-            }
-        }
-
-        $lastmodTag = $lastmod !== null ? '<lastmod>' . $lastmod . '</lastmod>' : '';
+        $paths = self::sitemapPaths($tipo);
+        header('Content-Type: application/xml; charset=UTF-8');
+        Http::cachePublic(3600);
+        $base = self::base();
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        foreach ($urls as [$loc, $freq, $prio]) {
-            echo '<url><loc>' . htmlspecialchars($loc, ENT_XML1, 'UTF-8') . '</loc>'
-                . $lastmodTag
-                . '<changefreq>' . $freq . '</changefreq>'
-                . '<priority>' . $prio . '</priority></url>' . "\n";
+        foreach ($paths as $path) {
+            echo '<url><loc>' . htmlspecialchars($base . $path, ENT_XML1, 'UTF-8') . '</loc></url>' . "\n";
         }
         echo '</urlset>' . "\n";
+    }
+
+    /**
+     * Paths (sin host) de un sitemap hijo: hubs solo con sustancia, comodín
+     * banda 0 fuera, secciones no publicadas fuera.
+     * @return list<string>
+     */
+    private static function sitemapPaths(string $tipo): array
+    {
+        $out = [];
+        try {
+            switch ($tipo) {
+                case 'paginas':
+                    $out = [
+                        '/', '/marcha', '/autor', '/banda', '/disco', '/rankings',
+                        // Solo el año en curso (N-09): a diferencia de los hubs de año, no
+                        // hay un universo cerrado de "años válidos" para aniversarios —
+                        // cualquier año lo es — así que solo se anuncia el vigente; los
+                        // años pasados siguen accesibles (y rastreables) vía prev/next.
+                        self::aniversariosAnioPath(gmdate('Y')),
+                        '/datos', '/contacto',
+                    ];
+                    // Secciones aún no publicadas en este entorno (App\Secciones): no
+                    // anunciar una URL que la propia web responde con 404.
+                    if (self::seccionVisible(Secciones::DEDICATORIAS)) {
+                        $out[] = '/dedicatorias';
+                    }
+                    if (self::seccionVisible(Secciones::ESTADO_CATALOGO)) {
+                        $out[] = '/estado-catalogo';
+                    }
+                    // Hubs de catálogo (C1): solo los que tienen sustancia (≥ HUB_MIN_MARCHAS).
+                    foreach (Repo::hubAnios() as $r) {
+                        if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
+                            $out[] = self::anioHubPath($r['K']);
+                            // Rankings por año (N-07): mismo umbral de sustancia que el hub.
+                            $out[] = self::rankingsAnioPath($r['K']);
+                        }
+                    }
+                    foreach (Repo::hubEstilos() as $r) {
+                        $path = self::estiloHubPath((string) $r['K']);
+                        if ($path !== null && (int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
+                            $out[] = $path;
+                        }
+                    }
+                    foreach (Repo::hubProvincias() as $r) {
+                        if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS) {
+                            $out[] = self::provinciaHubPath((string) $r['K']);
+                        }
+                    }
+                    // Acompañamientos (N-04) en su propio try: tabla nueva que necesita
+                    // migración manual en el host (ver docs/pendientes-post-cutover.md),
+                    // no debe tumbar el resto del sitemap si aún no se ha aplicado.
+                    if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
+                        $out[] = '/acompanamientos';
+                        try {
+                            foreach (Repo::acompanamientosLocalidades() as $r) {
+                                if ((int) $r['N'] >= Repo::HUB_MIN_MARCHAS && self::localidadAcompVisible((string) $r['LOCALIDAD'])) {
+                                    $out[] = '/acompanamientos/' . Slug::slugify((string) $r['LOCALIDAD']);
+                                }
+                            }
+                        } catch (Throwable $e) {
+                            error_log('[sitemap:acompanamientos] ' . $e->getMessage());
+                        }
+                    }
+                    break;
+                case 'marchas':
+                    // Mismo filtro que fetchMarcha: una marcha sin autor da 404.
+                    foreach (Db::all('SELECT ID_MARCHA AS id, TITULO AS label FROM marcha
+                                      WHERE EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = marcha.ID_MARCHA)') as $r) {
+                        $out[] = Slug::buildDetailPath('marcha', $r['id'], (string) $r['label']);
+                    }
+                    break;
+                case 'autores':
+                    foreach (Db::all("SELECT ID_AUTOR AS id, (NOMBRE || ' ' || APELLIDOS) AS label FROM autor") as $r) {
+                        $out[] = Slug::buildDetailPath('autor', $r['id'], (string) $r['label']);
+                    }
+                    break;
+                case 'bandas':
+                    // NOMBRE_COMPLETO para que el slug coincida con la canónica del detalle
+                    // (el detalle usa NOMBRE_COMPLETO; con NOMBRE_BREVE el sitemap daba 308).
+                    // ID 0 es el comodín «Varias bandas», no una banda real.
+                    foreach (Db::all('SELECT ID_BANDA AS id, NOMBRE_COMPLETO AS label FROM banda WHERE ID_BANDA != 0') as $r) {
+                        $out[] = Slug::buildDetailPath('banda', $r['id'], (string) $r['label']);
+                    }
+                    break;
+                case 'discos':
+                    foreach (Db::all('SELECT ID_DISCO AS id, NOMBRE_CD AS label FROM disco') as $r) {
+                        $out[] = Slug::buildDetailPath('disco', $r['id'], (string) $r['label']);
+                    }
+                    break;
+                case 'dedicatorias':
+                    // Hubs de dedicatoria con sustancia (≥ DEDIC_MIN_MARCHAS marchas).
+                    foreach (Repo::dedicatoriaIndex() as $r) {
+                        $label = $r['NOMBRE'] . ($r['LOCALIDAD'] !== '' ? ' ' . $r['LOCALIDAD'] : '');
+                        $out[] = Slug::buildDetailPath('dedicatoria', $r['ID_DEDIC'], $label);
+                    }
+                    break;
+            }
+        } catch (Throwable $e) {
+            error_log('[sitemap:' . $tipo . '] ' . $e->getMessage());
+        }
+        return $out;
     }
 
     // ── robots.txt ────────────────────────────────────────────────────────────
@@ -1261,7 +1306,7 @@ final class Pages
         echo "Disallow: /dashboard\n";
         echo "Disallow: /buscar\n"; // página de utilidad (noindex): no gastar crawl budget
         echo "\n";
-        echo "Sitemap: $base/sitemap.xml\n";
+        echo "Sitemap: $base/sitemap_index.xml\n";
     }
 
     // ── Datos abiertos: página, feeds y llms.txt (M1) ─────────────────────────
@@ -1507,7 +1552,7 @@ final class Pages
         if (self::seccionVisible(Secciones::ACOMPANAMIENTOS)) {
             $lines[] = '- [Acompañamientos](' . $base . '/acompanamientos)';
         }
-        $lines[] = '- [Mapa del sitio](' . $base . '/sitemap.xml)';
+        $lines[] = '- [Mapa del sitio](' . $base . '/sitemap_index.xml)';
         $lines[] = '';
         echo implode("\n", $lines);
     }

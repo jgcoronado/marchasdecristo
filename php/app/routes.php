@@ -76,7 +76,10 @@ $router->get('/buscar', [Pages::class, 'buscar']);
 $router->get('/api/buscar', [Api::class, 'buscar']);
 
 // ── SEO ────────────────────────────────────────────────────────────────────────
-$router->get('/sitemap.xml', [Pages::class, 'sitemap']);
+$router->get('/sitemap_index.xml', [Pages::class, 'sitemapIndex']);
+$router->get('/sitemaps/{tipo}.xml', [Pages::class, 'sitemapTipo']);
+// URL antigua: ya enviada a Search Console; redirige al índice.
+$router->get('/sitemap.xml', [Pages::class, 'sitemapLegacy']);
 $router->get('/robots.txt', [Pages::class, 'robots']);
 
 // ── Datos abiertos (M1): página «Datos», feeds y llms.txt ────────────────────

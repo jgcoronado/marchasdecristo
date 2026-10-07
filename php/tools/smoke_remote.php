@@ -137,19 +137,36 @@ if ($esPre) {
     };
 }
 
-$tests['sitemap: bien formado + muestra de fichas en 200 con JSON-LD'] = static function () use ($base): void {
-    $r = get200('/sitemap.xml', $base);
+/**
+ * Paths de todas las URLs de página: /sitemap_index.xml y cada sitemap hijo,
+ * validando que todos sean XML bien formado.
+ * @return list<string>
+ */
+function sitemapPaths(string $base): array
+{
     libxml_use_internal_errors(true);
-    $dom = new DOMDocument();
-    if (!$dom->loadXML($r['body'])) {
-        throw new RuntimeException('/sitemap.xml → XML mal formado');
-    }
+    $locs = static function (string $path) use ($base): array {
+        $dom = new DOMDocument();
+        if (!$dom->loadXML(get200($path, $base)['body'])) {
+            throw new RuntimeException("$path → XML mal formado");
+        }
+        $out = [];
+        foreach ($dom->getElementsByTagName('loc') as $node) {
+            $out[] = (string) parse_url($node->textContent, PHP_URL_PATH);
+        }
+        return $out;
+    };
     $paths = [];
-    foreach ($dom->getElementsByTagName('loc') as $node) {
-        $paths[] = (string) parse_url($node->textContent, PHP_URL_PATH);
+    foreach ($locs('/sitemap_index.xml') as $hijo) {
+        $paths = array_merge($paths, $locs($hijo));
     }
+    return $paths;
+}
+
+$tests['sitemap: bien formado + muestra de fichas en 200 con JSON-LD'] = static function () use ($base): void {
+    $paths = sitemapPaths($base);
     if (count($paths) < 10) {
-        throw new RuntimeException('/sitemap.xml → menos de 10 <loc> (¿BD vacía o rota?)');
+        throw new RuntimeException('sitemaps → menos de 10 <loc> (¿BD vacía o rota?)');
     }
     // Una ficha de marcha real (slug-id): 200 directo + JSON-LD presente.
     $marcha = null;
@@ -157,7 +174,7 @@ $tests['sitemap: bien formado + muestra de fichas en 200 con JSON-LD'] = static 
         if (preg_match('#^/marcha/[a-z0-9-]+-\d+$#', $p)) { $marcha = $p; break; }
     }
     if ($marcha === null) {
-        throw new RuntimeException('/sitemap.xml → no contiene ninguna ficha de marcha');
+        throw new RuntimeException('sitemaps → no contiene ninguna ficha de marcha');
     }
     $rm = get200($marcha, $base);
     if (!str_contains($rm['body'], 'application/ld+json')) {
@@ -201,10 +218,10 @@ $tests['feeds bien formados'] = static function () use ($base): void {
 // que responder 404. Eso caza los dos fallos reales: publicar a medias (nav o
 // sitemap sin ruta) y ocultar a medias (ruta viva sin anunciar, o al revés).
 $tests['secciones: lo anunciado responde 200 y lo oculto 404'] = static function () use ($base): void {
-    $sitemap = get200('/sitemap.xml', $base)['body'];
+    $sitemap = sitemapPaths($base);
     $home = get200('/', $base)['body'];
     foreach (['/dedicatorias', '/estado-catalogo', '/temporada'] as $indice) {
-        $anunciada = str_contains($sitemap, '<loc>' . $base . $indice . '</loc>')
+        $anunciada = in_array($indice, $sitemap, true)
             || str_contains($home, 'href="' . $indice . '"');
         $status = httpGet($base . $indice)['status'];
         if ($anunciada && $status !== 200 && $status !== 302) {

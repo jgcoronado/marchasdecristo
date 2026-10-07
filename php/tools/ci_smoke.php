@@ -199,7 +199,8 @@ function assertJsonLdUrlsCanonical(string $path, string $base): void
 }
 
 /**
- * Paths (sin host) de todos los <loc> del sitemap.
+ * Paths (sin host) de todas las URLs de página: los <loc> de cada sitemap hijo
+ * que anuncia /sitemap_index.xml.
  *
  * Por path y no por URL completa a propósito: el sitemap se construye siempre
  * con 'site_url' (producción), no con el $base del servidor de pruebas, así que
@@ -210,12 +211,19 @@ function assertJsonLdUrlsCanonical(string $path, string $base): void
  */
 function sitemapPaths(string $base): array
 {
-    $r = assertStatus('/sitemap.xml', 200, $base);
+    $paths = [];
+    foreach (sitemapLocs('/sitemap_index.xml', $base) as $hijo) {
+        $paths = array_merge($paths, sitemapLocs((string) parse_url($hijo, PHP_URL_PATH), $base));
+    }
+    return array_map(static fn(string $u): string => (string) parse_url($u, PHP_URL_PATH), $paths);
+}
+
+/** <loc> (URL completa) de un sitemap o índice. */
+function sitemapLocs(string $path, string $base): array
+{
+    $r = assertStatus($path, 200, $base);
     preg_match_all('#<loc>(.*?)</loc>#', $r['body'], $m);
-    return array_map(
-        static fn(string $u): string => (string) parse_url(html_entity_decode($u), PHP_URL_PATH),
-        $m[1]
-    );
+    return array_map(static fn(string $u): string => html_entity_decode($u), $m[1]);
 }
 
 /**
@@ -358,39 +366,57 @@ function assertNoIndexFollowSinCanonical(string $path, string $base): void
     }
 }
 
-function assertSitemap(string $base): void
+/** Carga un sitemap como XML bien formado con la raíz esperada. */
+function sitemapDom(string $path, string $raiz, string $base): DOMDocument
 {
-    $r = assertStatus('/sitemap.xml', 200, $base);
+    $r = assertStatus($path, 200, $base);
     libxml_use_internal_errors(true);
     $dom = new DOMDocument();
-    $ok = $dom->loadXML($r['body']);
-    if (!$ok) {
+    if (!$dom->loadXML($r['body'])) {
         $errs = array_map(static fn($e) => trim($e->message), libxml_get_errors());
-        throw new RuntimeException('/sitemap.xml → XML mal formado: ' . implode('; ', $errs));
+        throw new RuntimeException("$path → XML mal formado: " . implode('; ', $errs));
     }
-    $locs = [];
-    foreach ($dom->getElementsByTagName('loc') as $node) {
-        $locs[] = $node->textContent;
+    if ($dom->documentElement?->localName !== $raiz) {
+        throw new RuntimeException("$path → la raíz debería ser <$raiz>");
     }
-    if (count($locs) < 5) {
-        throw new RuntimeException('/sitemap.xml → se esperaban al menos 5 <loc>, hay ' . count($locs));
+    return $dom;
+}
+
+function assertSitemap(string $base): void
+{
+    $indice = sitemapDom('/sitemap_index.xml', 'sitemapindex', $base);
+    $hijos = [];
+    foreach ($indice->getElementsByTagName('loc') as $node) {
+        $hijos[] = (string) parse_url($node->textContent, PHP_URL_PATH);
     }
-    $lastmods = $dom->getElementsByTagName('lastmod');
-    if ($lastmods->length !== count($locs)) {
-        throw new RuntimeException('/sitemap.xml → cada <url> debería llevar su <lastmod> (C2)');
+    if (!in_array('/sitemaps/paginas.xml', $hijos, true) || !in_array('/sitemaps/marchas.xml', $hijos, true)) {
+        throw new RuntimeException('/sitemap_index.xml → faltan los sitemaps de páginas o de marchas');
     }
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmods->item(0)->textContent ?? '')) {
-        throw new RuntimeException('/sitemap.xml → <lastmod> no tiene forma YYYY-MM-DD');
-    }
-    // Muestra: home + primeras 4 URLs de detalle/hub, comprobadas con GET real.
-    $sample = array_slice($locs, 0, 5);
-    foreach ($sample as $loc) {
-        $path = (string) parse_url($loc, PHP_URL_PATH);
-        $qs = parse_url($loc, PHP_URL_QUERY);
-        $rel = $path . ($qs ? '?' . $qs : '');
-        $s = httpGet($base . $rel)['status'];
-        if ($s !== 200) {
-            throw new RuntimeException("/sitemap.xml → muestra '$rel' devolvió $s (se esperaba 200)");
+    foreach ($hijos as $hijo) {
+        $dom = sitemapDom($hijo, 'urlset', $base);
+        // Sin lastmod (no hay fecha por fila; el mtime del .db es ruido que
+        // Google aprende a ignorar) ni changefreq/priority (Google no los usa).
+        foreach (['lastmod', 'changefreq', 'priority'] as $tag) {
+            if ($dom->getElementsByTagName($tag)->length > 0) {
+                throw new RuntimeException("$hijo → no debería llevar <$tag>");
+            }
+        }
+        $locs = [];
+        foreach ($dom->getElementsByTagName('loc') as $node) {
+            $locs[] = $node->textContent;
+        }
+        if ($locs === []) {
+            throw new RuntimeException("$hijo → sin <loc>");
+        }
+        // Muestra: primeras 5 URLs de cada hijo, comprobadas con GET real.
+        foreach (array_slice($locs, 0, 5) as $loc) {
+            $path = (string) parse_url($loc, PHP_URL_PATH);
+            $qs = parse_url($loc, PHP_URL_QUERY);
+            $rel = $path . ($qs ? '?' . $qs : '');
+            $s = httpGet($base . $rel)['status'];
+            if ($s !== 200) {
+                throw new RuntimeException("$hijo → muestra '$rel' devolvió $s (se esperaba 200)");
+            }
         }
     }
 }
@@ -445,7 +471,7 @@ $tests = [
     // Rastreadores y monitores de caída preguntan con HEAD: si el router solo
     // atiende GET, la web entera les parece caída (404).
     'HEAD responde como GET' => static function () use ($base): void {
-        foreach (['/' => 200, '/marcha/consuelo-gitano-1' => 200, '/sitemap.xml' => 200, '/marcha/nada-999999' => 404] as $path => $esperado) {
+        foreach (['/' => 200, '/marcha/consuelo-gitano-1' => 200, '/sitemap_index.xml' => 200, '/marcha/nada-999999' => 404] as $path => $esperado) {
             $ch = curl_init($base . $path);
             curl_setopt_array($ch, [CURLOPT_NOBODY => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10]);
             curl_exec($ch);
@@ -609,7 +635,23 @@ $tests = [
     'hub provincia canónica 200' => static fn() => assertStatus('/marcha/provincia/sevilla', 200, $base),
     'hub provincia desconocida 404' => static fn() => assertStatus('/marcha/provincia/nada', 404, $base),
 
-    'sitemap.xml bien formado + muestra 200' => static fn() => assertSitemap($base),
+    'sitemap índice + hijos bien formados, sin lastmod/changefreq/priority, muestra 200' => static fn() => assertSitemap($base),
+    // URL antigua, ya enviada a Search Console.
+    'sitemap.xml → 301 al índice' => static function () use ($base): void {
+        $ch = curl_init($base . '/sitemap.xml');
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 10]);
+        curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        if ($status !== 301) {
+            throw new RuntimeException("/sitemap.xml → esperado 301, obtenido $status");
+        }
+        if (!str_ends_with($location, '/sitemap_index.xml')) {
+            throw new RuntimeException("/sitemap.xml → Location '$location' no apunta a /sitemap_index.xml");
+        }
+    },
+    'sitemap de tipo inexistente → 404' => static fn() => assertStatus('/sitemaps/nada.xml', 404, $base),
+    'robots.txt anuncia el índice' => static fn() => assertContains('/robots.txt', '/sitemap_index.xml', $base),
 
     // ── Datos abiertos: API JSON, feeds, página «Datos», llms.txt (M1) ──────
     'API marcha .json + licencia + coherencia' => static fn() => assertApi('/api/marcha/1.json', 'marcha', $base),
