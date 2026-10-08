@@ -8,10 +8,13 @@ use Throwable;
 
 /**
  * Tarjetas sociales (og:image) dinámicas por entidad (M4). Ruta
- * /og/{tipo}/{id}.jpg (y la antigua .png). Replica el diseño de la og:image estática de marca
- * (fondo índigo noche, filete acento, serif) pero con el título, subtítulo y
- * tipo de la entidad. Se genera con GD/FreeType y se cachea a disco (una vez
- * por combinación de contenido); las siguientes peticiones sirven el fichero.
+ * /og/{tipo}/{id}.jpg (y la antigua .png). Tema claro del sitio (papel, tinta
+ * e índigo de app.css) y sus mismas fuentes (IBM Plex Serif 600 para el
+ * título, IBM Plex Sans para el resto), todo centrado y sin adornos: portada
+ * arriba en los discos que la tienen (si no, el tipo en índigo), título, una
+ * o dos líneas de datos y el dominio al pie. Se genera con GD/FreeType y se
+ * cachea a disco (una vez por combinación de contenido); las siguientes
+ * peticiones sirven el fichero.
  *
  * Degrada con elegancia: si falta GD/FreeType o las fuentes, o algo falla,
  * redirige (302) a la og:image estática — así compartir una ficha nunca sale
@@ -27,7 +30,7 @@ final class Og
      * solo dependía de los datos, así que un cambio de diseño seguía sirviendo
      * las tarjetas viejas. Súbela al tocar cómo se pintan.
      */
-    private const DISENO = 2;
+    private const DISENO = 3;
 
     public static function render(array $p): void
     {
@@ -54,8 +57,8 @@ final class Og
         // fuente es legible: si FreeType falta, imagettfbbox devuelve false sin
         // lanzar excepción (no bastaría un try/catch más abajo).
         if (!function_exists('imagecreatetruecolor') || !function_exists('imagettfbbox')
-            || !is_file(self::font('serif-bold'))
-            || @imagettfbbox(20, 0, self::font('serif-bold'), 'Aáñ') === false) {
+            || !is_file(self::font('serif')) || !is_file(self::font('sans')) || !is_file(self::font('sans-bold'))
+            || @imagettfbbox(20, 0, self::font('serif'), 'Aáñ') === false) {
             self::fallback();
         }
 
@@ -70,7 +73,7 @@ final class Og
 
         try {
             $cover = $claveCover !== '' ? self::portada((int) $id) : null;
-            $bytes = $cover !== null ? self::generarConPortada($datos, $cover) : self::generar($datos);
+            $bytes = self::generar($datos, $cover);
         } catch (Throwable) {
             self::fallback();
         }
@@ -95,10 +98,9 @@ final class Og
     {
         $dir = APP_DIR . '/fonts/';
         return match ($which) {
-            'serif-bold'   => $dir . 'IBMPlexSerif-Bold.ttf',
-            'serif-italic' => $dir . 'IBMPlexSerif-Italic.ttf',
-            'mono'         => $dir . 'IBMPlexMono-Regular.ttf',
-            default        => $dir . 'IBMPlexSerif-Bold.ttf',
+            'sans'      => $dir . 'IBMPlexSans-Regular.ttf',
+            'sans-bold' => $dir . 'IBMPlexSans-SemiBold.ttf',
+            default     => $dir . 'IBMPlexSerif-SemiBold.ttf',
         };
     }
 
@@ -124,11 +126,11 @@ final class Og
      * Huella de la tarjeta: diseño + datos + portada. Nombra el fichero de
      * caché y versiona la ruta pública (url()).
      *
-     * @param array{overline:string,titulo:string,sub:string} $datos
+     * @param array{overline:string,titulo:string,lineas:list<string>} $datos
      */
     private static function huella(string $tipo, int $id, array $datos, string $claveCover): string
     {
-        return substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . $datos['sub'] . '|' . $claveCover), 0, 10);
+        return substr(sha1(self::DISENO . '|' . $tipo . '|' . $id . '|' . $datos['overline'] . '|' . $datos['titulo'] . '|' . implode("\n", $datos['lineas']) . '|' . $claveCover), 0, 10);
     }
 
     /**
@@ -205,194 +207,105 @@ final class Og
     }
 
     /**
-     * Variante de disco con portada: portada cuadrada a la izquierda y, a su
-     * derecha, el mismo bloque de texto (sobretítulo, filete, título,
-     * subtítulo, pie) alineado a la izquierda.
+     * Pinta la tarjeta. Con portada (discos): portada centrada arriba, a
+     * 210 px (las portadas miden 200: casi sin ampliar; 170 si el texto no
+     * cabe). Sin portada: el tipo en índigo encima del título. Debajo, título
+     * (hasta cuatro líneas, se reduce si no cabe), líneas de datos y, anclado
+     * al pie, el dominio.
      *
-     * @param array{overline:string,titulo:string,sub:string} $d
+     * @param array{overline:string,titulo:string,lineas:list<string>} $d
      * @return string  bytes JPEG
      */
-    private static function generarConPortada(array $d, \GdImage $cover): string
+    private static function generar(array $d, ?\GdImage $cover): string
     {
         $img = imagecreatetruecolor(self::W, self::H);
         imagealphablending($img, true);
 
-        $bg    = imagecolorallocate($img, 0x12, 0x14, 0x1d);
-        $ink   = imagecolorallocate($img, 0xe7, 0xea, 0xf4);
-        $muted = imagecolorallocate($img, 0xaa, 0xb3, 0xca);
-        $faint = imagecolorallocate($img, 0x6a, 0x74, 0x88);
-        $acc   = imagecolorallocate($img, 0x55, 0x66, 0xb0);
+        // Tokens del tema claro de app.css, con los color-mix resueltos:
+        // --bg, --ink, --acc, --muted-c y --faint.
+        $bg    = imagecolorallocate($img, 0xf2, 0xf0, 0xea);
+        $ink   = imagecolorallocate($img, 0x23, 0x20, 0x19);
+        $acc   = imagecolorallocate($img, 0x2e, 0x3a, 0x6e);
+        $muted = imagecolorallocate($img, 0x58, 0x5b, 0x6c);
+        $faint = imagecolorallocate($img, 0x65, 0x68, 0x77);
         imagefilledrectangle($img, 0, 0, self::W, self::H, $bg);
 
-        // Portada: recorte central al cuadrado (ya lo son, por si acaso).
-        // 320 y no más: casi todas las portadas miden 200 px y, ampliadas
-        // al doble, se veían blandas.
-        $lado = 320;
-        $px = 80;
-        $py = intdiv(self::H - $lado, 2);
-        $cw = imagesx($cover);
-        $ch = imagesy($cover);
-        $corte = min($cw, $ch);
-        imagecopyresampled($img, $cover, $px, $py, intdiv($cw - $corte, 2), intdiv($ch - $corte, 2), $lado, $lado, $corte, $corte);
+        $serif    = self::font('serif');
+        $sans     = self::font('sans');
+        $sansBold = self::font('sans-bold');
+        $cx = intdiv(self::W, 2);
+        $maxW = self::W - 240; // márgenes de 120 px
 
-        $serifBold   = self::font('serif-bold');
-        $serifItalic = self::font('serif-italic');
-        $mono        = self::font('mono');
-        $x = $px + $lado + 60;
-        $maxW = self::W - $x - 70;
-
-        $titSize = 54;
-        $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 3);
-        if (count($lines) > 1) {
-            $titSize = 44;
-            $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 3);
+        // Datos: cada línea puede partirse en dos (los nombres oficiales de
+        // banda son largos y no se abrevian); solo si ni así cabe, «…».
+        $metaSize = 26;
+        $metaH = 44;
+        $meta = [];
+        foreach (array_slice($d['lineas'], 0, 2) as $l) {
+            array_push($meta, ...self::balance($sans, $metaSize, $l, $maxW, 2));
         }
-        $lineH = (int) round($titSize * 1.16);
 
-        $overSize = 19;
-        $subSize  = 28;
-        $gOver = 18; $gRule = 34; $gSub = 26;
-        $ruleH = 4;
-        $sub = trim((string) $d['sub']);
-        $block = $overSize + $gOver + $ruleH + $gRule + (count($lines) * $lineH)
-            + ($sub !== '' ? $gSub + $subSize : 0);
-        $y = intdiv(self::H - $block, 2) - 20;
+        // Título y portada: la combinación más grande que quepa entera (título
+        // en ≤ 4 líneas sin recortar y bloque dentro del alto útil). Tamaños
+        // en puntos (GD a 96 ppp): 1 pt ≈ 1,333 px.
+        $alto = self::H - 40 - 96; // margen arriba y zona del pie
+        $metaAlto = $meta !== [] ? 20 + count($meta) * $metaH : 0;
+        $opciones = [];
+        foreach ($cover !== null ? [210, 170] : [0] as $l) {
+            foreach ($cover !== null ? [50, 44, 40, 36] : [72, 60, 52, 46, 40, 36] as $t) {
+                $opciones[] = [$l, $t];
+            }
+        }
+        $lado = 0; $titSize = 40; $lines = []; $lineH = 0; $cabeza = 0;
+        foreach ($opciones as [$lado, $titSize]) {
+            $lines = self::balance($serif, $titSize, (string) $d['titulo'], $maxW, 4);
+            $lineH = (int) round($titSize * 1.333 * 1.14);
+            $cabeza = $cover !== null ? $lado + 36 : 26 + 34;
+            if (!str_ends_with((string) end($lines), '…')
+                && $cabeza + count($lines) * $lineH + $metaAlto <= $alto) {
+                break;
+            }
+        }
 
-        self::tracked($img, $mono, $overSize, mb_strtoupper((string) $d['overline'], 'UTF-8'), $x, $y, 6, $faint, true);
-        $y += $overSize + $gOver;
-        imagefilledrectangle($img, $x, $y, $x + 90, $y + $ruleH, $acc);
-        $y += $ruleH + $gRule;
+        $block = $cabeza + count($lines) * $lineH + $metaAlto;
+        $y = 40 + intdiv($alto - $block, 2);
+
+        if ($cover !== null) {
+            // Recorte central al cuadrado (ya lo son, por si acaso).
+            $cw = imagesx($cover);
+            $ch = imagesy($cover);
+            $corte = min($cw, $ch);
+            imagecopyresampled($img, $cover, $cx - intdiv($lado, 2), $y, intdiv($cw - $corte, 2), intdiv($ch - $corte, 2), $lado, $lado, $corte, $corte);
+        } else {
+            self::centered($img, $sansBold, 24, (string) $d['overline'], $cx, $y + 24, $acc);
+        }
+        $y += $cabeza;
+
         foreach ($lines as $line) {
-            self::leftText($img, $serifBold, $titSize, $line, $x, $y, $ink);
             $y += $lineH;
+            self::centered($img, $serif, $titSize, $line, $cx, $y - (int) round($titSize * 0.36), $ink);
         }
-        if ($sub !== '') {
-            $y += $gSub;
-            self::leftText($img, $serifItalic, $subSize, self::ellipsize($serifItalic, $subSize, $sub, $maxW), $x, $y, $muted);
+        if ($meta !== []) {
+            $y += 20;
+            foreach ($meta as $m) {
+                $y += $metaH;
+                self::centered($img, $sans, $metaSize, $m, $cx, $y - 12, $muted);
+            }
         }
 
-        // Pie en la columna de texto, a la misma altura que en la tarjeta sin
-        // portada (no a ras de la portada: un título de tres líneas lo pisaba).
-        self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $x, self::H - 56, 6, $faint, true);
+        self::centered($img, $sans, 22, 'marchasdecristo.com', $cx, self::H - 46, $faint);
 
         ob_start();
         imagejpeg($img, null, 85);
         return (string) ob_get_clean();
     }
 
-    /**
-     * @param array{overline:string,titulo:string,sub:string} $d
-     * @return string  bytes JPEG
-     */
-    private static function generar(array $d): string
-    {
-        $img = imagecreatetruecolor(self::W, self::H);
-        imagealphablending($img, true);
-
-        // Paleta (tokens del tema oscuro de app.css).
-        $bg     = imagecolorallocate($img, 0x12, 0x14, 0x1d);
-        $ink    = imagecolorallocate($img, 0xe7, 0xea, 0xf4);
-        $muted  = imagecolorallocate($img, 0xaa, 0xb3, 0xca);
-        $faint  = imagecolorallocate($img, 0x6a, 0x74, 0x88);
-        $acc    = imagecolorallocate($img, 0x55, 0x66, 0xb0);
-
-        imagefilledrectangle($img, 0, 0, self::W, self::H, $bg);
-
-        $serifBold   = self::font('serif-bold');
-        $serifItalic = self::font('serif-italic');
-        $mono        = self::font('mono');
-        $cx = intdiv(self::W, 2);
-        $maxW = self::W - 200; // márgenes de 100 px
-
-        // Título: 1–2 líneas, reduce el tamaño si son 2.
-        $titSize = 62;
-        $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
-        if (count($lines) > 1) {
-            $titSize = 52;
-            $lines = self::wrap($serifBold, $titSize, (string) $d['titulo'], $maxW, 2);
-        }
-        $lineH = (int) round($titSize * 1.16);
-
-        // Altura del bloque central (sobretítulo + filete + título + subtítulo).
-        $overSize = 19;
-        $subSize  = 31;
-        $gOver = 18; $gRule = 40; $gSub = 30;
-        $ruleH = 4;
-        $sub = trim((string) $d['sub']);
-        $block = $overSize + $gOver + $ruleH + $gRule + (count($lines) * $lineH)
-            + ($sub !== '' ? $gSub + $subSize : 0);
-        $y = intdiv(self::H - $block, 2) - 12; // leve sesgo hacia arriba (pie al fondo)
-
-        // Sobretítulo (mono, versalitas, con tracking).
-        self::tracked($img, $mono, $overSize, mb_strtoupper((string) $d['overline'], 'UTF-8'), $cx, $y, 6, $faint);
-        $y += $overSize + $gOver;
-
-        // Filete acento.
-        imagefilledrectangle($img, $cx - 45, $y, $cx + 45, $y + $ruleH, $acc);
-        $y += $ruleH + $gRule;
-
-        // Título.
-        foreach ($lines as $line) {
-            self::centered($img, $serifBold, $titSize, $line, $cx, $y, $ink);
-            $y += $lineH;
-        }
-
-        // Subtítulo (serif itálico).
-        if ($sub !== '') {
-            $y += $gSub;
-            $sub = self::ellipsize($serifItalic, $subSize, $sub, $maxW);
-            self::centered($img, $serifItalic, $subSize, $sub, $cx, $y, $muted);
-        }
-
-        // Pie: filete + dominio (mono, tracking), anclado abajo.
-        $footY = self::H - 82;
-        imagefilledrectangle($img, $cx - 45, $footY, $cx + 45, $footY + $ruleH, $acc);
-        self::tracked($img, $mono, 18, 'MARCHASDECRISTO.COM', $cx, $footY + 26, 6, $faint);
-
-        ob_start();
-        imagejpeg($img, null, 85);
-        $bytes = (string) ob_get_clean();
-        return $bytes;
-    }
-
-    /** Dibuja texto centrado horizontalmente; $topY es el borde superior. */
-    private static function centered($img, string $font, int $size, string $text, int $cx, int $topY, int $color): void
+    /** Dibuja texto centrado horizontalmente en $cx sobre la línea base $baseY. */
+    private static function centered($img, string $font, int $size, string $text, int $cx, int $baseY, int $color): void
     {
         $bbox = imagettfbbox($size, 0, $font, $text);
         $w = $bbox[2] - $bbox[0];
-        $ascent = -$bbox[7];
-        imagettftext($img, $size, 0, $cx - intdiv($w, 2), $topY + $ascent, $color, $font, $text);
-    }
-
-    /** Dibuja texto alineado a la izquierda en $x; $topY es el borde superior. */
-    private static function leftText($img, string $font, int $size, string $text, int $x, int $topY, int $color): void
-    {
-        $bbox = imagettfbbox($size, 0, $font, $text);
-        imagettftext($img, $size, 0, $x - $bbox[0], $topY - $bbox[7], $color, $font, $text);
-    }
-
-    /**
-     * Texto con tracking (espaciado entre caracteres); mono. Centrado en $cx,
-     * o empezando en $cx si $izquierda.
-     */
-    private static function tracked($img, string $font, int $size, string $text, int $cx, int $topY, int $track, int $color, bool $izquierda = false): void
-    {
-        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        // Avance por carácter (mono → constante): ancho de "MM" menos "M".
-        $b1 = imagettfbbox($size, 0, $font, 'M');
-        $b2 = imagettfbbox($size, 0, $font, 'MM');
-        $adv = ($b2[2] - $b2[0]) - ($b1[2] - $b1[0]);
-        if ($adv <= 0) {
-            $adv = $b1[2] - $b1[0];
-        }
-        $total = count($chars) * $adv + (count($chars) - 1) * $track;
-        $ascent = -$b1[7];
-        $x = $izquierda ? $cx : $cx - intdiv($total, 2);
-        $baseY = $topY + $ascent;
-        foreach ($chars as $ch) {
-            imagettftext($img, $size, 0, $x, $baseY, $color, $font, $ch);
-            $x += $adv + $track;
-        }
+        imagettftext($img, $size, 0, $cx - intdiv($w, 2) - $bbox[0], $baseY, $color, $font, $text);
     }
 
     /**
@@ -435,6 +348,29 @@ final class Og
             $lines[] = self::ellipsize($font, $size, $last . '…', $maxW);
         }
         return $lines === [] ? [''] : $lines;
+    }
+
+    /**
+     * Como wrap(), pero con líneas de longitud pareja: estrecha el ancho
+     * mientras no aparezca una línea más, para no dejar una palabra huérfana.
+     *
+     * @return list<string>
+     */
+    private static function balance(string $font, int $size, string $text, int $maxW, int $maxLines): array
+    {
+        $lines = self::wrap($font, $size, $text, $maxW, $maxLines);
+        $n = count($lines);
+        if ($n < 2 || str_ends_with((string) end($lines), '…')) {
+            return $lines;
+        }
+        for ($w = $maxW - 10; $w > intdiv($maxW, 2); $w -= 10) {
+            $prueba = self::wrap($font, $size, $text, $w, $maxLines);
+            if (count($prueba) > $n || str_ends_with((string) end($prueba), '…')) {
+                break;
+            }
+            $lines = $prueba;
+        }
+        return $lines;
     }
 
     /** Recorta $text con «…» hasta que quepa en $maxW. */
