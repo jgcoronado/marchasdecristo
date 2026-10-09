@@ -258,7 +258,7 @@ if (!empty($meta['ancho'])) {
             <a class="brand" href="/"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></a>
 <?php if ($showSearch): ?>
             <div class="site-search-row">
-                <form class="site-search" action="/buscar" method="get" role="search" autocomplete="off">
+                <form class="site-search" action="/buscar" method="get" role="search" aria-label="Buscar en todo el sitio" autocomplete="off">
                     <span aria-hidden="true">⌕</span>
                     <input id="site-q" type="search" name="q" value="<?= $e($searchValue) ?>"
                            placeholder="Buscar marchas, compositores, bandas, discos…"
@@ -286,7 +286,7 @@ if (!empty($meta['ancho'])) {
                 </ul>
             </details>
         </div>
-        <nav>
+        <nav aria-label="Secciones del sitio">
             <ul class="nav-links">
 <?php foreach ($nav as $href => $label): ?>
                 <li><a href="<?= $href ?>"<?= $current === $href ? ' aria-current="page"' : '' ?>><?= $label ?></a></li>

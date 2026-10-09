@@ -55,6 +55,18 @@
     --ink: #232019;         /* tinta (negro cálido, no negro puro: cansa menos) */
     --acc: #2e3a6e;         /* índigo: enlaces y acciones (10,7:1 sobre --card, medido) */
     --acc-fg: #ffffff;      /* texto sobre un fondo --acc macizo (.btn-neutral) */
+    /* Enlaces de texto (2026-10-09). El enlace se distingue SOLO por el color
+       (sin subrayado), así que tiene que separarse 3:1 del texto que lo rodea
+       (WCAG 1.4.1) y seguir a 4,5:1 sobre el fondo. --acc no podía: frente a
+       --ink medía 1,51:1, y ambos son oscuros. Dos tonos de la misma familia
+       índigo, según con qué texto convive el enlace:
+       - --enlace, entre tinta (fichas, tablas, listas): índigo medio.
+         3,12:1 frente a --ink; 5,17 sobre --card, 4,88 sobre --zebra.
+       - --enlace-apoyo, entre texto atenuado (--apoyo: migas, permalink,
+         entradillas): índigo profundo. 3,20:1 frente a --apoyo.
+       --acc se queda para botones, pestañas, mapa y hover. */
+    --enlace: #5266bf;
+    --enlace-apoyo: #0c0b51;
     /* Semánticos (estreno / novedad / recuperación / error / juvenil).
        Su fondo tenue (--est-bg y compañía) se deriva de cada uno. */
     --est: #1c6b3c;
@@ -95,6 +107,7 @@
        el color de los recuentos, las migas y el pie. A 72% pasa de 4,5 en las
        cuatro superficies y sigue habiendo escalón contra --muted (6,4). */
     --mz-faint: 72%;   /* --faint: tinta muy atenuada (recuentos, migas) */
+    --mz-apoyo: 72%;   /* --apoyo: texto atenuado que lleva enlaces dentro (ver --enlace-apoyo) */
     --mz-tinta: 50%;   /* --tinta-suave: cuánta tinta lleva; el resto es --acc */
     --mz-tint: 11%;    /* fondo tenue de badges y avisos */
     --mz-borde: 27%;   /* --err-line: filete del aviso de error */
@@ -133,6 +146,7 @@
     --tinta-suave: color-mix(in srgb, var(--ink) var(--mz-tinta), var(--acc));
     --muted-c: color-mix(in srgb, var(--tinta-suave) var(--mz-muted), var(--card));
     --faint: color-mix(in srgb, var(--tinta-suave) var(--mz-faint), var(--card));
+    --apoyo: color-mix(in srgb, var(--tinta-suave) var(--mz-apoyo), var(--card));
     /* Fondos tenues (ver --tinte-base) */
     --acc-tint: color-mix(in srgb, var(--acc) var(--mz-tint), var(--tinte-base));
     --est-bg: color-mix(in srgb, var(--est) var(--mz-tint), var(--tinte-base));
@@ -418,8 +432,8 @@ body.p-ancho footer .inner { max-width: min(90vw, 90rem); }
    pistas): el ancho de lectura les recorta columnas. Se les da el 90% de la
    ventana, con un tope para que en un monitor muy ancho no se estire sin fin. */
 main.main-ancho { max-width: min(90vw, 90rem); }  /* legado: hoy lo pone body.p-ancho */
-main a { color: var(--acc); text-decoration: none; }
-main a:not(.btn):hover { text-decoration: underline; }
+main a { color: var(--enlace); text-decoration: none; }
+main a:not(.btn):hover { color: var(--acc); text-decoration: underline; }
 
 /* Cinta de preproducción (config 'preproduccion' => true): visible en TODAS
    las páginas del host de pruebas para no confundir nunca PRE con PRO. */
@@ -465,8 +479,8 @@ h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weig
 }
 
 /* ── El registro (ficha) ────────────────────────────────────────────────── */
-.crumbs { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem 1.2rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--faint); margin: 0 0 0.7rem; }
-.crumbs a { color: var(--muted-c); text-decoration: none; }
+.crumbs { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem 1.2rem; flex-wrap: wrap; font-size: 0.84rem; color: var(--apoyo); margin: 0 0 0.7rem; }
+.crumbs a { color: var(--enlace-apoyo); text-decoration: none; }
 .crumbs a:hover { color: var(--acc); text-decoration: none; }
 
 .record { background: var(--card); border-radius: var(--radius); box-shadow: var(--sombra-suave); padding: 1.7rem 1.9rem 2rem; }
@@ -474,8 +488,8 @@ h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4.2vw, 2rem); font-weig
 /* Frase descriptiva bajo el título de las páginas de sección (mapa, búsqueda,
    datos…). En las fichas de entidad NO se usa: ahí repetía lo que la propia
    rejilla de datos dice dos líneas más abajo. */
-.asiento { font-size: 1.05rem; color: var(--muted-c); margin: 0.5rem 0 0; line-height: 1.65; text-wrap: pretty; }
-.asiento a { color: var(--acc); text-decoration: none; }
+.asiento { font-size: 1.05rem; color: var(--apoyo); margin: 0.5rem 0 0; line-height: 1.65; text-wrap: pretty; }
+.asiento a { color: var(--enlace-apoyo); text-decoration: none; }
 .asiento a:hover { text-decoration: underline; }
 
 /* Descripción etiqueta/valor: una sola columna con fondo alterno. La fila
@@ -499,7 +513,7 @@ dl.desc dd { margin: 0; font-size: 0.98rem; }
    las plantillas): en una ficha que cabe en pantalla no llevan a ninguna
    parte y solo añaden ruido. */
 .rectabs { display: flex; flex-wrap: wrap; gap: 0 1.1rem; margin: 0.9rem 0 0; font-size: 0.9rem; }
-.rectabs a { text-decoration: none; color: var(--muted-c); }
+.rectabs a { text-decoration: none; color: var(--muted-c); display: inline-block; padding: 0.2rem 0; }  /* área táctil ≥ 24px (WCAG 2.5.8) */
 .rectabs a:hover { color: var(--acc); text-decoration: underline; }
 
 /* Cabecera de sección */
@@ -760,8 +774,8 @@ ol.acs-serie .b.vig a { font-weight: 600; }
 }
 
 /* Permalink del registro */
-.ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--faint); }
-.ids a { color: var(--muted-c); text-decoration: none; }
+.ids { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; margin-top: 2rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--apoyo); }
+.ids a { color: var(--enlace-apoyo); text-decoration: none; }
 .ids a:hover { color: var(--acc); text-decoration: underline; }
 
 /* ── Explorador (listado con facetas) ───────────────────────────────────── */
@@ -993,7 +1007,8 @@ a.fopt .fcount { margin-left: auto; font-size: 0.84rem; color: var(--faint); fon
 .marcha-dia .ultima-row { grid-template-columns: minmax(0, 1fr) auto; }
 .marcha-dia .ultima-title { grid-column: 1 / -1; white-space: normal; text-wrap: balance; }
 .marcha-dia .ultima-authors, .marcha-dia .ultima-banda { white-space: normal; }
-.firma { font-size: 0.84rem; color: var(--faint); text-align: right; margin: 0; }
+.firma { font-size: 0.84rem; color: var(--apoyo); text-align: right; margin: 0; }
+.firma a { color: var(--enlace-apoyo); }
 
 /* ── CdList (vistas aún no migradas) ────────────────────────────────────── */
 .cdlist { list-style: none; margin: 0.5rem auto; padding: 0; }
@@ -1186,9 +1201,19 @@ ul.azgrid { list-style: none; margin: 0.3rem 0 0; padding: 0; display: grid; gri
        propia y el recuento deja de reservarle el hueco con margin-right. */
     .toolbar .rescount { margin-right: 0; flex: 1 0 100%; font-size: 1.2rem; }
     .toolbar .h1-compartir { margin-right: 0; flex: 1 0 100%; }
-    /* En móvil la etiqueta no cabe al lado del valor sin partir palabras:
-       pasa a ir encima, con la misma fila alterna de fondo. */
-    dl.desc .f { grid-template-columns: 1fr; gap: 0.1rem; padding: 0.5rem 0.6rem; }
+    /* En móvil la etiqueta sigue al lado del valor, con una columna más
+       estrecha (2026-10-09). Antes pasaba a ir encima y la rejilla de seis
+       datos de una marcha ocupaba la primera pantalla entera: «Escuchar», que
+       es a lo que viene la mayoría, quedaba debajo del pliegue. Medido en 30
+       fichas a 390×844: el primer botón de escucha baja de 755 a 692 px de
+       mediana y cae por encima de los 700 px en 18 fichas en vez de 5. Las
+       etiquetas largas («Grabaciones de su obra») parten en dos líneas, no
+       a media palabra. Lo único que puede partirse por dentro es un valor de
+       una sola pieza más ancho que la columna (la web de una banda:
+       amlasentenciajerez.blogspot.com.es empujaba la página 35 px). */
+    dl.desc .f { grid-template-columns: 6.9rem 1fr; gap: 0.6rem; padding: 0.42rem 0.6rem; }
+    dl.desc dt { font-size: 0.86rem; }
+    dl.desc dd { min-width: 0; overflow-wrap: anywhere; }
     .record { padding: 1.2rem 1rem 1.4rem; }
     /* Tablas de fichas y listados (table.reg / .table): en escritorio cada
        columna respira, pero en móvil la cabecera con white-space:nowrap y

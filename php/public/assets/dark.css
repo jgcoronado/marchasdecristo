@@ -30,13 +30,24 @@
        Cabecera y pie van del color de la página (ver más abajo). */
     --bg: #141413;
     --card: #1f1e1d;
-    --ink: #ece9e1;
+    --ink: #f6f4ef;         /* 2026-10-09: de #ece9e1 a #f6f4ef; ver --enlace */
     /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
        sobre marrón casi negro era el único color frío de la página y los
        enlaces se leían incómodos. Burdeos claro, de la familia del papel:
        8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
     --acc: #eba59a;
     --acc-fg: #141413;  /* el acento claro pide tinta oscura encima, no blanca */
+    /* Enlaces de texto (2026-10-09; ver el mismo bloque en app.css). El
+       burdeos claro --acc frente a la tinta medía 1,66:1: indistinguible sin
+       subrayado. Con la tinta de antes (#ece9e1) no existía ningún tono que
+       diera 3:1 frente a ella y 4,5:1 sobre --zebra a la vez; subiéndola a
+       #f6f4ef sí:
+       - --enlace: coral de la misma familia. 3,09:1 frente a --ink; 4,91
+         sobre --card, 4,55 sobre --zebra.
+       - --enlace-apoyo: la propia tinta, que entre el gris de --apoyo es lo
+         más claro de la línea (3,18:1). */
+    --enlace: #dd6859;
+    --enlace-apoyo: var(--ink);
     --est: #7cc39a;
     --nov: #5fc3cd;
     --rec: #d7a866;
@@ -63,6 +74,10 @@
        --acc-tint (el peor caso); --muted, 6,62 sobre --s2 (medido). */
     --mz-muted: 72%;
     --mz-faint: 65%;
+    /* --apoyo: el gris de los textos que llevan enlaces dentro (migas,
+       permalink, entradillas). Más oscuro que --faint para que --enlace-apoyo
+       (la tinta) se separe 3:1 de él: 4,76:1 sobre --card, 5,28 sobre --bg. */
+    --mz-apoyo: 50%;
     /* Sin acento en el gris de apoyo: al 50% del claro el texto atenuado
        salía del mismo tono que los enlaces (con el índigo, 1,12:1 entre
        --muted-c y --acc, 227° frente a 229°) y no se distinguía qué se
@@ -84,7 +99,7 @@
    !important porque hay una docena de reglas :hover con underline repartidas
    por la hoja, cada una con su especificidad. */
 a:any-link, a:any-link:hover, a:any-link:focus { text-decoration: none !important; }
-main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--acc) 70%, var(--ink)); }
+main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, var(--ink)); }
 
 /* Cabecera, pie, tarjetas, migas y anclas de la ficha (2026-09-27):
    - Cabecera y pie del color de la página, separados solo por su filete: con
@@ -95,7 +110,7 @@ main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--acc) 70%, var
    - La tarjeta se despega con un filete de 1px: una sombra negra sobre un
      fondo casi negro no se ve. */
 body > header, footer { background: var(--bg); }
-.crumbs a, .rectabs a { color: var(--acc); }
+.rectabs a { color: var(--acc); }
 .card, .record { box-shadow: 0 0 0 1px var(--line); }
 
 /* Acompañamientos: los claros de la tira se oscurecen hacia la tarjeta y en

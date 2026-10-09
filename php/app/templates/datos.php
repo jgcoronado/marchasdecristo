@@ -29,7 +29,7 @@ $num = static fn(int $n): string => number_format($n, 0, ',', '.');
                 <a class="link" href="<?= V::e($licencia['url']) ?>" rel="license nofollow noopener" target="_blank"><?= V::e($licencia['url']) ?></a>.</p>
 
             <p class="muted">Ejemplo de atribución (copia y pega):</p>
-            <pre class="scrollx"><code>Datos: marchasdecristo.com (CC BY 4.0)</code></pre>
+            <pre class="scrollx" tabindex="0"><code>Datos: marchasdecristo.com (CC BY 4.0)</code></pre>
         </section>
 
         <section class="card">
@@ -37,7 +37,7 @@ $num = static fn(int $n): string => number_format($n, 0, ',', '.');
             <p class="notas">Cada ficha del catálogo está disponible como JSON estable, con la URL canónica y el
                 bloque de licencia incluidos. El <span class="mono">{id}</span> es el número al final de la URL de la
                 ficha (por ejemplo <span class="mono">/marcha/consuelo-gitano-330</span> → <span class="mono">330</span>).</p>
-            <div class="scrollx">
+            <div class="scrollx" tabindex="0" role="region" aria-label="Recursos de la API JSON">
                 <table class="table table-zebra">
                     <thead class="thead-neutral"><tr><td>Recurso</td><td>URL</td></tr></thead>
                     <tbody>
