@@ -133,6 +133,26 @@ cambio hecho en PRE o PRO se perdería —o pisaría datos buenos— en el sigui
   `/dashboard` un aviso que detalla qué funciona y qué no. El editor no la
   necesita: su flujo es idéntico aquí y en local.
 
+## Solo en PRE: /rosario
+
+Herramienta de campo, ajena al catálogo (2026-10-10): dos botones, «Arriba» y
+«Abajo», para anotar desde el iPhone la hora y la ubicación de cada levantá y
+arriá de un paso. Cada pulsación es una línea de **`private/rosario.csv`**
+(junto a `mdc.db`, fuera del webroot: no se puede descargar por URL; se baja
+por FTP o con el gestor de archivos de Plesk). No toca la BD.
+
+- `routes.php` solo registra la ruta en **PRE y local**: en PRO da 404 aunque
+  el código llegue con la fusión de `pre` en `main`. Lo comprueban la pasada PRO
+  de `ci_smoke.php` y `smoke_remote.php` contra cada host.
+- Sin login, a petición del mantenedor: cualquiera que conozca la URL de PRE
+  puede añadir líneas.
+- La hora y la posición las pone el teléfono al pulsar; la página guarda cada
+  pulsación en el móvil y la reenvía hasta que el servidor confirma. Formato
+  para Excel en español (`;` y coma decimal). Detalle en `App\Rosario`.
+- Como PRE comparte `private/` con PRO, un deploy a PRO o un
+  `sync_db_to_prod.php` también ponen PRE en mantenimiento: las pulsaciones se
+  quedan pendientes en el móvil y salen solas al acabar.
+
 ## Flujo normal de trabajo
 
 ```

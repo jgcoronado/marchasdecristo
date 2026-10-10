@@ -61,6 +61,11 @@ jobs:
       - name: Unit tests (hermandad en varios días)
         run: php php/tools/ci_nomina_dias.php
 
+      # /rosario (solo PRE): hora de Madrid, formato de Excel en español y que
+      # un reenvío de la página no duplique la pulsación en el CSV.
+      - name: Unit tests (CSV de /rosario)
+        run: php php/tools/ci_rosario.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db

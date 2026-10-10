@@ -110,6 +110,16 @@ if ($esPre) {
             throw new RuntimeException('home PRE → falta la cabecera X-Robots-Tag: noindex');
         }
     };
+    // Solo GET: un POST escribiría en el CSV real de private/.
+    $tests['pre: /rosario sirve los dos botones, sin indexar'] = static function () use ($base): void {
+        $r = get200('/rosario', $base);
+        if (!str_contains($r['body'], 'data-accion="arriba"') || !str_contains($r['body'], 'data-accion="abajo"')) {
+            throw new RuntimeException('/rosario PRE → faltan los botones Arriba/Abajo');
+        }
+        if (!str_contains(strtolower($r['headers']['x-robots-tag'] ?? ''), 'noindex')) {
+            throw new RuntimeException('/rosario PRE → falta la cabecera X-Robots-Tag: noindex');
+        }
+    };
     $tests['pre: robots.txt en Disallow total'] = static function () use ($base): void {
         $r = get200('/robots.txt', $base);
         if (!str_contains($r['body'], "Disallow: /")) {
@@ -127,6 +137,13 @@ if ($esPre) {
         }
         if (str_contains($r['body'], 'pre-ribbon')) {
             throw new RuntimeException('home PROD → muestra la cinta de preproducción');
+        }
+    };
+    // /rosario es solo de PRE: en producción la ruta (GET y POST) no existe.
+    $tests['prod: /rosario no existe'] = static function () use ($base): void {
+        $s = httpGet($base . '/rosario')['status'];
+        if ($s !== 404) {
+            throw new RuntimeException("/rosario PROD → esperado 404, obtenido $s");
         }
     };
     $tests['prod: robots.txt con Sitemap'] = static function () use ($base): void {

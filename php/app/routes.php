@@ -10,6 +10,7 @@ use App\Http;
 use App\Legacy;
 use App\Og;
 use App\Pages;
+use App\Rosario;
 
 /** @var App\Router $router */
 
@@ -112,6 +113,16 @@ if (!empty($config['indexnow_key'])) {
         Http::cachePublic(86400);
         echo $config['indexnow_key'];
     });
+}
+
+// ── /rosario: hora y lugar de cada levantá y arriá de un paso (solo PRE) ─────
+// Herramienta de campo para el iPhone, ajena al catálogo: escribe un CSV en el
+// directorio de datos y no toca la BD. Se registra solo en PRE (y en local,
+// para probarla); en PRO la ruta no existe y cae en el 404 aunque el código
+// llegue con la fusión de pre en main. Ver App\Rosario.
+if (in_array(App\Entorno::nombre(), [App\Entorno::PRE, App\Entorno::LOCAL], true)) {
+    $router->get('/rosario', [Rosario::class, 'pagina']);
+    $router->post('/rosario', [Rosario::class, 'registrar']);
 }
 
 // ── Diagnóstico ──────────────────────────────────────────────────────────────
