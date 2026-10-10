@@ -854,9 +854,12 @@ $tests = [
             if ($card === false) {
                 throw new RuntimeException('/og/disco/1.jpg → no devolvió una imagen (status ' . $r['status'] . ')');
             }
-            $rgb = imagecolorat($card, 300, 315);
+            // Desde 837b101 la portada va centrada arriba (Og::generar), de 170
+            // o 210 px según quepa el texto: con cualquiera de los dos tamaños
+            // cubre el punto (600, 197) de la columna central.
+            $rgb = imagecolorat($card, 600, 197);
             if ((($rgb >> 16) & 0xFF) < 180 || (($rgb >> 8) & 0xFF) > 80) {
-                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece a la izquierda de la tarjeta');
+                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece centrada arriba en la tarjeta');
             }
         } finally {
             @unlink($f);
