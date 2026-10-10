@@ -148,7 +148,8 @@ por FTP o con el gestor de archivos de Plesk). No toca la BD.
   puede añadir líneas.
 - La hora y la posición las pone el teléfono al pulsar; la página guarda cada
   pulsación en el móvil y la reenvía hasta que el servidor confirma. Formato
-  para Excel en español (`;` y coma decimal). Detalle en `App\Rosario`.
+  para Excel en español (`;` y coma decimal). Detalle completo en
+  [rosario.md](rosario.md).
 - Como PRE comparte `private/` con PRO, un deploy a PRO o un
   `sync_db_to_prod.php` también ponen PRE en mantenimiento: las pulsaciones se
   quedan pendientes en el móvil y salen solas al acabar.
