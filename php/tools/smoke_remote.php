@@ -111,10 +111,13 @@ if ($esPre) {
         }
     };
     // Solo GET: un POST escribiría en el CSV real de private/.
-    $tests['pre: /rosario sirve los dos botones, sin indexar'] = static function () use ($base): void {
+    $tests['pre: /rosario sirve los dos botones y la tabla de marchas, sin indexar'] = static function () use ($base): void {
         $r = get200('/rosario', $base);
         if (!str_contains($r['body'], 'data-accion="arriba"') || !str_contains($r['body'], 'data-accion="abajo"')) {
             throw new RuntimeException('/rosario PRE → faltan los botones Arriba/Abajo');
+        }
+        if (!str_contains($r['body'], 'data-orden="33"')) {
+            throw new RuntimeException('/rosario PRE → falta la tabla de marchas (33 filas)');
         }
         if (!str_contains(strtolower($r['headers']['x-robots-tag'] ?? ''), 'noindex')) {
             throw new RuntimeException('/rosario PRE → falta la cabecera X-Robots-Tag: noindex');

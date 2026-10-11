@@ -973,11 +973,15 @@ if ($modo === 'pro') {
         if ($s !== 404) {
             throw new RuntimeException("POST /rosario → esperado 404, obtenido $s");
         }
+        $s = httpPost($base . '/rosario/marchas', ['orden' => '1', 'sono' => '1', 'obs' => '', 'ts' => '1760000000000'])['status'];
+        if ($s !== 404) {
+            throw new RuntimeException("POST /rosario/marchas → esperado 404, obtenido $s");
+        }
     };
 } else {
-    $tests['rosario: en local sirve la página con los dos botones'] = static function () use ($base): void {
+    $tests['rosario: en local sirve la página con los dos botones y la tabla de marchas'] = static function () use ($base): void {
         $body = assertStatus('/rosario', 200, $base)['body'];
-        foreach (['data-accion="arriba"', 'data-accion="abajo"', 'content="noindex'] as $aguja) {
+        foreach (['data-accion="arriba"', 'data-accion="abajo"', 'content="noindex', 'data-orden="33"', 'Rosario de Montesión', 'maxlength="150"'] as $aguja) {
             if (!str_contains($body, $aguja)) {
                 throw new RuntimeException("/rosario → falta $aguja");
             }

@@ -141,6 +141,11 @@ arriá de un paso. Cada pulsación es una línea de **`private/rosario.csv`**
 (junto a `mdc.db`, fuera del webroot: no se puede descargar por URL; se baja
 por FTP o con el gestor de archivos de Plesk). No toca la BD.
 
+Debajo de los botones (2026-10-11), la tabla del repertorio previsto con un
+check «Sonó» y «Observaciones» (150 caracteres) por marcha. Va a
+**`private/rosario_marchas.csv`**, la tabla entera, que se reescribe con cada
+cambio (`POST /rosario/marchas`, mismas reglas de PRE/local).
+
 - `routes.php` solo registra la ruta en **PRE y local**: en PRO da 404 aunque
   el código llegue con la fusión de `pre` en `main`. Lo comprueban la pasada PRO
   de `ci_smoke.php` y `smoke_remote.php` contra cada host.

@@ -123,6 +123,7 @@ if (!empty($config['indexnow_key'])) {
 if (in_array(App\Entorno::nombre(), [App\Entorno::PRE, App\Entorno::LOCAL], true)) {
     $router->get('/rosario', [Rosario::class, 'pagina']);
     $router->post('/rosario', [Rosario::class, 'registrar']);
+    $router->post('/rosario/marchas', [Rosario::class, 'marcar']);
 }
 
 // ── Diagnóstico ──────────────────────────────────────────────────────────────

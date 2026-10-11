@@ -1,4 +1,10 @@
-<?php declare(strict_types=1); ?>
+<?php declare(strict_types=1);
+
+use App\Rosario;
+use App\View as V;
+
+/** @var array<int,array{sono:bool,obs:string,ts:int}> $marchas la tabla guardada (Rosario::marchas) */
+?>
 <!doctype html>
 <html lang="es">
 <head>
@@ -10,15 +16,18 @@
 <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: #111; color: #f2f2f2; }
+    html, body { margin: 0; background: #111; color: #f2f2f2; }
     body {
-        display: flex; flex-direction: column; gap: 12px;
-        height: 100dvh; overflow: hidden; overscroll-behavior: none;
-        padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
-                 max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        overscroll-behavior: none;
         font: 17px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         touch-action: manipulation;
+    }
+    /* Los botones llenan la primera pantalla; la tabla queda debajo, al hacer scroll. */
+    .botonera {
+        display: flex; flex-direction: column; gap: 12px; height: 100dvh;
+        padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                 max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     }
     .estado { display: grid; gap: 4px; }
     .estado p { margin: 0; }
@@ -48,16 +57,67 @@
         padding: 18px; border: 0; border-radius: 14px; background: #f2f2f2; color: #111;
         font: 700 22px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
+    .repertorio {
+        padding: 4px max(12px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+                 max(12px, env(safe-area-inset-left));
+    }
+    .repertorio p { margin: 0 0 8px; }
+    #cola-marchas, #error-marchas { font-size: 15px; font-weight: 600; }
+    #error-marchas { color: #ff6b6b; }
+    #error-marchas:empty { display: none; }
+    .repertorio table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 15px; }
+    .repertorio th, .repertorio td {
+        padding: 8px 4px; border-bottom: 1px solid #333; text-align: left; vertical-align: top;
+        overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto;
+    }
+    .repertorio th { font-size: 13px; font-weight: 700; color: #a8a8a8; }
+    .repertorio .lugar { width: 23%; }
+    .repertorio .sono { width: 44px; text-align: center; }
+    .repertorio .obs { width: 36%; }
+    .repertorio td.lugar { font-size: 14px; color: #c8c8c8; }
+    .repertorio td.marcha { font-weight: 600; }
+    .repertorio input[type="checkbox"] { width: 28px; height: 28px; margin: 0; accent-color: #1e7a46; }
+    /* 16 px como mínimo: con menos, el iPhone amplía la página al escribir. */
+    .repertorio textarea {
+        display: block; width: 100%; min-height: 36px; padding: 6px; resize: none; overflow: hidden;
+        border: 1px solid #444; border-radius: 8px; background: #1c1c1c; color: #f2f2f2;
+        font: 16px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-user-select: text; user-select: text;
+    }
 </style>
 </head>
 <body>
-    <div class="estado" aria-live="polite">
-        <p class="fila"><span id="gps" class="regular">GPS apagado</span><span id="cola">Todo enviado</span></p>
-        <p id="ultimo"></p>
-        <p id="error"></p>
-    </div>
-    <button type="button" class="boton" id="arriba" data-accion="arriba">Arriba</button>
-    <button type="button" class="boton" id="abajo" data-accion="abajo">Abajo</button>
+    <main class="botonera">
+        <div class="estado" aria-live="polite">
+            <p class="fila"><span id="gps" class="regular">GPS apagado</span><span id="cola">Todo enviado</span></p>
+            <p id="ultimo"></p>
+            <p id="error"></p>
+        </div>
+        <button type="button" class="boton" id="arriba" data-accion="arriba">Arriba</button>
+        <button type="button" class="boton" id="abajo" data-accion="abajo">Abajo</button>
+    </main>
+
+    <section class="repertorio" id="repertorio" aria-label="Repertorio">
+        <div aria-live="polite">
+            <p id="cola-marchas">Tabla guardada</p>
+            <p id="error-marchas"></p>
+        </div>
+        <table>
+            <thead>
+                <tr><th class="lugar">Lugar</th><th class="marcha">Marcha</th><th class="sono">Sonó</th><th class="obs">Observaciones</th></tr>
+            </thead>
+            <tbody>
+<?php foreach (Rosario::REPERTORIO as $i => [$lugar, $marcha]): $fila = $marchas[$i + 1]; ?>
+                <tr data-orden="<?= $i + 1 ?>" data-ts="<?= $fila['ts'] * 1000 ?>">
+                    <td class="lugar"><?= V::e($lugar) ?></td>
+                    <td class="marcha"><?= V::e($marcha) ?></td>
+                    <td class="sono"><input type="checkbox" aria-label="Sonó «<?= V::e($marcha) ?>»"<?= $fila['sono'] ? ' checked' : '' ?>></td>
+                    <td class="obs"><textarea rows="1" maxlength="<?= Rosario::OBSERVACIONES_MAX ?>" enterkeyhint="done" aria-label="Observaciones de «<?= V::e($marcha) ?>»"><?= V::e($fila['obs']) ?></textarea></td>
+                </tr>
+<?php endforeach; ?>
+            </tbody>
+        </table>
+    </section>
 
     <div id="permiso" hidden>
         <h1>Ubicación</h1>
@@ -231,9 +291,37 @@
     }
 
     // ── Envío ────────────────────────────────────────────────────────────────
+    // Vuelve solo si el servidor confirma que lo ha escrito (ok: true);
+    // cualquier otra respuesta (sin red, mantenimiento, error) lanza un error.
+    async function post(url, datos) {
+        const control = new AbortController();
+        const corte = setTimeout(() => control.abort(), TIEMPO_ENVIO_MS);
+        let respuesta;
+        try {
+            respuesta = await fetch(url, {
+                method: 'POST',
+                body: new URLSearchParams(datos),
+                signal: control.signal,
+                cache: 'no-store',
+            });
+        } finally {
+            clearTimeout(corte);
+        }
+        const r = await respuesta.json().catch(() => null);
+        if (!respuesta.ok || !r || r.ok !== true) {
+            throw new Error((r && r.error) || 'respuesta ' + respuesta.status);
+        }
+        return r;
+    }
+
+    function noEnviado(e) {
+        const motivo = e.name === 'AbortError' ? 'sin respuesta'
+            : e instanceof TypeError ? 'sin conexión' : e.message;
+        return 'No enviado (' + motivo + '). Se reintenta solo.';
+    }
+
     // En orden y de una en una. Una pulsación solo sale de la cola cuando el
-    // servidor confirma que está en el CSV; cualquier otra respuesta (sin red,
-    // mantenimiento, error) la deja para el siguiente intento.
+    // servidor confirma que está en el CSV; si no, queda para el siguiente intento.
     async function enviar() {
         if (enviando) return;
         enviando = true;
@@ -242,37 +330,121 @@
                 const p = cola[0];
                 // No adelantar a una pulsación anterior que aún busca ubicación.
                 if ([...localizando].some(t => t < Number(p.ts))) break;
-                const control = new AbortController();
-                const corte = setTimeout(() => control.abort(), TIEMPO_ENVIO_MS);
-                let respuesta;
-                try {
-                    respuesta = await fetch('/rosario', {
-                        method: 'POST',
-                        body: new URLSearchParams(p),
-                        signal: control.signal,
-                        cache: 'no-store',
-                    });
-                } finally {
-                    clearTimeout(corte);
-                }
-                const datos = await respuesta.json().catch(() => null);
-                if (!respuesta.ok || !datos || datos.ok !== true) {
-                    throw new Error((datos && datos.error) || 'respuesta ' + respuesta.status);
-                }
+                await post('/rosario', p);
                 cola.splice(cola.indexOf(p), 1);
                 guardarCola();
                 ultimoError = '';
                 pintar();
             }
         } catch (e) {
-            const motivo = e.name === 'AbortError' ? 'sin respuesta'
-                : e instanceof TypeError ? 'sin conexión' : e.message;
-            ultimoError = 'No enviado (' + motivo + '). Se reintenta solo.';
+            ultimoError = noEnviado(e);
         } finally {
             enviando = false;
             pintar();
         }
     }
+
+    // ── Tabla de marchas ─────────────────────────────────────────────────────
+    // Cada cambio de una fila (sonó u observaciones) se guarda en el móvil con
+    // la hora del teléfono y se envía; el servidor se queda con la versión más
+    // reciente de cada fila. Una fila deja de estar pendiente cuando el
+    // servidor la confirma y no se ha vuelto a tocar mientras tanto.
+    const MARCHAS = 'rosario.marchas';   // filas cambiadas sin confirmar, por orden
+    const PAUSA_ESCRITURA_MS = 1500;     // al escribir, se envía tras esta pausa
+
+    const filas = [...document.querySelectorAll('#repertorio tbody tr')];
+    let pendientes = leer(MARCHAS, {});
+    let enviandoMarchas = false;
+    let errorMarchas = '';
+    let pausa = null;
+
+    function guardarPendientes() {
+        if (!guardar(MARCHAS, pendientes)) {
+            errorMarchas = 'No se puede guardar en el móvil: no recargues ni cierres la página hasta que se envíe todo.';
+        }
+    }
+
+    function pintarMarchas() {
+        const n = Object.keys(pendientes).length;
+        $('cola-marchas').textContent = n === 0 ? 'Tabla guardada' : 'Sin enviar: ' + n + (n === 1 ? ' fila' : ' filas');
+        $('cola-marchas').className = n === 0 ? '' : 'regular';
+        $('error-marchas').textContent = errorMarchas;
+    }
+
+    // El campo crece con el texto en vez de esconderlo.
+    function ajustarAlto(campo) {
+        campo.style.height = 'auto';
+        campo.style.height = campo.scrollHeight + campo.offsetHeight - campo.clientHeight + 'px';
+    }
+
+    function cambiar(tr) {
+        pendientes[tr.dataset.orden] = {
+            orden: tr.dataset.orden,
+            sono: tr.querySelector('input').checked ? '1' : '0',
+            obs: tr.querySelector('textarea').value,
+            ts: String(Date.now()),
+        };
+        guardarPendientes();
+        pintarMarchas();
+    }
+
+    async function enviarMarchas() {
+        if (enviandoMarchas) return;
+        enviandoMarchas = true;
+        try {
+            for (;;) {
+                const p = Object.values(pendientes).sort((a, b) => Number(a.ts) - Number(b.ts))[0];
+                if (!p) break;
+                await post('/rosario/marchas', p);
+                // Si se tocó durante el envío, queda pendiente con lo nuevo.
+                if (pendientes[p.orden] === p) delete pendientes[p.orden];
+                guardarPendientes();
+                errorMarchas = '';
+                pintarMarchas();
+            }
+        } catch (e) {
+            errorMarchas = noEnviado(e);
+        } finally {
+            enviandoMarchas = false;
+            pintarMarchas();
+        }
+    }
+
+    // Lo pendiente de una visita anterior se pinta encima de lo que trae el
+    // servidor, salvo que la fila se cambiara después en otro sitio.
+    Object.values(pendientes).forEach(p => {
+        const tr = filas[Number(p.orden) - 1];
+        if (!tr || Number(p.ts) < Number(tr.dataset.ts)) {
+            delete pendientes[p.orden];
+            return;
+        }
+        tr.querySelector('input').checked = p.sono === '1';
+        tr.querySelector('textarea').value = p.obs;
+    });
+    guardarPendientes();
+
+    filas.forEach(tr => {
+        const campo = tr.querySelector('textarea');
+        ajustarAlto(campo);
+        tr.querySelector('input').addEventListener('change', () => {
+            cambiar(tr);
+            enviarMarchas();
+        });
+        campo.addEventListener('input', () => {
+            ajustarAlto(campo);
+            cambiar(tr);
+            clearTimeout(pausa);
+            pausa = setTimeout(enviarMarchas, PAUSA_ESCRITURA_MS);
+        });
+        // Una sola línea: «intro» cierra el teclado en vez de saltar de línea.
+        campo.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.isComposing) {
+                e.preventDefault();
+                campo.blur();
+            }
+        });
+        campo.addEventListener('blur', enviarMarchas);
+    });
 
     // ── Arranque ─────────────────────────────────────────────────────────────
     document.querySelectorAll('.boton').forEach(b => b.addEventListener('click', () => pulsar(b)));
@@ -284,14 +456,22 @@
         pedirPermiso();
     }
 
-    window.addEventListener('online', enviar);
+    function enviarTodo() {
+        enviar();
+        enviarMarchas();
+    }
+    window.addEventListener('online', enviarTodo);
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') enviar();
+        if (document.visibilityState === 'visible') enviarTodo();
     });
-    setInterval(() => { if (cola.length > 0) enviar(); }, REINTENTO_MS);
+    setInterval(() => {
+        if (cola.length > 0) enviar();
+        if (Object.keys(pendientes).length > 0) enviarMarchas();
+    }, REINTENTO_MS);
 
     pintar();
-    enviar();
+    pintarMarchas();
+    enviarTodo();
 })();
 </script>
 </body>

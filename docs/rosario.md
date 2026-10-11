@@ -1,6 +1,6 @@
 # /rosario — hora y lugar de cada levantá y arriá de un paso
 
-> Última actualización: 2026-10-10
+> Última actualización: 2026-10-11 (tabla de marchas, §4.4)
 
 Documento para **retomar el trabajo desde cero** (por ejemplo, en una sesión
 en la nube): qué es, qué se decidió y por qué, cómo funciona, cómo se prueba y
@@ -20,6 +20,9 @@ hora, la acción y la ubicación del teléfono.
   webroot: no se puede descargar por URL (`/rosario.csv` → 404). Se baja a
   mano.
 - No toca la BD ni sale en nav, sitemap ni `llms.txt`.
+- Debajo de los botones, al hacer scroll, la **tabla del repertorio** previsto
+  con un check «Sonó» y un campo «Observaciones» por marcha. Va a otro CSV,
+  **`private/rosario_marchas.csv`** (§4.4).
 
 ## 2. Estado (2026-10-10)
 
@@ -41,6 +44,14 @@ hora, la acción y la ubicación del teléfono.
 | ¿Sin cobertura? | **Guardar en el móvil y reenviar** | Cola en `localStorage`; nada se pierde salvo que se borren los datos del navegador. |
 | ¿Formato del CSV? | **Excel en español** | Separador `;`, coma decimal. |
 | ¿Rama base? | **Solo /rosario, desde `origin/pre`** | El commit local `a16ea29` (a11y/UX) de la rama `claude/ux-informe-analizador` **no** se subió. |
+
+Tabla de marchas (2026-10-11):
+
+| Pregunta | Decisión | Consecuencia |
+|---|---|---|
+| ¿Qué tabla? | El Excel `marchas_2026_consenso.xlsx` **sin sus dos filas de título**, filas 3 a 35, dos columnas **no editables**; a la derecha, «Sonó» (check) y «Observaciones» (~150 caracteres) | El repertorio está fijo en `Rosario::REPERTORIO`, con el texto tal cual viene en el Excel. |
+| ¿Dónde se guarda? | **Móvil + servidor** | Pendientes en `localStorage` con reintento, como los botones; el servidor tiene la tabla entera en `private/rosario_marchas.csv`. |
+| ¿Cabecera de las dos columnas del Excel (no traen título)? | **Lugar \| Marcha** | Cabecera: Lugar · Marcha · Sonó · Observaciones. |
 
 ### 3.2 Supuestos aceptados (el usuario no los objetó)
 
@@ -139,16 +150,61 @@ que nada de esto acabe servido en PRO. La CSP del `.htaccess` ya permite
     solo.»).
   - Al pulsar, el botón da un destello de 250 ms.
 
+### 4.4 Tabla de marchas (2026-10-11)
+
+- **Pantalla**: la botonera sigue ocupando la primera pantalla entera
+  (`.botonera`, `100dvh`); la tabla va debajo y se llega con scroll. Antes la
+  página no hacía scroll (`overflow: hidden`); ahora sí.
+- **Servidor**:
+  - `GET /rosario` pinta la tabla con lo guardado
+    ([Rosario::marchas](../php/app/src/Rosario.php)), así que otra pestaña u
+    otro teléfono ven lo mismo.
+  - `POST /rosario/marchas` ([Rosario::marcar](../php/app/src/Rosario.php))
+    recibe **una fila**: `orden` (1..33), `sono` (`0|1`), `obs`, `ts` (ms del
+    teléfono). Responde `{"ok":true,"aplicada":true|false}`, 422 o 500.
+  - [Rosario::marca](../php/app/src/Rosario.php) valida y deja las
+    observaciones en una línea (saltos y tabuladores → espacio) y en
+    150 caracteres como máximo (caracteres, no bytes, como el `maxlength`).
+  - [Rosario::aplicar](../php/app/src/Rosario.php) reescribe la tabla entera
+    bajo `flock`, pero **solo si la fila que llega es igual o más reciente**
+    que la guardada. Una pestaña con la tabla vieja no pisa lo anotado
+    después, y cada envío solo cambia su fila.
+- **Formato** de `rosario_marchas.csv`: con **BOM UTF-8** (las marchas llevan
+  tildes), `;`, `\r\n`, y una línea por marcha en el orden del Excel:
+  ```
+  Orden;Lugar;Marcha;Sonó;Observaciones;Actualizado
+  1;Salida - Pta Perdón;Himno de España;no;;
+  3;Gradas 2;Pasa la Virgen Macarena;sí;"Muy bien; con ""saeta""";11/10/2026 20:56:40
+  ```
+  «Actualizado» es la hora de Madrid del último cambio de la fila; el
+  servidor la relee para comparar. Una observación con `;` o `"` va entre
+  comillas.
+- **Cliente**:
+  - Cada cambio guarda la fila en `localStorage['rosario.marchas']` con la
+    hora del teléfono. El check se envía al momento; el texto, tras 1,5 s sin
+    escribir o al salir del campo.
+  - Una fila deja de estar pendiente cuando el servidor confirma **y** no se
+    ha vuelto a tocar mientras tanto.
+  - Al abrir la página, lo pendiente se pinta encima de lo que trae el
+    servidor, salvo que la fila sea más nueva en el servidor.
+  - Reintentos: los mismos que los botones (cada 10 s, `online`, al volver a
+    la página). Estado encima de la tabla: «Tabla guardada» o «Sin enviar: N
+    filas», y el último error.
+  - «Intro» cierra el teclado en vez de meter un salto de línea, y el campo
+    crece con el texto.
+  - El envío con corte a los 15 s quedó en una función `post()` que usan los
+    botones y la tabla. Para los botones el comportamiento es el mismo.
+
 ## 5. Ficheros
 
 | Fichero | Qué |
 |---|---|
-| [php/app/src/Rosario.php](../php/app/src/Rosario.php) | Controlador, formato y escritura del CSV |
+| [php/app/src/Rosario.php](../php/app/src/Rosario.php) | Controlador, formato y escritura de los dos CSV; repertorio fijo (`REPERTORIO`) |
 | [php/app/templates/rosario.php](../php/app/templates/rosario.php) | Página autónoma: HTML, CSS y JS |
 | [php/app/routes.php:118](../php/app/routes.php#L118) | Registro condicional (PRE/local) |
-| [php/tools/ci_rosario.php](../php/tools/ci_rosario.php) | Pruebas unitarias del CSV (paso propio en `ci.yml`) |
-| [php/tools/ci_smoke.php:966](../php/tools/ci_smoke.php#L966) | Pasada PRO: GET y POST → 404. Pasada local: página con los dos botones |
-| [php/tools/smoke_remote.php:114](../php/tools/smoke_remote.php#L114) | PRE: 200 + botones + noindex (**solo GET**). PRO: 404 |
+| [php/tools/ci_rosario.php](../php/tools/ci_rosario.php) | Pruebas unitarias de los CSV (paso propio en `ci.yml`) |
+| [php/tools/ci_smoke.php:966](../php/tools/ci_smoke.php#L966) | Pasada PRO: GET y los dos POST → 404. Pasada local: página con los dos botones y la tabla |
+| [php/tools/smoke_remote.php:114](../php/tools/smoke_remote.php#L114) | PRE: 200 + botones + tabla + noindex (**solo GET**). PRO: 404 |
 | [docs/entornos.md](entornos.md) | Resumen en § «Solo en PRE: /rosario» |
 
 ## 6. Pruebas
@@ -168,19 +224,32 @@ Seis pruebas que fijan **por qué** importa cada cosa:
 Se comprobó que fallan con las mutaciones correspondientes: zona UTC, punto
 decimal, sin deduplicar y rechazar la falta de ubicación.
 
+Y cinco más de la tabla de marchas (2026-10-11):
+
+- Sin nada marcado salen las 33 marchas, sin marcar.
+- El CSV lleva BOM y las tildes, en el orden del Excel, y cambiar una fila deja
+  el resto como estaba.
+- Una versión más vieja de una fila no pisa la nueva; un reenvío sí entra.
+- `;`, comillas y saltos de línea no descuadran las columnas.
+- Se rechaza lo que no es una fila de la página; caben 150 caracteres con
+  tildes y no 151.
+
+Se comprobó que fallan con estas mutaciones: sin comparar la hora, sin BOM,
+sin quitar saltos, contar bytes, sin comillas y hora UTC.
+
 ### 6.2 Smoke de CI
 
 Las dos pasadas de `ci_smoke.php`:
 
-- **PRO**: `/rosario` → 404 en GET y POST.
-- **local**: 200 con los dos botones y `noindex`.
+- **PRO**: `/rosario` → 404 en GET y POST; `POST /rosario/marchas` → 404.
+- **local**: 200 con los dos botones, la tabla (33 filas) y `noindex`.
 
 ### 6.3 Smoke remoto
 
 Corre tras cada deploy:
 
-- **PRE**: 200 con botones y `X-Robots-Tag`. **Nunca POST**: escribiría en el
-  CSV real.
+- **PRE**: 200 con botones, tabla y `X-Robots-Tag`. **Nunca POST**:
+  escribiría en los CSV reales.
 - **PRO**: 404.
 
 ### 6.4 Extremo a extremo (manual, no está en el repo)
@@ -227,6 +296,19 @@ dependencias. 35/35 comprobaciones. Para repetirlo:
    - permiso denegado (instrucciones del iPhone);
    - sin errores de JS.
 
+   Tabla de marchas (2026-10-11), mismo montaje en entorno PRE, 32/32:
+   - los botones siguen llenando la primera pantalla y la tabla empieza justo
+     debajo, sin scroll horizontal a 390 px;
+   - el botón «Arriba» sigue escribiendo en `rosario.csv`;
+   - 33 filas, Lugar y Marcha no editables, y lo guardado en el servidor
+     pintado al abrir;
+   - check al momento, texto tras la pausa, corte en 150, «intro» sin salto
+     de línea;
+   - sin red: «Sin enviar: 1 fila» y se envía sola al volver la red;
+   - pendiente que sobrevive a recargar con el envío bloqueado;
+   - pendiente más viejo que el servidor descartado;
+   - sin errores de JS.
+
 Trampas del PHP local (C:\php-8.5.1):
 
 - **No carga GD**: las 4 pruebas `og`/«compartir» de `ci_smoke.php` fallan en
@@ -261,6 +343,9 @@ Trampas del PHP local (C:\php-8.5.1):
   FTP. Se abre con doble clic en Excel en español.
 - Para empezar otra procesión de cero, renombrar o borrar el fichero: el
   siguiente se crea solo con su cabecera.
+- La tabla está en `private/rosario_marchas.csv`, junto al anterior; también
+  se abre con doble clic. El repertorio es el de esta procesión: para otra hay
+  que cambiar `Rosario::REPERTORIO` y borrar el fichero.
 
 ## 8. Incidencia del deploy (2026-10-10)
 
@@ -298,6 +383,10 @@ El primer push (`f7ce4c0`) **no llegó a desplegarse**:
 - Proteger el acceso (clave o login): el usuario eligió no hacerlo.
 - Comprobar `navigator.permissions` para saltarse el aviso si el permiso ya
   está concedido pero se borró la marca.
+- Neutralizar en `rosario_marchas.csv` las observaciones que empiezan por
+  `=`, `+`, `-` o `@`: Excel las toma por fórmula. Solo importa si alguien
+  ajeno escribe en la tabla, porque la ruta no tiene protección (decisión del
+  usuario).
 
 Efecto conocido de la deduplicación: dos pulsaciones del **mismo botón en el
 mismo segundo** con la misma lectura quedan como una sola línea.

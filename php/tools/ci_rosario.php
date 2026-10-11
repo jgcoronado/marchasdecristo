@@ -99,7 +99,90 @@ $tests['un reenvío de la página no duplica la línea'] = static function () us
     assertCierto(Rosario::anotar($csv, Rosario::linea(['ts' => ms('2026-10-10 18:20:00')] + $base)), 'otra hora, otra línea');
 };
 
+// ── Tabla de marchas (sonó y observaciones) ──────────────────────────────────
+// Por qué importa: es la tabla entera, que se reescribe con cada cambio. Un
+// cambio de una fila no puede borrar otra, ni una pestaña u otro teléfono con
+// la tabla vieja pisar lo anotado después; las tildes de las marchas tienen que
+// llegar bien a Excel y una observación con «;» o un salto de línea no puede
+// descuadrar las columnas.
+
+$tabla = sys_get_temp_dir() . '/ci-rosario-marchas-' . getmypid() . '.csv';
+@unlink($tabla);
+
+/** Lo que envía la página para una fila. */
+function fila(int $orden, bool $sono, string $obs, string $utc): array
+{
+    return Rosario::marca(['orden' => (string) $orden, 'sono' => $sono ? '1' : '0', 'obs' => $obs, 'ts' => ms($utc)]);
+}
+
+/** Espera que Rosario::marca() rechace los campos. */
+function rechazaFila(array $campos, string $que): void
+{
+    try {
+        Rosario::marca($campos);
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    throw new RuntimeException("$que → se aceptó y debía rechazarse");
+}
+
+$tests['tabla: sin nada marcado salen las 33 marchas del Excel, sin marcar'] = static function () use ($tabla): void {
+    assertIgual(33, count(Rosario::REPERTORIO), 'filas 3 a 35 del Excel');
+    $vacia = Rosario::marchas($tabla); // el fichero aún no existe
+    assertIgual(range(1, 33), array_keys($vacia), 'una fila por marcha, por orden');
+    assertIgual(['sono' => false, 'obs' => '', 'ts' => 0], $vacia[17], 'sin tocar');
+};
+
+$tests['tabla: Excel la abre con tildes y en su orden; cada cambio de fila deja el resto como estaba'] = static function () use ($tabla): void {
+    assertCierto(Rosario::aplicar($tabla, fila(2, true, 'Entró tarde', '2026-10-11 18:40:07')), 'primera fila guardada');
+    assertCierto(Rosario::aplicar($tabla, fila(33, true, '', '2026-10-11 23:05:00')), 'última fila guardada');
+    $lineas = explode("\r\n", (string) file_get_contents($tabla));
+    assertIgual("\u{FEFF}" . Rosario::CABECERA_MARCHAS, $lineas[0], 'BOM + cabecera');
+    assertIgual(35, count($lineas), 'cabecera, 33 filas y el salto final');
+    assertIgual('1;Salida - Pta Perdón;Himno de España;no;;', $lineas[1], 'fila sin tocar');
+    assertIgual('2;Gradas 1;Rosario de Montesión;sí;Entró tarde;11/10/2026 20:40:07', $lineas[2], 'fila marcada, hora de Madrid');
+    assertIgual('33;Entrada Sagrario;Himno de España;sí;;12/10/2026 01:05:00', $lineas[33], 'la otra fila marcada sigue');
+    $leida = Rosario::marchas($tabla);
+    assertIgual(['sono' => true, 'obs' => 'Entró tarde', 'ts' => 1791744007], $leida[2], 'se relee igual que se guardó');
+};
+
+$tests['tabla: una versión más vieja de la fila no pisa la nueva'] = static function () use ($tabla): void {
+    Rosario::aplicar($tabla, fila(5, true, 'Sonó en Alemanes', '2026-10-11 19:10:00'));
+    // Otra pestaña con la tabla de antes envía la misma fila con una hora anterior.
+    assertIgual(false, Rosario::aplicar($tabla, fila(5, false, '', '2026-10-11 19:02:00')), 'rechazada por vieja');
+    assertIgual('Sonó en Alemanes', Rosario::marchas($tabla)[5]['obs'], 'se queda la nueva');
+    // Un reenvío de lo mismo (la respuesta se perdió) o un cambio posterior sí entran.
+    assertCierto(Rosario::aplicar($tabla, fila(5, true, 'Sonó en Alemanes', '2026-10-11 19:10:00')), 'reenvío');
+    assertCierto(Rosario::aplicar($tabla, fila(5, false, 'Al final no', '2026-10-11 19:12:30')), 'cambio posterior');
+    assertIgual(['sono' => false, 'obs' => 'Al final no'], array_slice(Rosario::marchas($tabla)[5], 0, 2), 'desmarcada');
+};
+
+$tests['tabla: «;», comillas y saltos de línea no descuadran las columnas'] = static function () use ($tabla): void {
+    $obs = "Corte; siguió \"a medias\"\r\ny\tluego bien";
+    assertCierto(Rosario::aplicar($tabla, fila(9, true, $obs, '2026-10-11 19:30:00')), 'guardada');
+    $lineas = explode("\r\n", (string) file_get_contents($tabla));
+    assertIgual(35, count($lineas), 'sigue con una línea por fila');
+    assertIgual(6, count(str_getcsv($lineas[9], ';', '"', '')), 'seis columnas');
+    assertIgual('Corte; siguió "a medias" y luego bien', Rosario::marchas($tabla)[9]['obs'], 'en una línea y sin perder nada');
+};
+
+$tests['tabla: rechaza lo que no es una fila de la página'] = static function (): void {
+    $ok = ['orden' => '1', 'sono' => '1', 'obs' => '', 'ts' => ms('2026-10-11 19:00:00')];
+    rechazaFila(['orden' => '0'] + $ok, 'orden 0');
+    rechazaFila(['orden' => '34'] + $ok, 'orden fuera del repertorio');
+    rechazaFila(['orden' => '1a'] + $ok, 'orden no numérico');
+    rechazaFila(['sono' => 'si'] + $ok, 'sonó fuera de 0/1');
+    rechazaFila(['ts' => '1760000000'] + $ok, 'hora en segundos');
+    rechazaFila(['obs' => ['x']] + $ok, 'observaciones como lista');
+    rechazaFila(['obs' => "\xC3("] + $ok, 'UTF-8 roto');
+    // 150 caracteres, no bytes, como el maxlength del campo: con tildes, 300 bytes.
+    $max = str_repeat('á', Rosario::OBSERVACIONES_MAX);
+    assertIgual($max, Rosario::marca(['obs' => $max] + $ok)['obs'], 'caben 150 con tildes');
+    rechazaFila(['obs' => $max . 'a'] + $ok, '151 caracteres');
+};
+
 $salida = ciEjecuta($tests);
 @unlink($csv);
+@unlink($tabla);
 if (!isset($argv[1])) ciLimpia($dbPath);
 exit($salida);
