@@ -854,9 +854,12 @@ $tests = [
             if ($card === false) {
                 throw new RuntimeException('/og/disco/1.jpg → no devolvió una imagen (status ' . $r['status'] . ')');
             }
-            $rgb = imagecolorat($card, 300, 315);
+            // Desde 837b101 la portada va centrada arriba (Og::generar), de 170
+            // o 210 px según quepa el texto: con cualquiera de los dos tamaños
+            // cubre el punto (600, 197) de la columna central.
+            $rgb = imagecolorat($card, 600, 197);
             if ((($rgb >> 16) & 0xFF) < 180 || (($rgb >> 8) & 0xFF) > 80) {
-                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece a la izquierda de la tarjeta');
+                throw new RuntimeException('/og/disco/1.jpg → la portada no aparece centrada arriba en la tarjeta');
             }
         } finally {
             @unlink($f);
@@ -959,6 +962,32 @@ $tests['acompanamientos: la ficha de banda los lista y enlaza a la localidad'] =
     assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', 'id="acompanamientos"', $base);
     assertContains('/banda/banda-de-cctt-ntra-sra-de-la-victoria-las-cigarreras-1', 'href="/acompanamientos/sevilla"', $base);
 };
+
+// /rosario solo existe en PRE (y en local, para probarla). La pasada PRO
+// garantiza que en producción no responden ni la página ni el POST que escribe
+// el CSV, aunque el código llegue allí con la fusión de pre en main.
+if ($modo === 'pro') {
+    $tests['rosario: no existe en PRO (ni página ni escritura)'] = static function () use ($base): void {
+        assertStatus('/rosario', 404, $base);
+        $s = httpPost($base . '/rosario', ['accion' => 'arriba', 'ts' => '1760000000000'])['status'];
+        if ($s !== 404) {
+            throw new RuntimeException("POST /rosario → esperado 404, obtenido $s");
+        }
+        $s = httpPost($base . '/rosario/marchas', ['orden' => '1', 'sono' => '1', 'obs' => '', 'ts' => '1760000000000'])['status'];
+        if ($s !== 404) {
+            throw new RuntimeException("POST /rosario/marchas → esperado 404, obtenido $s");
+        }
+    };
+} else {
+    $tests['rosario: en local sirve la página con los dos botones y la tabla de marchas'] = static function () use ($base): void {
+        $body = assertStatus('/rosario', 200, $base)['body'];
+        foreach (['data-accion="arriba"', 'data-accion="abajo"', 'content="noindex', 'data-orden="33"', 'Rosario de Montesión', 'maxlength="150"'] as $aguja) {
+            if (!str_contains($body, $aguja)) {
+                throw new RuntimeException("/rosario → falta $aguja");
+            }
+        }
+    };
+}
 
 $failed = [];
 foreach ($tests as $name => $test) {
