@@ -359,7 +359,7 @@ final class Admin
         $session = Auth::requireCap('marcha.add');
         View::render('admin/marcha_form', [
             'mode' => 'add', 'session' => $session, 'action' => '/dashboard/marcha/add',
-            'marcha' => self::marchaPrefillDesdeQuery(), 'authors' => [],
+            'marcha' => self::marchaPrefillDesdeQuery() + ['TIPO' => 'MARCHA PROCESIONAL'], 'authors' => [],
             'proposalMode' => self::proposalMode($session),
             'volver' => self::volverSeguro($_GET['volver'] ?? null),
             'notice' => null, 'error' => null,
