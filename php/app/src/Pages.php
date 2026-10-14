@@ -1030,11 +1030,6 @@ final class Pages
                 return $provincia;
             }
         }
-        // Artículo pospuesto de algunas cargas ("Molares (Los)") en el orden
-        // en que se escriben las demás ("Los Palacios y Villafranca").
-        if (preg_match('/^(.+?)\s*\((El|La|Los|Las)\)$/u', $localidad, $m)) {
-            return $m[2] . ' ' . $m[1];
-        }
         return $localidad;
     }
 
@@ -1044,6 +1039,11 @@ final class Pages
             Http::notFound();
         }
         $slug = (string) $p['localidad'];
+        // Dirección de cuando la localidad iba con el artículo pospuesto
+        // ("Molares (Los)"); ver app/tools/normalizar_articulo_localidad.php.
+        if ($slug === 'molares-los') {
+            Http::redirect('/acompanamientos/los-molares', 301);
+        }
         $localidad = null;
         $dias = [];
         $fuera = [];
