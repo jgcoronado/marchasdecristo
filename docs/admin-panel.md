@@ -25,16 +25,16 @@
 
 El editor nunca escribe en la BD de verdad: todo lo que guarda —altas, ediciones y **también borrados**— se guarda como **propuesta** (JSON de fichero) en vez de aplicarse directamente — ver §1.1 y §5 de `context.md`.
 
-Quién escribe directo y quién propone lo decide `Admin::proposalMode($session)`, con **dos** condiciones y basta una:
+Solo el entorno **local** escribe en la BD. Quién propone lo decide `Admin::proposalMode($session)` (el editor, siempre) y quién solo mira `Auth::soloLectura($session)` (el admin fuera de local, desde el 2026-10-14):
 
 | | local | PRE | PRO |
 |---|---|---|---|
-| **admin** | escribe directo | propone | propone |
+| **admin** | escribe directo | **solo lectura** | **solo lectura** |
 | **editor** | propone | propone | propone |
 
-El rol es la primera condición (el editor siempre propone). La segunda es el **entorno**: fuera de local no escribe nadie, tampoco el admin, porque la BD maestra es la local y `scripts/sync_db_to_prod.php` reemplaza el `.db` remoto entero — una escritura hecha en PRE o PRO se perdería en el siguiente sync, o pisaría datos buenos. Encolarla como propuesta la conserva (el admin la baja con `sync_propuestas_from_prod.php` y la aplica en local). Ver [entornos.md](entornos.md).
+La BD maestra es la local y `scripts/sync_db_to_prod.php` reemplaza el `.db` remoto entero: una escritura hecha en PRE o PRO se perdería en el siguiente sync, o pisaría datos buenos. Por eso fuera de local el admin **no guarda, no propone, no acepta ni rechaza propuestas y no gestiona usuarios**; puede consultar cualquier pantalla con datos reales. La barrera es una sola, en `Auth::requireAuth()`: todo POST del panel de un admin fuera de local se corta con un 403 y la página «Panel en modo solo lectura» (`Http::soloLectura()`) antes de llegar a ningún controlador. Como ayuda, `layout.php` pone la cinta roja «SOLO LECTURA», desactiva los campos de los formularios de envío y oculta sus botones (menos «Cerrar sesión»), y `nomina.js` no activa el arrastrar para reordenar. Las propuestas que los editores dejan en PRE/PRO se bajan con `sync_propuestas_from_prod.php` y se revisan en local. Ver [entornos.md](entornos.md).
 
-Hay propuesta para **marcha, compositor, banda, disco, Semana Santa y acompañamientos** (con todas sus pestañas y acciones). Lo que queda fuera —dedicatorias, estilos, ingesta, enlaces candidatos, usuarios, alta de municipio y carga de Málaga desde el blog— es solo admin y escribe directo, así que en PRE y PRO choca con `Db::assertWritable()` y devuelve el 503 de solo lectura. Sigue visible para el admin —a veces hace falta *mirarlo* con datos reales— pero el panel avisa de dos formas: la cinta roja «PELIGRO: riesgo de desincronización» en todas sus pantallas (`layout.php`) y un aviso en `/dashboard` que detalla qué funciona y qué no.
+El editor puede proponer en **marcha, compositor, banda, disco, Semana Santa y acompañamientos** (con todas sus pestañas y acciones). Lo que queda fuera —dedicatorias, estilos, ingesta, enlaces candidatos, usuarios, alta de municipio y carga de Málaga desde el blog— es solo admin, y por tanto solo local. Por debajo de todo sigue `Db::assertWritable()`: cualquier escritura fuera de local lanza `ReadOnlyModeException` (503).
 
 ### 1.1 Dos tipos de propuesta
 
@@ -58,7 +58,7 @@ Detalles que conviene no deshacer:
 
 ### 1.2 «Mis propuestas» y el aviso por pantalla
 
-Quien trabaja en modo propuesta (editor; admin en PRE/PRO) tiene **`/dashboard/mis-propuestas`**: sus pendientes y las ya revisadas (aceptada / rechazada con el motivo). En cada pantalla del panel sobre la que tenga algo pendiente ve además «Tienes N propuestas pendientes sobre esta pantalla…» (`layout.php` → `PropuestaRepo::pendientesEn`), porque la pantalla sigue enseñando lo de antes y sin aviso se tiende a repetir la petición.
+Quien trabaja en modo propuesta (el editor) tiene **`/dashboard/mis-propuestas`**: sus pendientes y las ya revisadas (aceptada / rechazada con el motivo). En cada pantalla del panel sobre la que tenga algo pendiente ve además «Tienes N propuestas pendientes sobre esta pantalla…» (`layout.php` → `PropuestaRepo::pendientesEn`), porque la pantalla sigue enseñando lo de antes y sin aviso se tiende a repetir la petición.
 
 En producción no existen los ficheros resueltos (se resuelven en local), así que el estado llega por la BD: al aceptar o rechazar, `PropuestaRepo::archivar()` apunta `PROPUESTA_APLICADA` / `PROPUESTA_RECHAZADA` en `admin_log` (tabla `propuesta`, con autor, resumen, pantalla y motivo), y ese `admin_log` sube con el `.db` en `sync_db_to_prod.php`. Así el editor ve «aceptada» justo cuando el cambio ya se ve en la web.
 

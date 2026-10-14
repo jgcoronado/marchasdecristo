@@ -46,7 +46,12 @@
      * directos que cumplan $selector, y guarda el orden al soltar si ha
      * cambiado.
      */
+    // Panel en solo lectura (admin en PRE/PRO, ver layout.php): sin arrastrar,
+    // que acabaría en un envío que el servidor rechaza.
+    var soloLectura = document.querySelector('main[data-solo-lectura]') !== null;
+
     function activarArrastre(contenedor, selector) {
+        if (soloLectura) return;
         var filas = contenedor.querySelectorAll(selector);
         filas.forEach(function (fila) {
             // Las listas van anidadas (día > hermandad > paso): la fila sólo se
@@ -132,7 +137,7 @@
     // «Mover…» / «Mover seleccionados…», que abren el diálogo con el selector
     // de paso. Todo acaba en el mismo form POST (mover-paso) y recarga.
     var formMover = document.getElementById('moverPasoForm');
-    if (formMover) {
+    if (formMover && !soloLectura) {
         var dlgMover = document.getElementById('dlgMoverPaso');
         var destino = document.getElementById('moverPasoDestino');
         var listaMover = document.getElementById('moverPasoLista');

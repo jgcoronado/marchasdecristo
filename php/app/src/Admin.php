@@ -86,14 +86,7 @@ final class Admin
         if (isset($_GET['moved'])) return ['type' => 'ok', 'msg' => 'Variante reasignada.'];
         if (isset($_GET['split'])) return ['type' => 'ok', 'msg' => 'Variante separada en una nueva dedicatoria.'];
         if (isset($_GET['unified'])) return ['type' => 'ok', 'msg' => 'Variantes unificadas · ' . (int) $_GET['unified'] . ' marchas reescritas.'];
-        if (isset($_GET['propuesta'])) {
-            // Fuera de local hasta el admin propone (ver Admin::proposalMode), y
-            // conviene decirle dónde acaba eso: la propuesta se revisa y se
-            // aplica en local, que es la BD maestra.
-            return ['type' => 'ok', 'msg' => Entorno::permiteEscrituraDirecta()
-                ? 'Propuesta enviada. El administrador la revisará antes de aplicarla.'
-                : 'Propuesta enviada. Se revisa y se aplica en el entorno local, que es el que manda sobre la base de datos.'];
-        }
+        if (isset($_GET['propuesta'])) return ['type' => 'ok', 'msg' => 'Propuesta enviada. El administrador la revisará antes de aplicarla.'];
         if (isset($_GET['aplicada'])) return ['type' => 'ok', 'msg' => 'Propuesta aceptada y aplicada a la base de datos.'];
         if (isset($_GET['rechazada'])) return ['type' => 'info', 'msg' => 'Propuesta rechazada.'];
         if (isset($_GET['nochanges'])) return ['type' => 'info', 'msg' => 'No había cambios que guardar.'];
@@ -112,28 +105,21 @@ final class Admin
     /**
      * ¿Este envío se guarda como PROPUESTA en vez de escribir en la BD?
      *
-     * Dos motivos independientes, y basta uno:
-     *
-     *   - el usuario es editor (siempre propone, en cualquier entorno);
-     *   - el entorno no es local (PRE y PRO), y ahí no escribe NADIE en directo,
-     *     tampoco el administrador: la BD maestra es la local y el .db remoto lo
-     *     reemplaza entero scripts/sync_db_to_prod.php, así que una escritura
-     *     hecha en PRE o PRO se perdería en el siguiente sync — o pisaría datos
-     *     buenos. Encolarla como propuesta la conserva: el admin la baja con
-     *     scripts/sync_propuestas_from_prod.php y la aplica en local, que es de
-     *     donde sale el .db bueno. Ver docs/entornos.md.
+     * Sí para el editor, siempre y en cualquier entorno: el admin la baja con
+     * scripts/sync_propuestas_from_prod.php y la aplica en local, que es de
+     * donde sale el .db bueno. El admin nunca propone: en local escribe
+     * directo y fuera de local solo mira el panel — sus envíos ni llegan aquí,
+     * los corta Auth::requireAuth() (ver Auth::soloLectura y docs/entornos.md).
      *
      * Cubre las fichas (marcha, banda, autor: con previsualización) y las
      * operaciones de PropuestaOps (disco, pestañas de la banda, Semana Santa,
      * acompañamientos; ver self::operar()). Lo que queda fuera —dedicatorias,
      * estilos, ingesta, enlaces candidatos, usuarios, alta de municipio, carga
-     * de Málaga— es solo admin, escribe directo y en PRE/PRO choca con el
-     * fail-safe de Db::assertWritable() (503 solo-lectura); por eso el layout
-     * avisa al admin con la cinta de desincronización en todo el panel.
+     * de Málaga— es solo admin, y por tanto solo local.
      */
     public static function proposalMode(array $session): bool
     {
-        return !self::isAdmin($session) || !Entorno::permiteEscrituraDirecta();
+        return !self::isAdmin($session);
     }
 
     /**
@@ -2494,7 +2480,7 @@ final class Admin
     /**
      * Lo que ha propuesto el usuario de la sesión: pendientes (aún no
      * aplicadas, se vean o no en la web) y resueltas, con el motivo si se
-     * rechazaron. Para quien trabaja en modo propuesta (editor; admin en PRE/PRO).
+     * rechazaron. Para quien trabaja en modo propuesta (el editor).
      */
     public static function misPropuestas(): void
     {

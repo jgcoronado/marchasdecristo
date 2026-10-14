@@ -5,12 +5,13 @@ declare(strict_types=1);
 /*
  * Pruebas del circuito de propuestas (PropuestaRepo + PropuestaOps).
  *
- * Por qué importa: el editor —y el admin fuera de local— NO escribe nunca en
- * la BD: lo que envía se guarda como propuesta y el admin la aplica en local,
- * que es de donde sale el .db bueno. Si proponer escribiera algo, el cambio se
- * perdería en el siguiente sync; si aceptar hiciera algo distinto del guardado
- * directo, o una aceptación fallida se diera por buena, se perderían o
- * duplicarían cambios sin que nadie lo viera. Y si el editor no ve en qué
+ * Por qué importa: solo local escribe en la BD, que es de donde sale el .db
+ * bueno. El editor NO escribe nunca: lo que envía se guarda como propuesta y
+ * el admin la aplica en local. El admin fuera de local ni eso: solo mira. Si
+ * proponer escribiera algo, o el admin pudiera guardar en PRE/PRO, el cambio
+ * se perdería en el siguiente sync; si aceptar hiciera algo distinto del
+ * guardado directo, o una aceptación fallida se diera por buena, se perderían
+ * o duplicarían cambios sin que nadie lo viera. Y si el editor no ve en qué
  * quedó lo que propuso (también en producción, donde no están los ficheros
  * resueltos), lo vuelve a pedir.
  *
@@ -18,6 +19,7 @@ declare(strict_types=1);
  */
 
 use App\Admin;
+use App\Auth;
 use App\Db;
 use App\NominaRepo;
 use App\PropuestaOps;
@@ -57,15 +59,60 @@ $tests['roles: el editor llega a fichas completas, Semana Santa y acompañamient
     assertCierto(!Roles::isAdmin(Roles::EDITOR), 'el editor no es admin (ingesta, usuarios, dedicatorias… siguen cerradas)');
 };
 
-$tests['modo propuesta: el editor siempre; el admin solo fuera de local'] = static function (): void {
+$tests['el editor siempre propone; el admin nunca: en local escribe y fuera de local solo mira'] = static function (): void {
     assertCierto(Admin::proposalMode(['rol' => Roles::EDITOR]), 'el editor propone en local');
     assertCierto(!Admin::proposalMode(['rol' => Roles::ADMIN]), 'el admin escribe directo en local');
+    assertCierto(!Auth::soloLectura(['rol' => Roles::ADMIN]), 'en local el admin no está en solo lectura');
     $GLOBALS['config']['env'] = 'production';
     try {
-        assertCierto(Admin::proposalMode(['rol' => Roles::ADMIN]), 'en PRE/PRO tampoco escribe el admin: el sync pisaría el cambio');
+        assertCierto(Auth::soloLectura(['rol' => Roles::ADMIN]), 'en PRE/PRO el admin solo mira: el sync pisaría cualquier cambio');
+        assertCierto(!Admin::proposalMode(['rol' => Roles::ADMIN]), 'y tampoco propone');
+        assertCierto(!Auth::soloLectura(['rol' => Roles::EDITOR]) && Admin::proposalMode(['rol' => Roles::EDITOR]), 'el editor sigue proponiendo en PRE/PRO');
     } finally {
         $GLOBALS['config']['env'] = 'local';
     }
+};
+
+/**
+ * Lanza una petición simulada a la barrera de Auth::requireAuth() en un proceso
+ * aparte (Http::soloLectura() hace exit) y devuelve lo que imprime: o la página
+ * de solo lectura, o la marca de que habría llegado al controlador.
+ */
+$barrera = static function (string $usuario, string $env, string $metodo) use ($dir): string {
+    static $n = 0;
+    $n++;
+    $script = $dir . "/barrera-$n.php";
+    file_put_contents($script, <<<'PHP'
+        <?php
+        // argv: ci_boot.php, .db desechable, usuario, env, método
+        require $argv[1];
+        ciBoot($argv[2]);
+        define('PUBLIC_DIR', dirname($argv[1], 2) . '/public'); // el layout versiona los assets por su fecha
+        $pdo = new PDO('sqlite:' . $GLOBALS['config']['db_path']);
+        $pdo->exec('CREATE TABLE usuarios (usuario TEXT, clave TEXT, ROL TEXT)');
+        $pdo->exec("INSERT INTO usuarios VALUES ('jefe', 'x', 'admin'), ('ayudante', 'x', 'editor')");
+        $pdo = null;
+        $GLOBALS['config']['env'] = $argv[4];
+        $_SERVER['REQUEST_METHOD'] = $argv[5];
+        $ahora = (int) round(microtime(true) * 1000);
+        $_COOKIE[App\Auth::cookieName()] = App\Auth::signSession(['user' => $argv[3], 'iat' => $ahora, 'exp' => $ahora + 60000, 'jti' => 'ci']);
+        App\Auth::requireAuth();
+        echo 'LLEGA AL CONTROLADOR';
+        PHP);
+    $args = [PHP_BINARY, $script, __DIR__ . '/ci_boot.php', $dir . "/barrera-$n.db", $usuario, $env, $metodo];
+    $salida = [];
+    exec(implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1', $salida);
+    return implode("\n", $salida);
+};
+
+$tests['fuera de local ningún envío del admin llega al controlador; el del editor sí'] = static function () use ($barrera): void {
+    $r = $barrera('jefe', 'production', 'POST');
+    assertCierto(!str_contains($r, 'LLEGA AL CONTROLADOR'), "el POST del admin en PRE/PRO no pasa la barrera. Salida:\n$r");
+    assertCierto(str_contains($r, 'Panel en modo solo lectura') && str_contains($r, '</html>'), "y en su lugar pinta entera la página de solo lectura. Salida:
+$r");
+    assertCierto(str_contains($barrera('jefe', 'production', 'GET'), 'LLEGA AL CONTROLADOR'), 'consultar sí puede (GET)');
+    assertCierto(str_contains($barrera('ayudante', 'production', 'POST'), 'LLEGA AL CONTROLADOR'), 'el editor sí envía: su envío es una propuesta');
+    assertCierto(str_contains($barrera('jefe', 'local', 'POST'), 'LLEGA AL CONTROLADOR'), 'en local el admin guarda');
 };
 
 $tests['proponer no toca la BD; aceptar aplica lo mismo que el guardado directo'] = static function () use ($idHerm, $cuenta, $ficheros): void {

@@ -24,7 +24,7 @@ Hay **tres entornos**: el **local** (donde se desarrolla), **preproducción**
 | Indexación | — | **Bloqueada** (noindex + `X-Robots-Tag` + `robots.txt` Disallow total) | Normal |
 | Señas visibles | — | Cinta «Entorno de preproducción»; `/health` dice `entorno: pre` | `/health` dice `entorno: prod` |
 | Secciones en maduración | Todas visibles | Ocultas | Ocultas |
-| Panel de admin | Escribe directo | Solo propuestas | Solo propuestas |
+| Panel de admin | Escribe directo | Admin: solo lectura · editor: propuestas | Admin: solo lectura · editor: propuestas |
 | Deploy de código | — | **Automático** en cada push a `pre` | **Automático** al fusionar `pre` en `main` |
 | Deploy de BD | — | — (usa la de PRO) | Manual: `php scripts/sync_db_to_prod.php` |
 | Backups (cron Plesk) | — | — | Sí (`app/tools/backup.php`) |
@@ -112,28 +112,30 @@ La segunda pasada de CI (ver abajo) es la que sigue probando el contenido de
 estas secciones mientras están ocultas, para que republicarlas no sea un salto
 al vacío.
 
-## El panel en PRE y PRO: solo propuestas
+## El panel en PRE y PRO: el admin solo mira, el editor propone
 
-Fuera de local **no escribe nadie en la BD, tampoco el administrador**. La
-maestra es la local y el sync reemplaza el `.db` remoto entero, así que un
-cambio hecho en PRE o PRO se perdería —o pisaría datos buenos— en el siguiente
-`sync_db_to_prod.php`.
+Solo el entorno **local** escribe en la BD. La maestra es la local y el sync
+reemplaza el `.db` remoto entero, así que un cambio hecho en PRE o PRO se
+perdería —o pisaría datos buenos— en el siguiente `sync_db_to_prod.php`.
 
-- **Marchas, compositores, bandas, discos, Semana Santa y acompañamientos**
-  (con todas sus pestañas y acciones, borrados incluidos): el envío se guarda
-  como **propuesta** (`Admin::proposalMode()`), igual que lo que hace el editor
-  en cualquier entorno. No se pierde: se baja con `sync_propuestas_from_prod.php`
-  y se aplica en local. Como PRE y PRO comparten el directorio de datos, una
-  propuesta creada en PRE aparece en la misma cola que las de PRO. Lo pendiente
-  se ve en `/dashboard/mis-propuestas` (ver [admin-panel.md §1.2](admin-panel.md)).
-- **El resto del panel** (dedicatorias, estilos, ingesta, enlaces candidatos,
-  usuarios, alta de municipio) escribe directo y choca con
-  `Db::assertWritable()`: 503 de solo lectura. Sigue accesible para el admin
-  porque a veces hay que *mirarlo* con datos reales.
-- El admin ve en todas las pantallas del panel la cinta roja **«PELIGRO: riesgo
-  de desincronización. No actuar en este entorno salvo urgencia.»**, y en
-  `/dashboard` un aviso que detalla qué funciona y qué no. El editor no la
-  necesita: su flujo es idéntico aquí y en local.
+- **Admin: solo lectura** (desde el 2026-10-14, `Auth::soloLectura()`). Puede
+  consultar cualquier pantalla con datos reales, pero no guarda, no borra, no
+  propone, no acepta ni rechaza propuestas y no gestiona usuarios: todo eso se
+  hace en local. Todo POST suyo al panel se corta en `Auth::requireAuth()` con
+  un 403 y la página «Panel en modo solo lectura», antes de llegar a ningún
+  controlador. Ve en todas las pantallas la cinta roja **«SOLO LECTURA: en este
+  entorno el panel no modifica nada. Los cambios se hacen en local.»**, los
+  campos de los formularios de envío desactivados y sin botón (menos «Cerrar
+  sesión»), y en `/dashboard` un aviso que lo explica.
+- **Editor: propuestas.** En marchas, compositores, bandas, discos, Semana Santa
+  y acompañamientos (borrados incluidos) su envío se guarda como **propuesta**
+  (`Admin::proposalMode()`), igual que en local. No se pierde: se baja con
+  `sync_propuestas_from_prod.php` y se aplica en local. Como PRE y PRO comparten
+  el directorio de datos, una propuesta creada en PRE aparece en la misma cola
+  que las de PRO. Lo pendiente se ve en `/dashboard/mis-propuestas` (ver
+  [admin-panel.md §1.2](admin-panel.md)).
+- Por debajo, `Db::assertWritable()` sigue rechazando cualquier escritura fuera
+  de local (`ReadOnlyModeException` → 503), por si algún código se la saltara.
 
 ## Solo en PRE: /rosario
 

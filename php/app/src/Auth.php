@@ -122,7 +122,7 @@ final class Auth
     public static function roleOf(string $user): string
     {
         // Memoizado por petición: el guard lo pide una vez (requireAuth) y el
-        // layout otra (aviso de desincronización del panel), y el rol no puede
+        // layout otra (cinta de solo lectura del panel), y el rol no puede
         // cambiar a mitad de una petición.
         static $cache = [];
         if (isset($cache[$user])) {
@@ -155,7 +155,28 @@ final class Auth
         $user = (string) ($payload['user'] ?? '');
         $payload['rol'] = self::roleOf($user);
         Db::setAuditUser($user !== '' ? $user : 'system');
+        // Barrera única para todo el panel: fuera de local ningún envío del
+        // admin llega a su controlador (ni escribe ni encola propuestas). Todos
+        // los POST del panel pasan por aquí vía requireCap/requireAdmin.
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && self::soloLectura($payload)) {
+            Http::soloLectura();
+        }
         return $payload;
+    }
+
+    /**
+     * ¿La sesión solo puede MIRAR el panel? El admin fuera de local: la BD
+     * maestra es la local y scripts/sync_db_to_prod.php reemplaza el .db
+     * remoto entero, así que en PRE y PRO no guarda, no propone, no acepta ni
+     * rechaza propuestas y no gestiona usuarios — los cambios se hacen en
+     * local. El editor no entra aquí: él siempre propone (Admin::proposalMode),
+     * y una propuesta no toca la BD.
+     *
+     * @param array<string,mixed> $session con 'rol'
+     */
+    public static function soloLectura(array $session): bool
+    {
+        return Roles::isAdmin($session['rol'] ?? null) && !Entorno::permiteEscrituraDirecta();
     }
 
     /**
