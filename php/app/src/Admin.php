@@ -123,14 +123,62 @@ final class Admin
      *     scripts/sync_propuestas_from_prod.php y la aplica en local, que es de
      *     donde sale el .db bueno. Ver docs/entornos.md.
      *
-     * Solo cubre las entidades con propuesta (marcha, banda, autor). El resto de
-     * pantallas del panel escriben directo y en PRE/PRO chocan con el fail-safe
-     * de Db::assertWritable() (503 solo-lectura); por eso el layout avisa al
-     * admin con la cinta de desincronización en todo el panel.
+     * Cubre las fichas (marcha, banda, autor: con previsualización) y las
+     * operaciones de PropuestaOps (disco, pestañas de la banda, Semana Santa,
+     * acompañamientos; ver self::operar()). Lo que queda fuera —dedicatorias,
+     * estilos, ingesta, enlaces candidatos, usuarios, alta de municipio, carga
+     * de Málaga— es solo admin, escribe directo y en PRE/PRO choca con el
+     * fail-safe de Db::assertWritable() (503 solo-lectura); por eso el layout
+     * avisa al admin con la cinta de desincronización en todo el panel.
      */
-    private static function proposalMode(array $session): bool
+    public static function proposalMode(array $session): bool
     {
         return !self::isAdmin($session) || !Entorno::permiteEscrituraDirecta();
+    }
+
+    /**
+     * Escritura de una pantalla del panel que no es un formulario de ficha
+     * (pistas, etapas, Semana Santa, acompañamientos…). En modo propuesta NO
+     * toca la BD: la encola como operación, con su descripción legible, y
+     * vuelve a $volver avisando. Si no, la aplica y devuelve el resultado para
+     * que el controlador redirija como siempre. Las dos vías ejecutan lo mismo,
+     * PropuestaOps::aplicar(), al guardar o al aceptar la propuesta.
+     *
+     * @param array<string,mixed>  $params
+     * @param array<string,string> $adjuntos ficheros ya validados (solo en modo propuesta)
+     * @return array<string,mixed>
+     */
+    private static function operar(array $session, string $op, array $params, string $volver, array $adjuntos = []): array
+    {
+        if (self::proposalMode($session)) {
+            PropuestaRepo::createOperacion(
+                $op, $params, (string) ($session['user'] ?? ''),
+                PropuestaOps::describir($op, $params), (string) parse_url($volver, PHP_URL_PATH), $adjuntos
+            );
+            Http::redirect(self::conParam($volver, 'propuesta=1'), 302);
+        }
+        return PropuestaOps::aplicar($op, $params);
+    }
+
+    /** Añade un parámetro a una URL interna, antes del #fragmento. */
+    private static function conParam(string $url, string $param): string
+    {
+        [$base, $frag] = array_pad(explode('#', $url, 2), 2, null);
+        return $base . (str_contains($base, '?') ? '&' : '?') . $param . ($frag !== null ? '#' . $frag : '');
+    }
+
+    /**
+     * Valida la portada subida y la deja normalizada junto a la futura
+     * propuesta (el disco aún no se toca). [adjuntos, código de error].
+     *
+     * @return array{0:array<string,string>,1:?string}
+     */
+    private static function portadaParaPropuesta(): array
+    {
+        if (($_FILES['portada']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return [[], null];
+        $tmp = PropuestaRepo::rutaAdjuntoTemporal('webp');
+        $err = Media::guardarPortadaEn($_FILES['portada'], $tmp);
+        return $err === null ? [['portada' => $tmp], null] : [[], $err];
     }
 
     /** Recoge del POST los campos de $editable presentes (para una propuesta). */
@@ -256,15 +304,16 @@ final class Admin
         if ($qb !== '') {
             $bandas = array_slice(Repo::searchBandas('titulo=' . rawurlencode($qb))['data'], 0, 15);
         }
-        // Los discos solo los edita el administrador (ver los controladores de
-        // disco más abajo), así que ni se consultan para el rol editor.
-        if ($qd !== '' && self::isAdmin($session)) {
+        $rol = $session['rol'];
+        if ($qd !== '' && Roles::has($rol, 'disco.edit')) {
             $discos = AdminRepo::discoCandidatosPorTexto($qd, 15);
         }
         $notice = self::noticeFromQuery();
         $pendientes = self::isAdmin($session) ? PropuestaRepo::countPendientes() : 0;
+        $proposalMode = self::proposalMode($session);
+        $misPendientes = $proposalMode ? count(PropuestaRepo::pendientesDe($session['user'])) : 0;
         $dudasAcompanamientos = 0;
-        if (self::isAdmin($session)) {
+        if (Roles::has($rol, 'acompanamientos.edit')) {
             try {
                 $dudasAcompanamientos = AcompanamientoDudaRepo::countPendientes();
             } catch (\Throwable $e) {
@@ -273,14 +322,14 @@ final class Admin
         }
         $pendientesDmp = self::isAdmin($session) ? IngestaRepo::countPendientesPorFuente('dmp') : 0;
         $pendientesAcompanamiento = 0;
-        if (self::isAdmin($session)) {
+        if (Roles::has($rol, 'acompanamientos.edit')) {
             try {
                 $pendientesAcompanamiento = AcompanamientoPendienteRepo::count();
             } catch (\Throwable $e) {
                 // Tabla 017_acompanamiento_pendiente.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'dudasAcompanamientos', 'pendientesDmp', 'pendientesAcompanamiento'),
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'proposalMode', 'misPendientes', 'dudasAcompanamientos', 'pendientesDmp', 'pendientesAcompanamiento'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -585,32 +634,28 @@ final class Admin
         $id = (string) $p['id'];
         $banda = Repo::fetchBandaRaw($id);
         if ($banda === null) Http::notFound();
-        $showLinaje = self::isAdmin($session); // el linaje es curación avanzada, solo admin
-        // Pestaña de acompañamientos: escritura directa como en /dashboard/acompanamientos,
-        // solo admin. Sin la migración 019 (manual en el host) la ficha se sigue
-        // editando y la pestaña avisa de qué falta, en vez de un 500.
+        // Pestaña de acompañamientos: sin la migración 019 (manual en el host)
+        // la ficha se sigue editando y la pestaña avisa de qué falta, en vez de un 500.
         $acomp = [];
         $acompNomina = [];
         $acompError = null;
-        if ($showLinaje) {
-            try {
-                $acomp = Repo::acompanamientosDeBandaAdmin((int) $id);
-                $acompNomina = NominaRepo::datosAltaBanda();
-            } catch (\Throwable $e) {
-                error_log('[dashboard/banda acompanamientos] ' . $e->getMessage());
-                $acompError = 'Faltan tablas de acompañamientos en este host — aplica las migraciones de app/tools/sql/ (migrate_ingest.php), hasta 019_localidad_provincia.sql.';
-            }
+        try {
+            $acomp = Repo::acompanamientosDeBandaAdmin((int) $id);
+            $acompNomina = NominaRepo::datosAltaBanda();
+        } catch (\Throwable $e) {
+            error_log('[dashboard/banda acompanamientos] ' . $e->getMessage());
+            $acompError = 'Faltan tablas de acompañamientos en este host — aplica las migraciones de app/tools/sql/ (migrate_ingest.php), hasta 019_localidad_provincia.sql.';
         }
         View::render('admin/banda_form', [
             'session' => $session, 'banda' => $banda, 'action' => "/dashboard/banda/$id",
-            'relaciones' => $showLinaje ? Repo::bandaRelaciones($id) : [],
-            'etapas' => Repo::bandaEtapas((int) $id), // también editor: le bloquea las fechas calculadas
+            'relaciones' => Repo::bandaRelaciones($id),
+            'etapas' => Repo::bandaEtapas((int) $id),
             'tipos' => AdminRepo::RELACION_TIPOS,
-            'showLinaje' => $showLinaje, 'proposalMode' => self::proposalMode($session),
-            'enlaces' => $showLinaje ? EnlaceRepo::publicadosDe('banda', (int) $id) : [],
+            'proposalMode' => self::proposalMode($session),
+            'enlaces' => EnlaceRepo::publicadosDe('banda', (int) $id),
             'acomp' => $acomp, 'acompNomina' => $acompNomina, 'acompError' => $acompError,
             'anioAbierto' => (int) ($_GET['anio'] ?? 0), // tras guardar en un año, ese queda abierto
-            'provincias' => $showLinaje ? MunicipioRepo::provincias() : [],
+            'provincias' => MunicipioRepo::provincias(),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => "Editar banda #$id — Marchas de Cristo", 'noindex' => true]);
     }
@@ -686,49 +731,58 @@ final class Admin
 
     public static function bandaRelacionAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
 
         $otra = (int) ($_POST['otraBanda'] ?? 0);
+        // Sin otra banda no hay relación: se corta aquí también en modo propuesta
+        // (mismos códigos que AdminRepo::addRelacion).
+        if ($otra <= 0) Http::redirect("/dashboard/banda/$id?err=INVALID_BANDA", 302);
+        if ($otra === $id) Http::redirect("/dashboard/banda/$id?err=SAME_BANDA", 302);
         // direccion=saliente → esta banda es ORIGEN (→ otra); entrante → esta es DESTINO.
         $entrante = ($_POST['direccion'] ?? 'saliente') === 'entrante';
         [$origen, $destino] = $entrante ? [$otra, $id] : [$id, $otra];
 
         $str = static fn(string $k): ?string => is_string($_POST[$k] ?? null) ? (string) $_POST[$k] : null;
-        $r = AdminRepo::addRelacion($origen, $destino, (string) ($_POST['tipo'] ?? ''), $str('fecha_inicio'), $str('fecha_fin'), $str('nota'));
+        $r = self::operar($session, 'banda.relacion.add', [
+            'idBanda' => $id, 'origen' => $origen, 'destino' => $destino, 'tipo' => (string) ($_POST['tipo'] ?? ''),
+            'fechaInicio' => $str('fecha_inicio'), 'fechaFin' => $str('fecha_fin'), 'nota' => $str('nota'),
+        ], "/dashboard/banda/$id");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/banda/$id?created=1", 302);
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function bandaRelacionDeletePost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         $rel = (int) $p['rel'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
-        $r = AdminRepo::deleteRelacion($rel);
+        $r = self::operar($session, 'banda.relacion.delete', ['idBanda' => $id, 'idRelacion' => $rel], "/dashboard/banda/$id");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/banda/$id?deleted=1", 302);
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function bandaEtapaAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
         $str = static fn(string $k): ?string => is_string($_POST[$k] ?? null) ? (string) $_POST[$k] : null;
-        $r = AdminRepo::addEtapa($id, $str('anio_inicio'), $str('anio_fin'), $str('nota'));
+        $r = self::operar($session, 'banda.etapa.add', [
+            'idBanda' => $id, 'anioInicio' => $str('anio_inicio'), 'anioFin' => $str('anio_fin'), 'nota' => $str('nota'),
+        ], "/dashboard/banda/$id");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/banda/$id?created=1", 302);
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function bandaEtapaDeletePost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
-        $r = AdminRepo::deleteEtapa($id, (int) $p['etapa']);
+        $r = self::operar($session, 'banda.etapa.delete', ['idBanda' => $id, 'idEtapa' => (int) $p['etapa']], "/dashboard/banda/$id");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/banda/$id?etapaBorrada=1", 302);
         Http::redirect("/dashboard/banda/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -737,6 +791,12 @@ final class Admin
     private static function volverAcompBanda(int $id, string $qs, int $anio = 0): never
     {
         Http::redirect("/dashboard/banda/$id?$qs" . ($anio > 0 ? "&anio=$anio" : '') . '#tab-acompanamientos', 302);
+    }
+
+    /** La misma pestaña, como $volver de una propuesta. */
+    private static function urlAcompBanda(int $id, int $anio): string
+    {
+        return "/dashboard/banda/$id" . ($anio > 0 ? "?anio=$anio" : '') . '#tab-acompanamientos';
     }
 
     /** Campos del formulario de la pestaña, en la forma de NominaRepo::planDestino. */
@@ -752,13 +812,15 @@ final class Admin
     /** Alta de acompañamientos desde la pestaña de la ficha, ver NominaRepo::altaDesdeBanda. */
     public static function bandaAcompanamientoAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anioInicio);
         $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
         try {
-            $r = NominaRepo::altaDesdeBanda($id, self::postDestinoAcomp() + ['anioInicio' => $anioInicio, 'anioFin' => $anioFin]);
+            $r = self::operar($session, 'banda.acomp.add', [
+                'idBanda' => $id, 'destino' => self::postDestinoAcomp(), 'anioInicio' => $anioInicio, 'anioFin' => $anioFin,
+            ], self::urlAcompBanda($id, $anioFin));
         } catch (\Throwable $e) {
             error_log('[dashboard/banda/acompanamiento] ' . $e->getMessage());
             self::volverAcompBanda($id, 'err=TABLA_NO_MIGRADA', $anioInicio);
@@ -772,12 +834,14 @@ final class Admin
     /** Edición de un acompañamiento (una fila de un año), ver NominaRepo::editarDesdeBanda. */
     public static function bandaAcompanamientoEditarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         $anio = (int) ($_POST['ANIO_INICIO'] ?? 0);
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anio);
         try {
-            $r = NominaRepo::editarDesdeBanda($id, (int) $p['contrato'], self::postDestinoAcomp() + ['anio' => $anio]);
+            $r = self::operar($session, 'banda.acomp.edit', [
+                'idBanda' => $id, 'idContrato' => (int) $p['contrato'], 'destino' => self::postDestinoAcomp(), 'anio' => $anio,
+            ], self::urlAcompBanda($id, $anio));
         } catch (\Throwable $e) {
             error_log('[dashboard/banda/acompanamiento/editar] ' . $e->getMessage());
             self::volverAcompBanda($id, 'err=TABLA_NO_MIGRADA', $anio);
@@ -791,23 +855,23 @@ final class Admin
     /** Importa a un año todos los acompañamientos de otro año de la banda, ver NominaRepo::copiarAnioDeBanda. */
     public static function bandaAcompanamientoImportarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         $anio = (int) ($_POST['ANIO'] ?? 0);
         $origen = (int) ($_POST['ORIGEN'] ?? 0);
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anio);
-        $r = NominaRepo::copiarAnioDeBanda($id, $origen, $anio);
+        $r = self::operar($session, 'banda.acomp.importar', ['idBanda' => $id, 'origen' => $origen, 'anio' => $anio], self::urlAcompBanda($id, $anio));
         if (($r['code'] ?? '') !== 'CREATED') self::volverAcompBanda($id, 'err=' . ($r['code'] ?? 'ERROR'), $anio);
         self::volverAcompBanda($id, "importados={$r['creados']}&desde=$origen&yaEstaban={$r['existentes']}", $anio);
     }
 
     public static function bandaAcompanamientoBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         $anio = (int) ($_POST['ANIO'] ?? 0);
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anio);
-        $r = NominaRepo::borrarDeBanda($id, self::parseContratoIds($_POST['ids'] ?? null));
+        $r = self::operar($session, 'banda.acomp.delete', ['idBanda' => $id, 'ids' => self::parseContratoIds($_POST['ids'] ?? null)], self::urlAcompBanda($id, $anio));
         if (($r['code'] ?? '') === 'DELETED') self::volverAcompBanda($id, 'borrados=' . ($r['borrados'] ?? 0), $anio);
         self::volverAcompBanda($id, 'err=' . ($r['code'] ?? 'ERROR'), $anio);
     }
@@ -827,7 +891,7 @@ final class Admin
 
     public static function acompanamientosIndexAdmin(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $localidades = [];
         try {
             $localidades = Repo::acompanamientosLocalidades();
@@ -838,6 +902,7 @@ final class Admin
             'session' => $session,
             'grupos' => self::localidadesPorProvincia(array_map('strval', array_column($localidades, 'LOCALIDAD'))),
             'conteos' => array_column($localidades, 'N', 'LOCALIDAD'),
+            'proposalMode' => self::proposalMode($session),
             'notice' => self::noticeFromQuery(),
         ], ['title' => 'Acompañamientos — Marchas de Cristo', 'noindex' => true]);
     }
@@ -848,7 +913,7 @@ final class Admin
      *  escribe es la provincia de una localidad existente que no la tenía. */
     public static function acompanamientosCrearPost(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos?err=CSRF', 302);
         [$localidad, $provincia] = self::parMunicipioPosteado('/dashboard/acompanamientos');
         $slug = Slug::slugify($localidad);
@@ -857,7 +922,7 @@ final class Admin
             $actual = NominaRepo::provinciasDeLocalidades()[$existente] ?? null;
             // Mismo nombre en otra provincia: la clave es solo el nombre.
             if ($actual !== null && $actual !== $provincia) Http::redirect('/dashboard/acompanamientos?err=PROVINCIA_DISTINTA', 302);
-            if ($actual === null) NominaRepo::fijarProvincia($existente, $provincia);
+            if ($actual === null) self::operar($session, 'localidad.provincia', ['localidad' => $existente, 'provincia' => $provincia], '/dashboard/acompanamientos/' . $slug);
             Http::redirect('/dashboard/acompanamientos/' . $slug, 302);
         }
         Http::redirect('/dashboard/acompanamientos/' . $slug . '?nueva=' . rawurlencode($localidad) . '&provincia=' . rawurlencode($provincia), 302);
@@ -865,7 +930,7 @@ final class Admin
 
     public static function acompanamientosAdmin(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         $notice = self::noticeFromQuery();
         $localidad = null;
@@ -920,6 +985,7 @@ final class Admin
             'hermandades' => $hermandades,
             'nomina' => $nomina,
             'anio' => $anio, 'anios' => $anios,
+            'proposalMode' => self::proposalMode($session),
             'notice' => $notice,
         ], ['title' => "Acompañamientos — $localidad" . ($anio !== null ? " $anio" : '') . " — Marchas de Cristo", 'noindex' => true,
             // con nómina: hermandad y sus pasos en dos columnas, como en /dashboard/semana-santa
@@ -941,14 +1007,25 @@ final class Admin
         Http::redirect("/dashboard/acompanamientos/$slug?$qs" . ($anio !== null ? "&anio=$anio" : '') . $orden, 302);
     }
 
+    /** La vista actual de la localidad (año y orden incluidos), como $volver de una propuesta. */
+    private static function urlAcomp(string $slug): string
+    {
+        $q = array_filter([
+            'anio' => self::anioAcomp(),
+            'orden' => ($_GET['orden'] ?? '') === 'asc' ? 'asc' : null,
+        ], static fn($v): bool => $v !== null);
+        return "/dashboard/acompanamientos/$slug" . ($q !== [] ? '?' . http_build_query($q) : '');
+    }
+
     public static function acompanamientosAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
 
         $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug);
         $provNueva = null;
+        $volver = self::urlAcomp($slug);
         if ($localidad === null) {
             // Primer contrato de una localidad nueva: el nombre correcto (con
             // tildes) solo puede venir del formulario, nunca del slug; el par
@@ -958,39 +1035,39 @@ final class Admin
                 self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
             }
             $localidad = $posted;
+            // Hasta que se acepte, la localidad sigue sin existir: se vuelve a
+            // su pantalla de «localidad nueva» (ver acompanamientosAdmin).
+            $volver = "/dashboard/acompanamientos/$slug?" . http_build_query(['nueva' => $posted, 'provincia' => $provNueva]);
         }
 
-        $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
-        $hermandad = (string) ($_POST['HERMANDAD'] ?? '');
         $titularRaw = is_string($_POST['TITULAR'] ?? null) ? trim((string) $_POST['TITULAR']) : '';
-        $titular = $titularRaw !== '' ? $titularRaw : null;
         $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
-        $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
-        $fuente = is_string($_POST['FUENTE'] ?? null) ? (string) $_POST['FUENTE'] : null;
-        $nota = is_string($_POST['NOTA'] ?? null) ? (string) $_POST['NOTA'] : null;
-        // Localidad con nómina: se elige un paso y de él salen hermandad,
-        // titular y SLUG; el texto libre queda para hermandades fuera de la nómina.
-        $idPaso = (int) ($_POST['ID_PASO'] ?? 0);
-
+        $params = [
+            'localidad' => $localidad,
+            'provNueva' => $provNueva,
+            'idBanda' => (int) ($_POST['ID_BANDA'] ?? 0),
+            'hermandad' => (string) ($_POST['HERMANDAD'] ?? ''),
+            'titular' => $titularRaw !== '' ? $titularRaw : null,
+            'anioInicio' => $anioInicio,
+            'anioFin' => trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio,
+            'fuente' => is_string($_POST['FUENTE'] ?? null) ? (string) $_POST['FUENTE'] : null,
+            'nota' => is_string($_POST['NOTA'] ?? null) ? (string) $_POST['NOTA'] : null,
+            // Localidad con nómina: se elige un paso y de él salen hermandad,
+            // titular y SLUG; el texto libre queda para hermandades fuera de la nómina.
+            'idPaso' => (int) ($_POST['ID_PASO'] ?? 0),
+            'tramo' => (string) ($_POST['TRAMO'] ?? ''),
+        ];
         try {
-            if ($idPaso > 0) {
-                $paso = NominaRepo::pasoDeLocalidad($idPaso, $localidad);
-                if ($paso === null) self::volverAcomp($slug, "err=PASO_INVALIDO");
-                $r = AdminRepo::addContratoRango($idBanda, $paso['HERMANDAD'], $paso['NOMBRE'], $anioInicio, $anioFin, $fuente, $nota, $localidad, $paso['SLUG']);
-                if (($r['code'] ?? '') === 'CREATED') {
-                    NominaRepo::enlazarRangoAPaso($localidad, $idBanda, $paso, $anioInicio, $anioFin);
-                    $tramo = (string) ($_POST['TRAMO'] ?? '');
-                    if ($tramo !== '') NominaRepo::marcarTramoRango($localidad, $idBanda, $paso, $anioInicio, $anioFin, $tramo);
-                }
-            } else {
-                $r = AdminRepo::addContratoRango($idBanda, $hermandad, $titular, $anioInicio, $anioFin, $fuente, $nota, $localidad);
+            // El paso tiene que ser de esta localidad: se comprueba ya, también al proponer.
+            if ($params['idPaso'] > 0 && NominaRepo::pasoDeLocalidad($params['idPaso'], $localidad) === null) {
+                self::volverAcomp($slug, "err=PASO_INVALIDO");
             }
+            $r = self::operar($session, 'acomp.add', array_filter($params, static fn($v): bool => $v !== null), $volver);
         } catch (\Throwable $e) {
             error_log('[dashboard/acompanamientos/add] ' . $e->getMessage());
             self::volverAcomp($slug, "err=TABLA_NO_MIGRADA");
         }
         if (($r['code'] ?? '') === 'CREATED') {
-            if ($provNueva !== null) NominaRepo::fijarProvincia($localidad, $provNueva);
             self::volverAcomp($slug, "creados=" . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0));
         }
         self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
@@ -999,60 +1076,69 @@ final class Admin
     /** Marca/desmarca una hermandad como "ida / vuelta" (bandas distintas a la ida y a la vuelta), ver 016_ida_vuelta.sql. */
     public static function acompanamientosIdaVueltaPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
-        $r = NominaRepo::setIdaVuelta($localidad, (int) $p['id'], ($_POST['activo'] ?? '') === '1');
+        $r = self::operar($session, 'acomp.idaVuelta', [
+            'localidad' => $localidad, 'idHermandad' => (int) $p['id'], 'activo' => ($_POST['activo'] ?? '') === '1',
+        ], self::urlAcomp($slug));
         self::volverAcomp($slug, (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')));
     }
 
     /** Pone ida / vuelta (o lo quita) a una línea de rango. */
     public static function acompanamientosTramoRangoPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
         $tramo = (string) ($_POST['TRAMO'] ?? '');
-        $r = NominaRepo::setTramo($localidad, self::parseContratoIds($_POST['ids'] ?? null), $tramo === '' ? null : $tramo);
+        $r = self::operar($session, 'acomp.tramo', [
+            'localidad' => $localidad, 'ids' => self::parseContratoIds($_POST['ids'] ?? null), 'tramo' => $tramo === '' ? null : $tramo,
+        ], self::urlAcomp($slug));
         self::volverAcomp($slug, (($r['code'] ?? '') === 'UPDATED' ? 'saved=1' : 'err=' . ($r['code'] ?? 'ERROR')));
     }
 
     /** Mueve una línea de rango (o una selección) a otro paso de la nómina, ver NominaRepo::moverContratosAPaso. */
     public static function acompanamientosMoverPasoPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) self::volverAcomp($slug, "err=LOCALIDAD_INVALIDA");
-        $r = NominaRepo::moverContratosAPaso($localidad, self::parseContratoIds($_POST['ids'] ?? null), (int) ($_POST['ID_PASO'] ?? 0));
+        $r = self::operar($session, 'acomp.moverPaso', [
+            'localidad' => $localidad, 'ids' => self::parseContratoIds($_POST['ids'] ?? null), 'idPaso' => (int) ($_POST['ID_PASO'] ?? 0),
+        ], self::urlAcomp($slug));
         if (($r['code'] ?? '') === 'MOVED') self::volverAcomp($slug, "movidos=" . ($r['movidos'] ?? 0));
         self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     public static function acompanamientosBorrarRangoPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
-        $ids = self::parseContratoIds($_POST['ids'] ?? null);
-        $r = AdminRepo::deleteContratoRango($ids);
+        $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug) ?? $slug;
+        $r = self::operar($session, 'acomp.borrar', [
+            'localidad' => $localidad, 'ids' => self::parseContratoIds($_POST['ids'] ?? null),
+        ], self::urlAcomp($slug));
         if (($r['code'] ?? '') === 'DELETED') self::volverAcomp($slug, "borrados=" . ($r['borrados'] ?? 0));
         self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
 
     public static function acompanamientosBandaRangoPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
-        $ids = self::parseContratoIds($_POST['ids'] ?? null);
-        $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
-        $r = AdminRepo::updateContratoBandaRango($ids, $idBanda);
+        $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug) ?? $slug;
+        $r = self::operar($session, 'acomp.banda', [
+            'localidad' => $localidad, 'ids' => self::parseContratoIds($_POST['ids'] ?? null), 'idBanda' => (int) ($_POST['ID_BANDA'] ?? 0),
+        ], self::urlAcomp($slug));
         if (($r['code'] ?? '') === 'UPDATED') self::volverAcomp($slug, "saved=1");
         self::volverAcomp($slug, "err=" . ($r['code'] ?? 'ERROR'));
     }
@@ -1060,13 +1146,15 @@ final class Admin
     /** Cambia los años de una línea de rango, fundiéndola con la misma banda/paso si se solapan (AdminRepo::editarAniosRango). */
     public static function acompanamientosAniosRangoPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcomp($slug, "err=CSRF");
-        $ids = self::parseContratoIds($_POST['ids'] ?? null);
+        $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug) ?? $slug;
         $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
-        $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
-        $r = AdminRepo::editarAniosRango($ids, $anioInicio, $anioFin);
+        $r = self::operar($session, 'acomp.anios', [
+            'localidad' => $localidad, 'ids' => self::parseContratoIds($_POST['ids'] ?? null), 'anioInicio' => $anioInicio,
+            'anioFin' => trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio,
+        ], self::urlAcomp($slug));
         if (($r['code'] ?? '') === 'UPDATED') {
             self::volverAcomp($slug, "anios=1&aC=" . ($r['creados'] ?? 0) . '&aF=' . ($r['fusionados'] ?? 0) . '&aB=' . ($r['borrados'] ?? 0));
         }
@@ -1081,7 +1169,7 @@ final class Admin
      */
     public static function acompanamientoDudasAdmin(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $pendientes = [];
         $revisadas = [];
         $notice = self::noticeFromQuery();
@@ -1094,29 +1182,30 @@ final class Admin
         }
         View::render('admin/acompanamiento_dudas', [
             'session' => $session, 'pendientes' => $pendientes, 'revisadas' => $revisadas,
+            'proposalMode' => self::proposalMode($session),
             'notice' => $notice,
         ], ['title' => 'Dudas de acompañamientos — Marchas de Cristo', 'noindex' => true]);
     }
 
     public static function acompanamientoDudaResolverPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-dudas?err=CSRF', 302);
         $tipo = (string) ($_POST['TIPO'] ?? '');
         $nota = trim((string) ($_POST['NOTA'] ?? ''));
-        $r = AdminRepo::resolverAcompanamientoDuda($id, $tipo, $nota !== '' ? $nota : null);
+        $r = self::operar($session, 'acomp.duda.resolver', ['idDuda' => $id, 'tipo' => $tipo, 'nota' => $nota !== '' ? $nota : null], '/dashboard/acompanamientos-dudas');
         if (($r['code'] ?? '') === 'RESOLVED') Http::redirect('/dashboard/acompanamientos-dudas?resuelto=1', 302);
         Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function acompanamientoDudaDescartarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-dudas?err=CSRF', 302);
         $nota = trim((string) ($_POST['NOTA'] ?? ''));
-        $r = AdminRepo::descartarAcompanamientoDuda($id, $nota !== '' ? $nota : null);
+        $r = self::operar($session, 'acomp.duda.descartar', ['idDuda' => $id, 'nota' => $nota !== '' ? $nota : null], '/dashboard/acompanamientos-dudas');
         if (($r['code'] ?? '') === 'DISCARDED') Http::redirect('/dashboard/acompanamientos-dudas?descartado=1', 302);
         Http::redirect('/dashboard/acompanamientos-dudas?err=' . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -1129,7 +1218,7 @@ final class Admin
      */
     public static function acompanamientosPendientesAdmin(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         $grupos = [];
         $notice = self::noticeFromQuery();
         try {
@@ -1139,20 +1228,20 @@ final class Admin
             $notice = ['type' => 'error', 'msg' => 'La tabla acompanamiento_pendiente no existe todavía en este host — falta aplicar la migración 017 (migrate_ingest.php).'];
         }
         View::render('admin/acompanamientos_pendientes', [
-            'session' => $session, 'grupos' => $grupos, 'notice' => $notice,
+            'session' => $session, 'grupos' => $grupos, 'proposalMode' => self::proposalMode($session), 'notice' => $notice,
         ], ['title' => 'Bandas pendientes de acompañamientos — Marchas de Cristo', 'noindex' => true]);
     }
 
     public static function acompanamientosPendienteConvertirPost(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('acompanamientos.edit');
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/acompanamientos-pendientes?err=CSRF', 302);
         $bandaTexto = (string) ($_POST['BANDA_TEXTO'] ?? '');
         $idBanda = (int) ($_POST['ID_BANDA'] ?? 0);
         if ($bandaTexto === '' || $idBanda <= 0) {
             Http::redirect('/dashboard/acompanamientos-pendientes?err=DATOS_INCOMPLETOS', 302);
         }
-        $r = AdminRepo::convertirPendientesEnContratos($bandaTexto, $idBanda);
+        $r = self::operar($session, 'acomp.pendiente.convertir', ['bandaTexto' => $bandaTexto, 'idBanda' => $idBanda], '/dashboard/acompanamientos-pendientes');
         if (($r['code'] ?? '') === 'CONVERTED') {
             Http::redirect('/dashboard/acompanamientos-pendientes?convertido=' . (int) $r['creados'], 302);
         }
@@ -1274,7 +1363,7 @@ final class Admin
 
     public static function semanaSantaIndexAdmin(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $localidades = [];
         try {
             $localidades = NominaRepo::localidades();
@@ -1284,6 +1373,7 @@ final class Admin
         View::render('admin/semana_santa_index', [
             'session' => $session,
             'grupos' => self::localidadesPorProvincia($localidades),
+            'proposalMode' => self::proposalMode($session),
             'notice' => self::noticeFromQuery(),
         ], ['title' => 'Semana Santa — Marchas de Cristo', 'noindex' => true]);
     }
@@ -1337,7 +1427,7 @@ final class Admin
      */
     public static function semanaSantaCrearPost(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect('/dashboard/semana-santa?err=CSRF', 302);
         [$localidad, $provincia] = self::parMunicipioPosteado('/dashboard/semana-santa');
         $slug = Slug::slugify($localidad);
@@ -1346,7 +1436,7 @@ final class Admin
             $actual = NominaRepo::provinciasDeLocalidades()[$existente] ?? null;
             // Mismo nombre en otra provincia: la clave de la nómina es solo el nombre.
             if ($actual !== null && $actual !== $provincia) Http::redirect('/dashboard/semana-santa?err=PROVINCIA_DISTINTA', 302);
-            if ($actual === null) NominaRepo::fijarProvincia($existente, $provincia);
+            if ($actual === null) self::operar($session, 'localidad.provincia', ['localidad' => $existente, 'provincia' => $provincia], '/dashboard/semana-santa/' . $slug);
             Http::redirect('/dashboard/semana-santa/' . $slug, 302);
         }
         Http::redirect('/dashboard/semana-santa/' . $slug . '?nueva=' . rawurlencode($localidad) . '&provincia=' . rawurlencode($provincia), 302);
@@ -1354,7 +1444,7 @@ final class Admin
 
     public static function semanaSantaAdmin(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         $notice = self::noticeFromQuery();
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
@@ -1387,6 +1477,7 @@ final class Admin
             'dias' => $dias,
             // Sin la migración 020 (manual en el host) no se ofrecen días extra ni históricos.
             'variosDias' => NominaRepo::variosDiasDisponible(),
+            'proposalMode' => self::proposalMode($session),
             'notice' => $notice,
         ], ['title' => "Semana Santa — $localidad — Marchas de Cristo", 'noindex' => true,
             // pantalla de trabajo (≥1200px): hermandad y sus pasos en dos columnas
@@ -1395,20 +1486,25 @@ final class Admin
 
     public static function semanaSantaDiaAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         $provNueva = null;
+        $volver = "/dashboard/semana-santa/$slug";
         if ($localidad === null) {
             // Localidad nueva: el par se vuelve a validar contra el catálogo.
             [$posted, $provNueva] = self::parMunicipioPosteado('/dashboard/semana-santa');
             if (Slug::slugify($posted) !== $slug) Http::redirect("/dashboard/semana-santa?err=LOCALIDAD_INVALIDA", 302);
             $localidad = $posted;
+            // Hasta que se acepte, la localidad sigue sin existir: se vuelve a
+            // su pantalla de «localidad nueva» (ver semanaSantaAdmin).
+            $volver .= '?' . http_build_query(['nueva' => $posted, 'provincia' => $provNueva]);
         }
-        $r = NominaRepo::addDia($localidad, (string) ($_POST['NOMBRE'] ?? ''));
+        $r = self::operar($session, 'nomina.dia.add', array_filter([
+            'localidad' => $localidad, 'nombre' => (string) ($_POST['NOMBRE'] ?? ''), 'provNueva' => $provNueva,
+        ], static fn($v): bool => $v !== null), $volver);
         if (($r['code'] ?? '') === 'CREATED') {
-            if ($provNueva !== null) NominaRepo::fijarProvincia($localidad, $provNueva);
             Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
         }
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
@@ -1416,162 +1512,164 @@ final class Admin
 
     public static function semanaSantaDiaRenombrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::renameDia((int) $p['idDia'], (string) ($_POST['NOMBRE'] ?? ''));
+        $r = self::operar($session, 'nomina.dia.rename', ['idDia' => (int) $p['idDia'], 'nombre' => (string) ($_POST['NOMBRE'] ?? '')], "/dashboard/semana-santa/$slug");
         if (in_array($r['code'] ?? '', ['CREATED', 'UPDATED'], true)) Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaDiaBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::deleteDia((int) $p['idDia']);
+        $r = self::operar($session, 'nomina.dia.delete', ['idDia' => (int) $p['idDia']], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaDiaMoverPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
-        $r = NominaRepo::swapDiaConVecino((int) $p['idDia'], $direccion);
+        $r = self::operar($session, 'nomina.dia.mover', ['idDia' => (int) $p['idDia'], 'direccion' => $direccion], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaDiasReorderPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) Http::notFound();
-        $r = NominaRepo::reorderDias($localidad, self::postOrdenIds());
+        $r = self::operar($session, 'nomina.dias.reorder', ['localidad' => $localidad, 'orden' => self::postOrdenIds()], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
         if ($localidad === null) Http::notFound();
         $idDia = (int) ($_POST['idDia'] ?? 0);
-        $r = NominaRepo::addHermandad($localidad, $idDia, (string) ($_POST['NOMBRE'] ?? ''));
+        $r = self::operar($session, 'nomina.hermandad.add', ['localidad' => $localidad, 'idDia' => $idDia, 'nombre' => (string) ($_POST['NOMBRE'] ?? '')], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?" . (!empty($r['diaExtra']) ? 'diaExtra=1' : 'created=1'), 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadRenombrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::renameHermandad((int) $p['idHermandad'], (string) ($_POST['NOMBRE'] ?? ''));
+        $r = self::operar($session, 'nomina.hermandad.rename', ['idHermandad' => (int) $p['idHermandad'], 'nombre' => (string) ($_POST['NOMBRE'] ?? '')], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::deleteHermandad((int) $p['idHermandad']);
+        $r = self::operar($session, 'nomina.hermandad.delete', ['idHermandad' => (int) $p['idHermandad']], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadMoverDiaPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::moveHermandad((int) $p['idHermandad'], (int) ($_POST['idDia'] ?? 0));
+        $r = self::operar($session, 'nomina.hermandad.dia', ['idHermandad' => (int) $p['idHermandad'], 'idDia' => (int) ($_POST['idDia'] ?? 0)], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadMoverPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
         $idDia = (int) ($_POST['idDia'] ?? 0); // en un día extra; sin él, el principal
-        $r = NominaRepo::swapHermandadConVecino((int) $p['idHermandad'], $direccion, $idDia > 0 ? $idDia : null);
+        $r = self::operar($session, 'nomina.hermandad.mover', ['idHermandad' => (int) $p['idHermandad'], 'direccion' => $direccion, 'idDia' => $idDia], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHermandadesReorderPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::reorderHermandades((int) $p['idDia'], self::postOrdenIds());
+        $r = self::operar($session, 'nomina.hermandades.reorder', ['idDia' => (int) $p['idDia'], 'orden' => self::postOrdenIds()], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasoAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $idHermandad = (int) ($_POST['idHermandad'] ?? 0);
         $esCruzGuia = (string) ($_POST['esCruzGuia'] ?? '') === '1';
         $idDia = (int) ($_POST['idDia'] ?? 0); // alta desde la caja de un día extra
-        $r = NominaRepo::addPaso($idHermandad, (string) ($_POST['NOMBRE'] ?? ''), $esCruzGuia, $idDia > 0 ? $idDia : null);
+        $r = self::operar($session, 'nomina.paso.add', [
+            'idHermandad' => $idHermandad, 'nombre' => (string) ($_POST['NOMBRE'] ?? ''), 'esCruzGuia' => $esCruzGuia, 'idDia' => $idDia,
+        ], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasoRenombrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::renamePaso((int) $p['idPaso'], (string) ($_POST['NOMBRE'] ?? ''));
+        $r = self::operar($session, 'nomina.paso.rename', ['idPaso' => (int) $p['idPaso'], 'nombre' => (string) ($_POST['NOMBRE'] ?? '')], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasoBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::deletePaso((int) $p['idPaso']);
+        $r = self::operar($session, 'nomina.paso.delete', ['idPaso' => (int) $p['idPaso']], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasoMoverPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $direccion = (string) ($_POST['direccion'] ?? '') === 'up' ? 'up' : 'down';
-        $r = NominaRepo::swapPasoConVecino((int) $p['idPaso'], $direccion);
+        $r = self::operar($session, 'nomina.paso.mover', ['idPaso' => (int) $p['idPaso'], 'direccion' => $direccion], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasosReorderPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::reorderPasos((int) $p['idHermandad'], self::postOrdenIds());
+        $r = self::operar($session, 'nomina.pasos.reorder', ['idHermandad' => (int) $p['idHermandad'], 'orden' => self::postOrdenIds()], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'REORDERED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -1580,60 +1678,65 @@ final class Admin
 
     public static function semanaSantaDiaExtraAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::addDiaExtra((int) $p['idHermandad'], (int) ($_POST['idDia'] ?? 0));
+        $r = self::operar($session, 'nomina.diaExtra.add', ['idHermandad' => (int) $p['idHermandad'], 'idDia' => (int) ($_POST['idDia'] ?? 0)], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaDiaExtraBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::removeDiaExtra((int) $p['idHermandad'], (int) $p['idDia']);
+        $r = self::operar($session, 'nomina.diaExtra.delete', ['idHermandad' => (int) $p['idHermandad'], 'idDia' => (int) $p['idDia']], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaDiaExtraMoverPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::moveDiaExtra((int) $p['idHermandad'], (int) $p['idDia'], (int) ($_POST['idDia'] ?? 0));
+        $r = self::operar($session, 'nomina.diaExtra.mover', [
+            'idHermandad' => (int) $p['idHermandad'], 'idDia' => (int) $p['idDia'], 'idDiaDestino' => (int) ($_POST['idDia'] ?? 0),
+        ], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaPasoDiaPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::setPasoDia((int) $p['idPaso'], (int) ($_POST['idDia'] ?? 0));
+        $r = self::operar($session, 'nomina.paso.dia', ['idPaso' => (int) $p['idPaso'], 'idDia' => (int) ($_POST['idDia'] ?? 0)], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'UPDATED') Http::redirect("/dashboard/semana-santa/$slug?saved=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHistoricoAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::addDiaHistorico((int) $p['idHermandad'], (int) ($_POST['idDia'] ?? 0), (int) ($_POST['DESDE'] ?? 0), (int) ($_POST['HASTA'] ?? 0));
+        $r = self::operar($session, 'nomina.historico.add', [
+            'idHermandad' => (int) $p['idHermandad'], 'idDia' => (int) ($_POST['idDia'] ?? 0),
+            'desde' => (int) ($_POST['DESDE'] ?? 0), 'hasta' => (int) ($_POST['HASTA'] ?? 0),
+        ], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
     public static function semanaSantaHistoricoBorrarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('nomina.edit');
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
-        $r = NominaRepo::deleteDiaHistorico((int) $p['idHistorico']);
+        $r = self::operar($session, 'nomina.historico.delete', ['idHistorico' => (int) $p['idHistorico']], "/dashboard/semana-santa/$slug");
         if (($r['code'] ?? '') === 'DELETED') Http::redirect("/dashboard/semana-santa/$slug?deleted=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -1641,16 +1744,46 @@ final class Admin
     /** Alta/edición/baja manual de los enlaces de streaming/RRSS musicales de una banda (pestaña Social). */
     public static function bandaSocialPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('banda.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/banda/$id?err=CSRF", 302);
 
+        $enlaces = self::postEnlacesServicio();
+        if (self::proposalMode($session)) {
+            $enlaces = self::soloEnlacesCambiados($enlaces, EnlaceRepo::publicadosDe('banda', $id));
+            if ($enlaces === []) Http::redirect("/dashboard/banda/$id?nochanges=1", 302);
+        }
+        $r = self::operar($session, 'banda.enlaces', ['idBanda' => $id, 'enlaces' => $enlaces], "/dashboard/banda/$id");
+        if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/banda/$id?err=BAD_REQUEST", 302);
+        Http::redirect("/dashboard/banda/$id?social=1", 302);
+    }
+
+    /**
+     * Un campo por servicio (banda y disco): [{servicio, url}], url vacía = borrar.
+     *
+     * @return list<array{servicio:string,url:?string}>
+     */
+    private static function postEnlacesServicio(): array
+    {
+        $out = [];
         foreach (EnlaceRepo::SERVICIOS as $servicio) {
             $url = $_POST[$servicio] ?? null;
-            $r = AdminRepo::setEnlaceStreaming('banda', $id, $servicio, is_string($url) ? $url : null);
-            if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/banda/$id?err=BAD_REQUEST", 302);
+            $out[] = ['servicio' => $servicio, 'url' => is_string($url) ? $url : null];
         }
-        Http::redirect("/dashboard/banda/$id?social=1", 302);
+        return $out;
+    }
+
+    /**
+     * En una propuesta solo viajan los enlaces que cambian: el formulario manda
+     * todos, y aplicarlos todos pisaría en local los que el editor no tocó.
+     *
+     * @param list<array{servicio:string,url:?string}> $enlaces
+     * @param array<string,string> $actuales servicio → url
+     * @return list<array{servicio:string,url:?string}>
+     */
+    private static function soloEnlacesCambiados(array $enlaces, array $actuales): array
+    {
+        return array_values(array_filter($enlaces, static fn(array $e): bool => self::changed($actuales[$e['servicio']] ?? null, $e['url'])));
     }
 
     // ── Autocomplete de bandas (JSON, para el selector de relaciones) ────────
@@ -2281,6 +2414,17 @@ final class Admin
         $session = Auth::requireAdmin();
         $prop = PropuestaRepo::fetchPendiente((string) $p['id']);
         if ($prop === null) Http::notFound();
+        if (PropuestaRepo::esOperacion($prop)) {
+            $op = (string) ($prop['accion'] ?? '');
+            View::render('admin/propuesta_operacion', [
+                'session' => $session, 'prop' => $prop,
+                'seccionLabel' => PropuestaOps::seccion($op),
+                'contexto' => PropuestaOps::contexto($op, (array) ($prop['datos'] ?? [])),
+                'adjuntos' => array_keys(PropuestaRepo::adjuntosDe($prop)),
+                'notice' => self::noticeFromQuery(),
+            ], ['title' => 'Revisar propuesta — Marchas de Cristo', 'noindex' => true]);
+            return;
+        }
         $authors = ($prop['entidad'] ?? '') === 'marcha'
             ? Repo::autoresByIds(array_map('intval', (array) ($prop['autoresIds'] ?? [])))
             : [];
@@ -2301,6 +2445,20 @@ final class Admin
         $prop = PropuestaRepo::fetchPendiente($id);
         if ($prop === null) Http::notFound();
 
+        // Operación: se acepta tal cual (sin retoques, ver PropuestaOps).
+        if (PropuestaRepo::esOperacion($prop)) {
+            $r = PropuestaRepo::aplicar($id, (string) ($session['user'] ?? ''));
+            if (!PropuestaOps::esExito($r)) Http::redirect("/dashboard/propuesta/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
+            self::notifPropuesta('aceptada', $prop);
+            // Disco nuevo: lo siguiente es meterle las pistas desde el enlace
+            // del álbum que dejó el editor (o desde cero si no dejó ninguno).
+            if (($prop['accion'] ?? '') === 'disco.add' && (int) ($r['discoId'] ?? 0) > 0) {
+                $qs = array_filter(['created' => '1', 'url' => (string) ($r['urlAlbum'] ?? ''), 'err' => (string) ($r['errPortada'] ?? '')]);
+                Http::redirect('/dashboard/disco/' . (int) $r['discoId'] . '/importar?' . http_build_query($qs), 302);
+            }
+            Http::redirect('/dashboard/propuestas?aplicada=1', 302);
+        }
+
         // El admin puede ajustar los campos antes de aceptar (el form los reenvía).
         $editable = self::editableFor((string) $prop['entidad'], (string) $prop['accion']);
         $overrideDatos = self::postDatos($editable);
@@ -2314,6 +2472,41 @@ final class Admin
         Http::redirect("/dashboard/propuesta/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
 
+    /**
+     * Adjunto de una propuesta pendiente (la portada de un disco), para verlo
+     * al revisarla. Vive fuera del docroot, así que solo se sirve por aquí.
+     */
+    public static function propuestaAdjunto(array $p): void
+    {
+        Auth::requireAdmin();
+        $prop = PropuestaRepo::fetchPendiente((string) $p['id']);
+        $ruta = $prop !== null ? (PropuestaRepo::adjuntosDe($prop)[(string) $p['nombre']] ?? null) : null;
+        if ($ruta === null || !is_file($ruta)) Http::notFound();
+        $info = @getimagesize($ruta);
+        if ($info === false || $info['mime'] !== 'image/webp') Http::notFound();
+        header('Content-Type: image/webp');
+        header('Content-Length: ' . (string) filesize($ruta));
+        header('X-Content-Type-Options: nosniff');
+        Http::noStore();
+        readfile($ruta);
+    }
+
+    /**
+     * Lo que ha propuesto el usuario de la sesión: pendientes (aún no
+     * aplicadas, se vean o no en la web) y resueltas, con el motivo si se
+     * rechazaron. Para quien trabaja en modo propuesta (editor; admin en PRE/PRO).
+     */
+    public static function misPropuestas(): void
+    {
+        $session = Auth::requireAuth();
+        $user = $session['user'];
+        View::render('admin/mis_propuestas', [
+            'session' => $session,
+            'pendientes' => PropuestaRepo::pendientesDe($user),
+            'resueltas' => PropuestaRepo::resueltasDe($user),
+        ], ['title' => 'Mis propuestas — Marchas de Cristo', 'noindex' => true]);
+    }
+
     public static function propuestaRechazar(array $p): void
     {
         $session = Auth::requireAdmin();
@@ -2325,18 +2518,6 @@ final class Admin
         if (($r['code'] ?? '') !== 'REJECTED') Http::redirect("/dashboard/propuesta/$id?err=" . ($r['code'] ?? 'ERROR'), 302);
         if ($prop !== null) self::notifPropuesta('rechazada', $prop, $motivo !== '' ? $motivo : null);
         Http::redirect('/dashboard/propuestas?rechazada=1', 302);
-    }
-
-    /** Título legible de una propuesta para usar en el asunto/cuerpo del email. */
-    private static function propuestaLabel(array $prop): string
-    {
-        $datos = (array) ($prop['datos'] ?? []);
-        return match ($prop['entidad'] ?? '') {
-            'marcha' => (string) ($datos['TITULO'] ?? 'marcha sin título'),
-            'autor'  => trim(($datos['NOMBRE'] ?? '') . ' ' . ($datos['APELLIDOS'] ?? '')) ?: 'compositor sin nombre',
-            'banda'  => (string) ($datos['NOMBRE_COMPLETO'] ?? $datos['NOMBRE_BREVE'] ?? 'banda sin nombre'),
-            default  => 'propuesta',
-        };
     }
 
     /**
@@ -2353,8 +2534,10 @@ final class Admin
         $to = Mailer::editorEmail($autor);
         if ($to === '') return;
 
-        $titulo   = self::propuestaLabel($prop);
-        $entidad  = (string) ($prop['entidad'] ?? 'entidad');
+        $titulo   = PropuestaRepo::resumen($prop);
+        $entidad  = PropuestaRepo::esOperacion($prop)
+            ? PropuestaOps::seccion((string) ($prop['accion'] ?? ''))
+            : (string) ($prop['entidad'] ?? 'entidad');
         $siteUrl  = rtrim((string) ($GLOBALS['config']['site_url'] ?? 'https://marchasdecristo.com'), '/');
         $eTitulo  = htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8');
         $eEntidad = htmlspecialchars(ucfirst($entidad), ENT_QUOTES, 'UTF-8');
@@ -2372,7 +2555,7 @@ final class Admin
                 . 'Propuesta aceptada</h1>'
                 . '<p>Tu propuesta <strong>«' . $eTitulo . '»</strong> (' . $eEntidad . ') '
                 . 'ha sido revisada y <strong>aceptada</strong>.</p>'
-                . '<p>Los cambios ya están disponibles en el catálogo.</p>'
+                . '<p>Los cambios se verán en la web con la próxima actualización de la base de datos.</p>'
                 . $pie . '</body></html>';
         } else {
             $subject = "Tu propuesta de {$entidad} no ha podido aplicarse — Marchas de Cristo";
@@ -2396,13 +2579,14 @@ final class Admin
 
     // ── Discos ──────────────────────────────────────────────────────────────
     //
-    // Solo administrador: a diferencia de marcha/banda/autor, el disco no pasa
-    // por la cola de propuestas (PropuestaRepo no conoce esta entidad) y además
-    // escribe un fichero en el docroot al subir la portada.
+    // Datos, portada, pistas y streaming. En modo propuesta todo pasa por
+    // PropuestaOps (operaciones disco.*); la portada se valida y normaliza al
+    // proponer y viaja como adjunto de la propuesta hasta que se acepte, porque
+    // escribirla es escribir en el docroot.
 
     public static function discoAddForm(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.add');
         self::renderDiscoAdd($session, [], null);
     }
 
@@ -2412,18 +2596,27 @@ final class Admin
         if ($error !== null) http_response_code(400);
         View::render('admin/disco_add', [
             'session' => $session, 'disco' => $disco, 'error' => $error,
+            'proposalMode' => self::proposalMode($session),
         ], ['title' => 'Añadir disco — Marchas de Cristo', 'noindex' => true]);
     }
 
     public static function discoAddPost(): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.add');
         $fields = [];
         foreach (AdminRepo::EDITABLE_DISCO as $f) $fields[$f] = $_POST[$f] ?? '';
 
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) { self::renderDiscoAdd($session, $fields, 'CSRF'); return; }
 
-        $r = AdminRepo::addDisco($fields);
+        $params = ['campos' => $fields];
+        $adjuntos = [];
+        if (self::proposalMode($session)) {
+            if (trim((string) $fields['NOMBRE_CD']) === '') { self::renderDiscoAdd($session, $fields, 'NOMBRE_REQUERIDO'); return; }
+            [$adjuntos, $errPortada] = self::portadaParaPropuesta();
+            if ($errPortada !== null) { self::renderDiscoAdd($session, $fields, $errPortada); return; }
+            $params += ['urlAlbum' => trim((string) ($_POST['urlAlbum'] ?? '')), 'conPortada' => $adjuntos !== []];
+        }
+        $r = self::operar($session, 'disco.add', $params, '/dashboard', $adjuntos);
         if (($r['code'] ?? '') !== 'CREATED') { self::renderDiscoAdd($session, $fields, $r['code'] ?? 'ERROR'); return; }
 
         $discoId = (int) $r['discoId'];
@@ -2443,7 +2636,7 @@ final class Admin
 
     public static function discoEditForm(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         self::renderDiscoForm($session, (int) $p['id']);
     }
 
@@ -2466,19 +2659,22 @@ final class Admin
             'enlaces' => EnlaceRepo::publicadosDe('disco', $id),
             'tab' => $tab,
             'error' => $err,
+            'proposalMode' => self::proposalMode($session),
             // 'social' y 'ok' pueden venir juntos: al guardar los enlaces se
             // dispara la cascada automática y su resumen viaja en 'ok'.
-            'notice' => isset($_GET['created'])
+            'notice' => isset($_GET['propuesta'])
+                ? (self::noticeFromQuery()['msg'] ?? null)
+                : (isset($_GET['created'])
                 ? 'Disco creado.'
                 : (isset($_GET['social'])
                     ? trim('Enlaces de streaming guardados. ' . (string) ($_GET['ok'] ?? ''))
-                    : (isset($_GET['ok']) ? (string) $_GET['ok'] : null)),
+                    : (isset($_GET['ok']) ? (string) $_GET['ok'] : null))),
         ], ['title' => 'Disco #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }
 
     public static function discoEditPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF", 302);
 
@@ -2486,7 +2682,18 @@ final class Admin
         foreach (AdminRepo::EDITABLE_DISCO as $f) {
             if (array_key_exists($f, $_POST)) $fields[$f] = $_POST[$f];
         }
-        $r = AdminRepo::updateDisco($id, $fields);
+        $adjuntos = [];
+        if (self::proposalMode($session)) {
+            // Solo los datos que cambian (ver soloEnlacesCambiados) y la portada, si hay.
+            $actual = AdminRepo::discoConPistas($id)['disco'] ?? null;
+            if ($actual === null) Http::notFound();
+            $actual = array_change_key_case($actual, CASE_UPPER);
+            $fields = array_filter($fields, static fn(mixed $v, string $k): bool => self::changed($actual[strtoupper($k)] ?? null, $v), ARRAY_FILTER_USE_BOTH);
+            [$adjuntos, $errPortada] = self::portadaParaPropuesta();
+            if ($errPortada !== null) Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($errPortada), 302);
+            if ($fields === [] && $adjuntos === []) Http::redirect("/dashboard/disco/$id?ok=" . rawurlencode('No había cambios que guardar.'), 302);
+        }
+        $r = self::operar($session, 'disco.edit', ['idDisco' => $id, 'campos' => $fields, 'conPortada' => $adjuntos !== []], "/dashboard/disco/$id", $adjuntos);
         if (!in_array($r['code'] ?? '', ['UPDATED', 'INVALID_FIELDS'], true)) {
             Http::redirect("/dashboard/disco/$id?err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
         }
@@ -2500,18 +2707,11 @@ final class Admin
 
     public static function discoPistaAddPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
-        $r = AdminRepo::addPista(
-            $id,
-            (int) ($_POST['idMarcha'] ?? 0),
-            (int) ($_POST['numero'] ?? 0),
-            (int) ($_POST['nDisco'] ?? 1),
-            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
-            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
-        );
+        $r = self::operar($session, 'disco.pista.add', self::postPista($id), "/dashboard/disco/$id?tab=pistas");
         if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
         Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista añadida.'), 302);
     }
@@ -2545,30 +2745,39 @@ final class Admin
 
     public static function discoPistaEditPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
-        $r = AdminRepo::updatePista(
-            $id,
-            (int) $p['dm'],
-            (int) ($_POST['idMarcha'] ?? 0),
-            (int) ($_POST['numero'] ?? 0),
-            (int) ($_POST['nDisco'] ?? 1),
-            self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
-            self::parsePercusionPista((string) ($_POST['percusion'] ?? ''))
-        );
+        $r = self::operar($session, 'disco.pista.edit', self::postPista($id) + ['idDm' => (int) $p['dm']], "/dashboard/disco/$id?tab=pistas");
         if (($r['code'] ?? '') !== 'UPDATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
         Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista actualizada.'), 302);
     }
 
+    /**
+     * Campos de una pista (alta o edición) en la forma de las operaciones disco.pista.*.
+     *
+     * @return array{idDisco:int,idMarcha:int,numero:int,nDisco:int,duracion:?int,percusion:?int}
+     */
+    private static function postPista(int $idDisco): array
+    {
+        return [
+            'idDisco' => $idDisco,
+            'idMarcha' => (int) ($_POST['idMarcha'] ?? 0),
+            'numero' => (int) ($_POST['numero'] ?? 0),
+            'nDisco' => (int) ($_POST['nDisco'] ?? 1),
+            'duracion' => self::parseDuracionMmSs((string) ($_POST['duracion'] ?? '')),
+            'percusion' => self::parsePercusionPista((string) ($_POST['percusion'] ?? '')),
+        ];
+    }
+
     public static function discoPistaDeletePost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=pistas", 302);
 
-        $r = AdminRepo::deletePista($id, (int) $p['dm']);
+        $r = self::operar($session, 'disco.pista.delete', ['idDisco' => $id, 'idDm' => (int) $p['dm']], "/dashboard/disco/$id?tab=pistas");
         if (($r['code'] ?? '') !== 'DELETED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
         Http::redirect("/dashboard/disco/$id?tab=pistas&ok=" . rawurlencode('Pista eliminada.'), 302);
     }
@@ -2579,22 +2788,24 @@ final class Admin
      */
     public static function discoSocialPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id?err=CSRF&tab=streaming", 302);
 
-        foreach (EnlaceRepo::SERVICIOS as $servicio) {
-            $url = $_POST[$servicio] ?? null;
-            $r = AdminRepo::setEnlaceStreaming('disco', $id, $servicio, is_string($url) ? $url : null);
-            if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/disco/$id?err=BAD_REQUEST&tab=streaming", 302);
+        $enlaces = self::postEnlacesServicio();
+        if (self::proposalMode($session)) {
+            $enlaces = self::soloEnlacesCambiados($enlaces, EnlaceRepo::publicadosDe('disco', $id));
+            if ($enlaces === []) Http::redirect("/dashboard/disco/$id?tab=streaming&ok=" . rawurlencode('No había cambios que guardar.'), 302);
         }
-
         // Guardar dispara la cascada: el resto de servicios del disco, los de sus
         // marchas y los de la banda. Se lanza SIEMPRE, no solo cuando cambia algo,
         // para que «Guardar enlaces» signifique siempre lo mismo — «busca lo que
         // falte» — y volver a pulsarlo sirva de reintento. Es idempotente (solo
-        // escribe huecos) y Odesli va cacheado en disco. Ver EnlacesAuto.
-        $resumen = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
+        // escribe huecos) y Odesli va cacheado en disco. Ver EnlacesAuto y
+        // PropuestaOps::discoEnlaces.
+        $r = self::operar($session, 'disco.enlaces', ['idDisco' => $id, 'enlaces' => $enlaces], "/dashboard/disco/$id?tab=streaming");
+        if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/disco/$id?err=BAD_REQUEST&tab=streaming", 302);
+        $resumen = $r['resumen'] ?? null;
         Http::redirect("/dashboard/disco/$id?social=1&tab=streaming"
             . ($resumen !== null ? '&ok=' . rawurlencode($resumen) : ''), 302);
     }
@@ -2614,15 +2825,16 @@ final class Admin
 
     public static function discoImportarForm(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         $data = AdminRepo::discoConPistas($id);
         if ($data === null) { Http::notFound(); return; }
 
-        // Si el disco ya tiene enlace de álbum guardado, se propone ese: lo
-        // normal es que sea justo el que se quiere importar.
-        $enlaces = EnlaceRepo::publicadosDe('disco', $id);
-        $url = '';
+        // El enlace que dejó el editor en su propuesta de alta (?url=, ver
+        // propuestaAceptar) o, si no, el de álbum que ya tenga guardado el
+        // disco: lo normal es que sea justo el que se quiere importar.
+        $url = trim((string) ($_GET['url'] ?? ''));
+        $enlaces = $url === '' ? EnlaceRepo::publicadosDe('disco', $id) : [];
         foreach (Tracklist::SERVICIOS as $servicio) {
             if (!empty($enlaces[$servicio])) { $url = (string) $enlaces[$servicio]; break; }
         }
@@ -2636,7 +2848,8 @@ final class Admin
 
     public static function discoImportarPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        // Solo analiza (lee el tracklist y lo cruza con el catálogo): no escribe.
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         $data = AdminRepo::discoConPistas($id);
         if ($data === null) { Http::notFound(); return; }
@@ -2662,7 +2875,7 @@ final class Admin
 
     public static function discoImportarConfirmar(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('disco.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/disco/$id/importar?err=CSRF", 302);
 
@@ -2687,22 +2900,19 @@ final class Admin
 
         if ($filas === []) Http::redirect("/dashboard/disco/$id?tab=pistas&err=SIN_PISTAS_MARCADAS", 302);
 
-        $r = ImportadorPistas::aplicar($id, $filas);
-
         // El enlace del álbum se guarda como enlace de streaming del disco: es
         // el mismo dato que pide la pestaña «Streaming» y de él viven después
         // fill_duraciones.php y la ficha pública. Solo si el usuario lo pidió.
         // Guardarlo dispara la misma cascada que la pestaña «Streaming», y aquí
         // rinde más que en ningún sitio: las pistas se acaban de crear, así que
-        // sus marchas se llevan también su enlace en cada servicio.
-        $resumenAuto = null;
-        if (!empty($_POST['guardarEnlace'])) {
-            $ref = Tracklist::parseUrl((string) ($_POST['url'] ?? ''));
-            if ($ref !== null) {
-                AdminRepo::setEnlaceStreaming('disco', $id, $ref['servicio'], (string) $_POST['url']);
-                $resumenAuto = EnlacesAuto::resumen(EnlacesAuto::paraDisco($id));
-            }
-        }
+        // sus marchas se llevan también su enlace en cada servicio. Ver
+        // PropuestaOps::discoImportar.
+        $r = self::operar($session, 'disco.importar', [
+            'idDisco' => $id, 'filas' => $filas,
+            'url' => (string) ($_POST['url'] ?? ''), 'guardarEnlace' => !empty($_POST['guardarEnlace']),
+        ], "/dashboard/disco/$id?tab=pistas");
+        if (($r['code'] ?? '') !== 'CREATED') Http::redirect("/dashboard/disco/$id?tab=pistas&err=" . rawurlencode($r['code'] ?? 'ERROR'), 302);
+        $resumenAuto = $r['resumenAuto'] ?? null;
 
         $msg = $r['anadidas'] === 1 ? '1 pista añadida.' : $r['anadidas'] . ' pistas añadidas.';
         if ($r['errores'] !== []) {
@@ -2733,6 +2943,7 @@ final class Admin
             'filas' => [],
             'error' => null,
             'creado' => false,
+            'proposalMode' => self::proposalMode($session),
         ], $extra), [
             'title' => 'Importar pistas · disco #' . (int) $data['disco']['ID_DISCO'] . ' — Marchas de Cristo',
             'noindex' => true,
@@ -2757,23 +2968,33 @@ final class Admin
      */
     public static function marchaSocialPost(array $p): void
     {
-        $session = Auth::requireAdmin();
+        $session = Auth::requireCap('marcha.edit');
         $id = (int) $p['id'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/marcha/$id?err=CSRF", 302);
 
+        $enlaces = [];
         foreach (EnlaceRepo::VERSIONES as $version) {
             foreach (EnlaceRepo::SERVICIOS as $servicio) {
                 $campo = $version . '_' . $servicio;
                 $url = $_POST[$campo] ?? null;
                 $anioRaw = trim((string) ($_POST[$campo . '_anio'] ?? ''));
-                $anio = ctype_digit($anioRaw) ? (int) $anioRaw : null;
-                $r = AdminRepo::setEnlaceStreaming(
-                    'marcha', $id, $servicio, is_string($url) ? $url : null,
-                    null, $version, $anio, true
-                );
-                if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/marcha/$id?err=BAD_REQUEST", 302);
+                $enlaces[] = [
+                    'version' => $version, 'servicio' => $servicio,
+                    'url' => is_string($url) ? $url : null, 'anio' => ctype_digit($anioRaw) ? (int) $anioRaw : null,
+                ];
             }
         }
+        if (self::proposalMode($session)) {
+            // Solo lo que cambia (enlace o año), ver soloEnlacesCambiados.
+            $actual = EnlaceRepo::detalleDe('marcha', $id);
+            $enlaces = array_values(array_filter($enlaces, static function (array $e) use ($actual): bool {
+                $fila = $actual[$e['version']][$e['servicio']] ?? null;
+                return self::changed($fila['url'] ?? null, $e['url']) || self::changed($fila['anio'] ?? null, $e['anio']);
+            }));
+            if ($enlaces === []) Http::redirect("/dashboard/marcha/$id?nochanges=1", 302);
+        }
+        $r = self::operar($session, 'marcha.enlaces', ['idMarcha' => $id, 'enlaces' => $enlaces], "/dashboard/marcha/$id");
+        if (($r['code'] ?? '') === 'BAD_REQUEST') Http::redirect("/dashboard/marcha/$id?err=BAD_REQUEST", 302);
         Http::redirect("/dashboard/marcha/$id?ok=" . rawurlencode('Enlaces de escucha guardados.'), 302);
     }
 
@@ -2839,7 +3060,7 @@ final class Admin
             })(),
             'disco'  => (static function () use ($q, $normalize): array {
                 $session = Auth::currentSession();
-                if ($session === null || !Roles::isAdmin($session['rol'] ?? '')) return [];
+                if ($session === null || !Roles::has(Auth::roleOf((string) ($session['user'] ?? '')), 'disco.edit')) return [];
                 return $normalize('disco', AdminRepo::discoCandidatosPorTexto($q, 15));
             })(),
             default  => [],

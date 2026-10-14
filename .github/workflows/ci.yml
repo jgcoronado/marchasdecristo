@@ -66,6 +66,12 @@ jobs:
       - name: Unit tests (CSV de /rosario)
         run: php php/tools/ci_rosario.php
 
+      # Propuestas de editores: proponer no escribe en la BD, aceptar aplica lo
+      # mismo que el guardado directo, una aceptación fallida sigue pendiente y
+      # el editor ve en qué quedó lo suyo también en producción.
+      - name: Unit tests (propuestas de editores)
+        run: php php/tools/ci_propuestas.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db

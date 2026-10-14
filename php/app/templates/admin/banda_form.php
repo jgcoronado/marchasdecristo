@@ -2,14 +2,12 @@
 /** @var array $session @var array<string,mixed> $banda @var string $action
  *  @var list<array<string,mixed>> $relaciones @var list<string> $tipos
  *  @var list<array<string,mixed>> $etapas Repo::bandaEtapas() — con etapas, fundación/extinción se calculan
- *  @var bool $showLinaje @var bool $proposalMode @var array|null $notice @var string|null $error
+ *  @var bool $proposalMode @var array|null $notice @var string|null $error
  *  @var array<string,string> $enlaces
  *  @var array<int,list<array<string,mixed>>> $acomp Repo::acompanamientosDeBandaAdmin(), año → filas
  *  @var array<string,array<string,mixed>> $acompNomina NominaRepo::datosAltaBanda() @var list<string> $provincias
  *  @var int $anioAbierto año de la pestaña que se abre (0 = el más reciente) */
 $csrf = Auth::csrfToken($session);
-$showLinaje = $showLinaje ?? true;
-$proposalMode = $proposalMode ?? false;
 $enlaces = $enlaces ?? [];
 $acomp = $acomp ?? [];
 $acompNomina = $acompNomina ?? [];
@@ -74,14 +72,13 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 
 <?php if ($error): ?><div class="alert alert-error">Error: <?= V::e($error) ?></div><?php endif; ?>
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
-<?php if ($proposalMode): ?><div class="alert alert-info">Verás una <strong>previsualización</strong> antes de enviar. Tu propuesta la revisará un administrador; no se guarda directamente en la base de datos.</div><?php endif; ?>
+<?php if ($proposalMode): ?><div class="alert alert-info">Todo lo que envíes aquí es una <strong>propuesta</strong> que revisará un administrador; no se guarda directamente en la base de datos.
+        Los datos de la ficha muestran antes una <strong>previsualización</strong>; etapas, linaje, enlaces y acompañamientos se envían al pulsar su botón.</div><?php endif; ?>
 
     <div class="row tabs" role="tablist" style="gap:0.5rem;margin-bottom:0.75rem">
         <button type="button" class="btn btn-sm btn-neutral tab-btn" data-tab="datos" aria-selected="true">Datos</button>
         <button type="button" class="btn btn-sm btn-ghost tab-btn" data-tab="social" aria-selected="false">Social</button>
-<?php if ($showLinaje): ?>
         <button type="button" class="btn btn-sm btn-ghost tab-btn" data-tab="acompanamientos" aria-selected="false">Acompañamientos</button>
-<?php endif; ?>
     </div>
 
     <div data-tab-panel="datos">
@@ -92,7 +89,7 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
             <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
             <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>"<?= $type === 'number' ? ' min="1800" max="2100"' : '' ?> value="<?= $val($key) ?>"<?= $conEtapas && $type === 'number' ? ' readonly' : '' ?>>
 <?php if ($conEtapas && $type === 'number'): ?>
-            <p class="muted small">Se calcula a partir de las etapas de actividad<?= $showLinaje ? ' (más abajo)' : '' ?>.</p>
+            <p class="muted small">Se calcula a partir de las etapas de actividad (más abajo).</p>
 <?php endif; ?>
         </div>
 <?php if ($key === 'NOMBRE_COMPLETO'): ?>
@@ -101,7 +98,6 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 <?php endforeach; ?>
         <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Previsualizar propuesta' : 'Guardar cambios' ?></button></div>
     </form>
-<?php if ($showLinaje): ?>
 
     <section>
         <h2 class="section-title">Etapas de actividad</h2>
@@ -237,7 +233,6 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
             <div><button class="btn btn-neutral" type="submit">Añadir relación</button></div>
         </form>
     </section>
-<?php endif; ?>
     </div>
 
     <div data-tab-panel="social" hidden>
@@ -250,7 +245,6 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
             </div>
         </section>
 
-<?php if ($showLinaje): // enlace_streaming se escribe directo, sin flujo de propuestas: solo admin ?>
         <section>
             <h2 class="section-title">Enlaces de streaming / RRSS musicales</h2>
             <p class="muted small">Vincula el perfil oficial de esta banda en cada servicio. Vacío = sin enlace.</p>
@@ -265,9 +259,7 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
                 <div><button class="btn btn-neutral" type="submit">Guardar enlaces</button></div>
             </form>
         </section>
-<?php endif; ?>
     </div>
-<?php if ($showLinaje): ?>
 
     <div data-tab-panel="acompanamientos" hidden>
 <?php if ($acompError ?? null): ?>
@@ -362,7 +354,7 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 <?php /* Formulario único para «Editar» y «+ Añadir en AAAA»: el JS lo coloca
          bajo la tabla del año y le pone la acción y los valores de la fila. */ ?>
         <div id="acompFlotante" hidden>
-            <form class="panel acomp-form" method="POST" action="/dashboard/banda/<?= $id ?>/acompanamiento" <?= H::municipioFormAttrs(true, $csrf) ?>
+            <form class="panel acomp-form" method="POST" action="/dashboard/banda/<?= $id ?>/acompanamiento" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>
                   data-accion-alta="/dashboard/banda/<?= $id ?>/acompanamiento"
                   data-accion-editar="/dashboard/banda/<?= $id ?>/acompanamiento/{c}/editar">
                 <p><strong class="acomp-titulo"></strong></p>
@@ -396,7 +388,7 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
 
         <section>
             <h2 class="section-title">Añadir acompañamiento (uno o varios años)</h2>
-            <form class="panel acomp-form" action="/dashboard/banda/<?= $id ?>/acompanamiento" method="POST" id="acompForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
+            <form class="panel acomp-form" action="/dashboard/banda/<?= $id ?>/acompanamiento" method="POST" id="acompForm" <?= H::municipioFormAttrs(!$proposalMode, $csrf) ?>>
                 <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
                 <div class="adv-grid">
                     <div class="field">
@@ -429,12 +421,9 @@ $punta = static function (?int $bid, ?string $nombre, ?string $loc) use ($id): s
         </section>
 <?php endif; ?>
     </div>
-<?php endif; ?>
 </div>
 <script src="/assets/admin.js" defer></script>
-<?php if ($showLinaje): ?>
 <script src="/assets/banda-relaciones.js" defer></script>
-<?php endif; ?>
 <script>
 (function () {
     var btns = Array.from(document.querySelectorAll('.tab-btn'));

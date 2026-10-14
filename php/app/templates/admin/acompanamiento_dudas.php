@@ -21,6 +21,7 @@ $tipoLabel = ['cristo' => 'Cristo', 'virgen' => 'Virgen', 'cruz_guia' => 'Cruz d
     </p>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
+<?php if ($proposalMode ?? false): ?><div class="alert alert-info">Lo que guardes en esta pantalla se envía como <strong>propuesta</strong>: un administrador la revisa antes de aplicarla, así que hasta entonces no verás el cambio aquí. Lo pendiente está en <a href="/dashboard/mis-propuestas">Mis propuestas</a>.</div><?php endif; ?>
 
 <?php if (!$pendientes): ?>
     <p class="muted">No hay dudas pendientes de revisión.</p>

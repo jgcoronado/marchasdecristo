@@ -253,8 +253,11 @@ $router->post('/dashboard/usuarios/{id}/reset', [Admin::class, 'usuariosResetPos
 // ── Propuestas de editores (revisión, solo admin) ────────────────────────────
 $router->get('/dashboard/propuestas', [Admin::class, 'propuestaList']);
 $router->get('/dashboard/propuesta/{id}', [Admin::class, 'propuestaDetail']);
+$router->get('/dashboard/propuesta/{id}/adjunto/{nombre}', [Admin::class, 'propuestaAdjunto']);
 $router->post('/dashboard/propuesta/{id}/aceptar', [Admin::class, 'propuestaAceptar']);
 $router->post('/dashboard/propuesta/{id}/rechazar', [Admin::class, 'propuestaRechazar']);
+// Lo que ha propuesto quien trabaja en modo propuesta (editor; admin en PRE/PRO).
+$router->get('/dashboard/mis-propuestas', [Admin::class, 'misPropuestas']);
 
 // ── Ingesta (revisión de candidatos de YouTube, ver tools/ingest/) ───────────
 $router->get('/dashboard/ingesta', [Admin::class, 'ingestaList']);

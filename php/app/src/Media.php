@@ -148,6 +148,20 @@ final class Media
      */
     public static function guardarPortada(array $file, int $idDisco): ?string
     {
+        return self::guardarPortadaEn($file, self::portadaPath($idDisco));
+    }
+
+    /**
+     * Lo mismo que guardarPortada() pero a una ruta cualquiera: la portada que
+     * acompaña a una propuesta se valida y se normaliza a WebP al enviarla, y
+     * se guarda junto al JSON de la propuesta (no en el docroot) hasta que el
+     * admin la acepte — ver instalarPortada().
+     *
+     * @param  array{name?:string,type?:string,tmp_name?:string,error?:int,size?:int} $file entrada de $_FILES
+     * @return string|null código de error, o null si se guardó bien
+     */
+    public static function guardarPortadaEn(array $file, string $destino): ?string
+    {
         $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) return 'PORTADA_DEMASIADO_GRANDE';
         if ($err !== UPLOAD_ERR_OK) return 'PORTADA_SUBIDA_FALLIDA';
@@ -179,15 +193,40 @@ final class Media
         $ok = imagecopyresampled($dst, $src, 0, 0, (int) (($w - $corte) / 2), (int) (($h - $corte) / 2), $lado, $lado, $corte, $corte);
         if (!$ok) { return 'PORTADA_NO_ES_IMAGEN'; }
 
-        $dir = self::portadaDir();
+        $dir = dirname($destino);
         if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
         if (!is_writable($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
 
         // Escritura atómica: si el proceso muere a medias, la portada anterior
         // sigue intacta en vez de quedar un WebP truncado servido a todo el mundo.
-        $tmpOut = $dir . '/.' . $idDisco . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        $tmpOut = $dir . '/.' . basename($destino) . '.' . bin2hex(random_bytes(4)) . '.tmp';
         $guardado = imagewebp($dst, $tmpOut, self::PORTADA_CALIDAD_WEBP);
         if (!$guardado) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
+        if (!@rename($tmpOut, $destino)) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
+        @chmod($destino, 0o644);
+        return null;
+    }
+
+    /**
+     * Instala como portada del disco un WebP ya normalizado por
+     * guardarPortadaEn() — el adjunto de una propuesta aceptada. Se copia (no
+     * se mueve: el original se archiva con la propuesta) con la misma
+     * escritura atómica, y antes se comprueba que sigue siendo un WebP: el
+     * fichero ha viajado por FTP desde producción.
+     *
+     * @return string|null código de error, o null si se instaló bien
+     */
+    public static function instalarPortada(string $webp, int $idDisco): ?string
+    {
+        $info = is_file($webp) ? @getimagesize($webp) : false;
+        if ($info === false || $info['mime'] !== 'image/webp') return 'PORTADA_NO_ES_IMAGEN';
+
+        $dir = self::portadaDir();
+        if (!is_dir($dir) && !@mkdir($dir, 0o775, true) && !is_dir($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
+        if (!is_writable($dir)) { return 'PORTADA_DIR_NO_ESCRIBIBLE'; }
+
+        $tmpOut = $dir . '/.' . $idDisco . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (!@copy($webp, $tmpOut)) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
         if (!@rename($tmpOut, self::portadaPath($idDisco))) { @unlink($tmpOut); return 'PORTADA_ESCRITURA_FALLIDA'; }
         @chmod(self::portadaPath($idDisco), 0o644);
         return null;

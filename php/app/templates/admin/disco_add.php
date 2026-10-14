@@ -1,6 +1,7 @@
 <?php use App\View as V; use App\Auth; use App\Media;
-/** @var array $session @var array<string,mixed> $disco @var string|null $error */
+/** @var array $session @var array<string,mixed> $disco @var string|null $error @var bool $proposalMode */
 $csrf = Auth::csrfToken($session);
+$proposalMode = $proposalMode ?? false;
 $val = static fn(string $k): string => V::e((string) ($disco[$k] ?? ''));
 $maxMb = (int) round(Media::PORTADA_MAX_BYTES / 1024 / 1024);
 ?>
@@ -14,8 +15,14 @@ $maxMb = (int) round(Media::PORTADA_MAX_BYTES / 1024 / 1024);
 
 <?php if ($error): ?><div class="alert alert-error">Error: <?= V::e($error) ?></div><?php endif; ?>
 
+<?php if ($proposalMode): ?>
+    <div class="alert alert-info">Se enviará como <strong>propuesta</strong>: el disco no existirá hasta que un administrador la acepte.
+        Por eso sus pistas no se pueden añadir todavía; si dejas el <strong>enlace del álbum</strong>, el administrador
+        las importará desde él al aceptarla.</div>
+<?php else: ?>
     <p class="muted">Primero se crea el disco; al guardarlo pasarás a su ficha para
         añadir las marchas con su número de pista.</p>
+<?php endif; ?>
 
     <form class="panel" action="/dashboard/disco/add" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
@@ -54,7 +61,15 @@ $maxMb = (int) round(Media::PORTADA_MAX_BYTES / 1024 / 1024);
             <textarea class="input" id="d_DETALLES" name="d_DETALLES" rows="3"><?= $val('d_DETALLES') ?></textarea>
         </div>
 
-        <div><button class="btn btn-neutral" type="submit">Crear disco</button></div>
+<?php if ($proposalMode): ?>
+        <div class="field">
+            <label class="field-label" for="urlAlbum">Enlace del álbum <span class="muted small">· opcional</span></label>
+            <input class="input" id="urlAlbum" name="urlAlbum" type="url" placeholder="https://open.spotify.com/album/…" value="<?= V::e((string) ($_POST['urlAlbum'] ?? '')) ?>">
+            <p class="muted small field-help">Spotify, Apple Music o Deezer: de él se sacan las pistas, su orden y su duración.</p>
+        </div>
+<?php endif; ?>
+
+        <div><button class="btn btn-neutral" type="submit"><?= $proposalMode ? 'Enviar propuesta' : 'Crear disco' ?></button></div>
     </form>
 </div>
 <script src="/assets/disco.js" defer></script>

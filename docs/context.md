@@ -65,7 +65,7 @@ Relaciones principales: `marcha_autor` (N:N marcha↔autor), `disco_marcha` (N:N
 - Passwords: **PBKDF2-SHA512 / 210 000 iteraciones**, con auto-upgrade transparente desde MD5 legado en el primer login.
 - **Rate limiting persistido a fichero** (no hay memoria compartida entre peticiones PHP-FPM/CGI de HelioHost): 6 intentos / 15 min, bloqueo 15 min.
 - CSRF: token derivado de la sesión, validado en los formularios del panel.
-- Roles (`App\Roles`): `admin` (acceso total) y `editor` (alta/edición de marchas, bandas y autores **vía propuestas**, sin acceso a ingesta, enlaces, dedicatorias, estilos, linaje ni gestión de usuarios).
+- Roles (`App\Roles`): `admin` (acceso total) y `editor` (altas, ediciones y borrados de marchas, compositores, bandas —con linaje, etapas, enlaces y acompañamientos—, discos, Semana Santa y acompañamientos, todo **vía propuestas**; sin acceso a ingesta, enlaces candidatos, dedicatorias, estilos ni gestión de usuarios).
 
 ### SEO
 
@@ -210,8 +210,8 @@ Plantilla en `app/config.local.example.php`. Claves relevantes (con sus defaults
 
 Producción es **de solo lectura** para la base de datos (`Db::assertWritable()`). El ciclo editorial real es:
 
-1. **Editores** trabajan contra producción, pero sus altas/ediciones no tocan el `.db`: `AdminRepo`/`Roles` las desvía a **`PropuestaRepo`**, que las serializa como JSON en `private/propuestas/pendientes/<id>.json` (fichero, no fila de BD). **Fuera de local esto vale para todos**: desde el 2026-08-03 el administrador tampoco escribe directo en PRE ni en PRO (`Admin::proposalMode()`), porque sus cambios ahí se perderían en el siguiente sync. Ver [entornos.md](entornos.md).
-2. El **admin** baja esas propuestas a local con `scripts/sync_propuestas_from_prod.php` (FTP), las revisa en `/dashboard/propuestas` y, al aceptarlas, se aplican sobre el `.db` **local** reutilizando `AdminRepo` (donde `env=local` sí permite escribir).
+1. **Editores** trabajan contra producción, pero lo que guardan no toca el `.db`: `Admin::proposalMode()` lo desvía a **`PropuestaRepo`**, que lo serializa como JSON en `private/propuestas/pendientes/<id>.json` (fichero, no fila de BD) — la ficha entera en marcha/banda/autor, o una **operación** de `PropuestaOps` con su descripción legible en el resto del panel (ver [admin-panel.md §1.1](admin-panel.md)). **Fuera de local esto vale para todos**: desde el 2026-08-03 el administrador tampoco escribe directo en PRE ni en PRO (`Admin::proposalMode()`), porque sus cambios ahí se perderían en el siguiente sync. Ver [entornos.md](entornos.md).
+2. El **admin** baja esas propuestas (y sus adjuntos, como la portada de un disco) a local con `scripts/sync_propuestas_from_prod.php` (FTP), las revisa en `/dashboard/propuestas` y, al aceptarlas, se aplican sobre el `.db` **local** con el mismo código que el guardado directo (`AdminRepo` / `PropuestaOps`, donde `env=local` sí permite escribir). La resolución se apunta en `admin_log`, que viaja con el `.db` en el paso 3: así el editor ve en «Mis propuestas» qué se aceptó o rechazó.
 3. Cuando hay cambios acumulados en local (propuestas aplicadas, altas manuales, backfills de `app/tools/`), el admin sincroniza con **`scripts/sync_db_to_prod.php`**, que:
    - Verifica que no queden propuestas pendientes sin bajar de producción (guardarraíl no bloqueante: avisa si el listado FTP falla, p.ej. la primera vez que el directorio no existe).
    - Activa un **modo mantenimiento** (fichero sentinela `.maintenance` junto al `.db`, comprobado en `bootstrap.php` antes de enrutar cualquier petición — sirve un 503 con `Retry-After`) durante el reemplazo del `.db` en el host.

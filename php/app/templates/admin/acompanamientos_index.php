@@ -17,6 +17,7 @@ $csrf = Auth::csrfToken($session);
 <p class="muted">Alta manual por rango de años (una localidad cada vez, ver convención del pipeline). Cada localidad tiene su propia página con las hermandades y el histórico ya cargado.</p>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
+<?php if ($proposalMode ?? false): ?><div class="alert alert-info">Lo que guardes en esta pantalla se envía como <strong>propuesta</strong>: un administrador la revisa antes de aplicarla, así que hasta entonces no verás el cambio aquí. Lo pendiente está en <a href="/dashboard/mis-propuestas">Mis propuestas</a>.</div><?php endif; ?>
 
 <section>
     <h2 class="section-title">Localidades</h2>
@@ -45,7 +46,7 @@ $csrf = Auth::csrfToken($session);
 
 <section>
     <h2 class="section-title">Localidad nueva</h2>
-    <form class="panel" action="/dashboard/acompanamientos/crear" method="POST" <?= H::municipioFormAttrs(true, $csrf) ?>>
+    <form class="panel" action="/dashboard/acompanamientos/crear" method="POST" <?= H::municipioFormAttrs(!($proposalMode ?? false), $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <p class="muted small">Provincia y localidad del listado de municipios, como en bandas y dedicatorias. Si la localidad ya tiene acompañamientos, se abre la suya.</p>
 <?= H::municipioFields('', null) ?>

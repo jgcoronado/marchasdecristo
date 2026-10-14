@@ -204,10 +204,13 @@ $nueva = isset($_GET['nueva']) ? (int) $_GET['nueva'] : 0;
         </div>
 
         <div class="row">
-            <button class="btn btn-neutral" type="submit">Añadir las pistas marcadas</button>
+            <button class="btn btn-neutral" type="submit"><?= ($proposalMode ?? false) ? 'Proponer las pistas marcadas' : 'Añadir las pistas marcadas' ?></button>
             <button class="btn btn-ghost" type="button" data-import-todas>Marcar / desmarcar todas</button>
             <a class="btn btn-ghost" href="/dashboard/disco/<?= $id ?>/importar">Empezar de nuevo</a>
         </div>
+<?php if ($proposalMode ?? false): ?>
+        <p class="muted small">Se envía como <strong>propuesta</strong>: las pistas se añadirán cuando un administrador la acepte.</p>
+<?php endif; ?>
         <p class="muted small">Las pistas se añaden en orden. La duración es la de <strong>esta grabación</strong>;
             marca 🥁 en las que empiecen con introducción de tambores si se desvían de lo que diga el disco.</p>
     </form>

@@ -104,7 +104,9 @@
      * Guarda el orden actual de $lista en segundo plano (sin recargar): manda
      * el form de reordenar de la lista con los IDs en orden DOM como orden[].
      * El servidor responde con un redirect PRG; si la URL final lleva ?err=,
-     * no se guardó y se recarga para que la página vuelva al orden real.
+     * no se guardó y se recarga para que la página vuelva al orden real. Si
+     * lleva ?propuesta=, quien ordena trabaja en modo propuesta: el orden no
+     * se ha guardado aún, se ha enviado para revisión (Admin::operar).
      */
     function guardarOrden(lista) {
         var form = document.getElementById(lista.getAttribute('data-form'));
@@ -117,7 +119,7 @@
         fetch(form.action, { method: 'POST', body: datos, credentials: 'same-origin' })
             .then(function (r) {
                 if (!r.ok || /[?&]err=/.test(r.url)) throw new Error('No se guardó');
-                if (estado) estado.textContent = 'Orden guardado ✓';
+                if (estado) estado.textContent = /[?&]propuesta=/.test(r.url) ? 'Propuesta de orden enviada ✓' : 'Orden guardado ✓';
             })
             .catch(function () {
                 if (estado) estado.textContent = 'Error al guardar el orden; recargando…';

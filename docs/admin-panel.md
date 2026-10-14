@@ -1,6 +1,6 @@
 # Panel de administración — marchasdecristo.com
 
-> Última actualización: 2026-07-27 (§1-6 reescritas en términos de la implementación PHP real, ya no del diseño Next.js heredado) · 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
+> Última actualización: 2026-10-14 (propuestas de editor en todo el panel: §1, §1.1, §1.2, §11) · 2026-07-27 (§1-6 reescritas en términos de la implementación PHP real, ya no del diseño Next.js heredado) · 2026-07-12 (scripts de herramientas) · 2026-07-10 (curación de estilo CCTT/AM) · 2026-07-08 (relaciones de linaje de bandas)
 > Documento complementario de [context.md](context.md) y [roadmap.md](roadmap.md).
 > Todo el documento describe ya la implementación PHP actual (`php/app/src/Admin.php`
 > + `AdminRepo.php` + `Auth.php` + `Roles.php` + plantillas en `php/app/templates/admin/`).
@@ -21,9 +21,9 @@
 | **Rate limit** | 6 intentos / 15 min por IP+usuario; bloqueo de 15 min; persistido a fichero (sin memoria compartida entre peticiones en HelioHost), con purga de entradas expiradas en cada escritura |
 | **Contraseñas** | PBKDF2-SHA512 / 210 000 iteraciones; upgrade automático desde MD5 legado en el primer login exitoso |
 | **CSRF** | Token derivado de la sesión (`Auth::csrfToken`/`checkCsrf`), validado en todos los POST del panel |
-| **Roles** (`App\Roles`) | `admin` (acceso total, comodín `*`) y `editor` (capacidades `marcha.add/edit`, `banda.add/edit`, `autor.add/edit` vía `Roles::EDITOR_CAPS`; sin acceso a ingesta, enlaces, dedicatorias, estilos, linaje de bandas ni gestión de usuarios) |
+| **Roles** (`App\Roles`) | `admin` (acceso total, comodín `*`) y `editor` (capacidades vía `Roles::EDITOR_CAPS`: `marcha.add/edit`, `banda.add/edit` —ficha completa: datos, linaje, etapas, enlaces y acompañamientos—, `autor.add/edit`, `disco.add/edit` —datos, portada, pistas, importador y streaming—, `nomina.edit` —Semana Santa— y `acompanamientos.edit` —por localidad, dudas y bandas pendientes—; sin acceso a ingesta, candidatos DMP, enlaces candidatos, dedicatorias, estilos, carga de Málaga ni gestión de usuarios y propuestas) |
 
-El editor nunca escribe en la BD de verdad: sus altas/ediciones de marcha, banda y autor se guardan como **propuestas** (`PropuestaRepo::create()`, JSON de fichero) en vez de aplicarse directamente — ver §5 de `context.md`.
+El editor nunca escribe en la BD de verdad: todo lo que guarda —altas, ediciones y **también borrados**— se guarda como **propuesta** (JSON de fichero) en vez de aplicarse directamente — ver §1.1 y §5 de `context.md`.
 
 Quién escribe directo y quién propone lo decide `Admin::proposalMode($session)`, con **dos** condiciones y basta una:
 
@@ -34,7 +34,33 @@ Quién escribe directo y quién propone lo decide `Admin::proposalMode($session)
 
 El rol es la primera condición (el editor siempre propone). La segunda es el **entorno**: fuera de local no escribe nadie, tampoco el admin, porque la BD maestra es la local y `scripts/sync_db_to_prod.php` reemplaza el `.db` remoto entero — una escritura hecha en PRE o PRO se perdería en el siguiente sync, o pisaría datos buenos. Encolarla como propuesta la conserva (el admin la baja con `sync_propuestas_from_prod.php` y la aplica en local). Ver [entornos.md](entornos.md).
 
-Solo hay propuesta para **marcha, banda y autor**. El resto de pantallas del panel (discos, dedicatorias, estilos, ingesta, enlaces, usuarios, temporada) escriben directo, así que en PRE y PRO chocan con `Db::assertWritable()` y devuelven el 503 de solo lectura. Siguen visibles para el admin —a veces hace falta *mirarlas* con datos reales— pero el panel avisa de dos formas: la cinta roja «PELIGRO: riesgo de desincronización» en todas sus pantallas (`layout.php`) y un aviso en `/dashboard` que detalla qué funciona y qué no.
+Hay propuesta para **marcha, compositor, banda, disco, Semana Santa y acompañamientos** (con todas sus pestañas y acciones). Lo que queda fuera —dedicatorias, estilos, ingesta, enlaces candidatos, usuarios, alta de municipio y carga de Málaga desde el blog— es solo admin y escribe directo, así que en PRE y PRO choca con `Db::assertWritable()` y devuelve el 503 de solo lectura. Sigue visible para el admin —a veces hace falta *mirarlo* con datos reales— pero el panel avisa de dos formas: la cinta roja «PELIGRO: riesgo de desincronización» en todas sus pantallas (`layout.php`) y un aviso en `/dashboard` que detalla qué funciona y qué no.
+
+### 1.1 Dos tipos de propuesta
+
+| | **Ficha** | **Operación** |
+|---|---|---|
+| Qué cubre | formulario de datos de marcha, compositor y banda | todo lo demás: datos/portada/pistas/importador/streaming del disco, enlaces de escucha de la marcha, linaje/etapas/enlaces/acompañamientos de la banda, cada acción de Semana Santa y de acompañamientos (incluidos borrados y reordenaciones) |
+| Al enviar | previsualización de la ficha y confirmación (`propuesta_preview`) | se envía al pulsar el botón y se vuelve a la misma pantalla con «Propuesta enviada» |
+| Se guarda | `entidad` marcha/banda/autor, `accion` add/edit, campos del formulario | `entidad = operacion`, `accion` = clave de `PropuestaOps` (`nomina.paso.add`, `disco.pista.edit`…), parámetros ya validados, **descripción legible** y **pantalla** de origen (`seccion`) |
+| Revisión (`/dashboard/propuesta/{id}`) | diff + valores editables antes de aceptar | descripción + tabla «qué cambia» cuando reescribe valores (datos del disco, enlaces) + vista previa de la portada; **aceptar o rechazar**, sin retoques (`propuesta_operacion`) |
+
+`App\PropuestaOps` es el **único** sitio que ejecuta cada operación: el controlador la usa al guardar en directo (admin en local) y `PropuestaRepo::aplicar()` al aceptar la propuesta, así las dos vías no pueden divergir. En los controladores todo pasa por `Admin::operar($session, $op, $params, $volver)`: en modo propuesta encola y redirige a `$volver?propuesta=1`; si no, aplica y devuelve el resultado.
+
+Detalles que conviene no deshacer:
+
+- **Solo viaja lo que cambia** en los formularios que reenvían todo su estado (datos del disco, enlaces de banda/disco/marcha): aplicar la propuesta no pisa en local valores que el editor no tocó. Sin cambios, no se crea propuesta.
+- **Una aceptación que falla** (el registro ya no existe, la etapa se solapa, la marcha ya está en el disco…) no se archiva: sigue pendiente con el código de error, para reintentar o rechazar con motivo.
+- **Portada del disco**: se valida y se normaliza a WebP al proponer (`Media::guardarPortadaEn`) y viaja como adjunto `<id>.portada.webp` junto al JSON; el admin la ve en la revisión (`/dashboard/propuesta/{id}/adjunto/portada`, solo admin) y al aceptar se instala con `Media::instalarPortada`. `sync_propuestas_from_prod.php` baja los adjuntos antes que su JSON.
+- **Disco nuevo**: hasta que se acepta no existe, así que sus pistas no se pueden proponer todavía; el editor puede dejar el **enlace del álbum** y, al aceptar, el admin cae en el importador con ese enlace ya puesto.
+- **Lo que depende de algo aún no aceptado espera**: pasos de una hermandad propuesta, pistas de un disco propuesto, etc. Una localidad nueva sí se puede empezar (su primer día o acompañamiento la crea al aceptarse).
+- **El alta de municipio** en el selector sigue siendo solo admin: en modo propuesta el selector no ofrece crear uno.
+
+### 1.2 «Mis propuestas» y el aviso por pantalla
+
+Quien trabaja en modo propuesta (editor; admin en PRE/PRO) tiene **`/dashboard/mis-propuestas`**: sus pendientes y las ya revisadas (aceptada / rechazada con el motivo). En cada pantalla del panel sobre la que tenga algo pendiente ve además «Tienes N propuestas pendientes sobre esta pantalla…» (`layout.php` → `PropuestaRepo::pendientesEn`), porque la pantalla sigue enseñando lo de antes y sin aviso se tiende a repetir la petición.
+
+En producción no existen los ficheros resueltos (se resuelven en local), así que el estado llega por la BD: al aceptar o rechazar, `PropuestaRepo::archivar()` apunta `PROPUESTA_APLICADA` / `PROPUESTA_RECHAZADA` en `admin_log` (tabla `propuesta`, con autor, resumen, pantalla y motivo), y ese `admin_log` sube con el `.db` en `sync_db_to_prod.php`. Así el editor ve «aceptada» justo cuando el cambio ya se ve en la web.
 
 ---
 
@@ -42,8 +68,8 @@ Solo hay propuesta para **marcha, banda y autor**. El resto de pantallas del pan
 
 ### `/dashboard` — Home
 - Buscador (`q` para marcha/autor, `qb` para banda) que devuelve hasta 15 resultados de cada uno directamente en la home del panel.
-- Contador de propuestas pendientes (solo visible para admin).
-- Enlaces a alta de marcha/autor/banda, y al resto de secciones según capacidad del rol (ingesta, enlaces, dedicatorias, estilos, usuarios, propuestas — ocultos para editor).
+- Contador de propuestas pendientes (solo visible para admin) y, en modo propuesta, «Mis propuestas» con las suyas sin resolver.
+- Enlaces a alta de marcha/autor/banda/disco, y al resto de secciones según capacidad del rol (Semana Santa y acompañamientos también para el editor; ingesta, enlaces, dedicatorias, estilos, usuarios y propuestas solo admin).
 
 ### `/dashboard/marcha/{id}` — Edición de marcha
 Campos editables (`AdminRepo::EDITABLE_MARCHA`): `TITULO`, `FECHA`, `DEDICATORIA`, `LOCALIDAD`, `PROVINCIA`, `AUDIO`, `BANDA_ESTRENO` (autocomplete, no ID a ciegas), `TIPO` (lista cerrada, `MARCHA_TIPOS`), `ESTILO` (CCTT/AM/sin asignar — ver [db-analysis.md](db-analysis.md)), `DETALLES_MARCHA`. Los autores de la marcha se pueden editar (añadir/quitar) desde el mismo formulario (`AdminRepo::editMarchaAutores`). Localidad/provincia usan el selector en cascada del catálogo `municipio` (§9).
@@ -55,7 +81,7 @@ Mismos campos que la edición (`AdminRepo::INSERTABLE_MARCHA`) más autores (aut
 Campos (`EDITABLE_AUTOR`): `NOMBRE`, `APELLIDOS`, `NOMBRE_ART`, `F_NAC`, `LUGAR_NAC`, `F_DEF`, `BIO`.
 
 ### `/dashboard/banda/add` y `/dashboard/banda/{id}` — Alta y edición de banda
-Campos (`EDITABLE_BANDA`): `NOMBRE_COMPLETO`, `NOMBRE_BREVE`, `LOCALIDAD`, `PROVINCIA`, `FECHA_FUND`, `FECHA_EXT`, `DIRECTOR_ACTUAL`, `DIR_MUS_ACTUAL`, `WEB`. La edición de banda es también donde se gestiona el **linaje** (`banda_relacion`, solo admin) — ver §7.
+Campos (`EDITABLE_BANDA`): `NOMBRE_COMPLETO`, `NOMBRE_BREVE`, `LOCALIDAD`, `PROVINCIA`, `FECHA_FUND`, `FECHA_EXT`, `DIRECTOR_ACTUAL`, `DIR_MUS_ACTUAL`, `WEB`. La edición de banda es también donde se gestiona el **linaje** (`banda_relacion`) — ver §7 —, las etapas, los enlaces de streaming y la pestaña de acompañamientos; el editor lo propone todo (§1.1).
 
 Ninguno de estos formularios muestra SQL ni preview de la query — solo el diff/resumen del cambio antes de guardar donde aplica.
 
@@ -538,9 +564,10 @@ DB_PATH=/ruta/a/mdc.db php php/app/tools/migrate_roles.php
 ## 11. Discos: alta, portada y pistas
 
 `/dashboard/disco/add` (alta) y `/dashboard/disco/{id}` (datos + pistas + vista
-previa). **Solo administrador**: a diferencia de marcha/banda/autor, el disco no
-pasa por la cola de propuestas (`PropuestaRepo` no conoce esta entidad) y su
-alta escribe un fichero en el docroot.
+previa). El editor (y el admin fuera de local) lo **propone** todo —alta, datos,
+portada, pistas, importador y streaming— como operaciones `disco.*` de
+`PropuestaOps` (§1.1); la portada viaja como adjunto de la propuesta y solo se
+escribe en el docroot al aceptarla.
 
 ### Portada
 

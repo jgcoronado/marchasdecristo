@@ -119,15 +119,17 @@ maestra es la local y el sync reemplaza el `.db` remoto entero, así que un
 cambio hecho en PRE o PRO se perdería —o pisaría datos buenos— en el siguiente
 `sync_db_to_prod.php`.
 
-- **Marcha, banda y autor**: el envío se guarda como **propuesta**
-  (`Admin::proposalMode()`), igual que lo que hace el editor en cualquier
-  entorno. No se pierde: se baja con `sync_propuestas_from_prod.php` y se aplica
-  en local. Como PRE y PRO comparten el directorio de datos, una propuesta
-  creada en PRE aparece en la misma cola que las de PRO.
-- **El resto del panel** (discos, dedicatorias, estilos, ingesta, enlaces,
-  usuarios, temporada) escribe directo y choca con `Db::assertWritable()`: 503
-  de solo lectura. Sigue accesible para el admin porque a veces hay que
-  *mirarlo* con datos reales.
+- **Marchas, compositores, bandas, discos, Semana Santa y acompañamientos**
+  (con todas sus pestañas y acciones, borrados incluidos): el envío se guarda
+  como **propuesta** (`Admin::proposalMode()`), igual que lo que hace el editor
+  en cualquier entorno. No se pierde: se baja con `sync_propuestas_from_prod.php`
+  y se aplica en local. Como PRE y PRO comparten el directorio de datos, una
+  propuesta creada en PRE aparece en la misma cola que las de PRO. Lo pendiente
+  se ve en `/dashboard/mis-propuestas` (ver [admin-panel.md §1.2](admin-panel.md)).
+- **El resto del panel** (dedicatorias, estilos, ingesta, enlaces candidatos,
+  usuarios, alta de municipio) escribe directo y choca con
+  `Db::assertWritable()`: 503 de solo lectura. Sigue accesible para el admin
+  porque a veces hay que *mirarlo* con datos reales.
 - El admin ve en todas las pantallas del panel la cinta roja **«PELIGRO: riesgo
   de desincronización. No actuar en este entorno salvo urgencia.»**, y en
   `/dashboard` un aviso que detalla qué funciona y qué no. El editor no la

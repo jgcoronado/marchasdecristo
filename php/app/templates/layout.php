@@ -90,6 +90,23 @@ if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta
         && Roles::isAdmin(Auth::roleOf((string) ($sesionPanel['user'] ?? '')));
 }
 
+// Propuestas del usuario sobre ESTA pantalla que aún no se han aplicado: la
+// pantalla sigue enseñando lo de antes y, sin aviso, quien propone tiende a
+// repetir la petición. Solo para quien trabaja en modo propuesta (editor;
+// admin en PRE/PRO), ver Admin::proposalMode() y PropuestaRepo::pendientesEn().
+$pendientesAqui = 0;
+if (str_starts_with($reqPath, '/dashboard/')) {
+    $sesionPanel ??= Auth::currentSession();
+    $usuarioPanel = (string) ($sesionPanel['user'] ?? '');
+    if ($usuarioPanel !== '' && App\Admin::proposalMode(['rol' => Auth::roleOf($usuarioPanel)])) {
+        try {
+            $pendientesAqui = App\PropuestaRepo::pendientesEn($usuarioPanel, rtrim($reqPath, '/'));
+        } catch (\Throwable) {
+            $pendientesAqui = 0; // el aviso es una ayuda: nunca tumba la página
+        }
+    }
+}
+
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 
 // Botón de compartir junto al <h1> (lo inserta catalog.js; sin JS no hay
@@ -301,7 +318,12 @@ if (!empty($meta['ancho'])) {
              (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
              .main-catalogo hace lo propio, más contenido, con los listados
              públicos: ver RUTAS_CATALOGO arriba. */ ?>
-    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?>><?= $content ?></main>
+    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?>><?php if ($pendientesAqui > 0): ?>
+        <div class="alert alert-info" role="status" style="margin-bottom:1rem"><?= $pendientesAqui === 1
+                ? 'Tienes 1 propuesta pendiente sobre esta pantalla: hasta que se acepte no verás aquí ese cambio, no hace falta repetirlo.'
+                : 'Tienes ' . $pendientesAqui . ' propuestas pendientes sobre esta pantalla: hasta que se acepten no verás aquí esos cambios, no hace falta repetirlos.' ?>
+            <a href="/dashboard/mis-propuestas">Ver mis propuestas</a></div>
+<?php endif; ?><?= $content ?></main>
 
     <footer>
         <div class="inner">

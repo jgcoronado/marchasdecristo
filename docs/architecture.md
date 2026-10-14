@@ -105,6 +105,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 1. Igual que 2.5 hasta el POST, pero `Admin::isAdmin($session)` (que llama a `Roles::isAdmin($rol)`) es `false` para `editor`, así que cada controlador marca `proposalMode = true`.
 2. `Admin` desvía a `PropuestaRepo::create(...)`, que serializa el cambio propuesto como JSON en `private/propuestas/pendientes/<id>.json`. **No toca el `.db`.**
 3. El admin la revisa después en local — ver §2.7 y `docs/context.md` §5.
+4. Igual en el resto del panel (disco, pestañas de la banda, Semana Santa, acompañamientos): cada controlador llama a `Admin::operar($session, $op, $params, $volver)`, que en modo propuesta encola una **operación** (`PropuestaRepo::createOperacion`, con descripción legible) y, si no, la ejecuta con `PropuestaOps::aplicar()` — el mismo código que corre al aceptar la propuesta. Ver [admin-panel.md §1.1](admin-panel.md).
 
 ### 2.7 Sync local → producción (`scripts/sync_db_to_prod.php`)
 1. Comprueba backup reciente del `.db` local (guardarraíl preexistente, no se toca).
@@ -150,7 +151,7 @@ Fuera del ciclo de request, dos procesos **manuales** (ejecutados desde el equip
 
 ### ADR-004 · Propuestas de editor como ficheros JSON, no filas de BD ✅ Vigente
 - **Contexto**: los editores trabajan contra producción (solo lectura), pero necesitan poder proponer cambios sin que eso implique una vía de escritura a la BD real.
-- **Decisión**: `PropuestaRepo` serializa cada propuesta como `<id>.json` en `private/propuestas/{pendientes,aplicadas,rechazadas}/`. El admin las baja por FTP, las revisa en `/dashboard/propuestas` y, si las acepta, se aplican sobre el `.db` local reutilizando `AdminRepo`.
+- **Decisión**: `PropuestaRepo` serializa cada propuesta como `<id>.json` en `private/propuestas/{pendientes,aplicadas,rechazadas}/` (con adjuntos `<id>.<nombre>.<ext>` al lado, p. ej. la portada de un disco). El admin las baja por FTP, las revisa en `/dashboard/propuestas` y, si las acepta, se aplican sobre el `.db` local reutilizando `AdminRepo` (fichas) o `PropuestaOps` (operaciones del resto del panel, desde 2026-10-14). La resolución se apunta en `admin_log`, que llega a producción con el `.db`: es como el editor ve en qué quedó lo suyo.
 - **Tradeoffs**: el ciclo propuesta → aplicación tiene latencia (depende de que el admin sincronice). A cambio: cero superficie de escritura remota, sin necesidad de una tabla de "cambios pendientes" con su propia lógica de concurrencia.
 
 ### ADR-005 · Modo mantenimiento por fichero sentinela ✅ Vigente
