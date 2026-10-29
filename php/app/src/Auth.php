@@ -34,7 +34,23 @@ final class Auth
 
     public static function cookieName(): string
     {
-        return (string) self::cfg('auth_cookie_name', 'mdc_session');
+        $base = (string) self::cfg('auth_cookie_name', 'mdc_session');
+        // Prefijo __Host- cuando la conexión es segura: el navegador solo acepta
+        // una cookie así si va con Secure, Path=/ y SIN Domain, lo que la blinda
+        // frente a la fijación/inyección desde un subdominio (queda un subdominio
+        // heredado, ver .htaccess). En local por HTTP no se puede usar —el
+        // navegador la rechazaría—, así que ahí se mantiene el nombre llano.
+        // set/read usan ambos esta función, así que el nombre es coherente dentro
+        // de un mismo entorno; en producción el cambio solo obliga a un reinicio
+        // de sesión único (la cookie vieja deja de leerse).
+        return self::secureCookie() ? '__Host-' . $base : $base;
+    }
+
+    /** Nombre de la cookie del token CSRF de pre-sesión del formulario de login. */
+    public static function loginCsrfCookieName(): string
+    {
+        $base = 'mdc_login_csrf';
+        return self::secureCookie() ? '__Host-' . $base : $base;
     }
 
     private static function nowMs(): int
@@ -213,6 +229,35 @@ final class Auth
         return is_string($submitted) && hash_equals(self::csrfToken($session), $submitted);
     }
 
+    // ── CSRF de pre-sesión para el login ─────────────────────────────────────
+    // El formulario de login aún no tiene sesión de la que derivar el token CSRF
+    // de los formularios del panel, así que usa un "double submit": un token
+    // aleatorio que viaja a la vez en una cookie (SameSite=Lax, que el navegador
+    // NO envía en un POST cross-site) y en un campo oculto; loginPost exige que
+    // coincidan. Una petición forjada desde otro sitio no lleva la cookie Lax, y
+    // el atacante no puede leerla ni fijarla, de modo que no puede falsificar el
+    // par y el login-CSRF queda bloqueado.
+    public static function issueLoginCsrf(): string
+    {
+        $token = bin2hex(random_bytes(16));
+        setcookie(self::loginCsrfCookieName(), $token, [
+            'expires'  => time() + 2 * 60 * 60, // 2 h: margen para rellenar el formulario
+            'path'     => '/',                  // '/' es obligatorio con el prefijo __Host-
+            'httponly' => true,
+            'secure'   => self::secureCookie(),
+            'samesite' => 'Lax',
+        ]);
+        return $token;
+    }
+
+    public static function checkLoginCsrf(?string $submitted): bool
+    {
+        $cookie = $_COOKIE[self::loginCsrfCookieName()] ?? null;
+        return is_string($cookie) && $cookie !== ''
+            && is_string($submitted)
+            && hash_equals($cookie, $submitted);
+    }
+
     // ── Passwords ──────────────────────────────────────────────────────────
     public static function verifyPassword(string $plain, string $stored): bool
     {
@@ -238,6 +283,21 @@ final class Auth
     public static function isLegacyMd5(string $stored): bool
     {
         return (bool) preg_match('/^[a-f0-9]{32}$/i', $stored);
+    }
+
+    /**
+     * Hash señuelo con el mismo coste PBKDF2 que los reales. loginPost lo
+     * verifica cuando el usuario NO existe, para que el tiempo de respuesta sea
+     * indistinguible del de un usuario existente y no se pueda enumerar usuarios
+     * por temporización. Al verificarse siempre devuelve false (ninguna
+     * contraseña real coincide con el «esperado» arbitrario).
+     */
+    public static function dummyHash(): string
+    {
+        $iters = (int) self::cfg('password_pbkdf2_iterations', 210000);
+        // Salt y «esperado» fijos y arbitrarios: solo importa que verifyPassword
+        // recorra la rama PBKDF2 (mismo coste) y luego falle el hash_equals.
+        return "pbkdf2\$sha512\$$iters\$ZHVtbXlzYWx0X21kYw\$ZHVtbXlfbm90X2FfcmVhbF9oYXNo";
     }
 
     /**
@@ -288,6 +348,18 @@ final class Auth
         return self::clientIp() . ':' . strtolower(trim($username));
     }
 
+    /**
+     * Clave de rate limit por IP sola (sin usuario). Frena el "password
+     * spraying" —una contraseña contra muchos usuarios desde la misma IP—, que
+     * las claves ip:usuario no ven en conjunto porque cada usuario lleva su
+     * propio contador. El sufijo vacío no colisiona con ninguna clave de usuario:
+     * loginPost exige usuario no vacío antes de construir rateKey().
+     */
+    public static function rateKeyIp(): string
+    {
+        return self::clientIp() . ':';
+    }
+
     private static function attemptsFile(): string
     {
         return dirname((string) self::cfg('db_path', '')) . '/.login_attempts.json';
@@ -314,12 +386,12 @@ final class Auth
         return 0;
     }
 
-    public static function rateFail(string $key): void
+    public static function rateFail(string $key, ?int $max = null): void
     {
         $now = self::nowMs();
         $windowMs = (int) self::cfg('login_window_ms', 15 * 60 * 1000);
         $lockMs = (int) self::cfg('login_lock_ms', 15 * 60 * 1000);
-        $max = (int) self::cfg('login_max_attempts', 6);
+        $max = $max ?? (int) self::cfg('login_max_attempts', 6);
 
         $all = self::loadAttempts();
         $s = $all[$key] ?? null;

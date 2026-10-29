@@ -214,11 +214,30 @@ final class Admin
     }
 
     // ── Login / logout ─────────────────────────────────────────────────────
+    /**
+     * Rinde el formulario de login emitiendo SIEMPRE un token CSRF de
+     * pre-sesión fresco (cookie + campo oculto). Lo usan tanto el GET inicial
+     * como cada rerender por error del POST, para que el campo oculto y la
+     * cookie nunca queden desparejados (ver Auth::issueLoginCsrf).
+     */
+    private static function renderLogin(?string $error, string $username, int $status = 200): void
+    {
+        if ($status !== 200) {
+            http_response_code($status);
+        }
+        $csrf = Auth::issueLoginCsrf();
+        View::render(
+            'admin/login',
+            ['error' => $error, 'username' => $username, 'csrf' => $csrf],
+            ['title' => 'Acceso — Marchas de Cristo', 'noindex' => true]
+        );
+    }
+
     public static function loginForm(): void
     {
         Http::noStore();
         if (Auth::currentSession() !== null) Http::redirect('/dashboard', 302);
-        View::render('admin/login', ['error' => null, 'username' => ''], ['title' => 'Acceso — Marchas de Cristo', 'noindex' => true]);
+        self::renderLogin(null, '');
     }
 
     public static function loginPost(): void
@@ -227,24 +246,41 @@ final class Admin
         $username = (string) ($_POST['username'] ?? '');
         $password = (string) ($_POST['password'] ?? '');
         $fail = static function (string $msg, int $status) use ($username): void {
-            http_response_code($status);
-            View::render('admin/login', ['error' => $msg, 'username' => $username], ['title' => 'Acceso — Marchas de Cristo', 'noindex' => true]);
+            self::renderLogin($msg, $username, $status);
         };
 
         if ($username === '' || $password === '') { $fail('Introduce usuario y contraseña.', 400); return; }
         if (strlen($username) > 120 || strlen($password) > 512) { $fail('Credenciales no válidas.', 400); return; }
 
+        // CSRF de pre-sesión: la cookie (SameSite=Lax) y el campo oculto deben
+        // coincidir; una petición forjada cross-site no lleva la cookie.
+        $submittedCsrf = $_POST['_csrf'] ?? null;
+        if (!Auth::checkLoginCsrf(is_string($submittedCsrf) ? $submittedCsrf : null)) {
+            $fail('La sesión del formulario ha caducado. Recarga la página e inténtalo de nuevo.', 400);
+            return;
+        }
+
         $key = Auth::rateKey($username);
-        $retry = Auth::rateRetryAfter($key);
+        $ipKey = Auth::rateKeyIp();
+        // Se bloquea por el más restrictivo de los dos: por cuenta (ip:usuario) o
+        // global por IP (password spraying).
+        $retry = max(Auth::rateRetryAfter($key), Auth::rateRetryAfter($ipKey));
         if ($retry > 0) { $fail("Demasiados intentos. Reinténtalo en {$retry}s.", 429); return; }
 
         $row = Db::one('SELECT usuario, clave FROM usuarios WHERE usuario = ? LIMIT 1', [trim($username)]);
-        if ($row === null || !Auth::verifyPassword($password, (string) $row['clave'])) {
+        // verifyPassword se ejecuta SIEMPRE, también si el usuario no existe:
+        // contra un hash señuelo del mismo coste PBKDF2, para que el tiempo de
+        // respuesta no delate qué usuarios existen (ver Auth::dummyHash).
+        $stored = $row !== null ? (string) $row['clave'] : Auth::dummyHash();
+        $passwordOk = Auth::verifyPassword($password, $stored);
+        if ($row === null || !$passwordOk) {
             Auth::rateFail($key);
+            Auth::rateFail($ipKey, (int) ($GLOBALS['config']['login_max_attempts_ip'] ?? 20));
             $fail('Usuario o contraseña incorrectos.', 401);
             return;
         }
         Auth::rateClear($key);
+        Auth::rateClear($ipKey);
 
         if (Auth::isLegacyMd5((string) $row['clave'])) {
             Db::run('UPDATE usuarios SET clave = ? WHERE usuario = ?', [Auth::hashPassword($password), $row['usuario']]);

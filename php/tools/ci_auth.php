@@ -62,6 +62,60 @@ $tests['rateKey NO cambia al rotar X-Forwarded-For (el bug arreglado)'] = static
     assertCierto(str_starts_with($k1, '203.0.113.7:'), 'la clave se ancla en la IP real');
 };
 
+// ── Endurecimiento del login (hardening/login-ratelimit-enum) ────────────────
+
+$tests['hash señuelo: mismo formato PBKDF2 y verify siempre falla'] = static function (): void {
+    $dummy = Auth::dummyHash();
+    assertCierto(str_starts_with($dummy, 'pbkdf2$sha512$'), 'mismo formato PBKDF2 que los reales');
+    assertCierto(!Auth::verifyPassword('loquesea', $dummy), 'ninguna contraseña coincide con el señuelo');
+    // Y la rama normal sigue intacta: un hash real verifica y uno erróneo no.
+    $real = Auth::hashPassword('Secreto-123');
+    assertCierto(Auth::verifyPassword('Secreto-123', $real), 'el hash real verifica');
+    assertCierto(!Auth::verifyPassword('otra', $real), 'contraseña errónea no verifica');
+};
+
+$tests['rateKeyIp: anclada a la IP, sin usuario, distinta de rateKey'] = static function (): void {
+    ipCon('203.0.113.50', null);
+    $ipKey = Auth::rateKeyIp();
+    assertIgual('203.0.113.50:', $ipKey, 'IP + sufijo vacío (no colisiona con ip:usuario)');
+    assertCierto($ipKey !== Auth::rateKey('admin'), 'la clave por IP y la de usuario no coinciden');
+};
+
+$tests['rateFail con máximo propio: bloquea al llegar al tope por IP'] = static function (): void {
+    ipCon('203.0.113.51', null);
+    $ipKey = Auth::rateKeyIp();
+    Auth::rateClear($ipKey);
+    assertIgual(0, Auth::rateRetryAfter($ipKey), 'empieza sin bloqueo');
+    Auth::rateFail($ipKey, 3);
+    Auth::rateFail($ipKey, 3);
+    assertIgual(0, Auth::rateRetryAfter($ipKey), 'dos fallos (< tope 3): aún sin bloqueo');
+    Auth::rateFail($ipKey, 3);
+    assertCierto(Auth::rateRetryAfter($ipKey) > 0, 'al tercer fallo (tope 3) queda bloqueada');
+    Auth::rateClear($ipKey);
+};
+
+$tests['checkLoginCsrf: exige que cookie y campo coincidan'] = static function (): void {
+    $name = Auth::loginCsrfCookieName();
+    $prev = $_COOKIE[$name] ?? null;
+    $_COOKIE[$name] = 'tok-abc-123';
+    assertCierto(Auth::checkLoginCsrf('tok-abc-123'), 'cookie == campo ⇒ válido');
+    assertCierto(!Auth::checkLoginCsrf('otro'), 'campo distinto ⇒ inválido');
+    assertCierto(!Auth::checkLoginCsrf(null), 'sin campo ⇒ inválido');
+    unset($_COOKIE[$name]);
+    assertCierto(!Auth::checkLoginCsrf('tok-abc-123'), 'sin cookie ⇒ inválido (POST cross-site)');
+    if ($prev !== null) $_COOKIE[$name] = $prev;
+};
+
+$tests['cookieName: prefijo __Host- solo en conexión segura'] = static function (): void {
+    unset($_SERVER['HTTPS'], $_SERVER['HTTP_X_FORWARDED_PROTO']);
+    $prevSecure = $GLOBALS['config']['cookie_secure'] ?? false;
+    $GLOBALS['config']['cookie_secure'] = false;
+    assertIgual('mdc_session', Auth::cookieName(), 'HTTP: nombre llano');
+    $GLOBALS['config']['cookie_secure'] = true;
+    assertCierto(str_starts_with(Auth::cookieName(), '__Host-'), 'seguro: prefijo __Host-');
+    $GLOBALS['config']['cookie_secure'] = $prevSecure;
+};
+
 $salida = ciEjecuta($tests);
 if ($argc < 2) ciLimpia($dbPath);
 exit($salida);
