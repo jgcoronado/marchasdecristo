@@ -52,7 +52,11 @@ $defaults = [
     'auth_cookie_name' => 'mdc_session',
     'login_ttl_ms'     => 8 * 60 * 60 * 1000, // 8 h
     'cookie_secure'    => false,              // true en producción (o se autodetecta por HTTPS)
-    'login_max_attempts' => 6,
+    'login_max_attempts' => 6,                // por IP + usuario (fallos sobre una misma cuenta)
+    // Tope por IP sola, independiente del usuario: frena el "password spraying"
+    // de una IP contra muchas cuentas. Más alto que login_max_attempts para no
+    // bloquear a usuarios tras un NAT compartido que se equivocan de cuenta.
+    'login_max_attempts_ip' => 20,
     'login_window_ms'    => 15 * 60 * 1000,   // 15 min
     'login_lock_ms'      => 15 * 60 * 1000,   // 15 min
     'password_pbkdf2_iterations' => 210000,

@@ -121,7 +121,8 @@ $router->get('/health', static function (): void {
     header('Content-Type: text/plain; charset=utf-8');
     Http::noStore();
     echo "status: ok\n";
-    echo 'php: ' . PHP_VERSION . "\n";
+    // La versión de PHP es una pista útil a un atacante (CVEs del intérprete),
+    // así que solo se revela a una sesión admin, más abajo.
     // Identificador de entorno: confirma de un vistazo (o desde el smoke
     // remoto del pipeline) contra qué host se ha resuelto la petición. Es la
     // misma deducción que decide qué secciones se publican y si el panel puede
@@ -146,6 +147,7 @@ $router->get('/health', static function (): void {
     }
 
     $config = $GLOBALS['config'];
+    echo 'php: ' . PHP_VERSION . "\n";
     echo 'db_path: ' . $config['db_path'] . "\n";
     echo 'db_exists: ' . (is_file($config['db_path']) ? 'YES' : 'NO') . "\n";
     if (!is_file($config['db_path'])) {
