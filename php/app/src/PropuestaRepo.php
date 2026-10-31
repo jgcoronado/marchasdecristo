@@ -218,7 +218,8 @@ final class PropuestaRepo
         foreach ($refs as $campo => $idProp) {
             $e = self::estadoDe((string) $idProp);
             if ($e['estado'] === 'pendiente') return [null, ['code' => 'DEPENDE_DE_PENDIENTE', 'depende' => (string) $idProp]];
-            $nuevo = (int) ($e['resultado']['id'] ?? 0);
+            // Operaciones de nómina devuelven 'id'; el alta de ficha de banda, 'bandaId'.
+            $nuevo = (int) ($e['resultado']['id'] ?? $e['resultado']['bandaId'] ?? 0);
             if ($e['estado'] !== 'aplicada' || $nuevo <= 0) return [null, ['code' => 'DEPENDENCIA_NO_APLICADA', 'depende' => (string) $idProp]];
             $p[(string) $campo] = $nuevo;
         }

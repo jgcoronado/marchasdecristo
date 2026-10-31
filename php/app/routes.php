@@ -276,6 +276,7 @@ $router->get('/dashboard/acompanamientos', [Admin::class, 'acompanamientosIndexA
 $router->post('/dashboard/acompanamientos/crear', [Admin::class, 'acompanamientosCrearPost']);
 $router->get('/dashboard/acompanamientos/{localidad}', [Admin::class, 'acompanamientosAdmin']);
 $router->post('/dashboard/acompanamientos/{localidad}/add', [Admin::class, 'acompanamientosAddPost']);
+$router->post('/dashboard/acompanamientos/{localidad}/alta', [Admin::class, 'acompanamientosAltaPost']);
 $router->post('/dashboard/acompanamientos/{localidad}/borrar-rango', [Admin::class, 'acompanamientosBorrarRangoPost']);
 $router->post('/dashboard/acompanamientos/{localidad}/mover-paso', [Admin::class, 'acompanamientosMoverPasoPost']);
 $router->post('/dashboard/acompanamientos/{localidad}/tramo-rango', [Admin::class, 'acompanamientosTramoRangoPost']);

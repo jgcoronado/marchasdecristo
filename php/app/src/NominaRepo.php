@@ -1003,30 +1003,136 @@ final class NominaRepo
     /**
      * Da de alta los acompañamientos de una banda en [anioInicio, anioFin].
      * Localidad, día, hermandad y paso se resuelven con planDestino() y lo que
-     * falte se crea en la nómina con crearDestino().
+     * falte se crea en la nómina con crearDestino(). Todo en una transacción:
+     * si el alta de los contratos falla, no queda nómina creada a medias.
+     *
+     * Opcionales: tramo ('ida'|'vuelta', solo con paso), fuente y nota.
      *
      * @param array{localidad?:string,provincia?:string,dia?:string,hermandad?:string,paso?:string,
-     *              anioInicio?:int,anioFin?:int} $in
+     *              anioInicio?:int,anioFin?:int,tramo?:string,fuente?:?string,nota?:?string} $in
      * @return array{code:string, creados?:int, existentes?:int, nuevos?:list<string>}
      */
     public static function altaDesdeBanda(int $idBanda, array $in): array
     {
         $anioInicio = (int) ($in['anioInicio'] ?? 0);
         $anioFin = (int) ($in['anioFin'] ?? $anioInicio);
-        // Mismo criterio que AdminRepo::addContratoRango, pero antes de tocar la nómina.
-        if ($anioInicio < 1900 || $anioFin < $anioInicio || $anioFin - $anioInicio > 100) return ['code' => 'INVALID_RANGO'];
+        $v = self::validarAlta($idBanda, $anioInicio, $anioFin, (string) ($in['tramo'] ?? ''), trim((string) ($in['paso'] ?? '')));
+        if ($v !== null) return $v;
 
         $plan = self::planDestino($in);
         if ($plan['code'] !== 'OK') return $plan;
-        $d = self::crearDestino($plan);
-        if ($d['code'] !== 'OK') return $d;
-        [$h, $paso] = [$d['h'], $d['paso']];
-
-        $r = AdminRepo::addContratoRango($idBanda, (string) $h['NOMBRE'], $paso['NOMBRE'] ?? null, $anioInicio, $anioFin, null, null, $plan['localidad'], (string) $h['SLUG']);
-        if (($r['code'] ?? '') === 'CREATED' && $paso !== null) {
-            self::enlazarRangoAPaso($plan['localidad'], $idBanda, $paso, $anioInicio, $anioFin);
+        try {
+            return Db::transaction(static function () use ($idBanda, $in, $plan, $anioInicio, $anioFin): array {
+                $d = self::crearDestino($plan);
+                if ($d['code'] !== 'OK') throw new AplicacionFallida($d);
+                [$h, $paso] = [$d['h'], $d['paso']];
+                $fuente = isset($in['fuente']) ? (string) $in['fuente'] : null;
+                $nota = isset($in['nota']) ? (string) $in['nota'] : null;
+                $r = AdminRepo::addContratoRango($idBanda, (string) $h['NOMBRE'], $paso['NOMBRE'] ?? null, $anioInicio, $anioFin, $fuente, $nota, $plan['localidad'], (string) $h['SLUG']);
+                if (($r['code'] ?? '') !== 'CREATED') throw new AplicacionFallida($r);
+                if ($paso !== null) {
+                    self::enlazarRangoAPaso($plan['localidad'], $idBanda, $paso, $anioInicio, $anioFin);
+                    $tramo = (string) ($in['tramo'] ?? '');
+                    if ($tramo !== '') self::marcarTramoRango($plan['localidad'], $idBanda, $paso, $anioInicio, $anioFin, $tramo);
+                }
+                return $r + ['nuevos' => $d['nuevos']];
+            });
+        } catch (AplicacionFallida $e) {
+            return $e->resultado;
         }
-        return $r + ['nuevos' => $d['nuevos']];
+    }
+
+    /**
+     * Comprobaciones del alta que no dependen de la nómina. Null si vale.
+     * $idBanda null: la banda es una propuesta aún pendiente.
+     * @return array{code:string}|null
+     */
+    public static function validarAlta(?int $idBanda, int $anioInicio, int $anioFin, string $tramo, string $paso): ?array
+    {
+        // Mismo criterio que AdminRepo::addContratoRango, pero antes de tocar la nómina.
+        if ($anioInicio < 1900 || $anioFin < $anioInicio || $anioFin - $anioInicio > 100) return ['code' => 'INVALID_RANGO'];
+        // null: banda aún sin crear (propuesta pendiente); se comprueba al aceptar.
+        if ($idBanda !== null && Db::one('SELECT 1 AS x FROM banda WHERE ID_BANDA = ?', [$idBanda]) === null) return ['code' => 'INVALID_BANDA'];
+        if ($tramo !== '' && !in_array($tramo, ['ida', 'vuelta'], true)) return ['code' => 'INVALID_TRAMO'];
+        if ($tramo !== '' && $paso === '') return ['code' => 'TRAMO_SIN_PASO'];
+        return null;
+    }
+
+    /**
+     * ¿Es un paso de Virgen? Los acompañamientos de paso de Virgen no se
+     * registran (solo de Cristo), con el mismo criterio que la limpieza del
+     * histórico de Sevilla: «Paso de Virgen», «Paso de Palio» o un nombre de
+     * titular mariano (María Santísima…, Nuestra Señora…, Virgen…). Solo mira
+     * el comienzo del nombre: un misterio con la Virgen en él (p. ej. «Sagrada
+     * Presentación…») no se ve afectado.
+     */
+    public static function esPasoDeVirgen(string $paso): bool
+    {
+        $s = Slug::slugify($paso);
+        if ($s === '') return false;
+        foreach (['paso-de-virgen', 'paso-de-palio', 'palio', 'virgen', 'santisima-virgen', 'maria-santisima', 'nuestra-senora', 'ntra-sra'] as $pref) {
+            if ($s === $pref || str_starts_with($s, $pref . '-')) return true;
+        }
+        return false;
+    }
+
+    /**
+     * ¿Cae el día fuera de Viernes de Dolores – Domingo de Resurrección? Por
+     * nombre (cada localidad llama a sus días a su manera: «Madrugá»,
+     * «Viernes Santo (tarde)»…), así que es solo un aviso para la revisión,
+     * nunca un bloqueo: un nombre que no se reconoce también avisa.
+     */
+    public static function diaFueraDeRango(string $dia): bool
+    {
+        $s = Slug::slugify($dia);
+        if ($s === '') return false;
+        foreach (['viernes-de-dolores', 'sabado-de-pasion', 'domingo-de-ramos', 'lunes-santo', 'martes-santo', 'miercoles-santo',
+                  'jueves-santo', 'madruga', 'madrugada', 'viernes-santo', 'sabado-santo', 'sabado-de-gloria', 'domingo-de-resurreccion'] as $pref) {
+            if ($s === $pref || str_starts_with($s, $pref . '-')) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Lo que haría altaDesdeBanda() en la nómina, SIN escribir nada: valida el
+     * destino (mismos códigos de error) y dice qué se crearía. Sirve para
+     * rechazar en el momento la propuesta de un editor que no podría
+     * aplicarse, y para enseñar en la revisión qué se da de alta en Semana
+     * Santa junto con el acompañamiento. La BD de producción es de solo
+     * lectura, así que aquí no cabe un ensayo con rollback.
+     *
+     * @param array{localidad?:string,provincia?:string,dia?:string,hermandad?:string,paso?:string} $in
+     * @return array{code:string, localidad?:string, hermandad?:string, paso?:?string, dia?:?string, nuevos?:list<string>}
+     */
+    public static function simularDestino(array $in): array
+    {
+        $plan = self::planDestino($in);
+        if ($plan['code'] !== 'OK') return $plan;
+        $localidad = $plan['localidad'];
+        $nuevos = [];
+        if ($plan['provNueva'] !== null && self::resolverLocalidadPorSlug(Slug::slugify($localidad)) === null) {
+            $nuevos[] = "localidad «{$localidad}» ({$plan['provNueva']})";
+        } elseif ($plan['provNueva'] !== null) {
+            $nuevos[] = "provincia de «{$localidad}»: {$plan['provNueva']}";
+        }
+        $h = $plan['h'];
+        $dia = $h !== null ? (string) $h['DIA'] : $plan['diaIn'];
+        if ($h === null) {
+            $diaExiste = false;
+            foreach (Db::all('SELECT NOMBRE FROM semana_santa_dia WHERE LOCALIDAD = ?', [$localidad]) as $d) {
+                if (Slug::slugify((string) $d['NOMBRE']) === Slug::slugify($plan['diaIn'])) { $diaExiste = true; $dia = (string) $d['NOMBRE']; }
+            }
+            if (!$diaExiste) $nuevos[] = "día «{$plan['diaIn']}»";
+            $nuevos[] = "hermandad «{$plan['herIn']}»";
+        }
+        $paso = $plan['paso']['NOMBRE'] ?? ($plan['pasoIn'] !== '' ? $plan['pasoIn'] : null);
+        if ($plan['paso'] === null && $plan['pasoIn'] !== '') $nuevos[] = "paso «{$plan['pasoIn']}»";
+        return [
+            'code' => 'OK', 'localidad' => $localidad,
+            'hermandad' => $h !== null ? (string) $h['NOMBRE'] : $plan['herIn'],
+            'paso' => $paso !== null ? (string) $paso : null, 'dia' => $dia !== '' ? $dia : null,
+            'nuevos' => $nuevos,
+        ];
     }
 
     /**
@@ -1043,6 +1149,24 @@ final class NominaRepo
      * @return array{code:string, nuevos?:list<string>}
      */
     public static function editarDesdeBanda(int $idBanda, int $idContrato, array $in): array
+    {
+        // Nómina nueva y cambio del contrato van juntos: o todo o nada.
+        try {
+            return Db::transaction(static function () use ($idBanda, $idContrato, $in): array {
+                $r = self::editarDesdeBandaSinTx($idBanda, $idContrato, $in);
+                if (($r['code'] ?? '') !== 'UPDATED') throw new AplicacionFallida($r);
+                return $r;
+            });
+        } catch (AplicacionFallida $e) {
+            return $e->resultado;
+        }
+    }
+
+    /**
+     * @param array{anio?:int,localidad?:string,provincia?:string,dia?:string,hermandad?:string,paso?:string} $in
+     * @return array{code:string, nuevos?:list<string>}
+     */
+    private static function editarDesdeBandaSinTx(int $idBanda, int $idContrato, array $in): array
     {
         $old = Db::one(
             'SELECT c.HERMANDAD, c.HERMANDAD_SLUG, c.TITULAR, cl.LOCALIDAD, cp.ID_PASO

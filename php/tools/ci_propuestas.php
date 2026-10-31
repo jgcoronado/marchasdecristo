@@ -360,6 +360,107 @@ $tests['aceptar una edición de ficha no pisa lo cambiado después en otros camp
     PropuestaRepo::rechazar($id, 'admin', 'limpieza');
 };
 
+// ── Altas de acompañamiento con destino libre (acomp.alta) ────────────────────
+
+// Municipios del catálogo que usan estas pruebas (el fixture solo trae las capitales).
+// «Lebrija» también en Cádiz: mismo nombre en dos provincias, para PROVINCIA_DISTINTA.
+foreach ([['Sevilla', 'Lebrija'], ['Sevilla', 'Utrera'], ['Cádiz', 'Lebrija']] as [$prov, $mun]) {
+    assertIgual('CREATED', \App\MunicipioRepo::crear($prov, $mun)['code'] ?? null, "municipio de prueba $mun ($prov)");
+}
+
+$tests['acompañamiento en una localidad sin Semana Santa: una sola propuesta crea localidad, día, hermandad, paso y contratos'] = static function () use ($cuenta): void {
+    $banda = (int) Db::one('SELECT ID_BANDA FROM banda ORDER BY ID_BANDA LIMIT 1')['ID_BANDA'];
+    $destino = ['localidad' => 'Lebrija', 'provincia' => 'Sevilla', 'dia' => 'Domingo de Ramos',
+                'hermandad' => 'Hermandad de Prueba de Lebrija', 'paso' => 'Santísimo Cristo de Prueba'];
+    $sim = NominaRepo::simularDestino($destino);
+    assertIgual('OK', $sim['code'], 'el destino es válido');
+    assertIgual(4, count($sim['nuevos'] ?? []), 'se crean localidad, día, hermandad y paso: ' . implode(' | ', $sim['nuevos'] ?? []));
+
+    $params = ['idBanda' => $banda, 'destino' => $destino, 'anioInicio' => 2024, 'anioFin' => 2026, 'tramo' => 'ida', 'fuente' => 'https://ejemplo.invalid/x', 'nuevos' => $sim['nuevos']];
+    $desc = PropuestaOps::describir('acomp.alta', $params);
+    assertCierto(str_contains($desc, 'Se crea en Semana Santa') && str_contains($desc, 'Lebrija'), 'la descripción dice qué se crea: ' . $desc);
+    $id = PropuestaRepo::createOperacion('acomp.alta', $params, 'ed-alta', $desc, '/dashboard/acompanamientos/lebrija');
+    assertIgual(0, $cuenta("SELECT COUNT(*) AS N FROM hermandad WHERE LOCALIDAD = 'Lebrija'"), 'proponer no crea nada');
+
+    $r = PropuestaRepo::aplicar($id, 'admin');
+    assertIgual('CREATED', $r['code'] ?? null, 'se aplica');
+    assertIgual(3, (int) ($r['creados'] ?? 0), 'tres años');
+    assertIgual(1, $cuenta("SELECT COUNT(*) AS N FROM semana_santa_dia WHERE LOCALIDAD = 'Lebrija' AND NOMBRE = 'Domingo de Ramos'"), 'día creado');
+    $paso = Db::one("SELECT p.ID_PASO FROM paso p JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE h.LOCALIDAD = 'Lebrija' AND p.NOMBRE = 'Santísimo Cristo de Prueba'");
+    assertCierto($paso !== null, 'hermandad y paso creados');
+    assertIgual(3, $cuenta('SELECT COUNT(*) AS N FROM contrato_paso WHERE ID_PASO = ?', [(int) $paso['ID_PASO']]), 'los contratos cuelgan del paso nuevo');
+    assertIgual(3, $cuenta("SELECT COUNT(*) AS N FROM contrato_tramo t JOIN contrato_paso cp ON cp.ID_CONTRATO = t.ID_CONTRATO WHERE cp.ID_PASO = ? AND t.TRAMO = 'ida'", [(int) $paso['ID_PASO']]), 'con su tramo');
+    assertIgual(3, $cuenta("SELECT COUNT(*) AS N FROM contrato c JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO WHERE cp.ID_PASO = ? AND c.FUENTE = 'https://ejemplo.invalid/x'", [(int) $paso['ID_PASO']]), 'y su fuente');
+    assertIgual('Sevilla', (string) (Db::one("SELECT PROVINCIA FROM localidad_provincia WHERE LOCALIDAD = 'Lebrija'")['PROVINCIA'] ?? ''), 'la localidad queda con su provincia');
+
+    // Una segunda propuesta sobre lo ya creado no duplica la nómina.
+    $sim2 = NominaRepo::simularDestino($destino);
+    assertIgual([], $sim2['nuevos'] ?? null, 'ya no hay nada nuevo que crear');
+};
+
+// El paso de El Silencio se llama «Cristo de la Sentencia (nuevo)» desde la prueba de lo resuelto.
+$tests['el destino se valida al proponer con los mismos códigos que al aplicar; reglas de Virgen y de días'] = static function (): void {
+    $base = ['localidad' => 'Sevilla', 'provincia' => 'Sevilla'];
+    assertIgual('DIA_REQUERIDO', NominaRepo::simularDestino($base + ['hermandad' => 'Hermandad Inexistente'])['code'], 'hermandad nueva sin día');
+    assertIgual('DIA_DISTINTO_DE_HERMANDAD', NominaRepo::simularDestino($base + ['hermandad' => 'El Silencio', 'dia' => 'Lunes Santo'])['code'], 'hermandad que sale otro día');
+    assertIgual('PROVINCIA_DISTINTA', NominaRepo::simularDestino(['localidad' => 'Lebrija', 'provincia' => 'Cádiz', 'hermandad' => 'Otra', 'dia' => 'Lunes Santo'])['code'], 'localidad ya registrada en otra provincia');
+    assertIgual('INVALID_LOCALIDAD', NominaRepo::simularDestino(['localidad' => 'Villanueva Inventada', 'provincia' => 'Sevilla', 'hermandad' => 'X', 'dia' => 'Lunes Santo'])['code'], 'solo municipios del catálogo');
+    $ok = NominaRepo::simularDestino($base + ['hermandad' => 'el silencio', 'paso' => 'cristo de la sentencia (nuevo)']);
+    assertIgual([], $ok['nuevos'] ?? null, 'sin tildes ni mayúsculas encuentra lo existente');
+    assertIgual('El Silencio', $ok['hermandad'] ?? null, 'con su nombre bueno');
+
+    $banda = (int) Db::one('SELECT ID_BANDA FROM banda ORDER BY ID_BANDA LIMIT 1')['ID_BANDA'];
+    assertIgual('TRAMO_SIN_PASO', NominaRepo::validarAlta($banda, 2020, 2020, 'ida', '')['code'] ?? null, 'ida/vuelta exige paso');
+    assertIgual('INVALID_BANDA', NominaRepo::validarAlta(999999, 2020, 2020, '', '')['code'] ?? null, 'banda inexistente');
+    assertIgual(null, NominaRepo::validarAlta(null, 2020, 2021, '', ''), 'banda propuesta (null): se comprueba al aceptar');
+
+    foreach (['Paso de Palio', 'Paso de Virgen', 'María Santísima de la Esperanza', 'Nuestra Señora de los Dolores', 'Virgen de la Amargura'] as $v) {
+        assertCierto(NominaRepo::esPasoDeVirgen($v), "«{$v}» es de Virgen");
+    }
+    foreach (['Santísimo Cristo de la Sangre', 'Sagrada Presentación de Jesús al Pueblo', 'Nuestro Padre Jesús Nazareno', 'Cruz de Guía', ''] as $c) {
+        assertCierto(!NominaRepo::esPasoDeVirgen($c), "«{$c}» no es de Virgen");
+    }
+    foreach (['Viernes de Dolores', 'Madrugá', 'Viernes Santo (tarde)', 'Sabado de Pasion', 'Domingo de Resurrección'] as $d) {
+        assertCierto(!NominaRepo::diaFueraDeRango($d), "«{$d}» está en rango");
+    }
+    foreach (['Domingo de Pasión', 'Jueves de Pasion', 'Lunes de Pascua'] as $d) {
+        assertCierto(NominaRepo::diaFueraDeRango($d), "«{$d}» avisa");
+    }
+};
+
+$tests['si el alta del acompañamiento falla, no queda Semana Santa creada a medias'] = static function () use ($cuenta): void {
+    $banda = (int) Db::one('SELECT ID_BANDA FROM banda ORDER BY ID_BANDA LIMIT 1')['ID_BANDA'];
+    Db::run("CREATE TEMP TRIGGER ci_falla BEFORE INSERT ON contrato WHEN NEW.HERMANDAD = 'Hermandad Que Falla' BEGIN SELECT RAISE(ABORT, 'fallo simulado'); END");
+    try {
+        $lanzo = false;
+        try {
+            NominaRepo::altaDesdeBanda($banda, ['localidad' => 'Utrera', 'provincia' => 'Sevilla', 'dia' => 'Martes Santo',
+                'hermandad' => 'Hermandad Que Falla', 'paso' => 'Cristo Que Falla', 'anioInicio' => 2020, 'anioFin' => 2020]);
+        } catch (Throwable) {
+            $lanzo = true;
+        }
+        assertCierto($lanzo, 'el fallo llega a quien aplica');
+        assertIgual(0, $cuenta("SELECT COUNT(*) AS N FROM hermandad WHERE NOMBRE = 'Hermandad Que Falla'"), 'ni hermandad');
+        assertIgual(0, $cuenta("SELECT COUNT(*) AS N FROM semana_santa_dia WHERE LOCALIDAD = 'Utrera'"), 'ni día');
+    } finally {
+        Db::run('DROP TRIGGER IF EXISTS ci_falla');
+    }
+};
+
+$tests['un acompañamiento puede colgar de una banda propuesta y aún sin aceptar'] = static function () use ($cuenta): void {
+    $bandaProp = PropuestaRepo::create('banda', 'add', null, ['NOMBRE_BREVE' => 'Banda Propuesta CI', 'NOMBRE_COMPLETO' => 'Banda Propuesta CI'], [], 'ed-ref');
+    $params = ['idBanda' => 0, 'refs' => ['idBanda' => $bandaProp], 'bandaNombre' => 'Banda Propuesta CI',
+               'destino' => ['localidad' => 'Sevilla', 'provincia' => 'Sevilla', 'hermandad' => 'El Silencio', 'paso' => 'Cristo de la Sentencia (nuevo)'],
+               'anioInicio' => 2025, 'anioFin' => 2025];
+    assertCierto(str_contains(PropuestaOps::describir('acomp.alta', $params), 'Banda Propuesta CI'), 'la descripción nombra la banda propuesta');
+    $acomp = PropuestaRepo::createOperacion('acomp.alta', $params, 'ed-ref', 'x', '/dashboard');
+    assertIgual('DEPENDE_DE_PENDIENTE', PropuestaRepo::aplicar($acomp, 'admin')['code'] ?? null, 'antes que la banda no');
+    $rb = PropuestaRepo::aplicar($bandaProp, 'admin');
+    assertIgual('CREATED', $rb['code'] ?? null, 'se acepta la banda');
+    assertIgual('CREATED', PropuestaRepo::aplicar($acomp, 'admin')['code'] ?? null, 'y luego el acompañamiento');
+    assertIgual(1, $cuenta('SELECT COUNT(*) AS N FROM contrato WHERE ID_BANDA = ? AND ANIO = 2025', [(int) $rb['bandaId']]), 'con el id real de la banda nueva');
+};
+
 // La última: ejecuta cada operación con parámetros vacíos sobre la BD de usar y tirar.
 $tests['cada operación que encola el panel existe en PropuestaOps (sin erratas en la clave)'] = static function (): void {
     preg_match_all("/self::operar\\(\\\$session, '([a-zA-Z.]+)'/", (string) file_get_contents(dirname(__DIR__) . '/app/src/Admin.php'), $m);

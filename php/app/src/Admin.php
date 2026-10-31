@@ -112,6 +112,16 @@ final class Admin
         'SELECCION_VACIA' => 'No hay acompañamientos seleccionados (o ya no existen): no se ha enviado nada.',
         'PASO_REQUERIDO' => 'Elige el paso de la nómina de Semana Santa: el alta con hermandad en texto libre es solo del administrador.',
         'DEPENDENCIA_INVALIDA' => 'La propuesta de la que querías colgar esta ya no está pendiente o no es tuya.',
+        'PASO_DE_VIRGEN' => 'Los acompañamientos de paso de Virgen (o de palio) no se registran: solo pasos de Cristo.',
+        'TRAMO_SIN_PASO' => 'Para indicar ida o vuelta hay que elegir el paso.',
+        'INVALID_TRAMO' => 'El tramo solo puede ser ida o vuelta.',
+        'INVALID_RANGO' => 'Revisa los años: el de fin no puede ser anterior al de inicio, ni el rango de más de 100 años.',
+        'INVALID_BANDA' => 'Elige una banda de la lista.',
+        'DIA_REQUERIDO' => 'La hermandad no está en la Semana Santa de esta localidad: indica también su día.',
+        'HERMANDAD_REQUERIDA' => 'Indica la hermandad.',
+        'DIA_DISTINTO_DE_HERMANDAD' => 'Esa hermandad sale otro día: déjalo vacío o elige uno de los suyos (el cambio de día se hace en Semana Santa).',
+        'PROVINCIA_DISTINTA' => 'Esa localidad ya está registrada en otra provincia.',
+        'INVALID_LOCALIDAD' => 'Esa localidad no está en el catálogo de municipios de la provincia elegida.',
     ];
 
     private static function isAdmin(array $session): bool
@@ -953,9 +963,11 @@ final class Admin
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anioInicio);
         $anioFin = trim((string) ($_POST['ANIO_FIN'] ?? '')) !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio;
         try {
-            $r = self::operar($session, 'banda.acomp.add', [
+            $volver = self::urlAcompBanda($id, $anioFin);
+            $params = self::prepararAltaAcomp($session, [
                 'idBanda' => $id, 'destino' => self::postDestinoAcomp(), 'anioInicio' => $anioInicio, 'anioFin' => $anioFin,
-            ], self::urlAcompBanda($id, $anioFin));
+            ], $volver);
+            $r = self::operar($session, 'banda.acomp.add', $params, $volver);
         } catch (\Throwable $e) {
             error_log('[dashboard/banda/acompanamiento] ' . $e->getMessage());
             self::volverAcompBanda($id, 'err=TABLA_NO_MIGRADA', $anioInicio);
@@ -974,9 +986,15 @@ final class Admin
         $anio = (int) ($_POST['ANIO_INICIO'] ?? 0);
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) self::volverAcompBanda($id, 'err=CSRF', $anio);
         try {
-            $r = self::operar($session, 'banda.acomp.edit', [
-                'idBanda' => $id, 'idContrato' => (int) $p['contrato'], 'destino' => self::postDestinoAcomp(), 'anio' => $anio,
-            ], self::urlAcompBanda($id, $anio));
+            $params = ['idBanda' => $id, 'idContrato' => (int) $p['contrato'], 'destino' => self::postDestinoAcomp(), 'anio' => $anio];
+            if (self::proposalMode($session)) {
+                // Solo informativo: la edición tiene reglas propias para conservar
+                // datos antiguos (ver NominaRepo::editarDesdeBanda), así que un
+                // destino que aquí no cuadre no se rechaza; se ve al aceptar.
+                $sim = NominaRepo::simularDestino($params['destino']);
+                if ($sim['code'] === 'OK' && ($sim['nuevos'] ?? []) !== []) $params['nuevos'] = $sim['nuevos'];
+            }
+            $r = self::operar($session, 'banda.acomp.edit', $params, self::urlAcompBanda($id, $anio));
         } catch (\Throwable $e) {
             error_log('[dashboard/banda/acompanamiento/editar] ' . $e->getMessage());
             self::volverAcompBanda($id, 'err=TABLA_NO_MIGRADA', $anio);
@@ -1121,10 +1139,47 @@ final class Admin
             'nomina' => $nomina,
             'anio' => $anio, 'anios' => $anios,
             'proposalMode' => self::proposalMode($session),
+            'provinciaLocalidad' => $esNueva ? $provincia : (NominaRepo::provinciasDeLocalidades()[$localidad] ?? null),
+            'provincias' => MunicipioRepo::provincias(),
+            'acompNomina' => self::proposalMode($session) ? self::nominaParaAlta($localidad) : [],
+            'bandasPropuestas' => self::proposalMode($session) ? self::bandasPropuestasDe((string) ($session['user'] ?? '')) : [],
             'notice' => $notice,
         ], ['title' => "Acompañamientos — $localidad" . ($anio !== null ? " $anio" : '') . " — Marchas de Cristo", 'noindex' => true,
             // con nómina: hermandad y sus pasos en dos columnas, como en /dashboard/semana-santa
             'ancho' => $nomina !== null]);
+    }
+
+    /**
+     * Nómina de UNA localidad en la forma de NominaRepo::datosAltaBanda(),
+     * para el predictivo del alta. Vacía si la localidad aún no tiene
+     * Semana Santa (o falta la tabla en este host).
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private static function nominaParaAlta(string $localidad): array
+    {
+        try {
+            $todo = NominaRepo::datosAltaBanda();
+        } catch (\Throwable $e) {
+            return [];
+        }
+        return isset($todo[$localidad]) ? [$localidad => $todo[$localidad]] : [];
+    }
+
+    /**
+     * Altas de banda propuestas por $user y aún sin resolver: un acompañamiento
+     * puede colgar de ellas sin esperar a que se acepten.
+     *
+     * @return list<array{id:string,nombre:string}>
+     */
+    private static function bandasPropuestasDe(string $user): array
+    {
+        $out = [];
+        foreach (PropuestaRepo::pendientesDe($user) as $p) {
+            if (($p['entidad'] ?? '') !== 'banda' || ($p['accion'] ?? '') !== 'add') continue;
+            $out[] = ['id' => (string) $p['id'], 'nombre' => trim((string) ($p['datos']['NOMBRE_BREVE'] ?? '')) ?: (string) $p['id']];
+        }
+        return $out;
     }
 
     /** Vista por año de /dashboard/acompanamientos/{localidad} (?anio=AAAA):
@@ -1150,6 +1205,117 @@ final class Admin
             'orden' => ($_GET['orden'] ?? '') === 'asc' ? 'asc' : null,
         ], static fn($v): bool => $v !== null);
         return "/dashboard/acompanamientos/$slug" . ($q !== [] ? '?' . http_build_query($q) : '');
+    }
+
+    /**
+     * Comprueba un alta de acompañamiento con destino libre (acomp.alta y
+     * banda.acomp.add) ANTES de encolarla como propuesta: lo que no podría
+     * aplicarse vuelve al editor con su error en el momento, en vez de
+     * descubrirse al aceptar. Añade a los parámetros la lista de lo que el
+     * alta crea en Semana Santa, para la revisión. El admin en local no pasa
+     * por aquí: aplica directamente y NominaRepo valida lo mismo.
+     *
+     * Para el editor, además, las reglas del pipeline: no se registran pasos
+     * de Virgen (ver NominaRepo::esPasoDeVirgen).
+     *
+     * @param array<string,mixed> $params idBanda (o refs.idBanda), destino, anioInicio, anioFin, tramo
+     * @return array<string,mixed>
+     */
+    private static function prepararAltaAcomp(array $session, array $params, string $volver): array
+    {
+        if (!self::proposalMode($session)) return $params;
+        $destino = (array) ($params['destino'] ?? []);
+        $porRef = isset(((array) ($params['refs'] ?? []))['idBanda']);
+        $v = NominaRepo::validarAlta(
+            $porRef ? null : (int) ($params['idBanda'] ?? 0),
+            (int) ($params['anioInicio'] ?? 0), (int) ($params['anioFin'] ?? 0),
+            (string) ($params['tramo'] ?? ''), trim((string) ($destino['paso'] ?? ''))
+        );
+        if ($v !== null) Http::redirect(self::conParam($volver, 'err=' . $v['code']), 302);
+        if (!self::isAdmin($session) && NominaRepo::esPasoDeVirgen((string) ($destino['paso'] ?? ''))) {
+            Http::redirect(self::conParam($volver, 'err=PASO_DE_VIRGEN'), 302);
+        }
+        $sim = NominaRepo::simularDestino($destino);
+        if ($sim['code'] !== 'OK') Http::redirect(self::conParam($volver, 'err=' . $sim['code']), 302);
+        if (($sim['nuevos'] ?? []) !== []) $params['nuevos'] = $sim['nuevos'];
+        return $params;
+    }
+
+    /**
+     * Alta de acompañamiento desde la pantalla de la localidad con destino
+     * libre: día, hermandad y paso se eligen de la nómina o se escriben, y lo
+     * que falte se crea en Semana Santa junto con el acompañamiento (la misma
+     * operación que el alta desde la ficha de banda, NominaRepo::altaDesdeBanda).
+     * Vale también para una localidad sin Semana Santa todavía: la propuesta
+     * lleva la localidad, sus días, hermandades y pasos nuevos y el acompañamiento,
+     * y se acepta o se rechaza de una vez.
+     *
+     * La banda puede ser una que el mismo editor ha propuesto y aún no se ha
+     * aceptado (campo dependeDeBanda): se resuelve al aceptar (PropuestaRepo::resolverRefs).
+     */
+    public static function acompanamientosAltaPost(array $p): void
+    {
+        $session = Auth::requireCap('acompanamientos.edit');
+        $slug = (string) $p['localidad'];
+        $localidad = Repo::resolverLocalidadPorSlug($slug) ?? NominaRepo::resolverLocalidadPorSlug($slug);
+        $provincia = $localidad !== null ? (NominaRepo::provinciasDeLocalidades()[$localidad] ?? null) : null;
+        $volver = self::urlAcomp($slug);
+        if ($localidad === null || $provincia === null) {
+            // Localidad nueva, o existente sin provincia: el par viene del
+            // formulario y se valida contra el catálogo de municipios.
+            $volverNueva = $localidad === null ? '/dashboard/acompanamientos' : "/dashboard/acompanamientos/$slug";
+            [$posted, $provincia] = self::parMunicipioPosteado($volverNueva);
+            if (Slug::slugify($posted) !== $slug) Http::redirect(self::conParam($volverNueva, 'err=LOCALIDAD_INVALIDA'), 302);
+            if ($localidad === null) {
+                $localidad = $posted;
+                $volver = "/dashboard/acompanamientos/$slug?" . http_build_query(['nueva' => $posted, 'provincia' => $provincia]);
+            }
+        }
+        if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect(self::conParam($volver, 'err=CSRF'), 302);
+
+        $str = static fn(string $k): string => is_string($_POST[$k] ?? null) ? trim((string) $_POST[$k]) : '';
+        $anioInicio = (int) ($_POST['ANIO_INICIO'] ?? 0);
+        $params = [
+            'idBanda' => (int) ($_POST['ID_BANDA'] ?? 0),
+            'destino' => [
+                'localidad' => $localidad, 'provincia' => (string) $provincia,
+                'dia' => $str('DIA'), 'hermandad' => $str('HERMANDAD'), 'paso' => $str('PASO'),
+            ],
+            'anioInicio' => $anioInicio,
+            'anioFin' => $str('ANIO_FIN') !== '' ? (int) $_POST['ANIO_FIN'] : $anioInicio,
+            'tramo' => $str('TRAMO'),
+        ];
+        if ($str('FUENTE') !== '') $params['fuente'] = $str('FUENTE');
+        if ($str('NOTA') !== '') $params['nota'] = $str('NOTA');
+
+        // Banda propuesta por el mismo editor y aún sin aceptar.
+        $idProp = $str('dependeDeBanda');
+        if ($idProp !== '') {
+            $madre = self::proposalMode($session) ? PropuestaRepo::propiaSinResolver((string) $session['user'], $idProp) : null;
+            if ($madre === null || ($madre['entidad'] ?? '') !== 'banda' || ($madre['accion'] ?? '') !== 'add') {
+                Http::redirect(self::conParam($volver, 'err=DEPENDENCIA_INVALIDA'), 302);
+            }
+            $params['idBanda'] = 0;
+            $params['refs'] = ['idBanda' => (string) $madre['id']];
+            $params['bandaNombre'] = (string) ($madre['datos']['NOMBRE_BREVE'] ?? '');
+        }
+
+        // Sin banda elegida el campo llega vacío, y (int) '' = 0 es «Varias
+        // bandas» (ID_BANDA 0 existe): hay que distinguirlo de elegirla a propósito.
+        if ($str('ID_BANDA') === '' && !isset($params['refs'])) Http::redirect(self::conParam($volver, 'err=INVALID_BANDA'), 302);
+
+        try {
+            $params = self::prepararAltaAcomp($session, $params, $volver);
+            $r = self::operar($session, 'acomp.alta', $params, $volver);
+        } catch (\Throwable $e) {
+            error_log('[dashboard/acompanamientos/alta] ' . $e->getMessage());
+            Http::redirect(self::conParam($volver, 'err=TABLA_NO_MIGRADA'), 302);
+        }
+        $volverReal = self::urlAcomp($slug); // aplicado en directo: la localidad ya existe
+        if (($r['code'] ?? '') !== 'CREATED') Http::redirect(self::conParam($volver, 'err=' . ($r['code'] ?? 'ERROR')), 302);
+        $qs = 'creados=' . ($r['creados'] ?? 0) . '&existentes=' . ($r['existentes'] ?? 0);
+        if (($r['nuevos'] ?? []) !== []) $qs .= '&nomina=' . rawurlencode(implode(', ', $r['nuevos']));
+        Http::redirect(self::conParam($volverReal, $qs), 302);
     }
 
     public static function acompanamientosAddPost(array $p): void
@@ -2638,6 +2804,60 @@ final class Admin
         ], ['title' => 'Propuestas de editores — Marchas de Cristo', 'noindex' => true]);
     }
 
+    /**
+     * Para la revisión de un alta o edición de acompañamiento con destino
+     * libre: qué se crea en Semana Santa SEGÚN LA BD LOCAL DE AHORA (puede
+     * diferir de lo que vio el editor si entretanto se aceptó otra propuesta),
+     * si el destino sigue siendo válido y los avisos de las reglas del
+     * pipeline. Null para el resto de operaciones.
+     *
+     * @param array<string,mixed> $datos
+     * @return array{acompanamiento:list<array{0:string,1:string}>, nuevos:list<string>, error:?string, avisos:list<string>}|null
+     */
+    private static function altaNominaDe(string $op, array $datos): ?array
+    {
+        if (!in_array($op, ['acomp.alta', 'banda.acomp.add', 'banda.acomp.edit'], true)) return null;
+        $destino = (array) ($datos['destino'] ?? []);
+        try {
+            $sim = NominaRepo::simularDestino($destino);
+        } catch (\Throwable $e) {
+            $sim = ['code' => 'TABLA_NO_MIGRADA'];
+        }
+        $ok = $sim['code'] === 'OK';
+        $refBanda = isset(((array) ($datos['refs'] ?? []))['idBanda']);
+        $banda = $refBanda
+            ? trim((string) ($datos['bandaNombre'] ?? '')) . ' (propuesta pendiente)'
+            : ((string) (Db::one('SELECT NOMBRE_BREVE FROM banda WHERE ID_BANDA = ?', [(int) ($datos['idBanda'] ?? 0)])['NOMBRE_BREVE'] ?? '') ?: '#' . (int) ($datos['idBanda'] ?? 0));
+        $anios = $op === 'banda.acomp.edit'
+            ? (string) (int) ($datos['anio'] ?? 0)
+            : (static fn(int $a, int $b): string => $b > $a ? "{$a}–{$b}" : (string) $a)((int) ($datos['anioInicio'] ?? 0), (int) ($datos['anioFin'] ?? 0));
+        $txt = static fn(string $k): string => trim((string) ($destino[$k] ?? ''));
+        $filas = [
+            ['Banda', $banda],
+            ['Localidad', $ok ? (string) $sim['localidad'] : $txt('localidad')],
+            ['Día', $ok ? (string) ($sim['dia'] ?? '') : $txt('dia')],
+            ['Hermandad', $ok ? (string) $sim['hermandad'] : $txt('hermandad')],
+            ['Paso', $ok ? (string) ($sim['paso'] ?? '') : $txt('paso')],
+            ['Años', $anios],
+        ];
+        if (trim((string) ($datos['tramo'] ?? '')) !== '') $filas[] = ['Tramo', (string) $datos['tramo']];
+        if (trim((string) ($datos['fuente'] ?? '')) !== '') $filas[] = ['Fuente', (string) $datos['fuente']];
+        if (trim((string) ($datos['nota'] ?? '')) !== '') $filas[] = ['Nota', (string) $datos['nota']];
+
+        $avisos = [];
+        $dia = $ok ? (string) ($sim['dia'] ?? '') : $txt('dia');
+        if ($dia !== '' && NominaRepo::diaFueraDeRango($dia)) {
+            $avisos[] = "El día «{$dia}» no está entre Viernes de Dolores y Domingo de Resurrección (o no se reconoce su nombre).";
+        }
+        if (NominaRepo::esPasoDeVirgen($txt('paso'))) $avisos[] = 'El paso parece de Virgen: esos acompañamientos no se registran.';
+        return [
+            'acompanamiento' => $filas,
+            'nuevos' => $ok ? array_values((array) ($sim['nuevos'] ?? [])) : [],
+            'error' => $ok ? null : (string) $sim['code'],
+            'avisos' => $avisos,
+        ];
+    }
+
     public static function propuestaDetail(array $p): void
     {
         $session = Auth::requireAdmin();
@@ -2657,6 +2877,7 @@ final class Admin
                 ),
                 // Operaciones sobre acompañamientos existentes: ¿siguen las filas como al proponer?
                 'filasCambiadas' => !PropuestaOps::fotoVigente((string) ($prop['accion'] ?? ''), (array) ($prop['datos'] ?? [])),
+                'altaNomina' => self::altaNominaDe($op, (array) ($prop['datos'] ?? [])),
                 'notice' => self::noticeFromQuery(),
             ], ['title' => 'Revisar propuesta — Marchas de Cristo', 'noindex' => true]);
             return;

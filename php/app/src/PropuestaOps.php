@@ -199,7 +199,10 @@ final class PropuestaOps
             'banda.etapa.add' => AdminRepo::addEtapa($i('idBanda'), $sn('anioInicio'), $sn('anioFin'), $sn('nota')),
             'banda.etapa.delete' => AdminRepo::deleteEtapa($i('idBanda'), $i('idEtapa')),
             'banda.enlaces' => self::enlaces('banda', $i('idBanda'), (array) ($p['enlaces'] ?? [])),
-            'banda.acomp.add' => NominaRepo::altaDesdeBanda($i('idBanda'), (array) ($p['destino'] ?? []) + ['anioInicio' => $i('anioInicio'), 'anioFin' => $i('anioFin')]),
+            'banda.acomp.add', 'acomp.alta' => NominaRepo::altaDesdeBanda($i('idBanda'), (array) ($p['destino'] ?? []) + [
+                'anioInicio' => $i('anioInicio'), 'anioFin' => $i('anioFin'),
+                'tramo' => $s('tramo'), 'fuente' => $sn('fuente'), 'nota' => $sn('nota'),
+            ]),
             'banda.acomp.edit' => NominaRepo::editarDesdeBanda($i('idBanda'), $i('idContrato'), (array) ($p['destino'] ?? []) + ['anio' => $i('anio')]),
             'banda.acomp.importar' => NominaRepo::copiarAnioDeBanda($i('idBanda'), $i('origen'), $i('anio')),
             'banda.acomp.delete' => NominaRepo::borrarDeBanda($i('idBanda'), $ids('ids')),
@@ -441,7 +444,11 @@ final class PropuestaOps
             'banda.etapa.add' => 'Banda ' . $q(self::banda($i('idBanda'))) . ': añadir etapa de actividad ' . $s('anioInicio') . '–' . ($s('anioFin') !== '' ? $s('anioFin') : 'hoy'),
             'banda.etapa.delete' => 'Banda ' . $q(self::banda($i('idBanda'))) . ': borrar la etapa ' . self::etapa($i('idEtapa')),
             'banda.enlaces' => 'Enlaces de streaming de la banda ' . $q(self::banda($i('idBanda'))) . ': ' . self::cambios($n($p['enlaces'] ?? [])),
-            'banda.acomp.add' => 'Banda ' . $q(self::banda($i('idBanda'))) . ': añadir acompañamiento ' . self::destino((array) ($p['destino'] ?? [])) . ', ' . $anios($i('anioInicio'), $i('anioFin')),
+            'banda.acomp.add' => 'Banda ' . $q(self::bandaDeAlta($p)) . ': añadir acompañamiento ' . self::destino((array) ($p['destino'] ?? []))
+                . ($s('tramo') !== '' ? ' (' . $s('tramo') . ')' : '') . ', ' . $anios($i('anioInicio'), $i('anioFin')) . self::nominaNueva($p),
+            'acomp.alta' => $ac((string) (((array) ($p['destino'] ?? []))['localidad'] ?? '')) . 'añadir ' . $q(self::bandaDeAlta($p)) . ' con '
+                . self::destino((array) ($p['destino'] ?? [])) . ($s('tramo') !== '' ? ' (' . $s('tramo') . ')' : '')
+                . ', ' . $anios($i('anioInicio'), $i('anioFin')) . self::nominaNueva($p),
             'banda.acomp.edit' => 'Banda ' . $q(self::banda($i('idBanda'))) . ': cambiar el acompañamiento ' . self::contratos([$i('idContrato')])
                 . ' por ' . self::destino((array) ($p['destino'] ?? [])) . ', ' . $i('anio'),
             'banda.acomp.importar' => 'Banda ' . $q(self::banda($i('idBanda'))) . ': copiar a ' . $i('anio') . ' los acompañamientos de ' . $i('origen'),
@@ -645,6 +652,30 @@ final class PropuestaOps
         $max = max($anios);
         return self::plural(count($filas), 'acompañamiento', 'acompañamientos') . ' de ' . self::lista($bandas)
             . ' con ' . self::lista($destinos) . ' (' . ($max > $min ? "{$min}–{$max}" : $min) . ')';
+    }
+
+    /**
+     * Banda de un alta de acompañamiento: la existente, o la que el editor
+     * propuso y aún no se ha aceptado (refs.idBanda; su nombre viaja en bandaNombre).
+     *
+     * @param array<string,mixed> $p
+     */
+    private static function bandaDeAlta(array $p): string
+    {
+        if (isset(((array) ($p['refs'] ?? []))['idBanda'])) return trim((string) ($p['bandaNombre'] ?? '')) . ' (propuesta, pendiente de aceptar)';
+        return self::banda((int) ($p['idBanda'] ?? 0));
+    }
+
+    /**
+     * Sufijo con lo que el alta crea en Semana Santa, calculado al proponer
+     * (NominaRepo::simularDestino); vacío si no crea nada.
+     *
+     * @param array<string,mixed> $p
+     */
+    private static function nominaNueva(array $p): string
+    {
+        $nuevos = array_values(array_map('strval', (array) ($p['nuevos'] ?? [])));
+        return $nuevos !== [] ? '. Se crea en Semana Santa: ' . implode(', ', $nuevos) : '';
     }
 
     /** @param array<string,mixed> $d destino de la pestaña de la ficha de banda */

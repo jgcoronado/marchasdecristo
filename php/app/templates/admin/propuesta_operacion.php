@@ -10,6 +10,8 @@
  * @var array|null $notice
  * @var list<array{id:string,estado:string}> $dependencias propuestas de las que cuelga
  * @var bool $filasCambiadas los acompañamientos sobre los que actúa ya no están como al proponer
+ * @var array{acompanamiento:list<array{0:string,1:string}>, nuevos:list<string>, error:?string, avisos:list<string>}|null $altaNomina
+ *      alta/edición de acompañamiento con destino libre (ver Admin::altaNominaDe)
  */
 $csrf = Auth::csrfToken($session);
 $id = (string) ($prop['id'] ?? '');
@@ -48,6 +50,38 @@ $datosJson = json_encode($prop['datos'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPE
 <?php endforeach; ?>
 <?php if ($filasCambiadas): ?>
     <div class="alert alert-error">Los acompañamientos sobre los que actúa han cambiado desde que se hizo la propuesta (o alguno ya no existe). Si la aceptas no se aplicará: recházala y que se vuelva a proponer sobre lo que hay ahora.</div>
+<?php endif; ?>
+
+<?php if (($altaNomina ?? null) !== null): ?>
+<?php if ($altaNomina['error'] !== null): ?>
+    <div class="alert alert-error">Con los datos de ahora, el destino no es válido (<?= V::e($altaNomina['error']) ?>): si la aceptas no se aplicará.</div>
+<?php endif; ?>
+<?php foreach ($altaNomina['avisos'] as $aviso): ?>
+    <div class="alert alert-info"><?= V::e($aviso) ?></div>
+<?php endforeach; ?>
+    <section>
+        <h2 class="section-title">Se crea en Semana Santa</h2>
+        <div class="panel">
+<?php if ($altaNomina['nuevos'] === []): ?>
+            <p class="muted small">Nada: la localidad, el día, la hermandad y el paso ya existen.</p>
+<?php else: ?>
+            <ul>
+<?php foreach ($altaNomina['nuevos'] as $n): ?>
+                <li><?= V::e($n) ?></li>
+<?php endforeach; ?>
+            </ul>
+            <p class="muted small">Se da de alta junto con el acompañamiento, en una sola operación: si algo falla, no se crea nada. Un día nuevo va al final de la localidad; se reordena después en Semana Santa.</p>
+<?php endif; ?>
+        </div>
+    </section>
+    <section>
+        <h2 class="section-title">Acompañamiento</h2>
+        <div class="tableList"><table class="table table-zebra table-sm"><tbody>
+<?php foreach ($altaNomina['acompanamiento'] as [$campo, $valor]): ?>
+            <tr><td class="small"><?= V::e($campo) ?></td><td class="small"><?= trim($valor) === '' ? '<span class="muted">—</span>' : V::e($valor) ?></td></tr>
+<?php endforeach; ?>
+        </tbody></table></div>
+    </section>
 <?php endif; ?>
 
 <?php if ($contexto): ?>
