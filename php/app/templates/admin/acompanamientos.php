@@ -102,6 +102,11 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
 
 <?php /* Con nómina se añade sobre cada paso (fila "Añadir banda…"); aquí solo
          queda el alta por texto libre, plegada, para hermandades fuera de ella. */ ?>
+<?php if ($proposalMode ?? false): /* el texto libre es solo del admin (ver acompanamientosAddPost) */ ?>
+<?php if ($nomina === null): ?>
+<p class="alert alert-info">Para proponer acompañamientos en <?= V::e($localidad) ?>, primero propón su Semana Santa (días, hermandades y pasos) en <a href="/dashboard/semana-santa/<?= V::e($slug) ?><?= $esNueva ? '?' . V::e(http_build_query(['nueva' => $localidad, 'provincia' => (string) $provincia])) : '' ?>">Semana Santa de <?= V::e($localidad) ?></a>; después elige el paso aquí o desde la ficha de la banda.</p>
+<?php endif; ?>
+<?php else: ?>
 <?php if ($nomina !== null): ?>
 <details class="acomp-fuera-alta">
     <summary class="muted">Añadir a una hermandad que no está en la nómina (texto libre)</summary>
@@ -179,6 +184,7 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
 <?php else: ?>
 </section>
 <?php endif; ?>
+<?php endif; /* proposalMode */ ?>
 
 <?php $hayDuplicados = false;
 foreach ($hermandades as $h) { foreach ($h['titulares'] as $t) { foreach ($t['rangos'] as $rg) { if ($rg['posibleDuplicado']) $hayDuplicados = true; } } }

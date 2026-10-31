@@ -1084,6 +1084,12 @@ final class Admin
             'idPaso' => (int) ($_POST['ID_PASO'] ?? 0),
             'tramo' => (string) ($_POST['TRAMO'] ?? ''),
         ];
+        // El texto libre (hermandad fuera de la nómina) es solo del admin: el
+        // editor siempre elige un paso, de modo que lo que propone cuelga de la
+        // nómina igual que el alta desde la ficha de banda.
+        if (!self::isAdmin($session) && $params['idPaso'] <= 0) {
+            self::volverAcomp($slug, "err=PASO_REQUERIDO");
+        }
         try {
             // El paso tiene que ser de esta localidad: se comprueba ya, también al proponer.
             if ($params['idPaso'] > 0 && NominaRepo::pasoDeLocalidad($params['idPaso'], $localidad) === null) {
