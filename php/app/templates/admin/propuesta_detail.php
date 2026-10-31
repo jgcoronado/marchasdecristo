@@ -1,13 +1,21 @@
 <?php use App\View as V; use App\Auth; use App\Html as H;
 /** @var array $session @var array<string,mixed> $prop @var array<string,mixed>|null $actual
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}> $authors @var list<string> $editable
- *  @var string|null $bandaNombre @var array|null $notice @var string|null $error */
+ *  @var string|null $bandaNombre @var array|null $notice @var string|null $error
+ *  @var array<string,mixed> $vista ficha a previsualizar (en una edición, la actual con lo propuesto encima)
+ *  @var array{campos:list<array{campo:string,base:?string,actual:?string,propuesto:string,conflicto:bool,sinBase:bool}>,
+ *             autores:?array{base:?list<int>,actuales:list<int>,propuestos:list<int>,conflicto:bool},
+ *             autoresActuales:list<int>, camposForm:list<string>, hayConflicto:bool} $cambios */
 $csrf = Auth::csrfToken($session);
 $ent = (string) ($prop['entidad'] ?? '');
 $acc = (string) ($prop['accion'] ?? '');
 $datos = (array) ($prop['datos'] ?? []);
 $id = (string) ($prop['id'] ?? '');
 $esEdicion = $acc === 'edit';
+// Una edición solo enseña (y solo reenvía) los campos que cambia.
+$camposForm = $esEdicion ? $cambios['camposForm'] : $editable;
+$porCampo = array_column($cambios['campos'], null, 'campo');
+$conflictoAutores = $cambios['autores'] !== null && $cambios['autores']['conflicto'];
 
 $entLabel = ['marcha' => 'Marcha', 'banda' => 'Banda', 'autor' => 'Compositor'];
 $accLabel = ['add' => 'Alta', 'edit' => 'Edición'];
@@ -47,28 +55,38 @@ $textareas = ['BIO', 'DETALLES_MARCHA', 'DATOS_INT'];
 <?php if ($esEdicion && $actual === null): ?>
         <p class="alert alert-error">Atención: el registro #<?= (int) ($prop['target_id'] ?? 0) ?> ya no existe en la base de datos local.</p>
 <?php endif; ?>
-        <p class="muted small">Puedes ajustar los valores antes de aceptar. Al aceptar se aplican sobre la base de datos local.</p>
+        <p class="muted small">Puedes ajustar los valores antes de aceptar. Al aceptar se aplican sobre la base de datos local<?= $esEdicion ? ', y solo los campos que la propuesta cambia: el resto de la ficha no se toca' : '' ?>.</p>
+<?php if ($esEdicion && $actual !== null && $cambios['campos'] === [] && $cambios['autores'] === null): ?>
+        <p class="alert alert-info">La ficha ya tiene todos los valores que propone: aceptar no cambiará nada.</p>
+<?php endif; ?>
     </div>
 
     <section>
         <h2 class="section-title">Previsualización <span class="muted small">· cómo quedará la ficha con los valores propuestos</span></h2>
-        <div class="panel"><?= V::capture('admin/_ficha_preview', ['entidad' => $ent, 'datos' => $datos, 'authors' => $authors, 'bandaNombre' => $bandaNombre]) ?></div>
+        <div class="panel"><?= V::capture('admin/_ficha_preview', ['entidad' => $ent, 'datos' => $vista, 'authors' => $authors, 'bandaNombre' => $bandaNombre]) ?></div>
     </section>
 
     <form class="panel" action="/dashboard/propuesta/<?= V::e($id) ?>/aceptar" method="POST" id="propuestaForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
-<?php foreach ($editable as $key):
+<?php foreach ($camposForm as $key):
         if ($key === 'PROVINCIA') continue; // se renderiza junto con LOCALIDAD, ver H::municipioFields()
-        $propuesto = array_key_exists($key, $datos) ? (string) ($datos[$key] ?? '') : '';
-        $anterior = $actual !== null && array_key_exists($key, $actual) ? (string) ($actual[$key] ?? '') : null;
-        $cambia = $esEdicion && $anterior !== null && trim($anterior) !== trim($propuesto);
+        $propuesto = array_key_exists($key, $datos) ? (string) ($datos[$key] ?? '') : (string) ($actual[$key] ?? '');
+        $c = $porCampo[$key] ?? null;
+        $cambia = $c !== null;
 ?>
 <?php if ($key === 'LOCALIDAD'):
-        $provPropuesta = array_key_exists('PROVINCIA', $datos) && $datos['PROVINCIA'] !== '' ? (string) $datos['PROVINCIA'] : null;
+        $provPropuesta = array_key_exists('PROVINCIA', $datos) && $datos['PROVINCIA'] !== ''
+            ? (string) $datos['PROVINCIA']
+            : ($esEdicion && ($actual['PROVINCIA'] ?? '') !== '' ? (string) $actual['PROVINCIA'] : null);
+        $c = $c ?? ($porCampo['PROVINCIA'] ?? null);
+        $cambia = $c !== null;
 ?>
         <div class="field">
             <label class="field-label">Localidad / provincia propuesta<?= $cambia ? ' <span class="chip">cambia</span>' : '' ?></label>
             <p class="muted small">Tal como la propuso el editor: «<?= V::e($propuesto) ?><?= $provPropuesta ? ', ' . V::e($provPropuesta) : '' ?>». Ajusta abajo al par correcto del listado antes de aceptar (o añádelo si no existe).</p>
+<?php if ($esEdicion): ?>
+            <p class="muted small">Ahora: «<?= V::e((string) ($actual['LOCALIDAD'] ?? '')) ?><?= ($actual['PROVINCIA'] ?? '') !== '' ? ', ' . V::e((string) $actual['PROVINCIA']) : '' ?>»<?= $c !== null && $c['conflicto'] ? ' · <span class="chip">' . ($c['sinBase'] ? 'sin base' : 'cambió después de proponer') . '</span>' : '' ?></p>
+<?php endif; ?>
         </div>
 <?= H::municipioFields($propuesto, $provPropuesta) ?>
 <?php continue; ?>
@@ -86,15 +104,25 @@ $textareas = ['BIO', 'DETALLES_MARCHA', 'DATOS_INT'];
 <?php else: ?>
             <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="text" value="<?= V::e($propuesto) ?>">
 <?php endif; ?>
-<?php if ($cambia): ?>
-            <p class="muted small">Actual: <?= $anterior === '' ? '<em>(vacío)</em>' : V::e($anterior) ?></p>
+<?php if ($cambia):
+        $vacio = static fn(?string $v): string => $v === null || trim($v) === '' ? '<em>(vacío)</em>' : V::e($v); ?>
+<?php if ($c['sinBase']): ?>
+            <p class="muted small">Ahora: <?= $vacio($c['actual']) ?> · <span class="chip">sin base</span> propuesta antigua: no se sabe qué valor tenía al proponerla.</p>
+<?php elseif ($c['conflicto']): ?>
+            <p class="muted small">Al proponer: <?= $vacio($c['base']) ?> · ahora: <?= $vacio($c['actual']) ?> · <span class="chip">cambió después de proponer</span></p>
+<?php else: ?>
+            <p class="muted small">Actual: <?= $vacio($c['actual']) ?></p>
+<?php endif; ?>
 <?php endif; ?>
         </div>
 <?php endforeach; ?>
 
-<?php if ($ent === 'marcha'): ?>
+<?php if ($ent === 'marcha' && (!$esEdicion || $cambios['autores'] !== null)): ?>
         <div class="field">
-            <label class="field-label">Autor(es)</label>
+            <label class="field-label">Autor(es)<?= $esEdicion ? ' <span class="chip">cambia</span>' : '' ?></label>
+<?php if ($esEdicion && $conflictoAutores): ?>
+            <p class="muted small"><span class="chip"><?= $cambios['autores']['base'] === null ? 'sin base' : 'cambió después de proponer' ?></span> Los autores actuales no son los que había al proponer; revisa la lista antes de aceptar.</p>
+<?php endif; ?>
             <div id="autoresBox" class="chips">
 <?php foreach ($authors as $a): ?>
                 <span class="chip" data-id="<?= (int) $a['ID_AUTOR'] ?>">
@@ -112,6 +140,12 @@ $textareas = ['BIO', 'DETALLES_MARCHA', 'DATOS_INT'];
         </div>
 <?php endif; ?>
 
+<?php if ($cambios['hayConflicto']): ?>
+        <div class="alert alert-error">
+            Hay campos que han cambiado desde que se hizo la propuesta, o de los que no se sabe cómo estaban (propuesta antigua). Revisa el valor de cada uno: lo que aceptes sustituye al actual.
+            <label class="row" style="gap:0.5rem;margin-top:0.5rem"><input type="checkbox" name="confirmarConflictos" value="1" required> He revisado los campos marcados</label>
+        </div>
+<?php endif; ?>
         <div class="row">
             <button class="btn btn-neutral" type="submit">Aceptar y aplicar</button>
         </div>

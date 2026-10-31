@@ -50,6 +50,139 @@ final class PropuestaOps
      */
     public static function aplicar(string $op, array $p, array $adjuntos = []): array
     {
+        // Operaciones sobre filas concretas de contrato: si llegan como
+        // propuesta, se comprueba primero que esas filas siguen como estaban
+        // al proponer, dentro de la misma transacción que las modifica.
+        if (self::contratosDe($op, $p) !== null) {
+            return Db::transaction(static function () use ($op, $p, $adjuntos): array {
+                if (!self::fotoVigente($op, $p)) return ['code' => 'CAMBIADO_DESDE_PROPUESTA'];
+                return self::ejecutar($op, $p, $adjuntos);
+            });
+        }
+        return self::ejecutar($op, $p, $adjuntos);
+    }
+
+    /**
+     * Operaciones que actúan sobre filas de contrato ya existentes y el
+     * parámetro que las lista. Para ellas, al proponer se guarda una «foto» de
+     * esas filas (ver conFoto) y al aceptar se exige que no hayan cambiado:
+     * entre medias un editarAniosRango puede fundir o recrear filas y la
+     * propuesta acabaría cayendo sobre filas ajenas o sobre parte del rango.
+     */
+    private const OPS_SOBRE_CONTRATOS = [
+        'acomp.borrar' => 'ids', 'acomp.banda' => 'ids', 'acomp.anios' => 'ids',
+        'acomp.tramo' => 'ids', 'acomp.moverPaso' => 'ids',
+        'banda.acomp.delete' => 'ids', 'banda.acomp.edit' => 'idContrato',
+    ];
+
+    /**
+     * Ids de contrato sobre los que actúa $op, o null si no es de ese tipo.
+     *
+     * @param array<string,mixed> $p
+     * @return list<int>|null
+     */
+    private static function contratosDe(string $op, array $p): ?array
+    {
+        $k = self::OPS_SOBRE_CONTRATOS[$op] ?? null;
+        if ($k === null) return null;
+        $ids = array_values(array_unique(array_map('intval', (array) ($p[$k] ?? []))));
+        sort($ids);
+        return $ids;
+    }
+
+    /**
+     * Estado actual de las LÍNEAS a las que pertenecen esas filas: todos los
+     * contratos con la misma banda, hermandad, localidad y paso que alguna de
+     * ellas, no solo las filas pedidas. Así cuenta como cambio tanto que una
+     * fila desaparezca o se altere como que la línea gane años (alargar un
+     * rango conserva los ids viejos y añade otros): una propuesta de borrar o
+     * cambiar «la línea 2010-2012» no puede caer sobre una línea que ya es
+     * 2009-2012 y dejar un año suelto.
+     *
+     * @param list<int> $ids
+     * @return list<array{ID_CONTRATO:int,ID_BANDA:int,HERMANDAD_SLUG:string,ANIO:int,LOCALIDAD:?string,ID_PASO:?int,TRAMO:?string}>
+     */
+    public static function fotoContratos(array $ids): array
+    {
+        if ($ids === []) return [];
+        $sel = 'SELECT c.ID_CONTRATO, c.ID_BANDA, c.HERMANDAD_SLUG, c.ANIO, cl.LOCALIDAD, cp.ID_PASO, ct.TRAMO
+                 FROM contrato c
+                 LEFT JOIN contrato_localidad cl ON cl.ID_CONTRATO = c.ID_CONTRATO
+                 LEFT JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO
+                 LEFT JOIN contrato_tramo ct ON ct.ID_CONTRATO = c.ID_CONTRATO';
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $filas = [];
+        $lineas = [];
+        foreach (Db::all("$sel WHERE c.ID_CONTRATO IN ($in)", $ids) as $r) {
+            $filas[(int) $r['ID_CONTRATO']] = $r;
+            $lineas[json_encode([(int) $r['ID_BANDA'], (string) $r['HERMANDAD_SLUG'], $r['LOCALIDAD'], $r['ID_PASO']])] =
+                [(int) $r['ID_BANDA'], (string) $r['HERMANDAD_SLUG'], $r['LOCALIDAD'], $r['ID_PASO']];
+        }
+        foreach ($lineas as [$banda, $slug, $loc, $paso]) {
+            foreach (Db::all(
+                "$sel WHERE c.ID_BANDA = ? AND c.HERMANDAD_SLUG = ? AND cl.LOCALIDAD IS ? AND cp.ID_PASO IS ?",
+                [$banda, $slug, $loc, $paso]
+            ) as $r) {
+                $filas[(int) $r['ID_CONTRATO']] = $r;
+            }
+        }
+        ksort($filas);
+        $out = [];
+        foreach ($filas as $r) {
+            $out[] = [
+                'ID_CONTRATO' => (int) $r['ID_CONTRATO'], 'ID_BANDA' => (int) $r['ID_BANDA'],
+                'HERMANDAD_SLUG' => (string) $r['HERMANDAD_SLUG'], 'ANIO' => (int) $r['ANIO'],
+                'LOCALIDAD' => $r['LOCALIDAD'] !== null ? (string) $r['LOCALIDAD'] : null,
+                'ID_PASO' => $r['ID_PASO'] !== null ? (int) $r['ID_PASO'] : null,
+                'TRAMO' => $r['TRAMO'] !== null ? (string) $r['TRAMO'] : null,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Añade a los parámetros de una propuesta la foto de las filas que toca
+     * (solo en las operaciones sobre contratos; el resto vuelve igual).
+     *
+     * @param array<string,mixed> $p
+     * @return array<string,mixed>
+     */
+    public static function conFoto(string $op, array $p): array
+    {
+        $ids = self::contratosDe($op, $p);
+        if ($ids === null) return $p;
+        $foto = self::fotoContratos($ids);
+        // Sin filas que tocar no hay nada que proponer (selección vacía o ids
+        // que ya no existen): no se encola una propuesta que no puede aplicarse.
+        if ($ids === [] || $foto === []) throw new PropuestaNoAdmitida('SELECCION_VACIA');
+        return $p + ['foto' => $foto];
+    }
+
+    /**
+     * ¿Siguen las filas como estaban al proponer? Sin foto (aplicación directa
+     * del admin, o propuesta anterior a la foto) solo se exige que existan
+     * todas: menos filas de las pedidas ya es un rango que cambió.
+     *
+     * @param array<string,mixed> $p
+     */
+    public static function fotoVigente(string $op, array $p): bool
+    {
+        $ids = self::contratosDe($op, $p);
+        if ($ids === null) return true;
+        if (!array_key_exists('foto', $p)) {
+            $existen = (int) Db::one('SELECT COUNT(*) AS N FROM contrato WHERE ID_CONTRATO IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', $ids)['N'];
+            return $ids === [] || $existen === count($ids);
+        }
+        return self::fotoContratos($ids) == array_values((array) $p['foto']);
+    }
+
+    /**
+     * @param array<string,mixed>  $p
+     * @param array<string,string> $adjuntos
+     * @return array<string,mixed>
+     */
+    private static function ejecutar(string $op, array $p, array $adjuntos): array
+    {
         $i = static fn(string $k): int => (int) ($p[$k] ?? 0);
         $s = static fn(string $k): string => (string) ($p[$k] ?? '');
         $sn = static fn(string $k): ?string => isset($p[$k]) ? (string) $p[$k] : null;
@@ -249,12 +382,16 @@ final class PropuestaOps
         if ($idPaso > 0) {
             $paso = NominaRepo::pasoDeLocalidad($idPaso, $localidad);
             if ($paso === null) return ['code' => 'PASO_INVALIDO'];
-            $r = AdminRepo::addContratoRango($idBanda, $paso['HERMANDAD'], $paso['NOMBRE'], $anioInicio, $anioFin, $fuente, $nota, $localidad, $paso['SLUG']);
-            if ($r['code'] === 'CREATED') {
-                NominaRepo::enlazarRangoAPaso($localidad, $idBanda, $paso, $anioInicio, $anioFin);
-                $tramo = (string) ($p['tramo'] ?? '');
-                if ($tramo !== '') NominaRepo::marcarTramoRango($localidad, $idBanda, $paso, $anioInicio, $anioFin, $tramo);
-            }
+            // Contratos, enlace al paso y tramo: o todo o nada.
+            $r = Db::transaction(static function () use ($idBanda, $paso, $anioInicio, $anioFin, $fuente, $nota, $localidad, $p): array {
+                $r = AdminRepo::addContratoRango($idBanda, $paso['HERMANDAD'], $paso['NOMBRE'], $anioInicio, $anioFin, $fuente, $nota, $localidad, $paso['SLUG']);
+                if ($r['code'] === 'CREATED') {
+                    NominaRepo::enlazarRangoAPaso($localidad, $idBanda, $paso, $anioInicio, $anioFin);
+                    $tramo = (string) ($p['tramo'] ?? '');
+                    if ($tramo !== '') NominaRepo::marcarTramoRango($localidad, $idBanda, $paso, $anioInicio, $anioFin, $tramo);
+                }
+                return $r;
+            });
         } else {
             $titular = isset($p['titular']) ? (string) $p['titular'] : null;
             $r = AdminRepo::addContratoRango($idBanda, (string) ($p['hermandad'] ?? ''), $titular, $anioInicio, $anioFin, $fuente, $nota, $localidad);
@@ -329,7 +466,8 @@ final class PropuestaOps
             'nomina.dia.delete' => $ss($locDia($i('idDia'))) . 'borrar el día ' . $q(self::dia($i('idDia'))),
             'nomina.dia.mover' => $ss($locDia($i('idDia'))) . 'mover el día ' . $q(self::dia($i('idDia'))) . ' ' . $dir(),
             'nomina.dias.reorder' => $ss($s('localidad')) . 'nuevo orden de los días: ' . self::lista(array_map([self::class, 'dia'], array_map('intval', (array) ($p['orden'] ?? [])))),
-            'nomina.hermandad.add' => $ss($s('localidad')) . 'añadir la hermandad ' . $q($s('nombre')) . ' al día ' . $q(self::dia($i('idDia'))),
+            'nomina.hermandad.add' => $ss($s('localidad')) . 'añadir la hermandad ' . $q($s('nombre')) . ' al día '
+                . (isset($p['refs']) ? $q($s('diaNombre')) . ' (propuesto, pendiente de aceptar)' : $q(self::dia($i('idDia')))),
             'nomina.hermandad.rename' => $ss($locHerm($i('idHermandad'))) . 'renombrar la hermandad ' . $q(self::hermandad($i('idHermandad'))) . ' a ' . $q($s('nombre')),
             'nomina.hermandad.delete' => $ss($locHerm($i('idHermandad'))) . 'borrar la hermandad ' . $q(self::hermandad($i('idHermandad'))) . ' y sus pasos',
             'nomina.hermandad.dia' => $ss($locHerm($i('idHermandad'))) . 'pasar la hermandad ' . $q(self::hermandad($i('idHermandad'))) . ' al día ' . $q(self::dia($i('idDia'))),
@@ -337,8 +475,11 @@ final class PropuestaOps
                 . ($i('idDia') > 0 ? ' en el día ' . $q(self::dia($i('idDia'))) : ''),
             'nomina.hermandades.reorder' => $ss($locDia($i('idDia'))) . 'nuevo orden de las hermandades del ' . $q(self::dia($i('idDia'))) . ': '
                 . self::lista(array_map([self::class, 'hermandad'], array_map('intval', (array) ($p['orden'] ?? [])))),
-            'nomina.paso.add' => $ss($locHerm($i('idHermandad'))) . 'añadir el paso ' . $q($s('nombre')) . (!empty($p['esCruzGuia']) ? ' (cruz de guía)' : '')
-                . ' a la hermandad ' . $q(self::hermandad($i('idHermandad'))) . ($i('idDia') > 0 ? ', el ' . $q(self::dia($i('idDia'))) : ''),
+            'nomina.paso.add' => isset($p['refs'])
+                ? $ss($s('localidad')) . 'añadir el paso ' . $q($s('nombre')) . (!empty($p['esCruzGuia']) ? ' (cruz de guía)' : '')
+                    . ' a la hermandad ' . $q($s('hermandadNombre')) . ' (propuesta, pendiente de aceptar)'
+                : $ss($locHerm($i('idHermandad'))) . 'añadir el paso ' . $q($s('nombre')) . (!empty($p['esCruzGuia']) ? ' (cruz de guía)' : '')
+                    . ' a la hermandad ' . $q(self::hermandad($i('idHermandad'))) . ($i('idDia') > 0 ? ', el ' . $q(self::dia($i('idDia'))) : ''),
             'nomina.paso.rename' => $ss(self::localidadDePaso($i('idPaso'))) . 'renombrar el paso ' . self::paso($i('idPaso')) . ' a ' . $q($s('nombre')),
             'nomina.paso.delete' => $ss(self::localidadDePaso($i('idPaso'))) . 'borrar el paso ' . self::paso($i('idPaso')),
             'nomina.paso.mover' => $ss(self::localidadDePaso($i('idPaso'))) . 'mover el paso ' . self::paso($i('idPaso')) . ' ' . $dir(),

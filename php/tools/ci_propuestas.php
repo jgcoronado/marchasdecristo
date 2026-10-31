@@ -198,6 +198,168 @@ $tests['la portada viaja con la propuesta y se instala al aceptar'] = static fun
     assertCierto(is_file(PropuestaRepo::baseDir() . "/aplicadas/$id.portada.webp"), 'y el adjunto se archiva con la propuesta');
 };
 
+// ── Sesión: el rol sale de una cuenta que existe y con la clave del login ────
+
+$tests['sesión: cuenta borrada, clave cambiada o token sin huella no valen; un fallo de BD no da rol'] = static function (): void {
+    Db::run('CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY, usuario TEXT, clave TEXT, ROL TEXT)');
+    Db::run("INSERT INTO usuarios (usuario, clave, ROL) VALUES ('ed-ok', 'h1', 'editor'), ('ed-reset', 'h1', 'editor')");
+    $ahora = (int) round(microtime(true) * 1000);
+    $token = static fn(string $u, ?string $clave): string => Auth::signSession(['user' => $u, 'iat' => $ahora, 'exp' => $ahora + 60000, 'jti' => 'ci']
+        + ($clave !== null ? ['pv' => Auth::huellaClave($clave)] : []));
+    $con = static function (string $tok): ?array { $_COOKIE[Auth::cookieName()] = $tok; try { return Auth::currentSession(); } finally { unset($_COOKIE[Auth::cookieName()]); } };
+
+    $s = $con($token('ed-ok', 'h1'));
+    assertIgual('editor', $s['rol'] ?? null, 'una sesión válida trae el rol de la BD');
+    assertCierto($con($token('nadie', 'h1')) === null, 'una cuenta que ya no existe no tiene sesión (antes valía como editor)');
+    Db::run("UPDATE usuarios SET clave = 'h2' WHERE usuario = 'ed-reset'");
+    assertCierto($con($token('ed-reset', 'h1')) === null, 'tras un reset de clave, las sesiones de antes dejan de valer');
+    assertCierto($con($token('ed-ok', null)) === null, 'un token sin huella de clave (emitido antes de este cambio) no vale');
+    assertCierto(!Roles::has(null, 'marcha.edit') && !Roles::has('', 'marcha.edit') && !Roles::has('otro', 'marcha.edit'),
+        'sin rol, o con uno desconocido, no hay ninguna capacidad');
+
+    Db::run('ALTER TABLE usuarios RENAME TO usuarios_fuera');
+    try {
+        $rol = null;
+        try { $rol = Auth::roleOf('ed-roto'); } catch (\PDOException) { $rol = 'EXCEPCION'; }
+        assertIgual('EXCEPCION', $rol, 'si la BD falla al leer el rol, la petición falla: nunca se da por admin');
+    } finally {
+        Db::run('ALTER TABLE usuarios_fuera RENAME TO usuarios');
+    }
+};
+
+// ── Almacén: cupo, tamaño y doble aceptación ─────────────────────────────────
+
+$tests['cupo por autor y tamaño máximo: no se escribe nada fuera de límites'] = static function () use ($ficheros): void {
+    $antes = count($ficheros('pendientes'));
+    $grande = ['NOTAS' => str_repeat('x', PropuestaRepo::MAX_BYTES + 10)];
+    $codigo = null;
+    try { PropuestaRepo::create('autor', 'add', null, $grande, [], 'ed-grande'); } catch (\App\PropuestaNoAdmitida $e) { $codigo = $e->getMessage(); }
+    assertIgual('PROPUESTA_DEMASIADO_GRANDE', $codigo, 'una propuesta enorme se rechaza');
+    assertIgual($antes, count($ficheros('pendientes')), 'y no deja fichero');
+
+    for ($n = 0; $n < PropuestaRepo::MAX_PENDIENTES_POR_AUTOR; $n++) {
+        PropuestaRepo::createOperacion('nomina.dia.rename', ['idDia' => 1, 'nombre' => "x$n"], 'ed-cupo', 'x', '/dashboard');
+    }
+    $codigo = null;
+    try { PropuestaRepo::createOperacion('nomina.dia.rename', ['idDia' => 1, 'nombre' => 'una más'], 'ed-cupo', 'x', '/dashboard'); }
+    catch (\App\PropuestaNoAdmitida $e) { $codigo = $e->getMessage(); }
+    assertIgual('CUPO_PROPUESTAS', $codigo, 'agotado el cupo, no se admiten más del mismo autor');
+    PropuestaRepo::createOperacion('nomina.dia.rename', ['idDia' => 1, 'nombre' => 'otro'], 'ed-otro', 'x', '/dashboard');
+    assertCierto(true, 'otro autor sigue pudiendo');
+    foreach (PropuestaRepo::pendientes() as $p) {
+        if (in_array($p['autor'] ?? '', ['ed-cupo', 'ed-otro'], true)) PropuestaRepo::rechazar((string) $p['id'], 'admin', 'limpieza');
+    }
+};
+
+$tests['aceptar dos veces la misma propuesta no la aplica dos veces'] = static function () use ($idHerm, $cuenta): void {
+    $id = PropuestaRepo::createOperacion('nomina.paso.add', ['idHermandad' => $idHerm, 'nombre' => 'Paso doble', 'esCruzGuia' => false, 'idDia' => 0], 'ed1', 'x', '/dashboard');
+    assertIgual('CREATED', PropuestaRepo::aplicar($id, 'admin')['code'] ?? null, 'la primera se aplica');
+    assertIgual('NOT_FOUND', PropuestaRepo::aplicar($id, 'admin')['code'] ?? null, 'la segunda ya no la encuentra');
+    assertIgual('NOT_FOUND', PropuestaRepo::rechazar($id, 'admin', null)['code'] ?? null, 'ni se puede rechazar después');
+    assertIgual(1, $cuenta("SELECT COUNT(*) AS N FROM paso WHERE NOMBRE = 'Paso doble'"), 'un solo paso');
+};
+
+$tests['transacciones anidadas: un fallo dentro deshace solo lo de dentro'] = static function () use ($cuenta): void {
+    Db::run('CREATE TABLE IF NOT EXISTS ci_tx (v TEXT)');
+    Db::transaction(static function (): void {
+        Db::run("INSERT INTO ci_tx VALUES ('fuera')");
+        try {
+            Db::transaction(static function (): void { Db::run("INSERT INTO ci_tx VALUES ('dentro')"); throw new \RuntimeException('x'); });
+        } catch (\RuntimeException) {
+        }
+    });
+    assertIgual(1, $cuenta("SELECT COUNT(*) AS N FROM ci_tx WHERE v = 'fuera'"), 'lo de fuera se confirma');
+    assertIgual(0, $cuenta("SELECT COUNT(*) AS N FROM ci_tx WHERE v = 'dentro'"), 'lo de dentro se deshace');
+};
+
+// ── Fallo 1: propuestas que cuelgan de otra aún pendiente ────────────────────
+
+$tests['un editor encadena día → hermandad → paso sin esperar; se aplican en orden y con los ids reales'] = static function () use ($cuenta): void {
+    $dia = PropuestaRepo::createOperacion('nomina.dia.add', ['localidad' => 'Sevilla', 'nombre' => 'Sábado de Pasión'], 'ed-cadena', 'x', '/dashboard');
+    $herm = PropuestaRepo::createOperacion('nomina.hermandad.add',
+        ['localidad' => 'Sevilla', 'idDia' => 0, 'nombre' => 'Hermandad de prueba', 'refs' => ['idDia' => $dia], 'diaNombre' => 'Sábado de Pasión'], 'ed-cadena', 'x', '/dashboard');
+    $paso = PropuestaRepo::createOperacion('nomina.paso.add',
+        ['idHermandad' => 0, 'nombre' => 'Paso de prueba', 'esCruzGuia' => false, 'idDia' => 0, 'refs' => ['idHermandad' => $herm]], 'ed-cadena', 'x', '/dashboard');
+    assertCierto(PropuestaRepo::propiaSinResolver('ed-cadena', $dia) !== null, 'la madre es del editor y está sin resolver');
+    assertCierto(PropuestaRepo::propiaSinResolver('otro', $dia) === null, 'de una ajena no se puede colgar');
+
+    assertIgual('DEPENDE_DE_PENDIENTE', PropuestaRepo::aplicar($herm, 'admin')['code'] ?? null, 'la hija antes que la madre no se aplica');
+    assertCierto(PropuestaRepo::fetchPendiente($herm) !== null, 'y sigue pendiente');
+
+    $rDia = PropuestaRepo::aplicar($dia, 'admin');
+    assertIgual('CREATED', $rDia['code'] ?? null, 'se aplica el día');
+    $rHerm = PropuestaRepo::aplicar($herm, 'admin');
+    assertIgual('CREATED', $rHerm['code'] ?? null, 'ahora la hermandad sí');
+    assertIgual(1, $cuenta('SELECT COUNT(*) AS N FROM hermandad WHERE ID_HERMANDAD = ? AND DIA = (SELECT NOMBRE FROM semana_santa_dia WHERE ID_DIA = ?)',
+        [(int) $rHerm['id'], (int) $rDia['id']]), 'en el día que creó la madre');
+    assertIgual('CREATED', PropuestaRepo::aplicar($paso, 'admin')['code'] ?? null, 'y el paso, en la hermandad recién creada');
+    assertIgual(1, $cuenta("SELECT COUNT(*) AS N FROM paso WHERE ID_HERMANDAD = ? AND NOMBRE = 'Paso de prueba'", [(int) $rHerm['id']]), 'paso colgado del id real');
+
+    $dia2 = PropuestaRepo::createOperacion('nomina.dia.add', ['localidad' => 'Sevilla', 'nombre' => 'Lunes de Pascua'], 'ed-cadena', 'x', '/dashboard');
+    $herm2 = PropuestaRepo::createOperacion('nomina.hermandad.add',
+        ['localidad' => 'Sevilla', 'idDia' => 0, 'nombre' => 'Huérfana', 'refs' => ['idDia' => $dia2]], 'ed-cadena', 'x', '/dashboard');
+    PropuestaRepo::rechazar($dia2, 'admin', 'no');
+    assertIgual('DEPENDENCIA_NO_APLICADA', PropuestaRepo::aplicar($herm2, 'admin')['code'] ?? null, 'si la madre se rechaza, la hija no se aplica');
+    PropuestaRepo::rechazar($herm2, 'admin', 'limpieza');
+};
+
+// ── Fallo 4: operaciones de rango con foto de las filas ──────────────────────
+
+$tests['una operación de rango no se aplica si las filas cambiaron después de proponerla'] = static function () use ($cuenta): void {
+    $banda = (int) Db::one('SELECT ID_BANDA FROM banda ORDER BY ID_BANDA LIMIT 1')['ID_BANDA'];
+    $alta = \App\AdminRepo::addContratoRango($banda, 'Hermandad Foto', null, 2010, 2012, null, null, 'Sevilla');
+    assertIgual('CREATED', $alta['code'], 'contratos de prueba');
+    $ids = array_map('intval', array_column(Db::all("SELECT ID_CONTRATO FROM contrato WHERE HERMANDAD = 'Hermandad Foto' ORDER BY ANIO"), 'ID_CONTRATO'));
+
+    $params = PropuestaOps::conFoto('acomp.borrar', ['ids' => $ids]);
+    assertIgual(count($ids), count($params['foto'] ?? []), 'la propuesta lleva la foto de la línea (aquí, sus tres años)');
+    $id = PropuestaRepo::createOperacion('acomp.borrar', $params, 'ed-rango', 'x', '/dashboard');
+
+    // Entre medias, el admin alarga el rango: se recrean/funden filas.
+    \App\AdminRepo::editarAniosRango($ids, 2009, 2012);
+    $r = PropuestaRepo::aplicar($id, 'admin');
+    assertIgual('CAMBIADO_DESDE_PROPUESTA', $r['code'] ?? null, 'las filas ya no son las de la foto');
+    assertCierto($cuenta("SELECT COUNT(*) AS N FROM contrato WHERE HERMANDAD = 'Hermandad Foto'") >= 3, 'no se ha borrado nada');
+    PropuestaRepo::rechazar($id, 'admin', 'limpieza');
+
+    // Cambio de un año en la misma línea (tramo) también invalida la foto.
+    $ids = array_map('intval', array_column(Db::all("SELECT ID_CONTRATO FROM contrato WHERE HERMANDAD = 'Hermandad Foto'"), 'ID_CONTRATO'));
+    $id = PropuestaRepo::createOperacion('acomp.banda', PropuestaOps::conFoto('acomp.banda', ['ids' => [$ids[0]], 'idBanda' => $banda]), 'ed-rango', 'x', '/dashboard');
+    Db::run('INSERT INTO contrato_tramo (ID_CONTRATO, TRAMO) VALUES (?, ?)', [$ids[1], 'ida']);
+    assertIgual('CAMBIADO_DESDE_PROPUESTA', PropuestaRepo::aplicar($id, 'admin')['code'] ?? null, 'otro año de la línea cambió de tramo');
+    PropuestaRepo::rechazar($id, 'admin', 'limpieza');
+    Db::run('DELETE FROM contrato_tramo WHERE ID_CONTRATO = ?', [$ids[1]]);
+
+    $ids = array_map('intval', array_column(Db::all("SELECT ID_CONTRATO FROM contrato WHERE HERMANDAD = 'Hermandad Foto'"), 'ID_CONTRATO'));
+    $id = PropuestaRepo::createOperacion('acomp.borrar', PropuestaOps::conFoto('acomp.borrar', ['ids' => $ids]), 'ed-rango', 'x', '/dashboard');
+    assertIgual('DELETED', PropuestaRepo::aplicar($id, 'admin')['code'] ?? null, 'sin cambios entre medias, se aplica');
+    assertIgual(0, $cuenta("SELECT COUNT(*) AS N FROM contrato WHERE HERMANDAD = 'Hermandad Foto'"), 'y borra exactamente esas filas');
+};
+
+// ── Fallo 3: la edición de una ficha solo escribe lo que cambia ──────────────
+
+$tests['aceptar una edición de ficha no pisa lo cambiado después en otros campos, y va entera o no va'] = static function (): void {
+    $m = Db::one('SELECT ID_MARCHA, TITULO, FECHA FROM marcha ORDER BY ID_MARCHA LIMIT 1');
+    $mid = (int) $m['ID_MARCHA'];
+    $id = PropuestaRepo::create('marcha', 'edit', $mid, ['TITULO' => 'Título propuesto'], [], 'ed-ficha',
+        ['formato' => 2, 'base' => ['TITULO' => $m['TITULO']]]);
+    // Después de proponer, el admin cambia otro campo.
+    \App\AdminRepo::editMarcha($mid, ['FECHA'], ['1999']);
+    assertIgual('UPDATED', PropuestaRepo::aplicar($id, 'admin')['code'] ?? null, 'se aplica');
+    $ahora = Db::one('SELECT TITULO, FECHA FROM marcha WHERE ID_MARCHA = ?', [$mid]);
+    assertIgual('Título propuesto', (string) $ahora['TITULO'], 'el campo propuesto cambia');
+    assertIgual('1999', (string) $ahora['FECHA'], 'el que no tocaba la propuesta conserva el cambio posterior');
+
+    $id = PropuestaRepo::create('marcha', 'edit', $mid, ['TITULO' => 'No debe quedar'], [999999999], 'ed-ficha',
+        ['formato' => 2, 'base' => ['TITULO' => 'Título propuesto'], 'autoresBase' => []]);
+    $r = PropuestaRepo::aplicar($id, 'admin');
+    assertIgual('INVALID_AUTORES', $r['code'] ?? null, 'un autor inexistente hace fallar la aceptación');
+    assertIgual('Título propuesto', (string) Db::one('SELECT TITULO FROM marcha WHERE ID_MARCHA = ?', [$mid])['TITULO'],
+        'y el título no se queda a medias: la ficha va entera o no va');
+    assertCierto(PropuestaRepo::fetchPendiente($id) !== null, 'sigue pendiente');
+    PropuestaRepo::rechazar($id, 'admin', 'limpieza');
+};
+
 // La última: ejecuta cada operación con parámetros vacíos sobre la BD de usar y tirar.
 $tests['cada operación que encola el panel existe en PropuestaOps (sin erratas en la clave)'] = static function (): void {
     preg_match_all("/self::operar\\(\\\$session, '([a-zA-Z.]+)'/", (string) file_get_contents(dirname(__DIR__) . '/app/src/Admin.php'), $m);

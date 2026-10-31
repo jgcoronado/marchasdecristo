@@ -93,9 +93,26 @@ final class Admin
         if (isset($_GET['social'])) return ['type' => 'ok', 'msg' => 'Enlaces sociales actualizados.'];
         if (isset($_GET['resuelto'])) return ['type' => 'ok', 'msg' => 'Duda resuelta.'];
         if (isset($_GET['descartado'])) return ['type' => 'info', 'msg' => 'Duda descartada.'];
-        if (isset($_GET['err'])) return ['type' => 'error', 'msg' => 'Error: ' . preg_replace('/[^A-Z_]/', '', (string) $_GET['err'])];
+        if (isset($_GET['err'])) {
+            $code = (string) preg_replace('/[^A-Z_]/', '', (string) $_GET['err']);
+            return ['type' => 'error', 'msg' => self::ERRORES_PROPUESTA[$code] ?? 'Error: ' . $code];
+        }
         return null;
     }
+
+    /** Mensajes legibles de los códigos que añade el circuito de propuestas. */
+    private const ERRORES_PROPUESTA = [
+        'CONFLICTO_SIN_CONFIRMAR' => 'Hay campos que cambiaron después de la propuesta: revísalos y marca la casilla de confirmación antes de aceptar.',
+        'CAMBIADO_DESDE_PROPUESTA' => 'Los acompañamientos sobre los que actúa la propuesta han cambiado desde que se hizo (años fundidos, banda, paso o tramo distintos). No se ha aplicado: recházala y que se vuelva a proponer sobre lo que hay ahora.',
+        'DEPENDE_DE_PENDIENTE' => 'Esta propuesta cuelga de otra que aún está pendiente: acepta primero aquella.',
+        'DEPENDENCIA_NO_APLICADA' => 'Esta propuesta cuelga de otra que se rechazó o no se encuentra: no se puede aplicar.',
+        'CUPO_PROPUESTAS' => 'Tienes demasiadas propuestas sin revisar. Espera a que el administrador revise las pendientes.',
+        'PROPUESTA_DEMASIADO_GRANDE' => 'La propuesta es demasiado grande para enviarla de una vez.',
+        'CERROJO_NO_DISPONIBLE' => 'No se pudo bloquear el almacén de propuestas; vuelve a intentarlo.',
+        'SELECCION_VACIA' => 'No hay acompañamientos seleccionados (o ya no existen): no se ha enviado nada.',
+        'PASO_REQUERIDO' => 'Elige el paso de la nómina de Semana Santa: el alta con hermandad en texto libre es solo del administrador.',
+        'DEPENDENCIA_INVALIDA' => 'La propuesta de la que querías colgar esta ya no está pendiente o no es tuya.',
+    ];
 
     private static function isAdmin(array $session): bool
     {
@@ -137,10 +154,17 @@ final class Admin
     private static function operar(array $session, string $op, array $params, string $volver, array $adjuntos = []): array
     {
         if (self::proposalMode($session)) {
-            PropuestaRepo::createOperacion(
-                $op, $params, (string) ($session['user'] ?? ''),
-                PropuestaOps::describir($op, $params), (string) parse_url($volver, PHP_URL_PATH), $adjuntos
-            );
+            try {
+                // Sobre filas de contrato existentes: foto de cómo están ahora,
+                // para no aplicar la propuesta si cambian antes de aceptarla.
+                $params = PropuestaOps::conFoto($op, $params);
+                PropuestaRepo::createOperacion(
+                    $op, $params, (string) ($session['user'] ?? ''),
+                    PropuestaOps::describir($op, $params), (string) parse_url($volver, PHP_URL_PATH), $adjuntos
+                );
+            } catch (PropuestaNoAdmitida $e) {
+                Http::redirect(self::conParam($volver, 'err=' . rawurlencode($e->getMessage())), 302);
+            }
             Http::redirect(self::conParam($volver, 'propuesta=1'), 302);
         }
         return PropuestaOps::aplicar($op, $params);
@@ -184,10 +208,89 @@ final class Admin
      * @param array<string,mixed> $datos
      * @param list<int> $autoresIds
      */
-    private static function enqueueProposal(array $session, string $entidad, string $accion, ?int $targetId, array $datos, array $autoresIds): never
+    private static function enqueueProposal(array $session, string $entidad, string $accion, ?int $targetId, array $datos, array $autoresIds, array $extra, string $formAction): never
     {
-        PropuestaRepo::create($entidad, $accion, $targetId, $datos, $autoresIds, (string) ($session['user'] ?? ''));
+        try {
+            PropuestaRepo::create($entidad, $accion, $targetId, $datos, $autoresIds, (string) ($session['user'] ?? ''), $extra);
+        } catch (PropuestaNoAdmitida $e) {
+            Http::redirect(self::conParam($formAction, 'err=' . rawurlencode($e->getMessage())), 302);
+        }
         Http::redirect('/dashboard?propuesta=1', 302);
+    }
+
+    /**
+     * Propuesta de EDICIÓN de una ficha: guarda solo los campos que el editor
+     * cambia, cada uno con el valor que tenía al proponer ('base'), y los
+     * autores solo si cambian (con los de entonces en 'autoresBase'). Al
+     * aceptar, un campo cuyo valor actual ya no es su base es un conflicto que
+     * el admin tiene que ver y confirmar; los campos que la propuesta no toca
+     * nunca se reescriben, así que no se pisa lo cambiado después.
+     *
+     * @param list<string>        $editable
+     * @param array<string,mixed> $current  ficha tal como está ahora
+     * @param list<int>           $autoresPost   autores enviados (vacío si la entidad no tiene)
+     * @param list<int>           $autoresActuales  ordenados
+     */
+    /**
+     * Propuesta propia y pendiente de la que cuelga un alta (campo 'dependeDe'
+     * del formulario), validada: la pide un editor, es suya, es de la
+     * operación esperada y de esta localidad. Null si no se pidió colgar de
+     * ninguna; si se pidió y no vale, redirige con error.
+     *
+     * @return array<string,mixed>|null
+     */
+    /**
+     * Días y hermandades que $user ha propuesto en esta localidad y siguen sin
+     * resolver: el editor puede colgarles hermandades y pasos sin esperar.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private static function altasNominaPendientes(string $user, string $slug): array
+    {
+        return array_values(array_filter(
+            PropuestaRepo::pendientesDe($user),
+            static fn(array $p): bool => in_array($p['accion'] ?? '', ['nomina.dia.add', 'nomina.hermandad.add'], true)
+                && is_string($p['datos']['localidad'] ?? null)
+                && Slug::slugify((string) $p['datos']['localidad']) === $slug
+        ));
+    }
+
+    private static function propuestaMadre(array $session, string $opMadre, string $slug, string $volver): ?array
+    {
+        $id = trim((string) ($_POST['dependeDe'] ?? ''));
+        if ($id === '') return null;
+        $madre = self::proposalMode($session) ? PropuestaRepo::propiaSinResolver((string) $session['user'], $id) : null;
+        if ($madre === null || ($madre['accion'] ?? '') !== $opMadre
+            || !is_string($madre['datos']['localidad'] ?? null)
+            || Slug::slugify((string) $madre['datos']['localidad']) !== $slug) {
+            Http::redirect(self::conParam($volver, 'err=DEPENDENCIA_INVALIDA'), 302);
+        }
+        return $madre;
+    }
+
+    private static function editorSubmitEdicion(array $session, string $entidad, int $targetId, array $editable, array $current, array $autoresPost, array $autoresActuales, string $formAction): never
+    {
+        $datos = [];
+        $base = [];
+        foreach ($editable as $f) {
+            if (!array_key_exists($f, $_POST)) continue;
+            if (self::changed($current[$f] ?? null, $_POST[$f])) {
+                $datos[$f] = $_POST[$f];
+                $base[$f] = $current[$f] ?? null;
+            }
+        }
+        $cambianAutores = $entidad === 'marcha' && $autoresPost !== $autoresActuales;
+        if ($datos === [] && !$cambianAutores) Http::redirect(self::conParam($formAction, 'nochanges=1'), 302);
+
+        // La previsualización enseña la ficha completa como quedaría.
+        $vista = array_intersect_key($current, array_flip($editable));
+        foreach ($datos as $f => $v) $vista[$f] = $v;
+
+        self::editorSubmit($session, $entidad, 'edit', $targetId, $vista, $autoresPost, $formAction, [
+            'datos' => $datos,
+            'autoresIds' => $cambianAutores ? $autoresPost : [],
+            'extra' => ['formato' => 2, 'base' => $base] + ($cambianAutores ? ['autoresBase' => $autoresActuales] : []),
+        ]);
     }
 
     /**
@@ -198,10 +301,13 @@ final class Admin
      * @param array<string,mixed> $datos
      * @param list<int> $autoresIds
      */
-    private static function editorSubmit(array $session, string $entidad, string $accion, ?int $targetId, array $datos, array $autoresIds, string $formAction): never
+    private static function editorSubmit(array $session, string $entidad, string $accion, ?int $targetId, array $datos, array $autoresIds, string $formAction, ?array $guardar = null): never
     {
         if (($_POST['accion'] ?? '') === 'enviar') {
-            self::enqueueProposal($session, $entidad, $accion, $targetId, $datos, $autoresIds); // redirige (never)
+            // $guardar: en una edición, solo lo que cambia y su valor base (ver
+            // editorSubmitEdicion); en un alta, la ficha entera.
+            $g = $guardar ?? ['datos' => $datos, 'autoresIds' => $autoresIds, 'extra' => []];
+            self::enqueueProposal($session, $entidad, $accion, $targetId, $g['datos'], $g['autoresIds'], $g['extra'], $formAction); // redirige (never)
         }
         View::render('admin/propuesta_preview', [
             'session' => $session, 'entidad' => $entidad, 'accion' => $accion, 'targetId' => $targetId,
@@ -395,7 +501,9 @@ final class Admin
         if (self::proposalMode($session)) {
             $ids = self::postAutoresIds();
             if ($ids === []) Http::redirect("/dashboard/marcha/$id?err=AUTHORS_REQUIRED", 302);
-            self::editorSubmit($session, 'marcha', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_MARCHA), $ids, "/dashboard/marcha/$id");
+            $curIds = array_map('intval', array_column(Repo::currentAutoresForMarcha($id), 'ID_AUTOR'));
+            sort($curIds);
+            self::editorSubmitEdicion($session, 'marcha', (int) $id, AdminRepo::EDITABLE_MARCHA, $current, $ids, $curIds, "/dashboard/marcha/$id");
         }
 
         // Delta de campos editables.
@@ -587,7 +695,7 @@ final class Admin
         // Propuesta en lugar de escritura directa: editor siempre, y cualquier
         // usuario fuera de local. Ver self::proposalMode().
         if (self::proposalMode($session)) {
-            self::editorSubmit($session, 'autor', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_AUTOR), [], "/dashboard/autor/$id");
+            self::editorSubmitEdicion($session, 'autor', (int) $id, AdminRepo::EDITABLE_AUTOR, $current, [], [], "/dashboard/autor/$id");
         }
 
         $keys = [];
@@ -699,7 +807,7 @@ final class Admin
         // Propuesta en lugar de escritura directa (solo campos básicos): editor
         // siempre, y cualquier usuario fuera de local. Ver self::proposalMode().
         if (self::proposalMode($session)) {
-            self::editorSubmit($session, 'banda', 'edit', (int) $id, self::postDatos(AdminRepo::EDITABLE_BANDA), [], "/dashboard/banda/$id");
+            self::editorSubmitEdicion($session, 'banda', (int) $id, AdminRepo::EDITABLE_BANDA, $current, [], [], "/dashboard/banda/$id");
         }
 
         $keys = [];
@@ -1511,6 +1619,7 @@ final class Admin
             // Sin la migración 020 (manual en el host) no se ofrecen días extra ni históricos.
             'variosDias' => NominaRepo::variosDiasDisponible(),
             'proposalMode' => self::proposalMode($session),
+            'altasPendientes' => self::proposalMode($session) ? self::altasNominaPendientes((string) $session['user'], $slug) : [],
             'notice' => $notice,
         ], ['title' => "Semana Santa — $localidad — Marchas de Cristo", 'noindex' => true,
             // pantalla de trabajo (≥1200px): hermandad y sus pasos en dos columnas
@@ -1592,9 +1701,22 @@ final class Admin
         $slug = (string) $p['localidad'];
         if (!Auth::checkCsrf($_POST['_csrf'] ?? null, $session)) Http::redirect("/dashboard/semana-santa/$slug?err=CSRF", 302);
         $localidad = NominaRepo::resolverLocalidadPorSlug($slug);
+        $volver = "/dashboard/semana-santa/$slug";
+        $params = ['localidad' => $localidad, 'idDia' => (int) ($_POST['idDia'] ?? 0), 'nombre' => (string) ($_POST['NOMBRE'] ?? '')];
+        // Hermandad de un día que el propio editor ha propuesto y aún no se ha
+        // aceptado: el día no tiene id todavía; se guarda la referencia a esa
+        // propuesta y se resuelve al aceptar (ver PropuestaRepo::resolverRefs).
+        $madre = self::propuestaMadre($session, 'nomina.dia.add', $slug, $volver);
+        if ($madre !== null) {
+            $localidad = (string) $madre['datos']['localidad'];
+            $provNueva = isset($madre['datos']['provNueva']) ? (string) $madre['datos']['provNueva'] : null;
+            $params = ['localidad' => $localidad, 'idDia' => 0, 'nombre' => $params['nombre'],
+                       'refs' => ['idDia' => (string) $madre['id']], 'diaNombre' => (string) ($madre['datos']['nombre'] ?? '')]
+                    + ($provNueva !== null ? ['provNueva' => $provNueva] : []);
+            if (NominaRepo::resolverLocalidadPorSlug($slug) === null) $volver .= '?' . http_build_query(['nueva' => $localidad, 'provincia' => $provNueva]);
+        }
         if ($localidad === null) Http::notFound();
-        $idDia = (int) ($_POST['idDia'] ?? 0);
-        $r = self::operar($session, 'nomina.hermandad.add', ['localidad' => $localidad, 'idDia' => $idDia, 'nombre' => (string) ($_POST['NOMBRE'] ?? '')], "/dashboard/semana-santa/$slug");
+        $r = self::operar($session, 'nomina.hermandad.add', $params, $volver);
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?" . (!empty($r['diaExtra']) ? 'diaExtra=1' : 'created=1'), 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -1659,9 +1781,19 @@ final class Admin
         $idHermandad = (int) ($_POST['idHermandad'] ?? 0);
         $esCruzGuia = (string) ($_POST['esCruzGuia'] ?? '') === '1';
         $idDia = (int) ($_POST['idDia'] ?? 0); // alta desde la caja de un día extra
-        $r = self::operar($session, 'nomina.paso.add', [
-            'idHermandad' => $idHermandad, 'nombre' => (string) ($_POST['NOMBRE'] ?? ''), 'esCruzGuia' => $esCruzGuia, 'idDia' => $idDia,
-        ], "/dashboard/semana-santa/$slug");
+        $volver = "/dashboard/semana-santa/$slug";
+        $params = ['idHermandad' => $idHermandad, 'nombre' => (string) ($_POST['NOMBRE'] ?? ''), 'esCruzGuia' => $esCruzGuia, 'idDia' => $idDia];
+        // Paso de una hermandad propuesta por el mismo editor y aún pendiente.
+        $madre = self::propuestaMadre($session, 'nomina.hermandad.add', $slug, $volver);
+        if ($madre !== null) {
+            $params = ['idHermandad' => 0, 'nombre' => $params['nombre'], 'esCruzGuia' => $esCruzGuia, 'idDia' => 0,
+                       'refs' => ['idHermandad' => (string) $madre['id']],
+                       'hermandadNombre' => (string) ($madre['datos']['nombre'] ?? ''), 'localidad' => (string) $madre['datos']['localidad']];
+            if (NominaRepo::resolverLocalidadPorSlug($slug) === null) {
+                $volver .= '?' . http_build_query(['nueva' => (string) $madre['datos']['localidad'], 'provincia' => (string) ($madre['datos']['provNueva'] ?? '')]);
+            }
+        }
+        $r = self::operar($session, 'nomina.paso.add', $params, $volver);
         if (($r['code'] ?? '') === 'CREATED') Http::redirect("/dashboard/semana-santa/$slug?created=1", 302);
         Http::redirect("/dashboard/semana-santa/$slug?err=" . ($r['code'] ?? 'ERROR'), 302);
     }
@@ -2420,6 +2552,70 @@ final class Admin
     }
 
     /** Valores actuales en la BD local, para el diff (solo propuestas de edición). */
+    /**
+     * Qué cambia una propuesta de edición de ficha frente a la ficha actual.
+     *   - formato 2: los campos que guardó (con su base); conflicto si el valor
+     *     actual ya no es la base.
+     *   - propuestas anteriores (formulario entero, sin base): los campos cuyo
+     *     valor difiere del actual, todos marcados como conflicto porque no se
+     *     sabe si el cambio es del editor o posterior a la propuesta.
+     * En un alta no hay cambios que calcular: devuelve los campos editables.
+     *
+     * @param array<string,mixed>      $prop
+     * @param array<string,mixed>|null $actual
+     * @return array{campos:list<array{campo:string,base:?string,actual:?string,propuesto:string,conflicto:bool,sinBase:bool}>,
+     *               autores:?array{base:?list<int>,actuales:list<int>,propuestos:list<int>,conflicto:bool},
+     *               autoresActuales:list<int>, camposForm:list<string>, hayConflicto:bool}
+     */
+    private static function cambiosFicha(array $prop, ?array $actual): array
+    {
+        $entidad = (string) ($prop['entidad'] ?? '');
+        $editable = self::editableFor($entidad, (string) ($prop['accion'] ?? ''));
+        $vacio = ['campos' => [], 'autores' => null, 'autoresActuales' => [], 'camposForm' => $editable, 'hayConflicto' => false];
+        if (($prop['accion'] ?? '') !== 'edit' || $actual === null) return $vacio;
+
+        $datos = (array) ($prop['datos'] ?? []);
+        $formato2 = (int) ($prop['formato'] ?? 1) >= 2;
+        $base = (array) ($prop['base'] ?? []);
+        $str = static fn(mixed $v): ?string => $v === null ? null : (string) $v;
+
+        $campos = [];
+        foreach ($editable as $f) {
+            if (!array_key_exists($f, $datos)) continue;
+            if ($formato2) {
+                $conflicto = self::changed($base[$f] ?? null, $actual[$f] ?? null);
+                $campos[] = ['campo' => $f, 'base' => $str($base[$f] ?? null), 'actual' => $str($actual[$f] ?? null),
+                             'propuesto' => (string) ($datos[$f] ?? ''), 'conflicto' => $conflicto, 'sinBase' => false];
+            } elseif (self::changed($actual[$f] ?? null, $datos[$f])) {
+                $campos[] = ['campo' => $f, 'base' => null, 'actual' => $str($actual[$f] ?? null),
+                             'propuesto' => (string) ($datos[$f] ?? ''), 'conflicto' => true, 'sinBase' => true];
+            }
+        }
+
+        $autores = null;
+        $actuales = [];
+        if ($entidad === 'marcha') {
+            $actuales = array_map('intval', array_column(Repo::currentAutoresForMarcha((string) $prop['target_id']), 'ID_AUTOR'));
+            sort($actuales);
+            $propuestos = array_map('intval', (array) ($prop['autoresIds'] ?? []));
+            sort($propuestos);
+            if ($propuestos !== [] && $propuestos !== $actuales) {
+                $baseAut = $formato2 && isset($prop['autoresBase']) ? array_map('intval', (array) $prop['autoresBase']) : null;
+                if ($baseAut !== null) sort($baseAut);
+                $autores = ['base' => $baseAut, 'actuales' => $actuales, 'propuestos' => $propuestos,
+                            'conflicto' => $baseAut === null || $baseAut !== $actuales];
+            }
+        }
+
+        $form = array_column($campos, 'campo');
+        // Localidad y provincia se eligen juntas (H::municipioFields): si cambia
+        // una, el formulario lleva las dos.
+        if (array_intersect($form, ['LOCALIDAD', 'PROVINCIA']) !== []) $form = array_values(array_unique([...$form, 'LOCALIDAD', 'PROVINCIA']));
+
+        $hay = in_array(true, array_column($campos, 'conflicto'), true) || ($autores['conflicto'] ?? false);
+        return ['campos' => $campos, 'autores' => $autores, 'autoresActuales' => $actuales, 'camposForm' => $form, 'hayConflicto' => $hay];
+    }
+
     private static function propuestaActual(array $prop): ?array
     {
         if (($prop['accion'] ?? '') !== 'edit' || $prop['target_id'] === null) return null;
@@ -2454,17 +2650,30 @@ final class Admin
                 'seccionLabel' => PropuestaOps::seccion($op),
                 'contexto' => PropuestaOps::contexto($op, (array) ($prop['datos'] ?? [])),
                 'adjuntos' => array_keys(PropuestaRepo::adjuntosDe($prop)),
+                // Propuestas de las que cuelga (alta sobre un día u hermandad aún sin aceptar).
+                'dependencias' => array_map(
+                    static fn(string $idMadre): array => ['id' => $idMadre] + PropuestaRepo::estadoDe($idMadre),
+                    array_values(array_map('strval', (array) ($prop['datos']['refs'] ?? [])))
+                ),
+                // Operaciones sobre acompañamientos existentes: ¿siguen las filas como al proponer?
+                'filasCambiadas' => !PropuestaOps::fotoVigente((string) ($prop['accion'] ?? ''), (array) ($prop['datos'] ?? [])),
                 'notice' => self::noticeFromQuery(),
             ], ['title' => 'Revisar propuesta — Marchas de Cristo', 'noindex' => true]);
             return;
         }
-        $authors = ($prop['entidad'] ?? '') === 'marcha'
-            ? Repo::autoresByIds(array_map('intval', (array) ($prop['autoresIds'] ?? [])))
-            : [];
+        $actual = self::propuestaActual($prop);
+        $cambios = self::cambiosFicha($prop, $actual);
+        $esEdicion = ($prop['accion'] ?? '') === 'edit';
+        // En una edición se previsualiza la ficha actual con lo propuesto encima.
+        $vista = $esEdicion && $actual !== null ? array_merge($actual, (array) ($prop['datos'] ?? [])) : (array) ($prop['datos'] ?? []);
+        $autoresVista = $esEdicion && $cambios['autores'] === null && ($prop['entidad'] ?? '') === 'marcha'
+            ? $cambios['autoresActuales']
+            : array_map('intval', (array) ($prop['autoresIds'] ?? []));
+        $authors = ($prop['entidad'] ?? '') === 'marcha' ? Repo::autoresByIds($autoresVista) : [];
         View::render('admin/propuesta_detail', [
             'session' => $session, 'prop' => $prop, 'authors' => $authors,
-            'actual' => self::propuestaActual($prop),
-            'bandaNombre' => ($prop['entidad'] ?? '') === 'marcha' ? self::bandaNombre(($prop['datos']['BANDA_ESTRENO'] ?? null)) : null,
+            'actual' => $actual, 'vista' => $vista, 'cambios' => $cambios,
+            'bandaNombre' => ($prop['entidad'] ?? '') === 'marcha' ? self::bandaNombre(($vista['BANDA_ESTRENO'] ?? null)) : null,
             'editable' => self::editableFor((string) ($prop['entidad'] ?? ''), (string) ($prop['accion'] ?? '')),
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => 'Revisar propuesta — Marchas de Cristo', 'noindex' => true]);
@@ -2493,9 +2702,22 @@ final class Admin
         }
 
         // El admin puede ajustar los campos antes de aceptar (el form los reenvía).
+        // En una edición solo se reenvían —y solo se escriben— los campos que la
+        // propuesta cambia; si alguno ya no está como cuando se propuso, hay que
+        // haberlo visto y confirmado.
         $editable = self::editableFor((string) $prop['entidad'], (string) $prop['accion']);
+        if (($prop['accion'] ?? '') === 'edit') {
+            $cambios = self::cambiosFicha($prop, self::propuestaActual($prop));
+            if ($cambios['hayConflicto'] && ($_POST['confirmarConflictos'] ?? '') !== '1') {
+                Http::redirect("/dashboard/propuesta/$id?err=CONFLICTO_SIN_CONFIRMAR", 302);
+            }
+            $editable = array_values(array_intersect($editable, $cambios['camposForm']));
+            $overrideAutores = $cambios['autores'] !== null ? self::postAutoresIds() : [];
+            if ($cambios['autores'] !== null && $overrideAutores === []) Http::redirect("/dashboard/propuesta/$id?err=AUTHORS_REQUIRED", 302);
+        } else {
+            $overrideAutores = ($prop['entidad'] ?? '') === 'marcha' ? self::postAutoresIds() : null;
+        }
         $overrideDatos = self::postDatos($editable);
-        $overrideAutores = ($prop['entidad'] ?? '') === 'marcha' ? self::postAutoresIds() : null;
 
         $r = PropuestaRepo::aplicar($id, (string) ($session['user'] ?? ''), $overrideDatos, $overrideAutores);
         if (in_array($r['code'] ?? '', ['CREATED', 'UPDATED'], true)) {

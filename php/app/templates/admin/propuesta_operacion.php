@@ -8,6 +8,8 @@
  * @var list<array{0:string,1:string,2:string}> $contexto [campo, actual, propuesto]
  * @var list<string> $adjuntos nombres de los adjuntos ('portada')
  * @var array|null $notice
+ * @var list<array{id:string,estado:string}> $dependencias propuestas de las que cuelga
+ * @var bool $filasCambiadas los acompañamientos sobre los que actúa ya no están como al proponer
  */
 $csrf = Auth::csrfToken($session);
 $id = (string) ($prop['id'] ?? '');
@@ -37,6 +39,16 @@ $datosJson = json_encode($prop['datos'] ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPE
             si algo ya no cuadra (un registro borrado, un orden que cambió), la propuesta no se aplica, sigue pendiente y verás el motivo.
             Para matizarla, acéptala y retócala después aquí mismo, o recházala explicando por qué.</p>
     </div>
+
+<?php foreach ($dependencias as $dep):
+        $txt = ['pendiente' => 'está pendiente: acéptala antes que esta', 'aplicada' => 'ya está aplicada', 'rechazada' => 'se rechazó: esta no se podrá aplicar']; ?>
+    <div class="alert alert-<?= $dep['estado'] === 'aplicada' ? 'info' : 'error' ?>">
+        Cuelga de la propuesta <a href="/dashboard/propuesta/<?= V::e($dep['id']) ?>"><?= V::e($dep['id']) ?></a>, que <?= V::e($txt[$dep['estado']] ?? 'no se encuentra en este equipo') ?>.
+    </div>
+<?php endforeach; ?>
+<?php if ($filasCambiadas): ?>
+    <div class="alert alert-error">Los acompañamientos sobre los que actúa han cambiado desde que se hizo la propuesta (o alguno ya no existe). Si la aceptas no se aplicará: recházala y que se vuelva a proponer sobre lo que hay ahora.</div>
+<?php endif; ?>
 
 <?php if ($contexto): ?>
     <section>
