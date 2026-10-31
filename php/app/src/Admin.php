@@ -282,8 +282,10 @@ final class Admin
         Auth::rateClear($key);
         Auth::rateClear($ipKey);
 
-        if (Auth::isLegacyMd5((string) $row['clave'])) {
-            Db::run('UPDATE usuarios SET clave = ? WHERE usuario = ?', [Auth::hashPassword($password), $row['usuario']]);
+        $clave = (string) $row['clave'];
+        if (Auth::isLegacyMd5($clave)) {
+            $clave = Auth::hashPassword($password);
+            Db::run('UPDATE usuarios SET clave = ? WHERE usuario = ?', [$clave, $row['usuario']]);
         }
 
         $ttl = (int) ($GLOBALS['config']['login_ttl_ms'] ?? 8 * 60 * 60 * 1000);
@@ -293,6 +295,9 @@ final class Admin
             'iat' => $now,
             'exp' => $now + $ttl,
             'jti' => bin2hex(random_bytes(16)),
+            // Huella de la clave: un reset o un cambio de contraseña invalida
+            // este token (ver Auth::currentSession).
+            'pv' => Auth::huellaClave($clave),
         ]);
         Auth::setSessionCookie($token);
         Http::redirect('/dashboard', 302);
@@ -3082,7 +3087,7 @@ final class Admin
             })(),
             'disco'  => (static function () use ($q, $normalize): array {
                 $session = Auth::currentSession();
-                if ($session === null || !Roles::has(Auth::roleOf((string) ($session['user'] ?? '')), 'disco.edit')) return [];
+                if ($session === null || !Roles::has($session['rol'], 'disco.edit')) return [];
                 return $normalize('disco', AdminRepo::discoCandidatosPorTexto($q, 15));
             })(),
             default  => [],

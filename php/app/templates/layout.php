@@ -87,8 +87,7 @@ $showSearch = !str_starts_with($reqPath, '/dashboard') && !str_starts_with($reqP
 $soloLectura = false;
 if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta()) {
     $sesionPanel = Auth::currentSession();
-    $soloLectura = $sesionPanel !== null
-        && Auth::soloLectura(['rol' => Auth::roleOf((string) ($sesionPanel['user'] ?? ''))]);
+    $soloLectura = $sesionPanel !== null && Auth::soloLectura(['rol' => $sesionPanel['rol']]);
 }
 
 // Propuestas del usuario sobre ESTA pantalla que aún no se han aplicado: la
@@ -98,8 +97,8 @@ if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta
 $pendientesAqui = 0;
 if (str_starts_with($reqPath, '/dashboard/')) {
     $sesionPanel ??= Auth::currentSession();
-    $usuarioPanel = (string) ($sesionPanel['user'] ?? '');
-    if ($usuarioPanel !== '' && App\Admin::proposalMode(['rol' => Auth::roleOf($usuarioPanel)])) {
+    $usuarioPanel = $sesionPanel !== null ? $sesionPanel['user'] : '';
+    if ($sesionPanel !== null && App\Admin::proposalMode(['rol' => $sesionPanel['rol']])) {
         try {
             $pendientesAqui = App\PropuestaRepo::pendientesEn($usuarioPanel, rtrim($reqPath, '/'));
         } catch (\Throwable) {

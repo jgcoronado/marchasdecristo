@@ -124,35 +124,65 @@ final class Auth
         ]);
     }
 
+    /**
+     * Sesión vigente o null. Además de la firma y la caducidad del token, exige
+     * que la cuenta siga existiendo y que su contraseña no haya cambiado desde
+     * el login (huella 'pv'): borrar un usuario o resetearle la clave corta sus
+     * sesiones abiertas en la siguiente petición. Enriquece con 'rol' (de la BD).
+     *
+     * @return array{user:string,rol:string,jti?:string,iat?:int,exp?:int}|null
+     */
     public static function currentSession(): ?array
     {
-        return self::verifySession($_COOKIE[self::cookieName()] ?? null);
+        $payload = self::verifySession($_COOKIE[self::cookieName()] ?? null);
+        if ($payload === null) return null;
+        $user = (string) ($payload['user'] ?? '');
+        $cuenta = $user !== '' ? self::cuenta($user) : null;
+        if ($cuenta === null) return null;
+        if (!hash_equals(self::huellaClave($cuenta['clave']), (string) ($payload['pv'] ?? ''))) return null;
+        $payload['user'] = $user;
+        $payload['rol'] = $cuenta['rol'];
+        return $payload;
     }
 
     /**
-     * Rol del usuario, leído de la BD (no de la cookie) para que un cambio de rol
-     * o un reset surtan efecto de inmediato. Compatibilidad hacia atrás: si la
-     * columna ROL aún no existe (BD sin migrar), se trata al usuario como admin
-     * —el comportamiento previo, cuando el panel tenía un solo administrador—.
+     * Huella de la clave almacenada que viaja en el token de sesión. Cambia en
+     * cuanto cambia el hash (reset, cambio de contraseña, migración MD5→PBKDF2),
+     * lo que invalida los tokens emitidos antes. No revela el hash: es un HMAC
+     * con la SECRET_KEY.
      */
-    public static function roleOf(string $user): string
+    public static function huellaClave(string $claveAlmacenada): string
     {
-        // Memoizado por petición: el guard lo pide una vez (requireAuth) y el
-        // layout otra (cinta de solo lectura del panel), y el rol no puede
-        // cambiar a mitad de una petición.
+        return self::b64urlEncode(substr(hash_hmac('sha256', 'pv|' . $claveAlmacenada, self::secret(), true), 0, 16));
+    }
+
+    /**
+     * Rol y hash de la cuenta, memoizados por petición (el guard y el layout la
+     * piden varias veces; no puede cambiar a mitad de una petición). Null si la
+     * cuenta no existe. Un fallo de la BD NO se traduce en ningún rol: se
+     * propaga y la petición falla en cerrado.
+     *
+     * @return array{rol:string,clave:string}|null
+     */
+    private static function cuenta(string $user): ?array
+    {
         static $cache = [];
-        if (isset($cache[$user])) {
-            return $cache[$user];
-        }
-        try {
-            $row = Db::one('SELECT ROL FROM usuarios WHERE usuario = ? LIMIT 1', [$user]);
-        } catch (\PDOException) {
-            return Roles::ADMIN; // BD pre-migración: sin columna ROL (no se cachea)
-        }
-        $rol = $row === null
-            ? Roles::EDITOR
-            : Roles::normalize(is_string($row['ROL'] ?? null) ? (string) $row['ROL'] : null);
-        return $cache[$user] = $rol;
+        if (array_key_exists($user, $cache)) return $cache[$user];
+        $row = Db::one('SELECT ROL, clave FROM usuarios WHERE usuario = ? LIMIT 1', [$user]);
+        return $cache[$user] = $row === null ? null : [
+            'rol' => Roles::normalize(is_string($row['ROL'] ?? null) ? (string) $row['ROL'] : null),
+            'clave' => (string) ($row['clave'] ?? ''),
+        ];
+    }
+
+    /**
+     * Rol del usuario, leído de la BD (no de la cookie) para que un cambio de
+     * rol surta efecto de inmediato. Null si la cuenta no existe: sin cuenta no
+     * hay rol, y Roles::has(null, …) es false.
+     */
+    public static function roleOf(string $user): ?string
+    {
+        return self::cuenta($user)['rol'] ?? null;
     }
 
     /**
@@ -168,9 +198,8 @@ final class Auth
         if ($payload === null) {
             Http::redirect('/login', 302);
         }
-        $user = (string) ($payload['user'] ?? '');
-        $payload['rol'] = self::roleOf($user);
-        Db::setAuditUser($user !== '' ? $user : 'system');
+        $user = $payload['user'];
+        Db::setAuditUser($user);
         // Barrera única para todo el panel: fuera de local ningún envío del
         // admin llega a su controlador (ni escribe ni encola propuestas). Todos
         // los POST del panel pasan por aquí vía requireCap/requireAdmin.

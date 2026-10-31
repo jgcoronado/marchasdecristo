@@ -95,7 +95,7 @@ $barrera = static function (string $usuario, string $env, string $metodo) use ($
         $GLOBALS['config']['env'] = $argv[4];
         $_SERVER['REQUEST_METHOD'] = $argv[5];
         $ahora = (int) round(microtime(true) * 1000);
-        $_COOKIE[App\Auth::cookieName()] = App\Auth::signSession(['user' => $argv[3], 'iat' => $ahora, 'exp' => $ahora + 60000, 'jti' => 'ci']);
+        $_COOKIE[App\Auth::cookieName()] = App\Auth::signSession(['user' => $argv[3], 'iat' => $ahora, 'exp' => $ahora + 60000, 'jti' => 'ci', 'pv' => App\Auth::huellaClave('x')]);
         App\Auth::requireAuth();
         echo 'LLEGA AL CONTROLADOR';
         PHP);

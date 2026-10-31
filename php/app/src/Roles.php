@@ -59,11 +59,15 @@ final class Roles
         return $rol === self::ADMIN;
     }
 
-    /** ¿El rol tiene la capacidad $cap? El admin siempre; el editor según EDITOR_CAPS. */
+    /**
+     * ¿El rol tiene la capacidad $cap? El admin siempre; el editor según
+     * EDITOR_CAPS. Un rol nulo o desconocido no tiene ninguna: aquí no se
+     * normaliza, para que «sin cuenta» nunca acabe valiendo como editor.
+     */
     public static function has(?string $rol, string $cap): bool
     {
         if ($rol === self::ADMIN) return true;
-        if (self::normalize($rol) === self::EDITOR) return in_array($cap, self::EDITOR_CAPS, true);
+        if ($rol === self::EDITOR) return in_array($cap, self::EDITOR_CAPS, true);
         return false;
     }
 
