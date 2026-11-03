@@ -46,7 +46,12 @@
      * directos que cumplan $selector, y guarda el orden al soltar si ha
      * cambiado.
      */
+    // Panel en solo lectura (admin en PRE/PRO, ver layout.php): sin arrastrar,
+    // que acabaría en un envío que el servidor rechaza.
+    var soloLectura = document.querySelector('main[data-solo-lectura]') !== null;
+
     function activarArrastre(contenedor, selector) {
+        if (soloLectura) return;
         var filas = contenedor.querySelectorAll(selector);
         filas.forEach(function (fila) {
             // Las listas van anidadas (día > hermandad > paso): la fila sólo se
@@ -104,7 +109,9 @@
      * Guarda el orden actual de $lista en segundo plano (sin recargar): manda
      * el form de reordenar de la lista con los IDs en orden DOM como orden[].
      * El servidor responde con un redirect PRG; si la URL final lleva ?err=,
-     * no se guardó y se recarga para que la página vuelva al orden real.
+     * no se guardó y se recarga para que la página vuelva al orden real. Si
+     * lleva ?propuesta=, quien ordena trabaja en modo propuesta: el orden no
+     * se ha guardado aún, se ha enviado para revisión (Admin::operar).
      */
     function guardarOrden(lista) {
         var form = document.getElementById(lista.getAttribute('data-form'));
@@ -117,7 +124,7 @@
         fetch(form.action, { method: 'POST', body: datos, credentials: 'same-origin' })
             .then(function (r) {
                 if (!r.ok || /[?&]err=/.test(r.url)) throw new Error('No se guardó');
-                if (estado) estado.textContent = 'Orden guardado ✓';
+                if (estado) estado.textContent = /[?&]propuesta=/.test(r.url) ? 'Propuesta de orden enviada ✓' : 'Orden guardado ✓';
             })
             .catch(function () {
                 if (estado) estado.textContent = 'Error al guardar el orden; recargando…';
@@ -130,7 +137,7 @@
     // «Mover…» / «Mover seleccionados…», que abren el diálogo con el selector
     // de paso. Todo acaba en el mismo form POST (mover-paso) y recarga.
     var formMover = document.getElementById('moverPasoForm');
-    if (formMover) {
+    if (formMover && !soloLectura) {
         var dlgMover = document.getElementById('dlgMoverPaso');
         var destino = document.getElementById('moverPasoDestino');
         var listaMover = document.getElementById('moverPasoLista');

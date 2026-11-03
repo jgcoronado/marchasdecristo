@@ -180,12 +180,32 @@ final class Db
         return (int) self::pdo()->lastInsertId();
     }
 
-    /** Ejecuta $fn dentro de una transacción (commit/rollback automático). */
+    /**
+     * Ejecuta $fn dentro de una transacción (commit/rollback automático).
+     * Reentrante: si ya hay una abierta, usa un SAVEPOINT, de modo que un
+     * repositorio que abre la suya puede ir dentro de otra mayor (aplicar una
+     * propuesta de ficha entera, o una operación tras verificar su foto) y un
+     * fallo de la interior deshace solo su parte salvo que la exterior también
+     * falle.
+     */
     public static function transaction(callable $fn): mixed
     {
         self::assertWritable();
         self::syncActor();
         $pdo = self::pdo();
+        if ($pdo->inTransaction()) {
+            $sp = 'sp' . (++self::$savepoint);
+            $pdo->exec("SAVEPOINT $sp");
+            try {
+                $result = $fn();
+                $pdo->exec("RELEASE SAVEPOINT $sp");
+                return $result;
+            } catch (\Throwable $e) {
+                $pdo->exec("ROLLBACK TO SAVEPOINT $sp");
+                $pdo->exec("RELEASE SAVEPOINT $sp");
+                throw $e;
+            }
+        }
         $pdo->beginTransaction();
         try {
             $result = $fn();
@@ -196,6 +216,9 @@ final class Db
             throw $e;
         }
     }
+
+    /** Contador de SAVEPOINT de transaction() anidadas. */
+    private static int $savepoint = 0;
 
     /** Registro de auditoría (equivale a lib/db.ts logAdmin). */
     public static function logAdmin(string $accion, string $tabla, ?int $idRegistro, mixed $payload = null): void

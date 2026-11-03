@@ -155,10 +155,10 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
 
 <?php /* ── Enlaces de escucha, por versión ──────────────────────────────────
          Va en su propio formulario (POST a /social) porque escribe en
-         enlace_streaming, no en la tabla marcha: mezclarlo con el formulario de
-         datos obligaría a que una propuesta de editor arrastrase enlaces, y
-         esto es cosa de administración. Por eso solo se enseña al admin. */ ?>
-<?php if ($isEdit && !$proposalMode):
+         enlace_streaming, no en la tabla marcha. En modo propuesta se envía
+         como una propuesta aparte (operación marcha.enlaces) con solo lo que
+         cambia, sin pasar por la previsualización de la ficha. */ ?>
+<?php if ($isEdit):
     $enl = $enlaces ?? ['original' => [], 'actual' => []];
     $mid = (int) $marcha['ID_MARCHA'];
     $anioMarcha = preg_match('/^\d{4}$/', (string) ($marcha['FECHA'] ?? '')) === 1 ? (int) $marcha['FECHA'] : null;
@@ -166,6 +166,9 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
     $etiquetaVersion = ['original' => 'Versión original', 'actual' => 'Versión actual'];
 ?>
     <div class="shead"><h2>Enlaces de escucha</h2></div>
+<?php if ($proposalMode): ?>
+    <p class="muted small">Al guardar se envía una <strong>propuesta</strong> con los enlaces que cambies; la revisa un administrador.</p>
+<?php endif; ?>
     <p class="muted small">Se escriben directo en <code class="mono">enlace_streaming</code>, al margen de la cola de candidatos.
         Vacío = sin enlace (se borra el que hubiera). Un enlace por servicio <em>y versión</em>.</p>
 <?php if ($separa): ?>

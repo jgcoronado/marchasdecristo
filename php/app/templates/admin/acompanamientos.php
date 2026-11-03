@@ -11,6 +11,10 @@
  *       en /dashboard/semana-santa. Con nómina, $hermandades son solo las de fuera.
  *  @var int|null $anio  vista por año (?anio=AAAA): solo los contratos de ese año
  *  @var list<array{ANIO:int,N:int}> $anios  años con acompañamientos, para el selector
+ *  @var string|null $provinciaLocalidad provincia de la localidad (nueva o registrada); null si aún no tiene
+ *  @var list<string> $provincias catálogo, para la que no tiene provincia
+ *  @var array<string,array<string,mixed>> $acompNomina NominaRepo::datosAltaBanda() de esta localidad (predictivo)
+ *  @var list<array{id:string,nombre:string}> $bandasPropuestas altas de banda del editor aún sin aceptar
  *  @var array|null $notice */
 $csrf = Auth::csrfToken($session);
 // Los formularios llevan el año en su action para volver a la misma vista tras guardar.
@@ -98,9 +102,104 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
 <?php endif; ?>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
+<?php if ($proposalMode ?? false): ?><div class="alert alert-info">Lo que guardes en esta pantalla se envía como <strong>propuesta</strong>: un administrador la revisa antes de aplicarla, así que hasta entonces no verás el cambio aquí. Lo pendiente está en <a href="/dashboard/mis-propuestas">Mis propuestas</a>.</div><?php endif; ?>
 
 <?php /* Con nómina se añade sobre cada paso (fila "Añadir banda…"); aquí solo
          queda el alta por texto libre, plegada, para hermandades fuera de ella. */ ?>
+<?php if ($proposalMode ?? false): /* el texto libre es solo del admin; aquí, alta con día/hermandad/paso (acompanamientosAltaPost) */
+    $provAlta = $provinciaLocalidad ?? null; ?>
+<section>
+    <h2 class="section-title">Proponer acompañamiento</h2>
+    <form class="panel acomp-form" action="/dashboard/acompanamientos/<?= V::e($slug) ?>/alta<?= $q ?>" method="POST" id="acompAltaForm">
+        <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+        <input type="hidden" name="LOCALIDAD" value="<?= V::e($localidad) ?>">
+<?php if ($provAlta !== null): ?>
+        <input type="hidden" name="PROVINCIA" value="<?= V::e($provAlta) ?>">
+<?php else: ?>
+        <div class="field">
+            <label class="field-label" for="acompAltaProvincia">Provincia de <?= V::e($localidad) ?></label>
+            <select class="input" id="acompAltaProvincia" name="PROVINCIA" required>
+                <option value="">— Selecciona una provincia —</option>
+<?php foreach ($provincias ?? [] as $pr): ?>
+                <option value="<?= V::e($pr) ?>"><?= V::e($pr) ?></option>
+<?php endforeach; ?>
+            </select>
+        </div>
+<?php endif; ?>
+<?php if ($esNueva): ?>
+        <p class="muted small">Localidad nueva: <strong><?= V::e($localidad) ?></strong> (<?= V::e((string) $provincia) ?>). Su Semana Santa se crea con lo que escribas aquí.</p>
+<?php endif; ?>
+
+        <div class="field">
+            <label class="field-label" for="contratoBandaSearch">Banda</label>
+            <input type="hidden" name="ID_BANDA" id="ID_BANDA" value="">
+            <div class="autocomplete">
+                <input class="input" id="contratoBandaSearch" type="text" placeholder="Buscar banda (mín. 3 caracteres)…" autocomplete="off">
+                <div id="contratoBandaSuggest" class="suggest" hidden></div>
+            </div>
+            <p class="muted small">Seleccionada: <strong id="contratoBandaChosen">(ninguna)</strong></p>
+<?php if (($bandasPropuestas ?? []) !== []): ?>
+            <label class="field-label" for="dependeDeBanda">…o una banda que has propuesto y aún no se ha aceptado</label>
+            <select class="input" id="dependeDeBanda" name="dependeDeBanda">
+                <option value="">—</option>
+<?php foreach ($bandasPropuestas as $bp): ?>
+                <option value="<?= V::e($bp['id']) ?>"><?= V::e($bp['nombre']) ?></option>
+<?php endforeach; ?>
+            </select>
+<?php endif; ?>
+            <p class="muted small">¿No está? <a href="/dashboard/banda/add" target="_blank" rel="noopener">Propón la banda</a> y vuelve a cargar esta página para elegirla aquí.</p>
+        </div>
+
+        <div class="adv-grid">
+<?php if ($anio !== null): ?>
+            <input type="hidden" name="ANIO_INICIO" value="<?= $anio ?>">
+<?php else: ?>
+            <div class="field">
+                <label class="field-label" for="acompAltaAnioInicio">Año</label>
+                <input class="input" id="acompAltaAnioInicio" name="ANIO_INICIO" type="number" min="1900" max="2100" required>
+            </div>
+            <div class="field">
+                <label class="field-label" for="acompAltaAnioFin">Hasta (vacío = solo ese año)</label>
+                <input class="input" id="acompAltaAnioFin" name="ANIO_FIN" type="number" min="1900" max="2100">
+            </div>
+<?php endif; ?>
+            <div class="field">
+                <label class="field-label" for="acompAltaDia">Día</label>
+                <div class="autocomplete"><input class="input" id="acompAltaDia" name="DIA" type="text" autocomplete="off"><div class="suggest" hidden></div></div>
+            </div>
+            <div class="field">
+                <label class="field-label" for="acompAltaHermandad">Hermandad</label>
+                <div class="autocomplete"><input class="input" id="acompAltaHermandad" name="HERMANDAD" type="text" autocomplete="off" required><div class="suggest" hidden></div></div>
+            </div>
+            <div class="field">
+                <label class="field-label" for="acompAltaPaso">Paso</label>
+                <div class="autocomplete"><input class="input" id="acompAltaPaso" name="PASO" type="text" autocomplete="off"><div class="suggest" hidden></div></div>
+            </div>
+            <div class="field">
+                <label class="field-label" for="acompAltaTramo">Tramo (solo si la banda va a la ida o a la vuelta)</label>
+                <select class="input" id="acompAltaTramo" name="TRAMO">
+                    <option value="">Todo el recorrido</option>
+                    <option value="ida">Ida</option>
+                    <option value="vuelta">Vuelta</option>
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label class="field-label" for="acompAltaFuente">Fuente (opcional)</label>
+            <input class="input" id="acompAltaFuente" name="FUENTE" type="text" placeholder="URL del anuncio o del hilo del foro">
+        </div>
+        <div class="field">
+            <label class="field-label" for="acompAltaNota">Nota para el administrador (opcional)</label>
+            <textarea class="input" id="acompAltaNota" name="NOTA" rows="2"></textarea>
+        </div>
+        <p class="muted small">Solo pasos de Cristo. Si la hermandad ya está en Semana Santa, el día es el suyo. Lo que no exista (día, hermandad o paso<?= $esNueva ? ', y la propia localidad' : '' ?>) se propone a la vez que el acompañamiento y se acepta o se rechaza junto con él.</p>
+        <p class="small acomp-aviso" aria-live="polite"></p>
+        <div><button class="btn btn-neutral" type="submit">Proponer</button></div>
+    </form>
+    <script type="application/json" id="acompNomina"><?= json_encode($acompNomina ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?></script>
+    <script src="/assets/acomp-destino.js?v=<?= (int) @filemtime(PUBLIC_DIR . "/assets/acomp-destino.js") ?>" defer></script>
+</section>
+<?php else: ?>
 <?php if ($nomina !== null): ?>
 <details class="acomp-fuera-alta">
     <summary class="muted">Añadir a una hermandad que no está en la nómina (texto libre)</summary>
@@ -178,6 +277,7 @@ $qsOrden = http_build_query(array_filter(['anio' => $anio, 'orden' => $asc ? nul
 <?php else: ?>
 </section>
 <?php endif; ?>
+<?php endif; /* proposalMode */ ?>
 
 <?php $hayDuplicados = false;
 foreach ($hermandades as $h) { foreach ($h['titulares'] as $t) { foreach ($t['rangos'] as $rg) { if ($rg['posibleDuplicado']) $hayDuplicados = true; } } }

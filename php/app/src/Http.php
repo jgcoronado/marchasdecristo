@@ -40,6 +40,19 @@ final class Http
     }
 
     /**
+     * 403 cuando el admin envía algo desde el panel fuera de local (ver
+     * Auth::soloLectura): no es un fallo del servidor sino la regla del
+     * entorno, y se rechaza antes de llegar a ningún controlador.
+     */
+    public static function soloLectura(): never
+    {
+        http_response_code(403);
+        self::noStore();
+        View::render('readonly', [], ['title' => 'Solo lectura — Marchas de Cristo', 'noindex' => true, 'compartir' => false]);
+        exit;
+    }
+
+    /**
      * 503 mientras scripts/sync_db_to_prod.php reemplaza el .db (ver el
      * fichero centinela que crea/borra ese script, comprobado en bootstrap.php).
      * Retry-After orienta a clientes y monitores de uptime: la ventana es de

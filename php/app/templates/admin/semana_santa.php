@@ -31,6 +31,7 @@ $base = "/dashboard/semana-santa/$slug";
 <?php if ($esNueva): ?><p class="muted small">Localidad nueva: <strong><?= V::e($localidad) ?></strong> (<?= V::e($provincia) ?>) — se crea al guardar el primer día.</p><?php endif; ?>
 
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
+<?php if ($proposalMode ?? false): ?><div class="alert alert-info">Lo que guardes en esta pantalla se envía como <strong>propuesta</strong>: un administrador la revisa antes de aplicarla, así que hasta entonces no verás el cambio aquí. Lo pendiente está en <a href="/dashboard/mis-propuestas">Mis propuestas</a>.</div><?php endif; ?>
 
 <?php if ($dias): ?>
 <form id="diasReorderForm" action="<?= V::e($base) ?>/dias/reorder" method="POST" hidden>
@@ -275,6 +276,34 @@ $base = "/dashboard/semana-santa/$slug";
 </div>
 <?php else: ?>
 <p class="muted">Todavía no hay ningún día cargado para <?= V::e($localidad) ?>.</p>
+<?php endif; ?>
+
+<?php if (!empty($altasPendientes)): ?>
+<section>
+    <h2 class="section-title">Tus altas pendientes de revisión</h2>
+    <p class="muted small">Aún no están en la nómina, pero ya puedes añadirles hermandades y pasos: se envían como propuestas que dependen de estas y se aplican cuando el administrador acepte primero la de arriba.</p>
+<?php foreach ($altasPendientes as $alta):
+        $d = (array) ($alta['datos'] ?? []);
+        $esDia = ($alta['accion'] ?? '') === 'nomina.dia.add'; ?>
+    <div class="panel">
+        <p><span class="chip">pendiente</span>
+            <?= $esDia ? 'Día' : 'Hermandad' ?> <strong><?= V::e((string) ($d['nombre'] ?? '')) ?></strong>
+<?php if (!$esDia): ?>
+            <span class="muted small">· <?= isset($d['refs']) ? V::e((string) ($d['diaNombre'] ?? '')) . ' (día pendiente)' : 'día existente' ?></span>
+<?php endif; ?>
+        </p>
+        <form class="inline-form" action="<?= V::e($base) ?>/<?= $esDia ? 'hermandad' : 'paso' ?>/add" method="POST">
+            <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
+            <input type="hidden" name="dependeDe" value="<?= V::e((string) ($alta['id'] ?? '')) ?>">
+            <input class="input" type="text" name="NOMBRE" placeholder="<?= $esDia ? 'Nombre de la hermandad' : 'Nuevo paso (p. ej. La Sentencia)' ?>" style="width:20rem" required>
+<?php if (!$esDia): ?>
+            <label class="muted small"><input type="checkbox" name="esCruzGuia" value="1"> es la cruz de guía</label>
+<?php endif; ?>
+            <button class="btn btn-sm btn-neutral" type="submit">+ <?= $esDia ? 'Hermandad' : 'Paso' ?></button>
+        </form>
+    </div>
+<?php endforeach; ?>
+</section>
 <?php endif; ?>
 
 <section>

@@ -78,16 +78,33 @@ $current = '/' . (explode('/', trim($reqPath, '/'))[0] ?? '');
 // dentro del panel de administración.
 $showSearch = !str_starts_with($reqPath, '/dashboard') && !str_starts_with($reqPath, '/login');
 
-// Aviso de desincronización en el panel de PRE y PRO. La BD maestra es la
-// local: lo que se toque aquí o se pierde en el próximo sync_db_to_prod.php o
-// pisa datos buenos. El editor no lo necesita (sus envíos SIEMPRE son
-// propuestas, aquí y en local); el admin sí, porque en local está acostumbrado
-// a escribir directo y estas pantallas son las mismas. Ver docs/entornos.md.
-$avisoDesync = false;
+// Panel en solo lectura: el admin en PRE y PRO. La BD maestra es la local, así
+// que ahí no guarda ni propone nada (Auth::soloLectura; sus envíos los corta
+// Auth::requireAuth). Como las pantallas son las mismas que en local, se avisa
+// con la cinta y se desactivan sus formularios de envío para que ni lo intente.
+// El editor no entra aquí: sus envíos SIEMPRE son propuestas, aquí y en local.
+// Ver docs/entornos.md.
+$soloLectura = false;
 if (str_starts_with($reqPath, '/dashboard') && !Entorno::permiteEscrituraDirecta()) {
     $sesionPanel = Auth::currentSession();
-    $avisoDesync = $sesionPanel !== null
-        && Roles::isAdmin(Auth::roleOf((string) ($sesionPanel['user'] ?? '')));
+    $soloLectura = $sesionPanel !== null && Auth::soloLectura(['rol' => $sesionPanel['rol']]);
+}
+
+// Propuestas del usuario sobre ESTA pantalla que aún no se han aplicado: la
+// pantalla sigue enseñando lo de antes y, sin aviso, quien propone tiende a
+// repetir la petición. Solo para quien trabaja en modo propuesta (el editor),
+// ver Admin::proposalMode() y PropuestaRepo::pendientesEn().
+$pendientesAqui = 0;
+if (str_starts_with($reqPath, '/dashboard/')) {
+    $sesionPanel ??= Auth::currentSession();
+    $usuarioPanel = $sesionPanel !== null ? $sesionPanel['user'] : '';
+    if ($sesionPanel !== null && App\Admin::proposalMode(['rol' => $sesionPanel['rol']])) {
+        try {
+            $pendientesAqui = App\PropuestaRepo::pendientesEn($usuarioPanel, rtrim($reqPath, '/'));
+        } catch (\Throwable) {
+            $pendientesAqui = 0; // el aviso es una ayuda: nunca tumba la página
+        }
+    }
 }
 
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
@@ -249,8 +266,8 @@ if (!empty($meta['ancho'])) {
 <?php if ($esPre): ?>
     <div class="pre-ribbon" role="status">Entorno de preproducción — los cambios aquí no afectan a marchasdecristo.com</div>
 <?php endif; ?>
-<?php if ($avisoDesync): ?>
-    <div class="danger-ribbon" role="alert">PELIGRO: riesgo de desincronización. No actuar en este entorno salvo urgencia.</div>
+<?php if ($soloLectura): ?>
+    <div class="danger-ribbon" role="alert">SOLO LECTURA: en este entorno el panel no modifica nada. Los cambios se hacen en local.</div>
 <?php endif; ?>
     <header>
         <div class="header-inner">
@@ -258,7 +275,7 @@ if (!empty($meta['ancho'])) {
             <a class="brand" href="/"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></a>
 <?php if ($showSearch): ?>
             <div class="site-search-row">
-                <form class="site-search" action="/buscar" method="get" role="search" autocomplete="off">
+                <form class="site-search" action="/buscar" method="get" role="search" aria-label="Buscar en todo el sitio" autocomplete="off">
                     <span aria-hidden="true">⌕</span>
                     <input id="site-q" type="search" name="q" value="<?= $e($searchValue) ?>"
                            placeholder="Buscar marchas, compositores, bandas, discos…"
@@ -286,7 +303,7 @@ if (!empty($meta['ancho'])) {
                 </ul>
             </details>
         </div>
-        <nav>
+        <nav aria-label="Secciones del sitio">
             <ul class="nav-links">
 <?php foreach ($nav as $href => $label): ?>
                 <li><a href="<?= $href ?>"<?= $current === $href ? ' aria-current="page"' : '' ?>><?= $label ?></a></li>
@@ -301,7 +318,27 @@ if (!empty($meta['ancho'])) {
              (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
              .main-catalogo hace lo propio, más contenido, con los listados
              públicos: ver RUTAS_CATALOGO arriba. */ ?>
-    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?>><?= $content ?></main>
+    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?><?= $soloLectura ? ' data-solo-lectura' : '' ?>><?php if ($pendientesAqui > 0): ?>
+        <div class="alert alert-info" role="status" style="margin-bottom:1rem"><?= $pendientesAqui === 1
+                ? 'Tienes 1 propuesta pendiente sobre esta pantalla: hasta que se acepte no verás aquí ese cambio, no hace falta repetirlo.'
+                : 'Tienes ' . $pendientesAqui . ' propuestas pendientes sobre esta pantalla: hasta que se acepten no verás aquí esos cambios, no hace falta repetirlos.' ?>
+            <a href="/dashboard/mis-propuestas">Ver mis propuestas</a></div>
+<?php endif; ?><?= $content ?></main>
+<?php if ($soloLectura): ?>
+    <?php /* Solo lectura (ver $soloLectura arriba): los datos se siguen viendo en
+             sus campos, pero desactivados y sin botón de enviar. Es solo una
+             ayuda — la barrera real es Auth::requireAuth, que rechaza el POST.
+             El cierre de sesión es el único envío que sigue valiendo. */ ?>
+    <style>
+        main[data-solo-lectura] form[method="post" i]:not([action="/logout"]) :is(button, input[type="submit"]) { display: none !important; }
+    </style>
+    <script>
+        document.querySelectorAll('main[data-solo-lectura] form[method="post" i]:not([action="/logout"])').forEach(function (f) {
+            f.querySelectorAll('input, select, textarea, button').forEach(function (el) { el.disabled = true; });
+            f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+    </script>
+<?php endif; ?>
 
     <footer>
         <div class="inner">

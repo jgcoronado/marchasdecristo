@@ -52,6 +52,10 @@ $errorMsg = $error !== null ? ($erroresLegibles[$error] ?? ('Error: ' . $error))
 
 <?php if ($errorMsg): ?><div class="alert alert-error"><?= V::e($errorMsg) ?></div><?php endif; ?>
 <?php if ($notice): ?><div class="alert alert-success"><?= V::e($notice) ?></div><?php endif; ?>
+<?php if ($proposalMode ?? false): ?>
+    <div class="alert alert-info">Todo lo que guardes aquí (datos, portada, pistas y enlaces) se envía como <strong>propuesta</strong>;
+        la revisa un administrador antes de aplicarla, así que no verás el cambio en esta pantalla hasta entonces.</div>
+<?php endif; ?>
 
     <div class="row tabs" role="tablist" style="gap:0.5rem;margin-bottom:0.75rem">
 <?php foreach ([['datos', 'Datos'], ['pistas', 'Pistas'], ['streaming', 'Streaming']] as [$k, $etiqueta]): ?>

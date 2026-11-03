@@ -1315,42 +1315,68 @@ final class Repo
     // ── Datos mínimos para la og:image dinámica (M4) ─────────────────────────
 
     /**
-     * Título, subtítulo y sobretítulo (tipo) para pintar la tarjeta social de
-     * una entidad. Consultas ligeras (una por entidad), no las fetch* completas.
+     * Tipo, título y líneas de datos para pintar la tarjeta social de una
+     * entidad. Consultas ligeras (una o dos por entidad), no las fetch*
+     * completas. Cada línea solo aparece si el dato existe en la base; las
+     * bandas van con su nombre oficial completo (el breve solo si falta).
      *
-     * @return array{overline:string,titulo:string,sub:string}|null  null si no existe
+     * @return array{overline:string,titulo:string,lineas:list<string>}|null  null si no existe
      */
     public static function ogDatos(string $tipo, int $id): ?array
     {
         switch ($tipo) {
             case 'marcha':
                 $r = Db::one(
-                    "SELECT m.TITULO, m.FECHA
+                    "SELECT m.TITULO, m.FECHA, COALESCE(NULLIF(b.NOMBRE_COMPLETO, ''), b.NOMBRE_BREVE) AS BANDA
                      FROM marcha m
+                     LEFT JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
                      WHERE m.ID_MARCHA = ?
                        AND EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)",
                     [$id]
                 );
                 if ($r === null) return null;
                 // Todos los compositores, en el orden de la ficha; si no caben,
-                // Og recorta el subtítulo con «…».
+                // Og recorta la línea con «…».
                 $autores = self::autoresFor([$id])[$id] ?? [];
                 $compositores = View::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $autores));
                 $anio = (!empty($r['FECHA'])) ? (int) $r['FECHA'] : null;
-                $sub = trim($compositores . ($anio ? ' · ' . $anio : ''), ' ·');
-                return ['overline' => 'Marcha procesional', 'titulo' => (string) $r['TITULO'], 'sub' => $sub];
+                $banda = trim((string) ($r['BANDA'] ?? ''));
+                return ['overline' => 'Marcha procesional', 'titulo' => (string) $r['TITULO'], 'lineas' => self::lineas([
+                    trim($compositores . ($anio ? ' · ' . $anio : ''), ' ·'),
+                    $banda !== '' ? 'Estreno: ' . $banda : '',
+                ])];
 
             case 'autor':
+                // Años: solo de las marchas que tienen fecha. Si todas la
+                // tienen, «Fechadas entre…»; si no, «Entre…» (no afirma que
+                // estén todas fechadas).
                 $r = Db::one(
-                    "SELECT (NOMBRE || ' ' || APELLIDOS) AS NOMBRE,
-                            (SELECT COUNT(*) FROM marcha_autor WHERE ID_AUTOR = ?) AS N
-                     FROM autor WHERE ID_AUTOR = ?",
-                    [$id, $id]
+                    "SELECT TRIM(NOMBRE || ' ' || APELLIDOS) AS NOMBRE,
+                            COUNT(ma.ID_MARCHA) AS N, COUNT(m.FECHA) AS N_FECHA,
+                            MIN(m.FECHA) AS DESDE, MAX(m.FECHA) AS HASTA
+                     FROM autor a
+                     LEFT JOIN marcha_autor ma ON ma.ID_AUTOR = a.ID_AUTOR
+                     LEFT JOIN marcha m ON m.ID_MARCHA = ma.ID_MARCHA
+                     WHERE a.ID_AUTOR = ?
+                     GROUP BY a.ID_AUTOR",
+                    [$id]
                 );
                 if ($r === null) return null;
                 $n = (int) $r['N'];
-                return ['overline' => 'Compositor', 'titulo' => (string) $r['NOMBRE'],
-                        'sub' => $n === 1 ? '1 marcha' : $n . ' marchas'];
+                $nFecha = (int) $r['N_FECHA'];
+                $desde = (int) $r['DESDE'];
+                $hasta = (int) $r['HASTA'];
+                $fechas = '';
+                if ($nFecha > 0 && $desde > 0) {
+                    $todas = $nFecha === $n;
+                    $fechas = $desde === $hasta
+                        ? ($todas ? ($n === 1 ? 'Fechada en ' : 'Fechadas en ') . $desde : '')
+                        : ($todas ? 'Fechadas entre ' : 'Entre ') . $desde . ' y ' . $hasta;
+                }
+                return ['overline' => 'Compositor', 'titulo' => (string) $r['NOMBRE'], 'lineas' => self::lineas([
+                    $n === 1 ? '1 marcha' : number_format($n, 0, ',', '.') . ' marchas',
+                    $fechas,
+                ])];
 
             case 'banda':
                 // Estrenos con el mismo criterio que la ficha (fetchBanda →
@@ -1364,28 +1390,53 @@ final class Repo
                     [$id]
                 );
                 if ($r === null) return null;
-                $titulo = (string) ($r['NOMBRE_BREVE'] ?: $r['NOMBRE_COMPLETO']);
-                return ['overline' => 'Banda', 'titulo' => $titulo,
-                        'sub' => self::bandaLocEstrenos((string) ($r['LOCALIDAD'] ?? ''), (int) $r['N'])];
+                $titulo = (string) ($r['NOMBRE_COMPLETO'] ?: $r['NOMBRE_BREVE']);
+                $n = (int) $r['N'];
+                return ['overline' => 'Banda', 'titulo' => $titulo, 'lineas' => self::lineas([
+                    (string) ($r['LOCALIDAD'] ?? ''),
+                    $n > 0 ? number_format($n, 0, ',', '.') . ($n === 1 ? ' estreno' : ' estrenos') : '',
+                ])];
 
             case 'disco':
+                // Nº de marchas con el criterio de la ficha (fetchDisco →
+                // marchasLength): pistas de marchas vivas (con autor).
                 $r = Db::one(
-                    "SELECT d.NOMBRE_CD, d.FECHA_CD, b.NOMBRE_BREVE AS BANDA
+                    "SELECT d.NOMBRE_CD, d.FECHA_CD,
+                            COALESCE(NULLIF(b.NOMBRE_COMPLETO, ''), b.NOMBRE_BREVE) AS BANDA,
+                            (SELECT COUNT(*) FROM disco_marcha dm
+                             INNER JOIN marcha m ON m.ID_MARCHA = dm.IDMARCHA
+                             WHERE dm.ID_DISCO = d.ID_DISCO
+                               AND EXISTS (SELECT 1 FROM marcha_autor am WHERE am.ID_MARCHA = m.ID_MARCHA)) AS N
                      FROM disco d LEFT JOIN banda b ON b.ID_BANDA = d.BANDADISCO
                      WHERE d.ID_DISCO = ?",
                     [$id]
                 );
                 if ($r === null) return null;
-                $anio = (!empty($r['FECHA_CD'])) ? (int) $r['FECHA_CD'] : null;
-                $sub = trim(((string) ($r['BANDA'] ?? '')) . ($anio ? ' · ' . $anio : ''), ' ·');
-                return ['overline' => 'Disco', 'titulo' => (string) $r['NOMBRE_CD'], 'sub' => $sub];
+                // Mismo filtro de año que la og:description de la ficha.
+                $anio = ((int) $r['FECHA_CD'] > 1800) ? (int) $r['FECHA_CD'] : null;
+                $n = (int) $r['N'];
+                return ['overline' => 'Disco', 'titulo' => (string) $r['NOMBRE_CD'], 'lineas' => self::lineas([
+                    (string) ($r['BANDA'] ?? ''),
+                    trim(($anio ? (string) $anio : '') . ($n > 0 ? ' · ' . ($n === 1 ? '1 marcha' : $n . ' marchas') : ''), ' ·'),
+                ])];
         }
         return null;
     }
 
     /**
-     * «Sevilla · 124 estrenos» para la tarjeta social de una banda (imagen y
-     * og:description). Sin estrenos, solo la localidad.
+     * Quita las líneas vacías de la tarjeta social.
+     *
+     * @param list<string> $lineas
+     * @return list<string>
+     */
+    private static function lineas(array $lineas): array
+    {
+        return array_values(array_filter(array_map('trim', $lineas), static fn(string $l): bool => $l !== ''));
+    }
+
+    /**
+     * «Sevilla · 124 estrenos» para la og:description de una banda. Sin
+     * estrenos, solo la localidad.
      */
     public static function bandaLocEstrenos(string $localidad, int $estrenos): string
     {

@@ -49,9 +49,9 @@ final class Entorno
      * ¿Puede este entorno escribir directamente en la BD?
      *
      * Espejo en LECTURA del fail-safe de Db::assertWritable(): sirve para
-     * decidir qué ofrece la interfaz (propuesta en vez de guardado directo,
-     * aviso de desincronización) antes de intentar una escritura que acabaría
-     * en un 503. La única barrera real sigue siendo la de Db.
+     * decidir qué ofrece la interfaz (panel del admin en solo lectura, ver
+     * Auth::soloLectura) antes de intentar una escritura que acabaría
+     * en un 503. La última barrera sigue siendo la de Db.
      *
      * Solo local escribe porque la BD maestra es la local: PRE y PRO comparten
      * el .db de producción y ese fichero lo reemplaza entero

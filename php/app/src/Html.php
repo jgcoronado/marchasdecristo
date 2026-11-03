@@ -215,7 +215,7 @@ final class Html
             return $basePath . '?' . http_build_query($params);
         };
 
-        $out = '<nav class="pagination">';
+        $out = '<nav class="pagination" aria-label="Paginación">';
         if ($currentPage > 1) {
             $out .= '<a class="btn btn-sm btn-ghost" href="' . self::e($url($currentPage - 1)) . '">‹ Anterior</a>';
         }

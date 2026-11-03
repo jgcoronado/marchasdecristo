@@ -1,4 +1,4 @@
-<?php use App\View as V;
+<?php use App\View as V; use App\PropuestaOps; use App\PropuestaRepo;
 /** @var array $session @var list<array<string,mixed>> $items @var array|null $notice */
 $entLabel = ['marcha' => 'Marcha', 'banda' => 'Banda', 'autor' => 'Compositor'];
 $accLabel = ['add' => 'Alta', 'edit' => 'Edición'];
@@ -22,12 +22,16 @@ $accLabel = ['add' => 'Alta', 'edit' => 'Edición'];
 <?php foreach ($items as $it):
         $ent = (string) ($it['entidad'] ?? '');
         $acc = (string) ($it['accion'] ?? '');
-        $datos = (array) ($it['datos'] ?? []);
-        $titulo = (string) ($datos['TITULO'] ?? $datos['NOMBRE_BREVE'] ?? trim((string) ($datos['NOMBRE'] ?? '') . ' ' . (string) ($datos['APELLIDOS'] ?? '')));
+        $esOp = PropuestaRepo::esOperacion($it);
+        $titulo = PropuestaRepo::resumen($it);
         $target = $it['target_id'] !== null ? ' #' . (int) $it['target_id'] : '';
 ?>
             <tr>
+<?php if ($esOp): ?>
+                <td><span class="chip"><?= V::e(PropuestaOps::seccion($acc)) ?></span></td>
+<?php else: ?>
                 <td><span class="chip"><?= V::e($entLabel[$ent] ?? $ent) ?></span> <span class="muted small"><?= V::e($accLabel[$acc] ?? $acc) ?><?= V::e($target) ?></span></td>
+<?php endif; ?>
                 <td><?= $titulo !== '' ? V::e($titulo) : '<span class="muted">(sin título)</span>' ?></td>
                 <td class="small"><?= V::e($it['autor'] ?? '') ?></td>
                 <td class="small nums"><?= V::e(date('Y-m-d H:i', (int) ($it['creado_ts'] ?? 0))) ?></td>

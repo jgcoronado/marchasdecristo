@@ -12,7 +12,7 @@
 <article class="record">
     <h1>Buscar en el catálogo</h1>
 
-    <form class="buscar-form" action="/buscar" method="get" role="search">
+    <form class="buscar-form" action="/buscar" method="get" role="search" aria-label="Nueva búsqueda">
         <input class="input" type="search" name="q" value="<?= V::e($q) ?>"
                placeholder="Marcha, compositor, banda o disco…"
                aria-label="Buscar en el catálogo" autofocus>

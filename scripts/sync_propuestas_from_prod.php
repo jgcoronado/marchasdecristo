@@ -14,6 +14,11 @@ declare(strict_types=1);
  * private/propuestas/recibidas/ para no volver a descargarla y para que el
  * editor vea que ya ha sido recogida.
  *
+ * Algunas propuestas llevan adjuntos junto al JSON (la portada de un disco:
+ * <id>.portada.webp, ver PropuestaRepo::createOperacion). Se bajan y se
+ * mueven igual, y siempre ANTES que su JSON: así una propuesta nunca aparece
+ * en local sin su adjunto.
+ *
  * Requiere .env.ftp en la raíz del repo (gitignored) con:
  *   FTP_HOST, FTP_PORT, FTP_USER, FTP_PASSWORD, FTP_REMOTE_DIR (puede ir vacío)
  *
@@ -130,16 +135,18 @@ function ftpDownload(string $baseUrl, string $user, string $pass, string $remote
 $baseUrl = ftpBaseUrl($host, $port);
 $pendientesDir = $prefix . 'private/propuestas/pendientes';
 echo "Listando $pendientesDir por FTP…\n";
-$files = array_filter(ftpList($baseUrl, $user, $pass, $pendientesDir), static fn(string $f): bool => str_ends_with($f, '.json'));
+$todos = ftpList($baseUrl, $user, $pass, $pendientesDir);
+$files = array_values(array_filter($todos, static fn(string $f): bool => (bool) preg_match('/^[A-Za-z0-9-]+\.json$/', $f)));
+$adjuntos = array_values(array_filter($todos, static fn(string $f): bool => (bool) preg_match('/^[A-Za-z0-9-]+\.[a-z]+\.[a-z0-9]+$/', $f)));
 
 if ($files === []) {
     echo "No hay propuestas pendientes en remoto.\n";
     exit(0);
 }
-echo count($files) . " propuesta(s) pendiente(s).\n";
+echo count($files) . " propuesta(s) pendiente(s)" . ($adjuntos !== [] ? ', ' . count($adjuntos) . ' adjunto(s)' : '') . ".\n";
 
 if ($args['dryRun']) {
-    foreach ($files as $f) echo "  · $f\n";
+    foreach ([...$adjuntos, ...$files] as $f) echo "  · $f\n";
     echo "--dry-run: no se baja nada.\n";
     exit(0);
 }
@@ -153,6 +160,20 @@ if (!$args['keep']) {
 $bajadas = 0;
 $errores = 0;
 foreach ($files as $f) {
+    // Primero sus adjuntos: si alguno falla, el JSON no se baja (ni se mueve
+    // en remoto) y la propuesta entera se reintenta en la próxima pasada.
+    $id = substr($f, 0, -strlen('.json'));
+    $suyos = array_values(array_filter($adjuntos, static fn(string $a): bool => str_starts_with($a, $id . '.')));
+    $okAdjuntos = true;
+    foreach ($suyos as $a) {
+        echo "Bajando {$a}…\n";
+        if (!ftpDownload($baseUrl, $user, $pass, $pendientesDir . '/' . $a, $localDir . '/' . $a)) { $okAdjuntos = false; break; }
+    }
+    if (!$okAdjuntos) {
+        $errores++;
+        continue;
+    }
+
     $remotePath = $pendientesDir . '/' . $f;
     $localPath = $localDir . '/' . $f;
     echo "Bajando {$f}…\n";
@@ -161,6 +182,11 @@ foreach ($files as $f) {
         continue;
     }
     $bajadas++;
+    if (!$args['keep']) {
+        foreach ($suyos as $a) {
+            ftpQuote($baseUrl, $user, $pass, ["RNFR {$pendientesDir}/{$a}", "RNTO {$prefix}private/propuestas/recibidas/{$a}"]);
+        }
+    }
     if (!$args['keep']) {
         $moved = ftpQuote($baseUrl, $user, $pass, [
             "RNFR {$pendientesDir}/{$f}",

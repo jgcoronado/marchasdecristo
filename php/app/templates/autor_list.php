@@ -27,7 +27,7 @@ $hayFiltro = $val('nombre') !== '' || $hayFiltroAvanzado;
 <div class="stack list-page">
 <?php /* El nombre ya se busca desde la barra site-search; aquí solo queda
          la búsqueda avanzada. */ ?>
-    <form class="buscar-form-adv" action="/autor" method="GET" role="search">
+    <form class="buscar-form-adv" action="/autor" method="GET" role="search" aria-label="Búsqueda avanzada de compositores">
         <details class="adv"<?= $hayFiltroAvanzado ? ' open' : '' ?>>
             <summary>Búsqueda avanzada</summary>
             <div class="adv-grid">
