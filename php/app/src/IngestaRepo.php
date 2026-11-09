@@ -261,10 +261,10 @@ final class IngestaRepo
         return $out;
     }
 
-    /** Nº de candidatos pendientes de una fuente concreta (p.ej. 'dmp'), para el badge del panel principal. */
-    public static function countPendientesPorFuente(string $fuente): int
+    /** Nº de candidatos pendientes de todas las fuentes, para el badge del panel principal. */
+    public static function countPendientes(): int
     {
-        $row = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato WHERE ESTADO = 'pendiente' AND FUENTE = ?", [$fuente]);
+        $row = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato WHERE ESTADO = 'pendiente'");
         return (int) ($row['n'] ?? 0);
     }
 

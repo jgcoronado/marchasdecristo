@@ -1,5 +1,5 @@
 <?php use App\View as V; use App\Auth; use App\Entorno; use App\Roles;
-/** @var string $q @var string $qb @var string $qd @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var list<array<string,mixed>> $discos @var array $session @var array|null $notice @var int $pendientes @var bool $proposalMode @var int $misPendientes @var int $dudasAcompanamientos @var int $pendientesDmp @var int $pendientesAcompanamiento */
+/** @var string $q @var string $qb @var string $qd @var list<array<string,mixed>> $marchas @var list<array<string,mixed>> $autores @var list<array<string,mixed>> $bandas @var list<array<string,mixed>> $discos @var array $session @var array|null $notice @var int $pendientes @var bool $proposalMode @var int $misPendientes @var int $dudasAcompanamientos @var int $pendientesIngesta @var int $pendientesAcompanamiento */
 $csrf = Auth::csrfToken($session);
 $rol = $session['rol'] ?? Roles::EDITOR;
 $isAdmin = Roles::isAdmin($rol);
@@ -30,8 +30,7 @@ $chip = static fn(int $n): string => $n > 0 ? ' <span class="chip">' . $n . '</s
 <?php if ($isAdmin): ?>
             <a class="btn btn-sm btn-ghost" href="/dashboard/propuestas">Propuestas<?= $chip($pendientes) ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/usuarios">Usuarios</a>
-            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta marchas</a>
-            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta?fuente=dmp">Candidatos DMP<?= $chip($pendientesDmp) ?></a>
+            <a class="btn btn-sm btn-ghost" href="/dashboard/ingesta">Ingesta marchas<?= $chip($pendientesIngesta) ?></a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/enlaces">Enlaces streaming</a>
             <a class="btn btn-sm btn-ghost" href="/dashboard/dedicatorias">Dedicatorias</a>
 <?php endif; ?>

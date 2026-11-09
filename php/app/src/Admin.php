@@ -463,7 +463,7 @@ final class Admin
                 // Tabla 013_acompanamiento_duda.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        $pendientesDmp = self::isAdmin($session) ? IngestaRepo::countPendientesPorFuente('dmp') : 0;
+        $pendientesIngesta = self::isAdmin($session) ? IngestaRepo::countPendientes() : 0;
         $pendientesAcompanamiento = 0;
         if (Roles::has($rol, 'acompanamientos.edit')) {
             try {
@@ -472,7 +472,7 @@ final class Admin
                 // Tabla 017_acompanamiento_pendiente.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'proposalMode', 'misPendientes', 'dudasAcompanamientos', 'pendientesDmp', 'pendientesAcompanamiento'),
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'proposalMode', 'misPendientes', 'dudasAcompanamientos', 'pendientesIngesta', 'pendientesAcompanamiento'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
