@@ -368,6 +368,33 @@ final class IngestaRepo
     }
 
     /**
+     * Año del disco de origen de un candidato sin fecha propia. Primero el año
+     * entre paréntesis al final del nombre ("En Brazos de Dios (2018)"); si no,
+     * el FECHA_CD del disco de la tabla `disco` con el mismo nombre (sin
+     * acentos ni mayúsculas) y, si el candidato tiene banda, de esa banda.
+     * Con varias fechas posibles distintas no se adivina: devuelve null.
+     */
+    public static function fechaDeDiscoOrigen(array $cand): ?int
+    {
+        $album = trim((string) ($cand['FUENTE_ALBUM'] ?? ''));
+        if ($album === '') return null;
+        if (preg_match('/\((\d{4})\)\s*$/', $album, $m) === 1) return (int) $m[1];
+
+        $nombre = Db::noAcc($album);
+        $banda = (int) ($cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? 0);
+        $rows = Db::all(
+            'SELECT FECHA_CD, BANDADISCO FROM disco WHERE FECHA_CD IS NOT NULL AND NOACC(TRIM(NOMBRE_CD)) = ?',
+            [$nombre]
+        );
+        if ($banda > 0) {
+            $deBanda = array_filter($rows, static fn(array $r): bool => (int) $r['BANDADISCO'] === $banda);
+            if ($deBanda !== []) $rows = $deBanda;
+        }
+        $anios = array_values(array_unique(array_map(static fn(array $r): int => (int) $r['FECHA_CD'], $rows)));
+        return count($anios) === 1 ? $anios[0] : null;
+    }
+
+    /**
      * Discos (FUENTE_ALBUM) con al menos un candidato, para el <select> de
      * filtro — mismo patrón que bandasConCandidatos(). Solo lo rellenan los
      * candidatos de streaming (tools/music_links/descubrir_marchas.py); los

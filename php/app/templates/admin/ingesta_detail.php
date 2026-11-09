@@ -2,7 +2,7 @@
 /** @var array $session @var array<string,mixed> $cand
  *  @var list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string,score:float}> $autoresAuto
  *  @var list<string> $autoresSugeridos @var string $back
- *  @var string|null $estiloSugerido
+ *  @var string|null $estiloSugerido @var int|null $fechaDisco
  *  @var array|null $notice @var string|null $error */
 $csrf = Auth::csrfToken($session);
 $val = static fn(string $k, string $default = ''): string => V::e($cand[$k] ?? $default);
@@ -10,10 +10,12 @@ $flags = $cand['FLAGS'] ? (json_decode((string) $cand['FLAGS'], true) ?: []) : [
 
 $fields = [
     ['TITULO', 'Título', 'text', $cand['P_TITULO'] ?? ''],
-    ['FECHA', 'Fecha (año de 4 dígitos)', 'text', $cand['P_FECHA'] ?? ''],
+    ['FECHA', 'Fecha (año de 4 dígitos)', 'text', $cand['P_FECHA'] ?? ($fechaDisco ?? '')],
 ];
-$candLocalidad = (string) ($cand['P_LOCALIDAD'] ?? '');
-$candProvincia = is_string($cand['P_PROVINCIA'] ?? null) && $cand['P_PROVINCIA'] !== '' ? (string) $cand['P_PROVINCIA'] : null;
+// Sin dedicatoria propuesta no se precargan localidad ni provincia.
+$candTieneDedic = trim((string) ($cand['P_DEDICATORIA'] ?? '')) !== '';
+$candLocalidad = $candTieneDedic ? (string) ($cand['P_LOCALIDAD'] ?? '') : '';
+$candProvincia = $candTieneDedic && is_string($cand['P_PROVINCIA'] ?? null) && $cand['P_PROVINCIA'] !== '' ? (string) $cand['P_PROVINCIA'] : null;
 $bandaEstrenoVal = $cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? '';
 
 // Origen del candidato: YouTube (pipeline yt-dlp) o el catálogo de streaming
@@ -82,7 +84,16 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
                     Confianza: <?= (int) round(((float) $cand['CONFIANZA']) * 100) ?>%
                 </p>
 <?php if ($flags): ?>
-                <p class="small">Revisar: <?= V::e(implode(', ', $flags)) ?></p>
+                <p class="small">Revisar: <?php
+    $partes = [];
+    foreach ($flags as $f) {
+        $f = (string) $f;
+        $partes[] = str_starts_with($f, 'Autor: ')
+            ? '<strong>Autor:</strong> <strong>' . V::e(substr($f, 7)) . '</strong>'
+            : V::e($f);
+    }
+    echo implode(', ', $partes);
+?></p>
 <?php endif; ?>
             </div>
         </div>
@@ -146,7 +157,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
             <label class="field-label">Autor(es)</label>
 <?php if ($autoresAuto): ?>
             <p class="small muted">
-                Añadidos automáticamente (coincidencia ≥80% con un autor ya existente):
+                Añadidos automáticamente (coincidencia ≥90% con un autor ya existente):
                 <?= V::e(implode(', ', array_map(static fn(array $a): string => $a['NOMBRE_COMPLETO'] . ' (' . (int) round($a['score'] * 100) . '%)', $autoresAuto))) ?>
             </p>
 <?php endif; ?>
@@ -248,9 +259,9 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
 </div>
 <script src="/assets/admin.js" defer></script>
 <script>
-// Autores con coincidencia fuerte (≥80%) detectada en el servidor: se añaden
+// Autores con coincidencia fuerte (≥90%) detectada en el servidor: se añaden
 // como chip ya seleccionado sin esperar a que el revisor los busque a mano.
-var autoresAuto = <?= json_encode(array_map(static fn(array $a): array => ['id' => $a['ID_AUTOR'], 'nombre' => $a['NOMBRE_COMPLETO']], $autoresAuto), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+var autoresAuto = <?= json_encode(array_map(static fn(array $a): array => ['id' => $a['ID_AUTOR'], 'nombre' => $a['NOMBRE_COMPLETO']], $autoresAuto), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 document.addEventListener('DOMContentLoaded', function () {
     if (!window.AutorAutocomplete) return;
     autoresAuto.forEach(function (a) { window.AutorAutocomplete.addChip(a.id, a.nombre); });

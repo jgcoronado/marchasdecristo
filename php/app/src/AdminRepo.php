@@ -294,6 +294,16 @@ final class AdminRepo
     {
         $values = array_map(static fn(string $f) => self::normalize($autor[$f] ?? null), self::EDITABLE_AUTOR);
         if (!self::aniosAutorValidos(array_combine(self::EDITABLE_AUTOR, $values))) return ['code' => 'INVALID_FECHA'];
+        // Mismo nombre y apellidos (sin acentos ni mayúsculas) que un compositor existente: no se duplica.
+        $nom = Db::noAcc(mb_strtolower(trim((string) ($autor['NOMBRE'] ?? '')))); 
+        $ape = Db::noAcc(mb_strtolower(trim((string) ($autor['APELLIDOS'] ?? ''))));
+        if ($ape !== '') {
+            $dup = Db::one(
+                'SELECT ID_AUTOR FROM autor WHERE LOWER(NOACC(TRIM(APELLIDOS))) = ? AND LOWER(NOACC(TRIM(COALESCE(NOMBRE, \'\'))) ) = ? LIMIT 1',
+                [$ape, $nom]
+            );
+            if ($dup !== null) return ['code' => 'AUTOR_DUPLICADO', 'autorId' => (int) $dup['ID_AUTOR']];
+        }
         $ph = implode(', ', array_fill(0, count(self::EDITABLE_AUTOR), '?'));
         Db::run('INSERT INTO autor (' . implode(', ', self::EDITABLE_AUTOR) . ") VALUES ($ph)", $values);
         $autorId = Db::lastInsertId();

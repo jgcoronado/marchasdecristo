@@ -2306,17 +2306,8 @@ final class Admin
         if ($cand === null) Http::notFound();
         $back = self::ingestaBackQuery((string) ($_GET['ref'] ?? ''));
 
-        $autoresNombres = array_filter(array_map('trim', explode(',', (string) ($cand['P_AUTORES'] ?? ''))));
-        $autoresAuto = [];
-        $autoresSugeridos = [];
-        foreach ($autoresNombres as $nombre) {
-            $match = Repo::mejorAutorPorNombre($nombre);
-            if ($match !== null && $match['score'] >= 0.8) {
-                $autoresAuto[] = $match;
-            } else {
-                $autoresSugeridos[] = $nombre;
-            }
-        }
+        // Coincidencia ≥90% con un autor existente → se añade solo; el resto queda como sugerencia.
+        [$autoresAuto, $autoresSugeridos] = Repo::resolverAutoresTexto((string) ($cand['P_AUTORES'] ?? ''), 0.9);
 
         // Estilo: manda el que propuso el descubridor (P_ESTILO) si viene; si
         // no, se deduce del resto de marchas de la banda, como hasta ahora.
@@ -2335,6 +2326,7 @@ final class Admin
             'session' => $session, 'cand' => $cand, 'back' => $back,
             'autoresAuto' => $autoresAuto, 'autoresSugeridos' => $autoresSugeridos,
             'estiloSugerido' => $estiloSugerido,
+            'fechaDisco' => empty($cand['P_FECHA']) ? IngestaRepo::fechaDeDiscoOrigen($cand) : null,
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => 'Revisar candidato #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }

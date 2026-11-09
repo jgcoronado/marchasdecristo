@@ -26,7 +26,7 @@ $fields = [
         </div>
     </div>
 
-<?php if ($error): ?><div class="alert alert-error">Error: <?= V::e($error) ?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert alert-error"><?= $error === 'AUTOR_DUPLICADO' ? 'Ya existe un compositor con ese nombre y apellidos: búscalo en el desplegable en vez de crearlo otra vez.' : 'Error: ' . V::e($error) ?></div><?php endif; ?>
 <?php if ($notice): ?><div class="alert alert-<?= $notice['type'] === 'ok' ? 'success' : ($notice['type'] === 'error' ? 'error' : 'info') ?>"><?= V::e($notice['msg']) ?></div><?php endif; ?>
 <?php if ($proposalMode): ?><div class="alert alert-info">Verás una <strong>previsualización</strong> antes de enviar. Tu propuesta la revisará un administrador; no se guarda directamente en la base de datos.</div><?php endif; ?>
 
