@@ -18,9 +18,9 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             y tambores y agrupación musical de España. Desde los inicios del género hasta
             las marchas de más rabiosa actualidad, con la más completa información sobre autores, bandas y discos.
         </p>
-<?php /* Las cuatro cifras son el activo del sitio, no un pie de página: van en
-         fila, con el número al tamaño de un titular. $num aplica separador de
-         millares, que la línea anterior no tenía ("5024 marchas"). */ ?>
+<?php /* Las cifras van en una línea de datos (--t-l), no en mosaico de números
+         gigantes (§0.5). Cada cifra es un bloque que no se parte y r/marco.css
+         equilibra las líneas para que la quinta no quede sola en móvil. */ ?>
 <?php if ($estado): ?>
         <div class="welcome-counts">
             <span class="cifra"><b><?= $num($estado['MARCHAS']) ?></b><span>marchas</span></span>
@@ -82,21 +82,22 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 <?php if ($ultimas): ?>
     <section>
         <h2 class="section-title">Últimas incorporaciones</h2>
-        <div class="ultimas">
+<?php /* Tabla con el contrato común de §2.5 (.t / .t-main / .t-num /
+         data-l): en móvil, r/tablas.css la pasa a filas de dos líneas. */ ?>
+        <table class="t ultimas-t">
+            <thead><tr><th scope="col">Marcha</th><th scope="col">Compositor</th><th scope="col">Banda</th><th scope="col" class="t-num">Año</th></tr></thead>
+            <tbody>
 <?php foreach ($ultimas as $m):
     $authors = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR'])); ?>
-            <a class="ultima-row" href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>">
-                <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
-                <span class="ultima-meta">
-                    <span class="ultima-authors"><?= V::e($authors) ?></span>
-<?php if (!empty($m['BANDA_BREVE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?></span>
-<?php endif; ?>
-                </span>
-                <span class="ultima-date"><?= V::e($m['FECHA']) ?></span>
-            </a>
+                <tr>
+                    <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                    <td data-l=""><?= V::e($authors) ?></td>
+                    <td data-l=""><?php if (!empty($m['BANDA_BREVE'])): ?><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                    <td class="t-num" data-l=""><?= V::e($m['FECHA']) ?></td>
+                </tr>
 <?php endforeach; ?>
-        </div>
+            </tbody>
+        </table>
     </section>
 <?php endif; ?>
 
