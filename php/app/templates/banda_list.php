@@ -32,24 +32,29 @@ $sortHref = static function (string $col) use ($href, $orden, $dir): string {
     $next = ($orden === $col && $dir === 'asc') ? 'desc' : 'asc';
     return $href(['orden' => $col, 'dir' => $next]);
 };
-$arrow = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? '↑' : '↓') : '↕';
 $ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
 $total = (int) $result['totalRows'];
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+$nFiltros = count(array_filter(array_intersect_key($criteria, ['titulo' => 1, 'localidad' => 1, 'provincia' => 1]), static fn($x) => trim((string) $x) !== ''));
+// Por página: a la derecha del título en escritorio, dentro de «Filtros» en
+// móvil (mismo patrón que /marcha; r/tablas.css enseña una u otra copia).
+$controles = H::porPagina($limit, '/banda', $criteria);
 ?>
 <div class="stack list-page">
     <div class="toolbar">
         <h1 class="rescount"><b><?= $num($total) ?></b> bandas</h1>
-        <?= H::porPagina($limit, '/banda', $criteria) ?>
+        <div class="t-ctl"><?= $controles ?></div>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/banda">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-    <details class="adv"<?= ($val('titulo') !== '' || $val('localidad') !== '') ? ' open' : '' ?>>
-        <summary>Búsqueda avanzada</summary>
-        <form class="adv-form" action="/banda" method="GET">
+    <details class="filtros"<?= ($val('titulo') !== '' || $val('localidad') !== '') ? ' open' : '' ?>>
+        <summary>Filtros<?php if ($nFiltros > 0): ?> <span class="n">(<?= $nFiltros ?>)</span><?php endif; ?></summary>
+        <div class="filtros-panel">
+        <div class="t-ctl t-ctl-movil"><?= $controles ?></div>
+        <form class="adv-form" aria-label="Búsqueda avanzada" action="/banda" method="GET">
             <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="titulo">Nombre</label>
@@ -71,11 +76,8 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 <?php endif; ?>
             </div>
         </form>
-    </details>
 
-    <details class="facet-rail-toggle">
-        <summary class="rail-title">Refinar por</summary>
-        <div class="facet-groups">
+        <div class="facet-groups" aria-label="Refinar por">
 <?php if ($facets['provincia'] !== []): ?>
             <div class="fgroup">
                 <div class="ftitle">Provincia</div>
@@ -85,25 +87,26 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             </div>
 <?php endif; ?>
         </div>
+        </div>
     </details>
 
     <section>
 <?php if ($total === 0): ?>
             <p class="bio-empty">No se han encontrado bandas con esos criterios.</p>
 <?php else: ?>
-            <div class="scrollx tableList">
-            <table class="reg">
+            <div class="tableList">
+            <table class="t">
                 <thead><tr>
-                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
-                    <th aria-sort="<?= $ariaSort('localidad') ?>"><a class="sortcol" href="<?= V::e($sortHref('localidad')) ?>">Localidad <span class="ar"><?= $arrow('localidad') ?></span></a></th>
-                    <th aria-sort="<?= $ariaSort('fundacion') ?>"><a class="sortcol" href="<?= V::e($sortHref('fundacion')) ?>">Fundación <span class="ar"><?= $arrow('fundacion') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre</a></th>
+                    <th aria-sort="<?= $ariaSort('localidad') ?>"><a class="sortcol" href="<?= V::e($sortHref('localidad')) ?>">Localidad</a></th>
+                    <th class="t-num" aria-sort="<?= $ariaSort('fundacion') ?>"><a class="sortcol" href="<?= V::e($sortHref('fundacion')) ?>">Fundación</a></th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $b): ?>
                     <tr>
-                        <td><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['NOMBRE_COMPLETO'])) ?>"><?= V::e($b['NOMBRE_COMPLETO']) ?></a></td>
-                        <td><?= V::e($showLocalidad($b['LOCALIDAD'], $b['PROVINCIA'])) ?></td>
-                        <td><?= V::e($showDate($b['FECHA_FUND'], $b['FECHA_EXT'])) ?></td>
+                        <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['NOMBRE_COMPLETO'])) ?>"><?= V::e($b['NOMBRE_COMPLETO']) ?></a></td>
+                        <td data-l=""><?= V::e($showLocalidad($b['LOCALIDAD'], $b['PROVINCIA'])) ?></td>
+                        <td class="t-num" data-l=""><?= V::e($showDate($b['FECHA_FUND'], $b['FECHA_EXT'])) ?></td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>

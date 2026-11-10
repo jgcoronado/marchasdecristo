@@ -26,21 +26,21 @@ $nBandas = count($porBanda);
     <div class="shead" id="por-anio"><h2>Cobertura por año</h2>
         <span class="n"><?= $num(count($porAnio)) ?> años con marchas catalogadas</span>
     </div>
-    <div class="scrollx">
-    <table class="reg" data-sortable>
+    <div class="tableList">
+    <table class="t" data-sortable>
         <thead><tr>
             <th data-type="num">Año <span class="ar">↕</span></th>
-            <th data-type="num">Marchas <span class="ar">↕</span></th>
-            <th data-type="num" class="mobile-hide">Con audio <span class="ar">↕</span></th>
-            <th data-type="num">Cobertura <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Cobertura <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Marchas <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Con audio <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($porAnio as $a): ?>
             <tr>
-                <td><a href="/marcha/ano/<?= (int) $a['K'] ?>"><?= (int) $a['K'] ?></a></td>
-                <td><?= $num($a['TOTAL']) ?></td>
-                <td class="mobile-hide"><?= $num($a['CON_AUDIO']) ?></td>
-                <td><?= $pct($a['PCT']) ?></td>
+                <td class="t-main" data-l=""><a href="/marcha/ano/<?= (int) $a['K'] ?>"><?= (int) $a['K'] ?></a></td>
+                <td class="t-num" data-l=""><?= $pct($a['PCT']) ?></td>
+                <td class="t-num" data-l="Marchas"><?= $num($a['TOTAL']) ?></td>
+                <td class="t-num" data-l="Con audio"><?= $num($a['CON_AUDIO']) ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
@@ -57,21 +57,21 @@ $nBandas = count($porBanda);
     </div>
     <p class="muted small">Solo bandas con 3 o más marchas de estreno catalogadas — con menos, un único hueco
         distorsiona el porcentaje sin aportar una prioridad real de curación.</p>
-    <div class="scrollx">
-    <table class="reg" id="banda-table" data-sortable>
+    <div class="tableList">
+    <table class="t" id="banda-table" data-sortable>
         <thead><tr>
             <th>Banda <span class="ar">↕</span></th>
-            <th data-type="num">Marchas <span class="ar">↕</span></th>
-            <th data-type="num" class="mobile-hide">Con audio <span class="ar">↕</span></th>
-            <th data-type="num">Cobertura <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Cobertura <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Marchas <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Con audio <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($porBanda as $b): ?>
             <tr>
-                <td><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['BANDA'])) ?>"><?= V::e($b['BANDA']) ?></a></td>
-                <td><?= $num($b['TOTAL']) ?></td>
-                <td class="mobile-hide"><?= $num($b['CON_AUDIO']) ?></td>
-                <td><?= $pct($b['PCT']) ?></td>
+                <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['BANDA'])) ?>"><?= V::e($b['BANDA']) ?></a></td>
+                <td class="t-num" data-l=""><?= $pct($b['PCT']) ?></td>
+                <td class="t-num" data-l="Marchas"><?= $num($b['TOTAL']) ?></td>
+                <td class="t-num" data-l="Con audio"><?= $num($b['CON_AUDIO']) ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
