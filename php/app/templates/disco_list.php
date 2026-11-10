@@ -21,12 +21,22 @@ $arrow = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? '
 $ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
 $total = (int) $result['totalRows'];
+/* Vista (§2.6): por defecto, rejilla de fundas —un disco se reconoce por la
+   portada—; ?vista=tabla deja la tabla de siempre para quien quiera ordenar
+   y comparar columnas. No viaja en $criteria (no es un criterio de búsqueda),
+   así que se añade a mano a los enlaces de orden y paginación de la tabla. */
+$tabla = ($_GET['vista'] ?? '') === 'tabla';
+$conVista = static fn(string $u): string => $tabla ? $u . (str_contains($u, '?') ? '&' : '?') . 'vista=tabla' : $u;
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
 ?>
 <div class="stack list-page">
     <div class="toolbar">
         <h1 class="rescount"><b><?= $num($total) ?></b> discos</h1>
         <?= H::porPagina($limit, '/disco', $criteria) ?>
+        <span class="seg vista-seg" aria-label="Vista">
+            <a class="seg-op<?= $tabla ? '' : ' on' ?>" href="<?= V::e($href([])) ?>"<?= $tabla ? '' : ' aria-current="true"' ?>>Portadas</a>
+            <a class="seg-op<?= $tabla ? ' on' : '' ?>" href="<?= V::e($href(['vista' => 'tabla'])) ?>"<?= $tabla ? ' aria-current="true"' : '' ?>>Tabla</a>
+        </span>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
 <?php endif; ?>
@@ -69,28 +79,46 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
     <section>
 <?php if ($total === 0): ?>
             <p class="bio-empty">No se han encontrado discos con esos criterios.</p>
+<?php elseif (!$tabla): ?>
+            <ul class="fundas">
+<?php foreach ($result['data'] as $d):
+    $anioD = (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : null;
+    $bandaD = !empty($d['ID_BANDA']) ? (string) $d['BANDA'] : ''; ?>
+                <li class="funda-item">
+                    <?= H::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], $anioD, $bandaD) ?>
+                    <a class="funda-tit" href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a>
+<?php if ($bandaD !== ''): ?>
+                    <a class="funda-sub" href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], $bandaD)) ?>"><?= V::e($bandaD) ?></a>
+<?php endif; ?>
+<?php if ($anioD): ?>
+                    <span class="funda-sub"><?= $anioD ?></span>
+<?php endif; ?>
+                </li>
+<?php endforeach; ?>
+            </ul>
+            <?= H::pagination($page, $total, $limit, '/disco', $criteria) ?>
 <?php else: ?>
             <div class="scrollx tableList">
-            <table class="reg">
+            <table class="t reg">
                 <thead><tr>
-                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($sortHref('nombre')) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
-                    <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($sortHref('banda')) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
-                    <th aria-sort="<?= $ariaSort('anio') ?>"><a class="sortcol" href="<?= V::e($sortHref('anio')) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('nombre'))) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('banda'))) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
+                    <th aria-sort="<?= $ariaSort('anio') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('anio'))) ?>">Año <span class="ar"><?= $arrow('anio') ?></span></a></th>
                     <th class="col-escucha" title="¿Hay dónde escucharlo?">Escuchar</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>
                     <tr>
-                        <td><div class="con-mini"><?= \App\Html::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></div></td>
-                        <td>
+                        <td class="t-main"><div class="con-mini"><?= \App\Html::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></div></td>
+                        <td data-l="Banda">
 <?php if (!empty($d['ID_BANDA'])): ?>
                             <a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA'])) ?>"><?= V::e($d['BANDA']) ?></a>
 <?php else: ?>
                             <span class="muted">—</span>
 <?php endif; ?>
                         </td>
-                        <td><?= !empty($d['FECHA_CD']) ? V::e($d['FECHA_CD']) : '—' ?></td>
-                        <td class="col-escucha">
+                        <td class="t-num" data-l=""><?= !empty($d['FECHA_CD']) ? V::e($d['FECHA_CD']) : '—' ?></td>
+                        <td class="col-escucha" data-l="">
 <?php if (!empty($d['TIENE_STREAMING'])): ?>
                             <span class="ico-escucha" role="img" aria-label="Disponible en streaming" title="Disponible en streaming">
                                 <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
@@ -107,7 +135,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                 </tbody>
             </table>
             </div>
-            <?= H::pagination($page, $total, $limit, '/disco', $criteria) ?>
+            <?= H::pagination($page, $total, $limit, '/disco', $criteria + ['vista' => 'tabla']) ?>
 <?php endif; ?>
     </section>
 </div>
