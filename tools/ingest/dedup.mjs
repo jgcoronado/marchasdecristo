@@ -51,8 +51,20 @@ function parseArgs(argv) {
 }
 const args = parseArgs(process.argv.slice(2));
 
+// Quita del título lo que no es título ("— en vivo", "- (Live) Concierto…",
+// "[En Vivo]", "(feat. …)", "— Estreno 2026"). Mismo criterio que
+// php/app/src/Similarity.php::limpiarTitulo().
+const SUFIJO_VERSION = 'en\\s+vivo|en\\s+directo|vivo|directo|live|estreno|versi[oó]n|remaster(?:izado|ed)?';
+const limpiarTitulo = (s) => {
+  const t = (s || '')
+    .replace(new RegExp('\\s*(?:\\s[—–-]\\s|[(\\[])\\s*[(\\[]?\\s*(?:' + SUFIJO_VERSION + ')\\b.*$', 'isu'), '')
+    .replace(/\s*[(\[]\s*(?:feat|ft|con|with)\b.*$/isu, '')
+    .trim();
+  return t === '' ? (s || '') : t;
+};
+
 const normalize = (s) =>
-  (s || '')
+  limpiarTitulo(s || '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()

@@ -1161,6 +1161,10 @@ dialog.panel::backdrop { background: var(--velo); }
 .chip-x:hover { color: var(--ink); }
 
 .autocomplete { position: relative; }
+.autocomplete-clear { position: absolute; right: 0.4rem; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted-c); font-size: 1.25rem; line-height: 1; padding: 0.1rem 0.4rem; cursor: pointer; border-radius: var(--radius-sm); }
+.autocomplete-clear:hover { color: var(--ink); background: var(--s2); }
+.autocomplete-clear[hidden] { display: none; }
+.autocomplete:has([data-municipio-clear], [data-clear-for]) > .input { padding-right: 2rem; }
 .suggest { position: absolute; z-index: 25; left: 0; right: 0; margin-top: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--sombra-media); max-height: 16rem; overflow-y: auto; }
 .suggest-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0.5rem 0.7rem; cursor: pointer; font: inherit; font-size: 0.9rem; color: var(--ink); }
 .suggest-item:hover, .suggest-item.is-on { background: var(--s2); }

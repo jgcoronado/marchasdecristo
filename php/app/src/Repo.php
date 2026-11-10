@@ -675,11 +675,15 @@ final class Repo
      *
      * @return list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string}>
      */
-    public static function autorCandidatosPorTexto(string $q, int $limit = 15): array
+    public static function autorCandidatosPorTexto(string $q, int $limit = 15, bool $cualquiera = false): array
     {
         $tokens = preg_split('/\s+/u', trim(Db::noAcc($q)), -1, PREG_SPLIT_NO_EMPTY);
         if ($tokens === []) return [];
 
+        if ($cualquiera) {
+            $tokens = array_values(array_filter($tokens, static fn(string $t): bool => mb_strlen($t) >= 4));
+            if ($tokens === []) return [];
+        }
         $conditions = [];
         $values = [];
         foreach ($tokens as $t) {
@@ -687,7 +691,7 @@ final class Repo
             $needle = '%' . $t . '%';
             array_push($values, $needle, $needle, $needle);
         }
-        $where = implode(' AND ', $conditions);
+        $where = implode($cualquiera ? ' OR ' : ' AND ', $conditions);
 
         return Db::all(
             "SELECT ID_AUTOR, (NOMBRE || ' ' || APELLIDOS) AS NOMBRE_COMPLETO
@@ -707,15 +711,66 @@ final class Repo
     public static function mejorAutorPorNombre(string $nombre): ?array
     {
         $rows = self::autorCandidatosPorTexto($nombre, 50);
+        if ($rows === []) {
+            // Sin solapamiento de TODAS las palabras (typo, segundo apellido de más…):
+            // se recuperan los que comparten alguna palabra significativa.
+            $rows = self::autorCandidatosPorTexto($nombre, 50, true);
+        }
 
         $mejor = null;
         foreach ($rows as $r) {
-            $score = Similarity::ratio($nombre, (string) $r['NOMBRE_COMPLETO']);
+            $score = self::similitudNombre($nombre, (string) $r['NOMBRE_COMPLETO']);
             if ($mejor === null || $score > $mejor['score']) {
                 $mejor = ['ID_AUTOR' => (int) $r['ID_AUTOR'], 'NOMBRE_COMPLETO' => (string) $r['NOMBRE_COMPLETO'], 'score' => $score];
             }
         }
         return $mejor;
+    }
+
+    /** Similitud de nombres de persona insensible al orden ("Pérez, Juan" == "Juan Pérez"). */
+    private static function similitudNombre(string $a, string $b): float
+    {
+        $orden = static function (string $s): string {
+            $t = preg_split('/[\s,]+/u', trim(Db::noAcc($s)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            sort($t);
+            return implode(' ', $t);
+        };
+        return max(Similarity::ratio($a, $b), Similarity::ratio($orden($a), $orden($b)));
+    }
+
+    /**
+     * Resuelve el texto libre de autores de un candidato (P_AUTORES) contra la
+     * tabla autor. Separa por "/", ";", " - ", " y " y por comas, entendiendo
+     * que "Apellidos, Nombre" es UNA persona: junta dos trozos contiguos si
+     * el nombre resultante coincide con un autor existente.
+     *
+     * @return array{0:list<array{ID_AUTOR:int,NOMBRE_COMPLETO:string,score:float}>,1:list<string>}
+     *         [autores con coincidencia ≥ $umbral, textos sin resolver]
+     */
+    public static function resolverAutoresTexto(string $raw, float $umbral = 0.9): array
+    {
+        $auto = [];
+        $sugeridos = [];
+        $vistos = [];
+        $anadir = static function (array $m) use (&$auto, &$vistos): void {
+            if (!isset($vistos[$m['ID_AUTOR']])) { $vistos[$m['ID_AUTOR']] = true; $auto[] = $m; }
+        };
+
+        $grupos = preg_split('~\s*(?:/|;|\s[-–—]\s|\sy\s|\se\s)\s*~u', $raw) ?: [];
+        foreach ($grupos as $grupo) {
+            $trozos = array_values(array_filter(array_map('trim', explode(',', $grupo)), static fn(string $t): bool => $t !== ''));
+            $n = count($trozos);
+            for ($i = 0; $i < $n; $i++) {
+                if ($i + 1 < $n) {
+                    $m = self::mejorAutorPorNombre($trozos[$i + 1] . ' ' . $trozos[$i]);
+                    if ($m !== null && $m['score'] >= $umbral) { $anadir($m); $i++; continue; }
+                }
+                $m = self::mejorAutorPorNombre($trozos[$i]);
+                if ($m !== null && $m['score'] >= $umbral) { $anadir($m); continue; }
+                $sugeridos[] = $trozos[$i];
+            }
+        }
+        return [$auto, array_values(array_unique($sugeridos))];
     }
 
     /**

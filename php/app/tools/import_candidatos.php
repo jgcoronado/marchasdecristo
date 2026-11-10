@@ -178,8 +178,9 @@ try {
             ':p_titulo' => $c['p_titulo'] ?? null,
             ':p_fecha' => $c['p_fecha'] ?? null,
             ':p_dedicatoria' => $c['p_dedicatoria'] ?? null,
-            ':p_localidad' => $c['p_localidad'] ?? null,
-            ':p_provincia' => $c['p_provincia'] ?? null,
+            // Sin dedicatoria no se guardan localidad ni provincia.
+            ':p_localidad' => trim((string) ($c['p_dedicatoria'] ?? '')) !== '' ? ($c['p_localidad'] ?? null) : null,
+            ':p_provincia' => trim((string) ($c['p_dedicatoria'] ?? '')) !== '' ? ($c['p_provincia'] ?? null) : null,
             ':p_autores' => $c['p_autores'] ?? null,
             ':p_estilo' => $c['p_estilo'] ?? null,
             ':p_banda_estreno' => $c['p_banda_estreno'] ?? null,

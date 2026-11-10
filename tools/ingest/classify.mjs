@@ -283,7 +283,8 @@ function buildCandidate(video, kw) {
       p_titulo: pTitulo,
       p_fecha: anioPublicacion,
       p_dedicatoria: null,
-      p_localidad: localidad,
+      // Localidad y provincia sólo tienen sentido con dedicatoria; sin ella van vacías.
+      p_localidad: null,
       p_provincia: null,
       p_autores: autores.length ? autores.join(', ') : null,
       p_banda_estreno: video.id_banda,

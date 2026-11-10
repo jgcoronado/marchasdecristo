@@ -122,6 +122,7 @@ final class Admin
         'DIA_DISTINTO_DE_HERMANDAD' => 'Esa hermandad sale otro día: déjalo vacío o elige uno de los suyos (el cambio de día se hace en Semana Santa).',
         'PROVINCIA_DISTINTA' => 'Esa localidad ya está registrada en otra provincia.',
         'INVALID_LOCALIDAD' => 'Esa localidad no está en el catálogo de municipios de la provincia elegida.',
+        'POSIBLE_DUPLICADO' => 'No se ha creado la marcha: se parece a otra que ya existe (mismo autor o misma banda de estreno). Si es la misma, usa «Asociar a marcha existente»; si de verdad es otra, marca la casilla de confirmación antes de aceptar.',
     ];
 
     private static function isAdmin(array $session): bool
@@ -463,7 +464,7 @@ final class Admin
                 // Tabla 013_acompanamiento_duda.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        $pendientesDmp = self::isAdmin($session) ? IngestaRepo::countPendientesPorFuente('dmp') : 0;
+        $pendientesIngesta = self::isAdmin($session) ? IngestaRepo::countPendientes() : 0;
         $pendientesAcompanamiento = 0;
         if (Roles::has($rol, 'acompanamientos.edit')) {
             try {
@@ -472,7 +473,7 @@ final class Admin
                 // Tabla 017_acompanamiento_pendiente.sql aún no migrada en este host; el badge se queda a 0.
             }
         }
-        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'proposalMode', 'misPendientes', 'dudasAcompanamientos', 'pendientesDmp', 'pendientesAcompanamiento'),
+        View::render('admin/dashboard', compact('q', 'qb', 'qd', 'marchas', 'autores', 'bandas', 'discos', 'session', 'notice', 'pendientes', 'proposalMode', 'misPendientes', 'dudasAcompanamientos', 'pendientesIngesta', 'pendientesAcompanamiento'),
             ['title' => 'Panel de administración — Marchas de Cristo', 'noindex' => true]);
     }
 
@@ -2306,17 +2307,8 @@ final class Admin
         if ($cand === null) Http::notFound();
         $back = self::ingestaBackQuery((string) ($_GET['ref'] ?? ''));
 
-        $autoresNombres = array_filter(array_map('trim', explode(',', (string) ($cand['P_AUTORES'] ?? ''))));
-        $autoresAuto = [];
-        $autoresSugeridos = [];
-        foreach ($autoresNombres as $nombre) {
-            $match = Repo::mejorAutorPorNombre($nombre);
-            if ($match !== null && $match['score'] >= 0.8) {
-                $autoresAuto[] = $match;
-            } else {
-                $autoresSugeridos[] = $nombre;
-            }
-        }
+        // Coincidencia ≥90% con un autor existente → se añade solo; el resto queda como sugerencia.
+        [$autoresAuto, $autoresSugeridos] = Repo::resolverAutoresTexto((string) ($cand['P_AUTORES'] ?? ''), 0.9);
 
         // Estilo: manda el que propuso el descubridor (P_ESTILO) si viene; si
         // no, se deduce del resto de marchas de la banda, como hasta ahora.
@@ -2331,10 +2323,22 @@ final class Admin
             $estiloSugerido = $eRow !== null ? (string) $eRow['ESTILO'] : null;
         }
 
+        // Posibles duplicados con lo que el formulario trae de entrada (título
+        // propuesto, autores resueltos solos y banda): se avisa antes de que el
+        // revisor toque nada. El aviso en vivo (admin.js) cubre lo que cambie después.
+        $duplicados = $cand['ESTADO'] === 'pendiente'
+            ? AdminRepo::posiblesDuplicadosMarcha(
+                (string) ($cand['P_TITULO'] ?: $cand['VIDEO_TITULO']),
+                array_map(static fn(array $a): int => (int) $a['ID_AUTOR'], $autoresAuto),
+                $bandaId > 0 ? $bandaId : null
+            )
+            : [];
+
         View::render('admin/ingesta_detail', [
             'session' => $session, 'cand' => $cand, 'back' => $back,
             'autoresAuto' => $autoresAuto, 'autoresSugeridos' => $autoresSugeridos,
-            'estiloSugerido' => $estiloSugerido,
+            'estiloSugerido' => $estiloSugerido, 'duplicados' => $duplicados,
+            'fechaDisco' => empty($cand['P_FECHA']) ? IngestaRepo::fechaDeDiscoOrigen($cand) : null,
             'notice' => self::noticeFromQuery(), 'error' => null,
         ], ['title' => 'Revisar candidato #' . $id . ' — Marchas de Cristo', 'noindex' => true]);
     }
@@ -2354,7 +2358,7 @@ final class Admin
 
         if ($ids === []) Http::redirect("/dashboard/ingesta/$id?err=AUTHORS_REQUIRED$backSuffix", 302);
 
-        $r = AdminRepo::aceptarCandidato($id, $fields, $ids, $guardarOrigen);
+        $r = AdminRepo::aceptarCandidato($id, $fields, $ids, $guardarOrigen, isset($_POST['confirmar_no_duplicado']));
         if (($r['code'] ?? '') === 'CREATED') {
             $sep = $back !== '' ? '&' : '';
             Http::redirect("/dashboard/ingesta?$back{$sep}aceptado=" . $r['marchaId'], 302);
@@ -2581,8 +2585,10 @@ final class Admin
     }
 
     /**
-     * Detecta posibles duplicados de marcha por título (similitud > 80 %) dentro
-     * del conjunto de marchas que comparten al menos un autor con los indicados.
+     * Posibles duplicados de marcha para el aviso en vivo de los formularios
+     * (alta/edición de marcha y aceptación de candidatos de ingesta). Criterio
+     * en AdminRepo::posiblesDuplicadosMarcha(): autor común con título ≥ 80 %,
+     * o misma banda de estreno (?banda=) con título ≥ 90 %.
      */
     public static function marchaCheckDuplicate(): void
     {
@@ -2598,29 +2604,9 @@ final class Admin
         $autorIds = is_array($rawIds) ? array_map('intval', $rawIds) : [(int) $rawIds];
         $autorIds = array_filter($autorIds, static fn(int $id): bool => $id > 0);
         $excludeId = isset($_GET['excludeId']) ? (int) $_GET['excludeId'] : null;
+        $banda = (int) ($_GET['banda'] ?? 0);
 
-        if ($titulo === '' || $autorIds === []) {
-            echo json_encode(['rowsReturned' => 0, 'data' => []]);
-            return;
-        }
-
-        $ph = implode(',', array_fill(0, count($autorIds), '?'));
-        $candidatas = Db::all(
-            "SELECT DISTINCT m.ID_MARCHA, m.TITULO
-             FROM marcha m
-             JOIN marcha_autor ma ON ma.ID_MARCHA = m.ID_MARCHA
-             WHERE ma.ID_AUTOR IN ($ph)" . ($excludeId !== null ? " AND m.ID_MARCHA != $excludeId" : ''),
-            array_values($autorIds)
-        );
-
-        $hits = [];
-        foreach ($candidatas as $c) {
-            $sim = Similarity::ratio($titulo, (string) $c['TITULO']);
-            if ($sim >= 0.80) {
-                $hits[] = ['ID_MARCHA' => (int) $c['ID_MARCHA'], 'TITULO' => $c['TITULO'], 'sim' => round($sim, 2)];
-            }
-        }
-        usort($hits, static fn($a, $b) => $b['sim'] <=> $a['sim']);
+        $hits = AdminRepo::posiblesDuplicadosMarcha($titulo, array_values($autorIds), $banda > 0 ? $banda : null, $excludeId);
         echo json_encode(['rowsReturned' => count($hits), 'data' => $hits], JSON_UNESCAPED_UNICODE);
     }
 

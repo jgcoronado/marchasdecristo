@@ -138,6 +138,7 @@ $puedeDescartarMultiple = $filters['estado'] === 'pendiente' && $result['data'];
         <tbody>
 <?php foreach ($result['data'] as $c):
     $titulo = $c['P_TITULO'] ?: $c['VIDEO_TITULO'];
+    $titulo = $titulo === null || $titulo === '' ? $titulo : mb_strtoupper(mb_substr($titulo, 0, 1)) . mb_strtolower(mb_substr($titulo, 1));
     $fuente = $c['FUENTE'] ?? 'youtube';
     $bandaOrigen = $c['NOMBRE_BREVE'] === null ? IngestaRepo::bandaOrigen($c['FLAGS'] ?? null) : null;
     $bandaTxt = $c['NOMBRE_BREVE'] ?? ($bandaOrigen['texto'] ?? ($c['ID_BANDA'] ? 'Banda #' . $c['ID_BANDA'] : '—'));

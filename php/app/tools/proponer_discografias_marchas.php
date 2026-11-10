@@ -588,7 +588,7 @@ for ($pk = $desde; $pk <= $hasta; $pk++) {
             $idBd = resolver_autor($a['nombre'], $bdAutores);
             $partes[] = $a['nombre'];
             $flagsAutor[] = $idBd !== null
-                ? "Autor: {$a['nombre']} (id $idBd, ya en BD)"
+                ? "Autor: {$a['nombre']}"
                 : "Autor: {$a['nombre']} — sin resolver, no encontrado en BD: comprobar/crear en el desplegable";
         }
         $pAutores = implode(' / ', $partes);

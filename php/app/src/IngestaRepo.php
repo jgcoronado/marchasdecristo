@@ -261,10 +261,10 @@ final class IngestaRepo
         return $out;
     }
 
-    /** Nº de candidatos pendientes de una fuente concreta (p.ej. 'dmp'), para el badge del panel principal. */
-    public static function countPendientesPorFuente(string $fuente): int
+    /** Nº de candidatos pendientes de todas las fuentes, para el badge del panel principal. */
+    public static function countPendientes(): int
     {
-        $row = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato WHERE ESTADO = 'pendiente' AND FUENTE = ?", [$fuente]);
+        $row = Db::one("SELECT COUNT(*) AS n FROM ingest_candidato WHERE ESTADO = 'pendiente'");
         return (int) ($row['n'] ?? 0);
     }
 
@@ -365,6 +365,33 @@ final class IngestaRepo
              ORDER BY b.NOMBRE_BREVE",
             $values
         );
+    }
+
+    /**
+     * Año del disco de origen de un candidato sin fecha propia. Primero el año
+     * entre paréntesis al final del nombre ("En Brazos de Dios (2018)"); si no,
+     * el FECHA_CD del disco de la tabla `disco` con el mismo nombre (sin
+     * acentos ni mayúsculas) y, si el candidato tiene banda, de esa banda.
+     * Con varias fechas posibles distintas no se adivina: devuelve null.
+     */
+    public static function fechaDeDiscoOrigen(array $cand): ?int
+    {
+        $album = trim((string) ($cand['FUENTE_ALBUM'] ?? ''));
+        if ($album === '') return null;
+        if (preg_match('/\((\d{4})\)\s*$/', $album, $m) === 1) return (int) $m[1];
+
+        $nombre = Db::noAcc($album);
+        $banda = (int) ($cand['P_BANDA_ESTRENO'] ?? $cand['ID_BANDA'] ?? 0);
+        $rows = Db::all(
+            'SELECT FECHA_CD, BANDADISCO FROM disco WHERE FECHA_CD IS NOT NULL AND NOACC(TRIM(NOMBRE_CD)) = ?',
+            [$nombre]
+        );
+        if ($banda > 0) {
+            $deBanda = array_filter($rows, static fn(array $r): bool => (int) $r['BANDADISCO'] === $banda);
+            if ($deBanda !== []) $rows = $deBanda;
+        }
+        $anios = array_values(array_unique(array_map(static fn(array $r): int => (int) $r['FECHA_CD'], $rows)));
+        return count($anios) === 1 ? $anios[0] : null;
     }
 
     /**

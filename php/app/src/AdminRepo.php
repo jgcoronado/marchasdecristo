@@ -19,6 +19,8 @@ final class AdminRepo
      * Campo heredado de la importación original — se valida contra esta lista
      * cerrada para no admitir texto libre nuevo, igual que ESTILO.
      */
+    /** Tipo que recibe una marcha creada sin tipo (ingesta, propuestas, formulario). */
+    public const TIPO_POR_DEFECTO = 'MARCHA PROCESIONAL';
     public const MARCHA_TIPOS = [
         'MARCHA PROCESIONAL',
         'ADAPTACIÓN MARCHA DE BANDA DE MÚSICA',
@@ -195,6 +197,10 @@ final class AdminRepo
         }
         if ($safe === []) return ['code' => 'INVALID_PAYLOAD'];
 
+        // Toda marcha de la BD es una marcha procesional salvo que se diga que es
+        // una adaptación: sin tipo explícito (la ingesta no lo pide), se da ese.
+        if (($safe['TIPO'] ?? null) === null) $safe['TIPO'] = self::TIPO_POR_DEFECTO;
+
         if (array_key_exists('FECHA', $safe) && $safe['FECHA'] !== null && !preg_match('/^\d{4}$/', (string) $safe['FECHA'])) {
             return ['code' => 'INVALID_FECHA'];
         }
@@ -239,6 +245,83 @@ final class AdminRepo
             $bandaOrigenCand
         );
         return ['code' => 'CREATED', 'marchaId' => $marchaId];
+    }
+
+    /** Título parecido entre marchas que comparten al menos un autor. */
+    public const DUP_UMBRAL_AUTOR = 0.80;
+    /** Título casi igual en la misma banda de estreno, aunque el autor no coincida. */
+    public const DUP_UMBRAL_BANDA = 0.90;
+
+    /**
+     * Marchas ya existentes que podrían ser la misma que se va a crear.
+     *
+     * Dos vías, porque cada una cubre el punto ciego de la otra:
+     *  · autor común + título ≥ DUP_UMBRAL_AUTOR — el aviso de siempre del
+     *    formulario de marcha;
+     *  · misma banda de estreno + título ≥ DUP_UMBRAL_BANDA — para cuando el
+     *    autor del origen no se resolvió o se resolvió a otra ficha (variantes
+     *    como «De San Juan Fernández» / «de Juan Fernández», o «Frosini Fedi» /
+     *    «Frisina»). La banda 0 («Varias bandas») no cuenta como banda común.
+     *
+     * Ver docs/duplicados-2026-11-10.md: es lo que dejó pasar cinco duplicados
+     * en la ingesta DMP y en la carga de estrenos de 2026.
+     *
+     * @param list<int> $autorIds
+     * @return list<array{ID_MARCHA:int,TITULO:string,FECHA:?int,BANDA_ESTRENO:?int,BANDA:?string,sim:float,motivo:string}>
+     */
+    public static function posiblesDuplicadosMarcha(string $titulo, array $autorIds, ?int $banda, ?int $excluirId = null): array
+    {
+        $titulo = trim($titulo);
+        if ($titulo === '') return [];
+        $autorIds = array_values(array_unique(array_filter(array_map('intval', $autorIds), static fn(int $n): bool => $n > 0)));
+        $banda = ($banda !== null && $banda > 0) ? $banda : null;
+        if ($autorIds === [] && $banda === null) return [];
+
+        $conds = [];
+        $params = [];
+        if ($autorIds !== []) {
+            $conds[] = 'm.ID_MARCHA IN (SELECT ID_MARCHA FROM marcha_autor WHERE ID_AUTOR IN (' . implode(',', array_fill(0, count($autorIds), '?')) . '))';
+            array_push($params, ...$autorIds);
+        }
+        if ($banda !== null) {
+            $conds[] = 'm.BANDA_ESTRENO = ?';
+            $params[] = $banda;
+        }
+        $sql = 'SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA,
+                       EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA'
+            . ($autorIds !== [] ? ' AND ma.ID_AUTOR IN (' . implode(',', array_fill(0, count($autorIds), '?')) . ')' : ' AND 0') . ') AS AUTOR_COMUN
+                FROM marcha m LEFT JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
+                WHERE (' . implode(' OR ', $conds) . ')';
+        $params = [...$autorIds, ...$params];
+        if ($excluirId !== null && $excluirId > 0) {
+            $sql .= ' AND m.ID_MARCHA != ?';
+            $params[] = $excluirId;
+        }
+
+        $hits = [];
+        foreach (Db::all($sql, $params) as $m) {
+            $sim = Similarity::ratio($titulo, (string) $m['TITULO']);
+            $autorComun = (int) $m['AUTOR_COMUN'] === 1;
+            $mismaBanda = $banda !== null && (int) $m['BANDA_ESTRENO'] === $banda;
+            if ($autorComun && $sim >= self::DUP_UMBRAL_AUTOR) {
+                $motivo = $mismaBanda ? 'mismo autor y banda de estreno' : 'mismo autor';
+            } elseif ($mismaBanda && $sim >= self::DUP_UMBRAL_BANDA) {
+                $motivo = 'misma banda de estreno';
+            } else {
+                continue;
+            }
+            $hits[] = [
+                'ID_MARCHA' => (int) $m['ID_MARCHA'],
+                'TITULO' => (string) $m['TITULO'],
+                'FECHA' => $m['FECHA'] !== null ? (int) $m['FECHA'] : null,
+                'BANDA_ESTRENO' => $m['BANDA_ESTRENO'] !== null ? (int) $m['BANDA_ESTRENO'] : null,
+                'BANDA' => $m['BANDA'] !== null ? (string) $m['BANDA'] : null,
+                'sim' => round($sim, 2),
+                'motivo' => $motivo,
+            ];
+        }
+        usort($hits, static fn(array $a, array $b): int => $b['sim'] <=> $a['sim']);
+        return $hits;
     }
 
     // ── editMarchaAutores ──────────────────────────────────────────────────
@@ -294,6 +377,16 @@ final class AdminRepo
     {
         $values = array_map(static fn(string $f) => self::normalize($autor[$f] ?? null), self::EDITABLE_AUTOR);
         if (!self::aniosAutorValidos(array_combine(self::EDITABLE_AUTOR, $values))) return ['code' => 'INVALID_FECHA'];
+        // Mismo nombre y apellidos (sin acentos ni mayúsculas) que un compositor existente: no se duplica.
+        $nom = Db::noAcc(mb_strtolower(trim((string) ($autor['NOMBRE'] ?? '')))); 
+        $ape = Db::noAcc(mb_strtolower(trim((string) ($autor['APELLIDOS'] ?? ''))));
+        if ($ape !== '') {
+            $dup = Db::one(
+                'SELECT ID_AUTOR FROM autor WHERE LOWER(NOACC(TRIM(APELLIDOS))) = ? AND LOWER(NOACC(TRIM(COALESCE(NOMBRE, \'\'))) ) = ? LIMIT 1',
+                [$ape, $nom]
+            );
+            if ($dup !== null) return ['code' => 'AUTOR_DUPLICADO', 'autorId' => (int) $dup['ID_AUTOR']];
+        }
         $ph = implode(', ', array_fill(0, count(self::EDITABLE_AUTOR), '?'));
         Db::run('INSERT INTO autor (' . implode(', ', self::EDITABLE_AUTOR) . ") VALUES ($ph)", $values);
         $autorId = Db::lastInsertId();
@@ -802,11 +895,24 @@ final class AdminRepo
         self::editMarcha($marchaId, ['DATOS_INT'], [$datosInt !== '' ? $datosInt . "\n" . $nota : $nota]);
     }
 
-    public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true): array
+    public static function aceptarCandidato(int $idCand, array $fields, array $autoresIds, bool $guardarOrigen = true, bool $confirmadoNoDuplicado = false): array
     {
         $cand = Db::one('SELECT ESTADO, FUENTE, VIDEO_URL, ID_BANDA, ISRC, P_TITULO, VIDEO_TITULO FROM ingest_candidato WHERE ID_CAND = ?', [$idCand]);
         if ($cand === null) return ['code' => 'NOT_FOUND'];
         if ($cand['ESTADO'] !== 'pendiente') return ['code' => 'NOT_PENDING'];
+
+        // Freno en el servidor: el aviso del formulario se puede pasar por alto
+        // (y en el panel de ingesta no existía), así que crear una marcha que se
+        // parece a otra ya existente exige confirmarlo expresamente.
+        if (!$confirmadoNoDuplicado) {
+            $bandaForm = (int) ($fields['BANDA_ESTRENO'] ?? 0);
+            $dups = self::posiblesDuplicadosMarcha(
+                (string) ($fields['TITULO'] ?? ''),
+                array_map('intval', $autoresIds),
+                $bandaForm > 0 ? $bandaForm : null
+            );
+            if ($dups !== []) return ['code' => 'POSIBLE_DUPLICADO', 'duplicados' => $dups];
+        }
 
         // La banda de origen (canal de YouTube) del candidato puede no coincidir
         // con BANDA_ESTRENO si el revisor la corrigió en el formulario (p.ej. el
