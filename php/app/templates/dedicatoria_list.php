@@ -18,7 +18,7 @@ ksort($grupos);
 $letras = array_keys($grupos);
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › Dedicatorias</span>
+    <span><a href="/">Inicio</a> / Dedicatorias</span>
     <span class="regnav"><?= $num(count($items)) ?> advocaciones</span>
 </div>
 

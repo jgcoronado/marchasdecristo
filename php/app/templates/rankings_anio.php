@@ -7,7 +7,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 ?>
 <div class="stack list-page">
     <div class="crumbs">
-        <span><a href="/">Inicio</a> › <a href="/rankings">Rankings</a> › <?= V::e($anio) ?></span>
+        <span><a href="/">Inicio</a> / <a href="/rankings">Rankings</a> / <?= V::e($anio) ?></span>
     </div>
 
     <div class="toolbar">

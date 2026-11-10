@@ -27,7 +27,7 @@ $lista = static function (array $filas) use ($max): void { ?>
 ?>
 <div class="stack acs">
     <div class="crumbs">
-        <span><a href="/">Inicio</a> › <?= V::e($h1) ?></span>
+        <span><a href="/">Inicio</a> / <?= V::e($h1) ?></span>
     </div>
 
     <header class="record">

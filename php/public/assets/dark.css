@@ -28,15 +28,15 @@
        apenas se levanta del fondo (1,11:1); lo que la separa es el filete
        de 1px (ver .card/.record), como en esas apps, no el salto de tono.
        Cabecera y pie van del color de la página (ver más abajo). */
-    --bg: #141413;
-    --card: #1f1e1d;
-    --ink: #f6f4ef;         /* 2026-10-09: de #ece9e1 a #f6f4ef; ver --enlace */
+    --bg: #0e1120;
+    --card: #171c31;
+    --ink: #eef0f6;         /* 2026-10-09: de #ece9e1 a #f6f4ef; ver --enlace */
     /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
        sobre marrón casi negro era el único color frío de la página y los
        enlaces se leían incómodos. Burdeos claro, de la familia del papel:
        8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
-    --acc: #eba59a;
-    --acc-fg: #141413;  /* el acento claro pide tinta oscura encima, no blanca */
+    --acc: #e2bb68;
+    --acc-fg: #0e1120;  /* el acento claro pide tinta oscura encima, no blanca */
     /* Enlaces de texto (2026-10-09; ver el mismo bloque en app.css). El
        burdeos claro --acc frente a la tinta medía 1,66:1: indistinguible sin
        subrayado. Con la tinta de antes (#ece9e1) no existía ningún tono que
@@ -46,7 +46,7 @@
          sobre --card, 4,55 sobre --zebra.
        - --enlace-apoyo: la propia tinta, que entre el gris de --apoyo es lo
          más claro de la línea (3,18:1). */
-    --enlace: #dd6859;
+    --enlace: #e2bb68;
     --enlace-apoyo: var(--ink);
     --est: #7cc39a;
     --nov: #5fc3cd;
@@ -77,7 +77,7 @@
     /* --apoyo: el gris de los textos que llevan enlaces dentro (migas,
        permalink, entradillas). Más oscuro que --faint para que --enlace-apoyo
        (la tinta) se separe 3:1 de él: 4,76:1 sobre --card, 5,28 sobre --bg. */
-    --mz-apoyo: 50%;
+    --mz-apoyo: 72%;
     /* Sin acento en el gris de apoyo: al 50% del claro el texto atenuado
        salía del mismo tono que los enlaces (con el índigo, 1,12:1 entre
        --muted-c y --acc, 227° frente a 229°) y no se distinguía qué se
@@ -98,7 +98,7 @@
    neutro de la tinta) y, en escritorio, se aclara al pasar por encima.
    !important porque hay una docena de reglas :hover con underline repartidas
    por la hoja, cada una con su especificidad. */
-a:any-link, a:any-link:hover, a:any-link:focus { text-decoration: none !important; }
+/* (2026-11) Los enlaces vuelven a ir subrayados también en oscuro: ver regla 4 de identidad.css. */
 main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, var(--ink)); }
 
 /* Cabecera, pie, tarjetas, migas y anclas de la ficha (2026-09-27):
@@ -109,7 +109,7 @@ main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, 
      --muted-c no se distinguía qué llevaba a algún sitio.
    - La tarjeta se despega con un filete de 1px: una sombra negra sobre un
      fondo casi negro no se ve. */
-body > header, footer { background: var(--bg); }
+/* Cabecera y pie: paño noche en los dos temas (identidad.css). */
 .rectabs a { color: var(--acc); }
 .card, .record { box-shadow: 0 0 0 1px var(--line); }
 
@@ -121,3 +121,8 @@ body > header, footer { background: var(--bg); }
 /* Botón de tema (ver .tema-toggle en app.css): en oscuro se ofrece el sol. */
 .tema-toggle .tema-luna { display: none; }
 .tema-toggle .tema-sol { display: block; }
+
+/* ── Identidad 2026-11 en oscuro ─────────────────────────────────────────── */
+:root { --noche: #0a0d1c; --noche-2: #2a3261; --grana: #a8273d; }
+.card, .blk, .fh { box-shadow: none; }
+.stream-tidal::before { background: #fff; }

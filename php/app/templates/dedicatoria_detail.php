@@ -14,7 +14,7 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
 
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › <a href="/dedicatorias">Dedicatorias</a><?php if ($letra !== ''): ?> › <?= V::e($letra) ?><?php endif; ?> › D-<?= $did ?></span>
+    <span><a href="/">Inicio</a> / <a href="/dedicatorias">Dedicatorias</a><?php if ($letra !== ''): ?> / <?= V::e($letra) ?><?php endif; ?> / D-<?= $did ?></span>
     <span class="regnav"><a href="/dedicatorias">↩ índice</a></span>
 </div>
 

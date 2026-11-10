@@ -11,48 +11,52 @@ $coverSrc = H::coverSrc($did);
 $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
 
 ?>
+<?php
+$bandaPath = $t($d['ID_BANDA']) ? S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE'])) : null;
+$botones = H::streaming($enlaces ?? []);
+?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › <a href="/disco">Discos</a><?php if ($anio > 1800): ?> › <?= $anio ?><?php endif; ?> › D-<?= $did ?></span>
+    <span><a href="/">Inicio</a> / <a href="/disco">Discos</a><?php if ($anio > 1800): ?> / <?= $anio ?><?php endif; ?></span>
 </div>
 
 <article class="record">
-    <div class="disco-head">
-        <figure class="disco-cover">
-            <?= H::cover($coverSrc, "Portada del disco '" . $d['NOMBRE_CD'] . "'", 'cover-large') ?>
-        </figure>
-        <div class="disco-meta">
+<?php /* Cabecera: la portada es la imagen de la ficha. Si no existe, la tesela
+         deja su marcador (inicial y año) y la composición no se descoloca. A la
+         derecha, la tabla de datos: son tres filas y en columna aparte dejaban
+         un hueco bajo ellas. */ ?>
+    <header class="fh">
+        <div class="portada-disco"><?= H::tesela($did, (string) $d['NOMBRE_CD'], $anio > 1800 ? $anio : null) ?></div>
+        <div class="fh-txt">
+            <p class="fh-k"><span class="dato">Disco</span></p>
             <h1><?= V::e($d['NOMBRE_CD']) ?></h1>
-<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
-<?php if ($nP >= 12): ?>
-            <nav class="rectabs" aria-label="Secciones de la ficha">
-                <a href="#datos">Datos</a>
-<?php if ($t($detalles)): ?>
-                <a href="#notas">Notas</a>
+<?php if ($bandaPath !== null): ?>
+            <p class="fh-by">de <a href="<?= V::e($bandaPath) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?> (<?= V::e($d['BANDA_LOC']) ?>)<?php endif; ?></p>
 <?php endif; ?>
-                <a href="#contenido">Contenido (<?= $num($nP) ?>)</a>
-            </nav>
-<?php endif; ?>
-            <dl class="desc" id="datos">
-<?php if ($t($d['ID_BANDA'])): ?>
-                <div class="f"><dt>Banda</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?>, <?= V::e($d['BANDA_LOC']) ?><?php endif; ?></dd></div>
+            <?= $botones ?>
+        </div>
+        <div class="fh-datos">
+    <dl class="desc" id="datos">
+<?php if ($bandaPath !== null): ?>
+        <div class="f"><dt>Banda</dt><dd><a href="<?= V::e($bandaPath) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?>, <?= V::e($d['BANDA_LOC']) ?><?php endif; ?><span class="cnt">ficha y discografía de la banda</span></dd></div>
 <?php endif; ?>
 <?php if ($anio > 1800): ?>
-                <div class="f"><dt>Año</dt><dd><?= $anio ?></dd></div>
+        <div class="f"><dt>Año</dt><dd><?= $anio ?></dd></div>
 <?php endif; ?>
-                <div class="f"><dt>Pistas</dt><dd><?= $num($nP) ?></dd></div>
+        <div class="f"><dt>Pistas</dt><dd><?= $num($nP) ?></dd></div>
 <?php if ($multi): ?>
-                <div class="f"><dt>Volúmenes</dt><dd><?= (int) $d['DISCOS'] ?></dd></div>
+        <div class="f"><dt>Volúmenes</dt><dd><?= (int) $d['DISCOS'] ?></dd></div>
 <?php endif; ?>
-            </dl>
-            <?= H::streaming($enlaces ?? []) ?>
+    </dl>
         </div>
-    </div>
+    </header>
 
 <?php if ($t($detalles)): ?>
+    <section class="blk">
     <div class="shead" id="notas"><h2>Notas</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($detalles)) ?></p>
+    </section>
 <?php endif; ?>
-
+    <section class="blk">
     <div class="shead" id="contenido">
         <h2>Contenido</h2>
         <span class="n" id="pistas-count"><?= $num($nP) ?> pistas</span>
@@ -64,12 +68,12 @@ $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
     <table class="reg" id="pistas-table" data-sortable>
         <thead><tr>
 <?php if ($multi): ?>
-            <th class="num mobile-hide" data-type="num">Vol. <span class="ar">↕</span></th>
+            <th scope="col" class="num mobile-hide" data-type="num">Vol. <span class="ar">↕</span></th>
 <?php endif; ?>
-            <th class="num mobile-hide" data-type="num">Pista <span class="ar">↕</span></th>
-            <th>Marcha <span class="ar">↕</span></th>
-            <th>Compositor <span class="ar">↕</span></th>
-            <th data-type="num">Año <span class="ar">↕</span></th>
+            <th scope="col" class="num mobile-hide" data-type="num">Pista <span class="ar">↕</span></th>
+            <th scope="col">Marcha <span class="ar">↕</span></th>
+            <th scope="col">Compositor <span class="ar">↕</span></th>
+            <th scope="col" data-type="num">Año <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($d['marchas'] as $m): ?>
@@ -90,17 +94,11 @@ $detalles = $d['D_DETALLES'] ?? $d['d_DETALLES'] ?? null;
         </tbody>
     </table>
     </div>
-
-<?php if ($t($d['ID_BANDA'])): ?>
-    <div class="shead"><h2>Véase también</h2></div>
-    <ul class="vease">
-        <li><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) ($d['BANDA_COMPLETO'] ?: $d['BANDA_BREVE']))) ?>"><?= V::e($d['BANDA_BREVE']) ?></a> — ficha y discografía de la banda <span class="cnt">B-<?= (int) $d['ID_BANDA'] ?></span></li>
-    </ul>
-<?php endif; ?>
+    </section>
 
     <div class="ids">
 <?php if (!empty($url)): ?>
-        <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
+        <span>Enlace permanente: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
     </div>
 </article>

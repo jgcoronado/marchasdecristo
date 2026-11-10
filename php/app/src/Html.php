@@ -80,11 +80,131 @@ final class Html
         return (string) ($GLOBALS['config']['cover_base_url'] ?? '') . '/cover/' . $idDisco . '.webp';
     }
 
+    /**
+     * ¿Existe la portada de este disco? true/false cuando las portadas viven en
+     * este mismo host (se mira el fichero); null cuando se cargan de otro
+     * (cover_base_url, caso de PRE) y no se puede saber sin pedirlas.
+     */
+    public static function hayPortada(int $idDisco): ?bool
+    {
+        if ((string) ($GLOBALS['config']['cover_base_url'] ?? '') !== '') return null;
+        $raiz = (string) ($_SERVER['DOCUMENT_ROOT'] ?? '');
+        return $raiz !== '' ? is_file($raiz . '/cover/' . $idDisco . '.webp') : null;
+    }
+
     public static function cover(string $src, string $alt, string $class = ''): string
     {
         // JS mínimo: oculta la imagen si no existe y desactiva el menú contextual.
         return '<img class="' . self::e($class) . '" src="' . self::e($src) . '" alt="' . self::e($alt)
             . '" oncontextmenu="return false" onerror="this.style.display=\'none\'">';
+    }
+
+    // ── Identidad visual: sello, mosaico de portadas y chip de estilo ─────────
+
+    /**
+     * Sello: el emblema generado de una ficha. No hay foto de cada marcha, banda
+     * o compositor (ni forma de conseguirla con permiso), así que la imagen de
+     * cada ficha se compone con sus propios datos: color por estilo, cifra
+     * grande (año, sigla o iniciales) y rótulo. Existe para las 5.000 marchas.
+     *
+     * @param string $variante 'cctt' | 'am' | '' (neutro: paño noche)
+     */
+    public static function sello(string $grande, string $rotulo = '', string $variante = '', string $extra = ''): string
+    {
+        $cls = 'sello' . ($variante !== '' ? ' sello-' . $variante : '') . ($extra !== '' ? ' ' . $extra : '');
+        return '<span class="' . self::e($cls) . '" aria-hidden="true"><b>' . self::e($grande) . '</b>'
+            . ($rotulo !== '' ? '<i>' . self::e($rotulo) . '</i>' : '') . '</span>';
+    }
+
+    /** 'CCTT' | 'AM' | otro → clase de variante del sello y del chip. */
+    public static function varianteEstilo(?string $estilo): string
+    {
+        return match ($estilo) { 'CCTT' => 'cctt', 'AM' => 'am', default => '' };
+    }
+
+    /** Estilo deducido del nombre breve de una banda ("AM Redención", "BCT …"). */
+    public static function varianteBanda(string $nombreBreve): string
+    {
+        if (preg_match('/^\s*AM\b/u', $nombreBreve) === 1) return 'am';
+        if (preg_match('/^\s*(BCT|CCTT|CT)\b/u', $nombreBreve) === 1) return 'cctt';
+        return '';
+    }
+
+    /** Sigla inicial del nombre breve de una banda ("AM", "BCT"), o sus iniciales. */
+    public static function siglaBanda(string $nombreBreve): string
+    {
+        if (preg_match('/^\s*(AM|BCT|CCTT|CT|BM)\b/u', $nombreBreve, $m) === 1) return $m[1];
+        return self::iniciales($nombreBreve);
+    }
+
+    /** "Emilio Muñoz Serna" → "EM" (dos primeras palabras con mayúscula inicial). */
+    public static function iniciales(string $nombre): string
+    {
+        $out = '';
+        foreach (preg_split('/\s+/u', trim($nombre)) ?: [] as $w) {
+            $c = mb_substr($w, 0, 1, 'UTF-8');
+            if ($c !== '' && preg_match('/\p{Lu}/u', $c) === 1) $out .= $c;
+            if (mb_strlen($out, 'UTF-8') >= 2) break;
+        }
+        return $out !== '' ? $out : mb_strtoupper(mb_substr(trim($nombre), 0, 1, 'UTF-8'), 'UTF-8');
+    }
+
+    /** Chip de estilo enlazado a su hub: la señal de color del catálogo. */
+    public static function chipEstilo(?string $estilo, bool $largo = true): string
+    {
+        $v = self::varianteEstilo($estilo);
+        if ($v === '') return '';
+        $txt = $largo ? ($estilo === 'CCTT' ? 'Cornetas y tambores' : 'Agrupación musical') : (string) $estilo;
+        $href = Pages::estiloHubPath((string) $estilo);
+        $attr = 'class="chip-estilo chip-' . $v . '"' . ($largo ? '' : ' title="' . ($estilo === 'CCTT' ? 'Cornetas y tambores' : 'Agrupación musical') . '"');
+        return $href !== null ? '<a ' . $attr . ' href="' . self::e($href) . '">' . self::e($txt) . '</a>'
+                              : '<span ' . $attr . '>' . self::e($txt) . '</span>';
+    }
+
+    /**
+     * Una tesela de portada. Debajo va siempre un marcador generado (sigla y
+     * año): si la portada no existe o no carga, la imagen se retira sola y
+     * queda el marcador, nunca un hueco ni un icono roto.
+     */
+    public static function tesela(int $idDisco, string $nombre, ?int $anio, string $sub = ''): string
+    {
+        $href = Slug::buildDetailPath('disco', $idDisco, $nombre);
+        $ini = mb_strtoupper(mb_substr(ltrim($nombre, " \t\"'«¡¿."), 0, 1, 'UTF-8'), 'UTF-8');
+        $titulo = $nombre . ($sub !== '' ? ' — ' . $sub : '') . ($anio ? ' (' . $anio . ')' : '');
+        return '<a class="mos" href="' . self::e($href) . '" title="' . self::e($titulo) . '">'
+            . '<span class="mos-f" aria-hidden="true">' . self::e($ini) . ($anio ? '<small>' . $anio . '</small>' : '') . '</span>'
+            . (self::hayPortada($idDisco) === false ? ''
+                : '<img src="' . self::e(self::coverSrc($idDisco)) . '" alt="' . self::e('Portada de ' . $nombre) . '" loading="lazy" width="200" height="200" onerror="this.remove()">')
+            . '</a>';
+    }
+
+    /**
+     * Mosaico de portadas: los discos donde está grabada una obra (o los de una
+     * banda). Es la «foto» de la ficha hecha con material propio.
+     *
+     * @param list<array{id:int,nombre:string,anio:?int,sub?:string}> $discos sin repetir
+     */
+    public static function mosaico(array $discos, int $max = 8, string $pie = ''): string
+    {
+        if ($discos === []) return '';
+        // Las que tienen portada, delante: el mosaico es una imagen, y un
+        // marcador en la primera casilla la estropea. El orden relativo se conserva.
+        $con = $sin = [];
+        foreach ($discos as $d) {
+            if (self::hayPortada((int) $d['id']) === false) $sin[] = $d; else $con[] = $d;
+        }
+        $discos = array_merge($con, $sin);
+        $total = count($discos);
+        $ver = $total > $max ? array_slice($discos, 0, $max - 1) : $discos;
+        $html = '<div class="mosaico" data-n="' . min($total, $max) . '">';
+        foreach ($ver as $d) {
+            $html .= self::tesela((int) $d['id'], (string) $d['nombre'], $d['anio'] ?? null, (string) ($d['sub'] ?? ''));
+        }
+        if ($total > $max) {
+            $html .= '<span class="mos mos-mas"><span class="mos-f">+' . ($total - count($ver)) . '</span></span>';
+        }
+        if ($pie !== '') $html .= '<p class="mos-pie">' . self::e($pie) . '</p>';
+        return $html . '</div>';
     }
 
     // ── Enlaces de streaming (ficha pública) ─────────────────────────────────

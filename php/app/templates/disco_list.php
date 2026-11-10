@@ -25,7 +25,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <h1 class="rescount">Discos — <b><?= $num($total) ?></b> registros</h1>
+        <h1 class="rescount"><b><?= $num($total) ?></b> discos</h1>
         <?= H::porPagina($limit, '/disco', $criteria) ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
@@ -81,7 +81,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>
                     <tr>
-                        <td><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></td>
+                        <td><div class="con-mini"><?= \App\Html::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></div></td>
                         <td>
 <?php if (!empty($d['ID_BANDA'])): ?>
                             <a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA'])) ?>"><?= V::e($d['BANDA']) ?></a>

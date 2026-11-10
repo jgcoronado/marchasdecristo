@@ -13,7 +13,7 @@ foreach ($anios as $a) {
 krsort($decadas);
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › Rankings</span>
+    <span><a href="/">Inicio</a> / Rankings</span>
 </div>
 
 <article class="record">
@@ -23,8 +23,10 @@ krsort($decadas);
         Para saber qué falta por documentar, en vez de qué ya destaca,
         está el <a href="/estado-catalogo">estado del catálogo</a>.<?php endif; ?></p>
 
-    <div class="stack">
-        <?php /* El primero va abierto: /rankings se abría con cuatro barras
+    <div class="rank-grid">
+        <?php /* Los cuatro abiertos y en rejilla: son tablas de dos columnas y a
+                 todo el ancho el número quedaba a un palmo de su nombre. */ ?>
+        <?php /* (antes) El primero va abierto: /rankings se abría con cuatro barras
                  cerradas y ni un dato a la vista. */ ?>
         <details class="collapse" open>
             <summary class="collapse-title">Autores que más marchas han compuesto</summary>
@@ -45,7 +47,7 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Hermandades con más marchas dedicadas</summary>
             <div class="collapse-content">
                 <div class="tableList">
@@ -61,7 +63,7 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Bandas que más marchas han estrenado</summary>
             <div class="collapse-content">
                 <div class="tableList">
@@ -80,7 +82,7 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Marchas que más veces han sido grabadas</summary>
             <div class="collapse-content">
                 <div class="tableList">

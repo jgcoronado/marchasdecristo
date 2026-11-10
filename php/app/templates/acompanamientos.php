@@ -13,7 +13,7 @@ $dias = $serie['dias'];
 ?>
 <div class="stack acs">
     <div class="crumbs">
-        <span><a href="/">Inicio</a> › <a href="/acompanamientos">Acompañamientos</a> › <?= V::e($localidad) ?></span>
+        <span><a href="/">Inicio</a> / <a href="/acompanamientos">Acompañamientos</a> / <?= V::e($localidad) ?></span>
     </div>
 
     <header class="record acs-cab">

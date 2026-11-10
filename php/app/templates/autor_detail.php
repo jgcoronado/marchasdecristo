@@ -1,4 +1,4 @@
-<?php use App\View as V; use App\Slug as S;
+<?php use App\View as V; use App\Slug as S; use App\Html as H;
 /** @var array<string,mixed> $a @var string $fullName @var string|null $url @var int|null $pm */
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
@@ -13,13 +13,39 @@ $nM = (int) $a['marchasLength'];
 $nG = (int) $a['N_GRAB_TOTAL'];
 $ppal = $a['BANDA_PPAL'] ?? null;
 ?>
+<?php $actividad = (int) $a['ACT_DESDE'] > 0 ? ($a['ACT_DESDE'] === $a['ACT_HASTA'] ? (string) $a['ACT_DESDE'] : $a['ACT_DESDE'] . '–' . $a['ACT_HASTA']) : ''; ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › <a href="/autor">Compositores</a><?php if ($letra !== ''): ?> › <?= V::e($letra) ?><?php endif; ?> › A-<?= $aid ?></span>
+    <span><a href="/">Inicio</a> / <a href="/autor">Compositores</a></span>
 </div>
 
 <article class="record">
-    <h1><?= V::e($fullName) ?></h1>
+<?php /* Cabecera: no hay retrato de cada compositor, así que el sello lleva sus
+         iniciales; a la derecha, las portadas de los discos con más obra suya. */ ?>
+    <header class="fh">
+        <?= H::sello(H::iniciales($fullName), 'compositor') ?>
+        <div class="fh-txt">
+            <p class="fh-k"><span class="dato">Compositor</span></p>
+            <h1><?= V::e($fullName) ?></h1>
+<?php if ($ppal && (int) $ppal['N'] > 1): ?>
+            <p class="fh-sub">Vinculado sobre todo a <a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?>, que estrenó <?= $num($ppal['N']) ?> de sus marchas.</p>
+<?php endif; ?>
+        </div>
+<?php
+$portadas = [];
+foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
+    $portadas[] = ['id' => (int) $d['ID_DISCO'], 'nombre' => (string) $d['NOMBRE_CD'],
+        'anio' => (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : null];
+}
+?>
+<?php if ($portadas !== []): ?>
+        <div class="fh-mos"><?= H::mosaico($portadas, 8, 'Discos con su obra') ?></div>
+<?php endif; ?>
+    </header>
 
+    <div class="fgrid">
+    <aside class="fcol">
+    <section class="blk">
+    <div class="shead"><h2>Ficha</h2><span class="n">A-<?= $aid ?></span></div>
     <dl class="desc" id="datos">
 <?php if ($t($a['NOMBRE_ART'])): ?>
         <div class="f"><dt>Nombre artístico</dt><dd><?= V::e($a['NOMBRE_ART']) ?></dd></div>
@@ -38,22 +64,27 @@ $ppal = $a['BANDA_PPAL'] ?? null;
         <div class="f"><dt>Grabaciones de su obra</dt><dd><?= $num($nG) ?></dd></div>
 <?php endif; ?>
 <?php if ($ppal && (int) $ppal['N'] > 1): ?>
-        <div class="f"><dt>Vinculación ppal.</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?> <span class="cnt">(<?= $num($ppal['N']) ?> estrenos)</span></dd></div>
+        <div class="f"><dt>Banda principal</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?> <span class="cnt"><?= $num($ppal['N']) ?> estrenos</span></dd></div>
 <?php endif; ?>
     </dl>
-
+    </section>
 <?php if ($t($a['BIO'])): ?>
+    <section class="blk">
     <div class="shead" id="bio"><h2>Biografía</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($a['BIO'])) ?></p>
+    </section>
 <?php endif; ?>
-
 <?php if (!empty($pm)): ?>
-    <aside class="pm-banner">
-        <p>También puedes consultar las marchas procesionales de <span><?= V::e($fullName) ?></span> para banda de música.</p>
-        <a class="btn btn-neutral" href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver ficha en Patrimonio Musical</a>
-    </aside>
+    <section class="blk">
+    <div class="shead"><h2>En banda de música</h2></div>
+    <p class="notas">Las marchas de <?= V::e($fullName) ?> para banda de música están en Patrimonio Musical.</p>
+    <p class="vermas"><a href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver su ficha en Patrimonio Musical</a></p>
+    </section>
 <?php endif; ?>
+    </aside>
 
+    <div class="fmain">
+    <section class="blk">
     <div class="shead" id="obra">
         <h2>Obra</h2>
         <span class="n" id="obra-count"><?= $num($nM) ?> marchas</span>
@@ -64,11 +95,11 @@ $ppal = $a['BANDA_PPAL'] ?? null;
     <div class="scrollx">
     <table class="reg" id="obra-table" data-sortable>
         <thead><tr>
-            <th>Marcha <span class="ar">↕</span></th>
-            <th data-type="num">Año <span class="ar">↕</span></th>
-            <th>Banda de estreno <span class="ar">↕</span></th>
-            <th class="mobile-hide">Dedicatoria <span class="ar">↕</span></th>
-            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th scope="col">Marcha <span class="ar">↕</span></th>
+            <th scope="col" data-type="num">Año <span class="ar">↕</span></th>
+            <th scope="col">Banda de estreno <span class="ar">↕</span></th>
+            <th scope="col" class="mobile-hide">Dedicatoria <span class="ar">↕</span></th>
+            <th scope="col" class="num mobile-hide" data-type="num">Grabaciones <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($a['marchas'] as $m): ?>
@@ -83,17 +114,13 @@ $ppal = $a['BANDA_PPAL'] ?? null;
         </tbody>
     </table>
     </div>
-
-<?php if ($ppal && (int) $ppal['N'] > 1): ?>
-    <div class="shead"><h2>Véase también</h2></div>
-    <ul class="vease">
-        <li><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a> — banda que estrenó <?= $num($ppal['N']) ?> de sus marchas <span class="cnt">B-<?= (int) $ppal['ID_BANDA'] ?></span></li>
-    </ul>
-<?php endif; ?>
+    </section>
+    </div>
+    </div>
 
     <div class="ids">
 <?php if (!empty($url)): ?>
-        <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
+        <span>Enlace permanente: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
     </div>
 </article>

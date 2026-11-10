@@ -91,12 +91,36 @@ $nMarchas = (int) $b['marchasLength'];
 $acomp ??= [];
 $nAcomp = array_sum(array_map('count', $acomp));
 ?>
+<?php
+$varBanda = H::varianteBanda((string) $b['NOMBRE_BREVE']);
+$portadas = [];
+foreach (array_reverse($b['discos'] ?? []) as $d) {
+    $portadas[] = ['id' => (int) $d['ID_DISCO'], 'nombre' => (string) $d['NOMBRE_CD'],
+        'anio' => (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : null];
+}
+$botones = H::streaming($enlaces ?? []);
+?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › <a href="/banda">Bandas</a><?php if ($t($b['LOCALIDAD'])): ?> › <a href="<?= V::e('/banda?localidad=' . rawurlencode((string) $b['LOCALIDAD'])) ?>"><?= V::e($b['LOCALIDAD']) ?></a><?php endif; ?> › B-<?= $bid ?></span>
+    <span><a href="/">Inicio</a> / <a href="/banda">Bandas</a><?php if ($t($b['LOCALIDAD'])): ?> / <a href="<?= V::e('/banda?localidad=' . rawurlencode((string) $b['LOCALIDAD'])) ?>"><?= V::e($b['LOCALIDAD']) ?></a><?php endif; ?></span>
 </div>
 
 <article class="record">
-    <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
+<?php /* Cabecera: sello con la sigla y el año de fundación; a la derecha, el
+         mosaico con las portadas de su discografía (las más recientes primero). */ ?>
+    <header class="fh">
+        <?= H::sello(H::siglaBanda((string) $b['NOMBRE_BREVE']), $fund > 1800 ? 'desde ' . $fund : 'banda', $varBanda) ?>
+        <div class="fh-txt">
+            <p class="fh-k"><?php if ($varBanda !== ''): ?><?= H::chipEstilo($varBanda === 'am' ? 'AM' : 'CCTT') ?><?php else: ?><span class="dato">Banda</span><?php endif; ?><?php if ($t($b['LOCALIDAD'])): ?><span class="dato"><?= V::e($b['LOCALIDAD']) ?><?php if ($t($b['PROVINCIA']) && mb_strtolower((string) $b['PROVINCIA']) !== mb_strtolower((string) $b['LOCALIDAD'])): ?> (<?= V::e($b['PROVINCIA']) ?>)<?php endif; ?></span><?php endif; ?></p>
+            <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
+<?php if ($t($b['NOMBRE_COMPLETO'])): ?>
+            <p class="fh-sub"><?= V::e($b['NOMBRE_COMPLETO']) ?></p>
+<?php endif; ?>
+            <?= $botones ?>
+        </div>
+<?php if ($portadas !== []): ?>
+        <div class="fh-mos"><?= H::mosaico($portadas, 8, count($portadas) === 1 ? 'Su disco' : 'Su discografía') ?></div>
+<?php endif; ?>
+    </header>
 
 <?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
 <?php if ($nMarchas + $nDiscos + count($acomp) >= 12): ?>
@@ -113,6 +137,10 @@ $nAcomp = array_sum(array_map('count', $acomp));
     </nav>
 <?php endif; ?>
 
+    <div class="fgrid">
+    <aside class="fcol">
+    <section class="blk">
+    <div class="shead"><h2>Ficha</h2><span class="n">B-<?= $bid ?></span></div>
     <dl class="desc" id="datos">
 <?php if ($t($b['NOMBRE_COMPLETO'])): ?>
         <div class="f"><dt>Nombre completo</dt><dd><?= V::e($b['NOMBRE_COMPLETO']) ?></dd></div>
@@ -144,8 +172,8 @@ $nAcomp = array_sum(array_map('count', $acomp));
         <div class="f"><dt>Web</dt><dd><a href="<?= V::e($webUrl) ?>" rel="noopener" target="_blank"><?= V::e(preg_replace('#^https?://#', '', (string) $webUrl)) ?> ↗</a></dd></div>
 <?php endif; ?>
     </dl>
-    <?= H::streaming($enlaces ?? []) ?>
-
+    </section>
+    <section class="blk">
     <div class="shead" id="formaciones">
         <h2>Formaciones</h2>
         <span class="n"><?= $nSuc === 1 ? '1 formación' : $nSuc . ' sucesivas' ?><?php if ($nJuv > 0): ?> · <?= $nJuv ?> juvenil<?= $nJuv > 1 ? 'es' : '' ?><?php endif; ?></span>
@@ -167,10 +195,12 @@ $nAcomp = array_sum(array_map('count', $acomp));
 <?php endforeach; ?>
     </ul>
 
+    </section>
 <?php if ($nDiscos > 0): ?>
+    <section class="blk">
     <div class="shead" id="discografia">
         <h2>Discografía propia</h2>
-        <span class="n"><?= $num($nDiscos) ?> discos · orden cronológico</span>
+        <span class="n"><?= $num($nDiscos) ?></span>
     </div>
     <div class="scrollx">
     <table class="reg" data-sortable>
@@ -190,8 +220,13 @@ $nAcomp = array_sum(array_map('count', $acomp));
         </tbody>
     </table>
     </div>
+    </section>
 <?php endif; ?>
 
+    </aside>
+
+    <div class="fmain">
+    <section class="blk">
     <div class="shead" id="estrenos">
         <h2>Marchas estrenadas</h2>
 <?php if ($nMarchas > 0): ?>
@@ -201,7 +236,7 @@ $nAcomp = array_sum(array_map('count', $acomp));
 <?php if ($nMarchas === 0): ?>
     <p class="bio-empty">Sin estrenos documentados.</p>
 <?php else: ?>
-    <details class="collapse">
+    <details class="collapse"<?= $nMarchas <= 40 ? ' open' : '' ?>>
     <summary class="collapse-title">Ver <?= $nMarchas === 1 ? 'la marcha' : 'las ' . $num($nMarchas) . ' marchas' ?></summary>
     <div class="collapse-content">
 <?php if ($nMarchas >= 8): ?>
@@ -210,10 +245,10 @@ $nAcomp = array_sum(array_map('count', $acomp));
     <div class="scrollx">
     <table class="reg" id="est-table" data-sortable>
         <thead><tr>
-            <th>Marcha <span class="ar">↕</span></th>
-            <th data-type="num">Año <span class="ar">↕</span></th>
-            <th>Compositor <span class="ar">↕</span></th>
-            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th scope="col">Marcha <span class="ar">↕</span></th>
+            <th scope="col" data-type="num">Año <span class="ar">↕</span></th>
+            <th scope="col">Compositor <span class="ar">↕</span></th>
+            <th scope="col" class="num mobile-hide" data-type="num">Grabaciones <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($b['marchas'] as $m): ?>
@@ -235,7 +270,9 @@ $nAcomp = array_sum(array_map('count', $acomp));
     </details>
 <?php endif; ?>
 
+    </section>
 <?php if ($nAcomp > 0): ?>
+    <section class="blk">
     <div class="shead" id="acompanamientos">
         <h2>Acompañamientos</h2>
         <span class="n"><?= $num($nAcomp) ?> · más recientes primero</span>
@@ -267,11 +304,15 @@ $nAcomp = array_sum(array_map('count', $acomp));
         </details>
 <?php $abierto = false; endforeach; ?>
     </div>
+    </section>
 <?php endif; ?>
+
+    </div>
+    </div>
 
     <div class="ids">
 <?php if (!empty($url)): ?>
-        <span>permalink: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
+        <span>Enlace permanente: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
 <?php endif; ?>
     </div>
 </article>

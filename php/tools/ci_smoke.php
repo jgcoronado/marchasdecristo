@@ -525,7 +525,8 @@ $tests = [
         if ($ini === false) {
             throw new RuntimeException('/marcha/consuelo-gitano-1 → falta el bloque «Marchas relacionadas»');
         }
-        $bloque = substr($body, $ini, (int) strpos($body, '</ul>', $ini) - $ini);
+        // (2026-11) El bloque es ahora una tabla (marcha, compositor, año), no una lista.
+        $bloque = substr($body, $ini, (int) strpos($body, '</table>', $ini) - $ini);
         $a = strpos($bloque, 'href="/marcha/la-madruga-2"');
         $b = strpos($bloque, 'href="/marcha/reina-de-san-roman-5"');
         if ($a === false || $b === false) {

@@ -50,10 +50,10 @@
        es papel templado y la tinta tiene temperatura; el único color frío es el
        acento, que es tinta de imprenta sobre papel cálido, un contraste que
        viene de la edición en papel y no de una plantilla. */
-    --bg: #f2f0ea;          /* papel de la página */
-    --card: #fffefb;        /* superficie del registro / tarjetas (papel, no blanco puro) */
-    --ink: #232019;         /* tinta (negro cálido, no negro puro: cansa menos) */
-    --acc: #2e3a6e;         /* índigo: enlaces y acciones (10,7:1 sobre --card, medido) */
+    --bg: #f3f4f7;          /* papel de la página */
+    --card: #ffffff;        /* superficie del registro / tarjetas (papel, no blanco puro) */
+    --ink: #1c2033;         /* tinta (negro cálido, no negro puro: cansa menos) */
+    --acc: #8f1d30;         /* índigo: enlaces y acciones (10,7:1 sobre --card, medido) */
     --acc-fg: #ffffff;      /* texto sobre un fondo --acc macizo (.btn-neutral) */
     /* Enlaces de texto (2026-10-09). El enlace se distingue SOLO por el color
        (sin subrayado), así que tiene que separarse 3:1 del texto que lo rodea
@@ -65,8 +65,8 @@
        - --enlace-apoyo, entre texto atenuado (--apoyo: migas, permalink,
          entradillas): índigo profundo. 3,20:1 frente a --apoyo.
        --acc se queda para botones, pestañas, mapa y hover. */
-    --enlace: #5266bf;
-    --enlace-apoyo: #0c0b51;
+    --enlace: #8f1d30;
+    --enlace-apoyo: #1c2033;
     /* Semánticos (estreno / novedad / recuperación / error / juvenil).
        Su fondo tenue (--est-bg y compañía) se deriva de cada uno. */
     --est: #1c6b3c;
@@ -83,7 +83,7 @@
     --pt-fuerte: #c9720a;
     /* Color del que se tiñen sombras y velo del diálogo. Cálido, como el resto
        de los neutros: una sombra azul sobre papel se ve enseguida. */
-    --sombra-base: #2a2118;
+    --sombra-base: #1c2033;
     /* Hacia dónde se aclara u oscurece el fondo tenue de badges y avisos: la
        propia tarjeta, en los dos temas (ver BLOQUE 1-bis en dark.css). */
     --tinte-base: var(--card);
@@ -108,7 +108,7 @@
        cuatro superficies y sigue habiendo escalón contra --muted (6,4). */
     --mz-faint: 72%;   /* --faint: tinta muy atenuada (recuentos, migas) */
     --mz-apoyo: 72%;   /* --apoyo: texto atenuado que lleva enlaces dentro (ver --enlace-apoyo) */
-    --mz-tinta: 50%;   /* --tinta-suave: cuánta tinta lleva; el resto es --acc */
+    --mz-tinta: 100%;   /* --tinta-suave: cuánta tinta lleva; el resto es --acc */
     --mz-tint: 11%;    /* fondo tenue de badges y avisos */
     --mz-borde: 27%;   /* --err-line: filete del aviso de error */
     /* Superficies y filetes. Se mezclan desde --ink, no desde --acc: mezclarlos
@@ -237,8 +237,8 @@
     font-display: swap; src: url(/assets/fonts/ibm-plex-sans-600.woff2) format("woff2");
 }
 :root {
-    --serif: "IBM Plex Serif", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
-    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Libre Caslon Text", "Iowan Old Style", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
     --radius: 4px;
     --radius-sm: 3px;
@@ -250,8 +250,8 @@
        monitor a los lados. La cabecera y el pie usan siempre --wrap-ancho para
        que la barra de navegación no cambie de sitio al pasar de una ficha a un
        listado. Ver .main-catalogo y la lista de rutas en layout.php. */
-    --wrap: 54rem;
-    --wrap-ancho: 76rem;
+    --wrap: 82rem;
+    --wrap-ancho: 82rem;
     /* Escala de espaciado. Antes cada regla elegía su propio valor (0.35, 0.45,
        0.7, 0.9, 1.1, 1.6, 1.8rem…) y no había forma de apretar o airear el
        sitio entero sin repasar la hoja línea a línea. Progresión ×1.5 redondeada. */

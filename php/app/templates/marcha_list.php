@@ -21,7 +21,7 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 ?>
 <div class="stack list-page">
     <div class="toolbar">
-        <h1 class="rescount">Marchas — <b><?= $num($total) ?></b> registros</h1>
+        <h1 class="rescount"><b><?= $num($total) ?></b> marchas</h1>
         <?php /* Control segmentado: la etiqueta es una celda más (.lbl) y los
                  separadores "·" desaparecen — el filete entre celdas ya separa. */ ?>
         <span class="sortby"><span class="lbl">orden</span><a href="<?= V::e($href(['orden' => ''])) ?>"<?= $orden === '' ? ' class="on"' : '' ?>>título</a><a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a><a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a></span>
@@ -136,10 +136,11 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
                     <th>Marcha</th>
                     <th>Compositor</th>
                     <th>Año</th>
+                    <th>Estilo</th>
                     <th class="mobile-hide">Dedicatoria</th>
                     <th class="mobile-hide">Localidad</th>
-                    <th class="ico-col mobile-hide" title="¿Tiene enlace de RRSS?">RRSS</th>
-                    <th class="ico-col mobile-hide" title="¿Grabada en algún disco?">Grabada</th>
+                    <th class="ico-col mobile-hide" title="¿Tiene enlace de redes sociales?">Redes</th>
+                    <th class="ico-col mobile-hide" title="Número de discos en que está grabada">Discos</th>
                 </tr></thead>
                 <tbody>
 <?php foreach ($result['data'] as $m): ?>
@@ -151,18 +152,19 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php endforeach; ?>
                         </td>
                         <td><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
+                        <td><?= \App\Html::chipEstilo($m['ESTILO'] ?? null, false) ?: '<span class="muted">—</span>' ?></td>
                         <td class="mobile-hide"><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="muted">—</span>' ?></td>
                         <td class="mobile-hide"><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="muted">—</span>' ?></td>
                         <td class="ico-col mobile-hide">
 <?php if (!empty($m['TIENE_RRSS'])): ?>
-                            <span role="img" aria-label="Tiene enlace de RRSS" title="Tiene enlace de RRSS">🔗</span>
+                            <span class="si" title="Tiene enlace de redes sociales">Sí</span>
 <?php else: ?>
                             <span class="muted" aria-label="Sin enlace de RRSS" title="Sin enlace de RRSS">—</span>
 <?php endif; ?>
                         </td>
                         <td class="ico-col mobile-hide">
 <?php if ((int) $m['N_GRAB'] > 0): ?>
-                            <span role="img" aria-label="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)" title="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)">💿</span>
+                            <span class="si" title="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)"><?= (int) $m['N_GRAB'] ?></span>
 <?php else: ?>
                             <span class="muted" aria-label="No grabada en ningún disco" title="No grabada en ningún disco">—</span>
 <?php endif; ?>

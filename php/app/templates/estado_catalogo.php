@@ -7,7 +7,7 @@ $pct = static fn(float $p): string => number_format($p, 1, ',', '.') . '%';
 $nBandas = count($porBanda);
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › Estado del catálogo</span>
+    <span><a href="/">Inicio</a> / Estado del catálogo</span>
 </div>
 
 <article class="record">

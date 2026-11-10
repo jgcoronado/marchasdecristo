@@ -9,11 +9,11 @@ $total = (int) $result['totalRows'];
 ?>
 <div class="stack list-page">
     <div class="crumbs">
-        <span><a href="/">Inicio</a> › <a href="/marcha">Marchas</a> › <?= V::e($h1) ?></span>
+        <span><a href="/">Inicio</a> / <a href="/marcha">Marchas</a> / <?= V::e($h1) ?></span>
     </div>
 
     <div class="toolbar">
-        <h1 class="rescount"><?= V::e($h1) ?> — <b><?= $num($total) ?></b> registros</h1>
+        <h1 class="rescount"><?= V::e($h1) ?> — <b><?= $num($total) ?></b> marchas</h1>
     </div>
 
     <p class="welcome-text"><?= V::e($intro) ?></p>

@@ -303,7 +303,7 @@ final class Repo
         $offset = ($page - 1) * $limit;
 
         $rows = Db::all(
-            "SELECT m.ID_MARCHA, m.TITULO, m.DEDICATORIA, m.LOCALIDAD, m.PROVINCIA, m.AUDIO, m.FECHA,
+            "SELECT m.ID_MARCHA, m.TITULO, m.DEDICATORIA, m.LOCALIDAD, m.PROVINCIA, m.AUDIO, m.FECHA, m.ESTILO,
                     m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE,
                     (SELECT COUNT(*) FROM disco_marcha dm WHERE dm.IDMARCHA = m.ID_MARCHA) AS N_GRAB,
                     EXISTS (SELECT 1 FROM enlace_streaming es WHERE es.TIPO_ENT = 'marcha' AND es.ID_ENT = m.ID_MARCHA) AS TIENE_RRSS
@@ -653,6 +653,17 @@ final class Repo
         $years = array_values(array_filter(array_map(static fn(array $x): int => (int) $x['FECHA'], $marchas), static fn(int $y): bool => $y > 1000));
         $autor['ACT_DESDE'] = $years !== [] ? min($years) : 0;
         $autor['ACT_HASTA'] = $years !== [] ? max($years) : 0;
+        // Discos donde más obra suya hay grabada: son la «foto» de su ficha
+        // (mosaico de portadas), a falta de retrato.
+        $autor['DISCOS_OBRA'] = Db::all(
+            "SELECT d.ID_DISCO, d.NOMBRE_CD, d.FECHA_CD, COUNT(DISTINCT dm.IDMARCHA) AS N
+             FROM marcha_autor ma
+             JOIN disco_marcha dm ON dm.IDMARCHA = ma.ID_MARCHA
+             JOIN disco d ON d.ID_DISCO = dm.ID_DISCO
+             WHERE ma.ID_AUTOR = ?
+             GROUP BY d.ID_DISCO ORDER BY N DESC, d.FECHA_CD DESC LIMIT 16",
+            [$id]
+        );
         $autor['BANDA_PPAL'] = Db::one(
             "SELECT b.ID_BANDA, b.NOMBRE_BREVE, b.LOCALIDAD, COUNT(*) AS N
              FROM marcha m
@@ -1501,14 +1512,14 @@ final class Repo
 
     // ── Últimas incorporaciones ──────────────────────────────────────────────
 
-    public static function fetchUltimas(): array
+    public static function fetchUltimas(int $limit = 5): array
     {
         $rows = Db::all(
-            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE, b.LOCALIDAD AS BANDA_LOC
+            "SELECT m.ID_MARCHA, m.TITULO, m.FECHA, m.ESTILO, m.BANDA_ESTRENO, b.NOMBRE_BREVE AS BANDA_BREVE, b.LOCALIDAD AS BANDA_LOC
              FROM marcha m
              LEFT OUTER JOIN banda b ON b.ID_BANDA = m.BANDA_ESTRENO
              WHERE EXISTS (SELECT 1 FROM marcha_autor ma WHERE ma.ID_MARCHA = m.ID_MARCHA)
-             ORDER BY m.ID_MARCHA DESC LIMIT 5"
+             ORDER BY m.ID_MARCHA DESC LIMIT " . max(1, min(50, $limit))
         );
         foreach ($rows as &$r) {
             self::normalizeFecha($r);

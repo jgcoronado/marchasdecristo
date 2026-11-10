@@ -78,7 +78,7 @@ $hayFiltro = $val('nombre') !== '' || $hayFiltroAvanzado;
         <p class="bio-empty">No se han encontrado compositores con esos criterios.</p>
 <?php else: ?>
         <div class="toolbar">
-            <h1 class="rescount">Compositores — <b><?= $num($total) ?></b> registros</h1>
+            <h1 class="rescount"><b><?= $num($total) ?></b> compositores</h1>
             <?= H::porPagina($limit, '/autor', $criteria) ?>
 <?php if ($hayFiltro): ?>
             <a class="clearall" href="/autor">limpiar filtros ×</a>
