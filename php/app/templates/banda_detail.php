@@ -92,71 +92,74 @@ $acomp ??= [];
 $nAcomp = array_sum(array_map('count', $acomp));
 ?>
 <?php
+$botones = H::streaming($enlaces ?? []);
 $varBanda = H::varianteBanda((string) $b['NOMBRE_BREVE']);
 $portadas = [];
 foreach (array_reverse($b['discos'] ?? []) as $d) {
     $portadas[] = ['id' => (int) $d['ID_DISCO'], 'nombre' => (string) $d['NOMBRE_CD'],
         'anio' => (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : null];
 }
-$botones = H::streaming($enlaces ?? []);
+
+/* Frase de cabecera con lo que se sabe: «Banda de cornetas y tambores de
+   Sevilla, fundada en 1980.» Sin fundación ni localidad, se queda corta, sin
+   rellenos. */
+$loc = $t($b['LOCALIDAD']) ? (string) $b['LOCALIDAD'] : '';
+$frase = match ($varBanda) { 'am' => 'Agrupación musical', 'cctt' => 'Banda de cornetas y tambores', default => 'Banda' }
+    . ($loc !== '' ? ' de ' . V::e($loc) : '')
+    . ($loc !== '' && $t($b['PROVINCIA']) && mb_strtolower((string) $b['PROVINCIA']) !== mb_strtolower($loc) ? ' (' . V::e($b['PROVINCIA']) . ')' : '');
+if (count($etapas) > 1) {
+    $frase .= ', activa en ' . V::e(V::listaY(array_map(static fn(array $e): string => $yrs($e['ANIO_INICIO'], $e['ANIO_FIN']), $etapas)));
+} else {
+    if ($fund > 1800) $frase .= ', fundada en ' . $fund;
+    if ($ext > 1800) $frase .= ($fund > 1800 ? ' y' : ',') . ' extinguida en ' . $ext;
+}
+$frase .= '.';
+if ($nMarchas > 0) $frase .= ' Ha estrenado ' . ($nMarchas === 1 ? 'una marcha' : $num($nMarchas) . ' marchas') . '.';
+
+// Acompañamientos: el último año arriba del cuerpo; los anteriores, al final.
+$anioUlt = $acomp !== [] ? (int) array_key_first($acomp) : null;
+$tablaAcomp = static function (array $filasAnio): string {
+    $h = '<div class="scrollx"><table class="t"><thead><tr><th scope="col">Hermandad</th><th scope="col">Localidad</th><th scope="col">Día</th></tr></thead><tbody>';
+    foreach ($filasAnio as $f) {
+        $locUrl = '/acompanamientos/' . S::slugify((string) $f['LOCALIDAD']);
+        $h .= '<tr><td class="t-main"><a href="' . V::e($locUrl . ($f['EN_NOMINA'] ? '#h-' . $f['HERMANDAD_SLUG'] : '')) . '">' . V::e($f['HERMANDAD']) . '</a></td>'
+            . '<td data-l=""><a href="' . V::e($locUrl) . '">' . V::e($f['LOCALIDAD_NOMBRE']) . '</a></td>'
+            . '<td data-l="">' . ($f['DIA'] !== null ? V::e($f['DIA']) : '<span class="muted">—</span>') . '</td></tr>';
+    }
+    return $h . '</tbody></table></div>';
+};
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> / <a href="/banda">Bandas</a><?php if ($t($b['LOCALIDAD'])): ?> / <a href="<?= V::e('/banda?localidad=' . rawurlencode((string) $b['LOCALIDAD'])) ?>"><?= V::e($b['LOCALIDAD']) ?></a><?php endif; ?></span>
 </div>
 
-<article class="record">
-<?php /* Cabecera: sello con la sigla y el año de fundación; a la derecha, el
-         mosaico con las portadas de su discografía (las más recientes primero). */ ?>
-    <header class="fh">
-        <?= H::sello(H::siglaBanda((string) $b['NOMBRE_BREVE']), $fund > 1800 ? 'desde ' . $fund : 'banda', $varBanda) ?>
-        <div class="fh-txt">
-            <p class="fh-k"><?php if ($varBanda !== ''): ?><?= H::chipEstilo($varBanda === 'am' ? 'AM' : 'CCTT') ?><?php else: ?><span class="dato">Banda</span><?php endif; ?><?php if ($t($b['LOCALIDAD'])): ?><span class="dato"><?= V::e($b['LOCALIDAD']) ?><?php if ($t($b['PROVINCIA']) && mb_strtolower((string) $b['PROVINCIA']) !== mb_strtolower((string) $b['LOCALIDAD'])): ?> (<?= V::e($b['PROVINCIA']) ?>)<?php endif; ?></span><?php endif; ?></p>
-            <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
-<?php if ($t($b['NOMBRE_COMPLETO'])): ?>
-            <p class="fh-sub"><?= V::e($b['NOMBRE_COMPLETO']) ?></p>
+<article class="ficha ficha-banda">
+    <header class="ficha-cab">
+<?php if ($varBanda !== ''): ?>
+        <p class="ficha-k"><?= H::chipEstilo($varBanda === 'am' ? 'AM' : 'CCTT') ?></p>
 <?php endif; ?>
-            <?= $botones ?>
-        </div>
-<?php if ($portadas !== []): ?>
-        <div class="fh-mos"><?= H::mosaico($portadas, 8, count($portadas) === 1 ? 'Su disco' : 'Su discografía') ?></div>
+        <h1><?= V::e($b['NOMBRE_BREVE']) ?></h1>
+        <p class="ficha-frase"><?= $frase ?></p>
+<?php if ($nMarchas + $nDiscos + $nAcomp >= 12): ?>
+        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#datos">Datos</a><?php if ($nAcomp > 0): ?> · <a href="#acompanamientos">Acompañamientos</a><?php endif; ?> · <a href="#estrenos">Estrenos</a><?php if ($nDiscos > 0): ?> · <a href="#discografia">Discografía</a><?php endif; ?></nav>
 <?php endif; ?>
     </header>
-
-<?php /* Solo si la ficha no cabe en pantalla (ver marcha_detail.php). */ ?>
-<?php if ($nMarchas + $nDiscos + count($acomp) >= 12): ?>
-    <nav class="rectabs" aria-label="Secciones de la ficha">
-        <a href="#datos">Datos</a>
-        <a href="#formaciones">Formaciones</a>
-<?php if ($nDiscos > 0): ?>
-        <a href="#discografia">Discografía (<?= $num($nDiscos) ?>)</a>
-<?php endif; ?>
-        <a href="#estrenos">Estrenos (<?= $num($nMarchas) ?>)</a>
-<?php if ($nAcomp > 0): ?>
-        <a href="#acompanamientos">Acompañamientos (<?= $num($nAcomp) ?>)</a>
-<?php endif; ?>
-    </nav>
+<?php if ($portadas !== []): ?>
+    <div class="ficha-portadas"><?= H::mosaico($portadas, 8, count($portadas) === 1 ? 'Su disco' : 'Su discografía') ?></div>
 <?php endif; ?>
 
-    <div class="fgrid">
-    <aside class="fcol">
-    <section class="blk">
-    <div class="shead"><h2>Ficha</h2><span class="n">B-<?= $bid ?></span></div>
+<?php if ($botones !== ''): ?>
+    <section class="ficha-escuchar blk">
+    <div class="shead"><h2>Escuchar</h2></div>
+    <?= $botones ?>
+    </section>
+<?php endif; ?>
+
+    <section class="ficha-datos blk">
+    <div class="shead"><h2>Datos</h2></div>
     <dl class="desc" id="datos">
 <?php if ($t($b['NOMBRE_COMPLETO'])): ?>
         <div class="f"><dt>Nombre completo</dt><dd><?= V::e($b['NOMBRE_COMPLETO']) ?></dd></div>
-<?php endif; ?>
-<?php if ($t($b['LOCALIDAD'])): ?>
-        <div class="f"><dt>Localidad</dt><dd><?= V::e($b['LOCALIDAD']) ?><?php if ($t($b['PROVINCIA'])): ?> (<?= V::e($b['PROVINCIA']) ?>)<?php endif; ?></dd></div>
-<?php endif; ?>
-<?php if (count($etapas) > 1): ?>
-        <div class="f"><dt>Actividad</dt><dd><?= V::e(implode(' · ', array_map(static fn(array $e): string => $yrs($e['ANIO_INICIO'], $e['ANIO_FIN']), $etapas))) ?></dd></div>
-<?php else: ?>
-<?php if ($fund > 1800): ?>
-        <div class="f"><dt>Fundación</dt><dd><?= $fund ?></dd></div>
-<?php endif; ?>
-<?php if ($ext > 1800): ?>
-        <div class="f"><dt>Extinción</dt><dd><?= $ext ?></dd></div>
-<?php endif; ?>
 <?php endif; ?>
 <?php if ($t($b['DIR_MUS_ACTUAL'])): ?>
         <div class="f"><dt>Dir. musical</dt><dd><?= V::e($b['DIR_MUS_ACTUAL']) ?></dd></div>
@@ -164,15 +167,19 @@ $botones = H::streaming($enlaces ?? []);
 <?php if ($t($b['DIRECTOR_ACTUAL'])): ?>
         <div class="f"><dt>Director</dt><dd><?= V::e($b['DIRECTOR_ACTUAL']) ?></dd></div>
 <?php endif; ?>
-        <div class="f"><dt>Estrenos</dt><dd><?= $num($nMarchas) ?></dd></div>
 <?php if ($nDiscos > 0): ?>
         <div class="f"><dt>Discos propios</dt><dd><?= $num($nDiscos) ?></dd></div>
+<?php endif; ?>
+<?php if ($nAcomp > 0): ?>
+        <div class="f"><dt>Acompañamientos</dt><dd><?= $num($nAcomp) ?></dd></div>
 <?php endif; ?>
 <?php $webUrl = H::externalUrl($b['WEB']); if ($t($webUrl)): ?>
         <div class="f"><dt>Web</dt><dd><a href="<?= V::e($webUrl) ?>" rel="noopener" target="_blank"><?= V::e(preg_replace('#^https?://#', '', (string) $webUrl)) ?> ↗</a></dd></div>
 <?php endif; ?>
     </dl>
     </section>
+
+    <div class="ficha-notas">
     <section class="blk">
     <div class="shead" id="formaciones">
         <h2>Formaciones</h2>
@@ -196,36 +203,19 @@ $botones = H::streaming($enlaces ?? []);
     </ul>
 
     </section>
-<?php if ($nDiscos > 0): ?>
+    </div>
+
+    <div class="ficha-cuerpo">
+<?php if ($anioUlt !== null): ?>
     <section class="blk">
-    <div class="shead" id="discografia">
-        <h2>Discografía propia</h2>
-        <span class="n"><?= $num($nDiscos) ?></span>
+    <div class="shead" id="acompanamientos">
+        <h2>Acompañamientos de <?= $anioUlt ?></h2>
+        <span class="n"><?= $num(count($acomp[$anioUlt])) ?></span>
     </div>
-    <div class="scrollx">
-    <table class="reg" data-sortable>
-        <thead><tr>
-            <th data-type="num">Año <span class="ar">↕</span></th>
-            <th>Disco <span class="ar">↕</span></th>
-            <th class="num" data-type="num">Pistas <span class="ar">↕</span></th>
-        </tr></thead>
-        <tbody>
-<?php foreach ($b['discos'] as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
-            <tr>
-                <td><?= $anio > 1800 ? $anio : '—' ?></td>
-                <td><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></td>
-                <td class="num"><?= (int) $d['PISTAS'] ?></td>
-            </tr>
-<?php endforeach; ?>
-        </tbody>
-    </table>
-    </div>
+    <?= $tablaAcomp($acomp[$anioUlt]) ?>
     </section>
 <?php endif; ?>
 
-    </aside>
-
-    <div class="fmain">
     <section class="blk">
     <div class="shead" id="estrenos">
         <h2>Marchas estrenadas</h2>
@@ -243,24 +233,20 @@ $botones = H::streaming($enlaces ?? []);
     <input class="filter est-filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas estrenadas" data-filter="est-table" data-count="est-count" data-total="<?= $nMarchas ?>">
 <?php endif; ?>
     <div class="scrollx">
-    <table class="reg" id="est-table" data-sortable>
+    <table class="t" id="est-table" data-sortable>
         <thead><tr>
             <th scope="col">Marcha <span class="ar">↕</span></th>
-            <th scope="col" data-type="num">Año <span class="ar">↕</span></th>
             <th scope="col">Compositor <span class="ar">↕</span></th>
-            <th scope="col" class="num mobile-hide" data-type="num">Grabaciones <span class="ar">↕</span></th>
+            <th scope="col" class="t-num" data-type="num">Año <span class="ar">↕</span></th>
+            <th scope="col" class="t-num" data-type="num">Grabaciones <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($b['marchas'] as $m): ?>
             <tr>
-                <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '—' ?></td>
-                <td>
-<?php foreach ($m['AUTOR'] as $a): ?>
-                    <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
-<?php endforeach; ?>
-                </td>
-                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
+                <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                <td data-l=""><?php foreach ($m['AUTOR'] as $i => $a): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a><?php endforeach; ?><?php if ($m['AUTOR'] === []): ?><span class="muted">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '<span class="muted">—</span>' ?></td>
+                <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
@@ -269,50 +255,40 @@ $botones = H::streaming($enlaces ?? []);
     </div>
     </details>
 <?php endif; ?>
-
     </section>
-<?php if ($nAcomp > 0): ?>
+
+<?php if ($nDiscos > 0): ?>
+<?php /* Discografía como rejilla de fundas: portada (o funda tipográfica) con
+         el título y el año debajo. */ ?>
     <section class="blk">
-    <div class="shead" id="acompanamientos">
-        <h2>Acompañamientos</h2>
-        <span class="n"><?= $num($nAcomp) ?> · más recientes primero</span>
+    <div class="shead" id="discografia">
+        <h2>Discografía propia</h2>
+        <span class="n"><?= $num($nDiscos) ?></span>
     </div>
-    <div class="stack acomp-anios">
-<?php $abierto = true; foreach ($acomp as $anio => $filasAnio): ?>
-        <details class="collapse"<?= $abierto ? ' open' : '' ?>>
-            <summary class="collapse-title"><?= (int) $anio ?></summary>
-            <div class="collapse-content">
-                <div class="scrollx">
-                <table class="reg">
-                    <thead><tr>
-                        <th>Día</th>
-                        <th>Hermandad</th>
-                        <th>Localidad</th>
-                    </tr></thead>
-                    <tbody>
-<?php foreach ($filasAnio as $f): $locUrl = '/acompanamientos/' . S::slugify((string) $f['LOCALIDAD']); ?>
-                        <tr>
-                            <td><?= $f['DIA'] !== null ? V::e($f['DIA']) : '<span class="muted">—</span>' ?></td>
-                            <td><a href="<?= V::e($locUrl . ($f['EN_NOMINA'] ? '#h-' . $f['HERMANDAD_SLUG'] : '')) ?>"><?= V::e($f['HERMANDAD']) ?></a></td>
-                            <td><a href="<?= V::e($locUrl) ?>"><?= V::e($f['LOCALIDAD_NOMBRE']) ?></a></td>
-                        </tr>
+    <ul class="fundas">
+<?php foreach (array_reverse($b['discos']) as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
+        <li><?= H::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], $anio > 1800 ? $anio : null) ?>
+            <a class="funda-t" href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a>
+            <span class="funda-s"><?= $anio > 1800 ? $anio . ' · ' : '' ?><?= (int) $d['PISTAS'] ?> pistas</span></li>
 <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
-            </div>
-        </details>
-<?php $abierto = false; endforeach; ?>
-    </div>
+    </ul>
     </section>
 <?php endif; ?>
 
+<?php if (count($acomp) > 1): ?>
+    <section class="blk">
+    <div class="shead"><h2>Acompañamientos anteriores</h2></div>
+    <div class="stack acomp-anios">
+<?php foreach ($acomp as $anio => $filasAnio): if ((int) $anio === $anioUlt) continue; ?>
+        <details class="collapse">
+            <summary class="collapse-title"><?= (int) $anio ?> <span class="muted">(<?= count($filasAnio) ?>)</span></summary>
+            <div class="collapse-content"><?= $tablaAcomp($filasAnio) ?></div>
+        </details>
+<?php endforeach; ?>
     </div>
-    </div>
-
-    <div class="ids">
-<?php if (!empty($url)): ?>
-        <span>Enlace permanente: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
+    </section>
 <?php endif; ?>
     </div>
+
+    <footer class="ficha-pie">Ficha B-<?= $bid ?><?php if (!empty($url)): ?> · enlace permanente: <a href="<?= V::e($url) ?>"><?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></a><?php endif; ?></footer>
 </article>

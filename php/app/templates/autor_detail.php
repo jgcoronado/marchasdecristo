@@ -14,38 +14,53 @@ $nG = (int) $a['N_GRAB_TOTAL'];
 $ppal = $a['BANDA_PPAL'] ?? null;
 ?>
 <?php $actividad = (int) $a['ACT_DESDE'] > 0 ? ($a['ACT_DESDE'] === $a['ACT_HASTA'] ? (string) $a['ACT_DESDE'] : $a['ACT_DESDE'] . '–' . $a['ACT_HASTA']) : ''; ?>
-<div class="crumbs">
-    <span><a href="/">Inicio</a> / <a href="/autor">Compositores</a></span>
-</div>
-
-<article class="record">
-<?php /* Cabecera: no hay retrato de cada compositor, así que el sello lleva sus
-         iniciales; a la derecha, las portadas de los discos con más obra suya. */ ?>
-    <header class="fh">
-        <?= H::sello(H::iniciales($fullName), 'compositor') ?>
-        <div class="fh-txt">
-            <p class="fh-k"><span class="dato">Compositor</span></p>
-            <h1><?= V::e($fullName) ?></h1>
-<?php if ($ppal && (int) $ppal['N'] > 1): ?>
-            <p class="fh-sub">Vinculado sobre todo a <a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?>, que estrenó <?= $num($ppal['N']) ?> de sus marchas.</p>
-<?php endif; ?>
-        </div>
 <?php
+/* Frase de cabecera: «Compositor de N marchas, entre 1969 y 2010.» y, si la
+   hay, su banda principal. Solo datos reales. */
+$frase = 'Compositor de ' . ($nM === 1 ? 'una marcha' : $num($nM) . ' marchas')
+    . ($actividad !== '' ? ((int) $a['ACT_DESDE'] === (int) $a['ACT_HASTA'] ? ', en ' . $actividad : ', entre ' . (int) $a['ACT_DESDE'] . ' y ' . (int) $a['ACT_HASTA']) : '') . '.';
+if ($ppal && (int) $ppal['N'] > 1) {
+    $frase .= ' Vinculado sobre todo a <a href="' . V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) . '">' . V::e($ppal['NOMBRE_BREVE']) . '</a>'
+        . ($t($ppal['LOCALIDAD']) ? ' (' . V::e($ppal['LOCALIDAD']) . ')' : '') . ', que estrenó ' . $num($ppal['N']) . ' de sus marchas.';
+}
+
+/* Obra agrupada por décadas: una fila de subtítulo por década dentro de la
+   misma tabla (se lee bien a 390 px y el filtro sigue valiendo). Sin fecha, al
+   final. Por eso la tabla ya no se ordena por columnas. */
+$porDecada = [];
+foreach ($a['marchas'] as $m) {
+    $y = preg_match('/^\d{4}$/', (string) $m['FECHA']) === 1 ? (int) $m['FECHA'] : 0;
+    $porDecada[$y > 0 ? intdiv($y, 10) * 10 : 0][] = $m + ['_Y' => $y];
+}
+ksort($porDecada);
+if (isset($porDecada[0])) { $sf = $porDecada[0]; unset($porDecada[0]); $porDecada[0] = $sf; }
+foreach ($porDecada as &$filasD) usort($filasD, static fn(array $x, array $y): int => [$x['_Y'], (string) $x['TITULO']] <=> [$y['_Y'], (string) $y['TITULO']]);
+unset($filasD);
+
 $portadas = [];
 foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
     $portadas[] = ['id' => (int) $d['ID_DISCO'], 'nombre' => (string) $d['NOMBRE_CD'],
         'anio' => (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : null];
 }
 ?>
-<?php if ($portadas !== []): ?>
-        <div class="fh-mos"><?= H::mosaico($portadas, 8, 'Discos con su obra') ?></div>
+<div class="crumbs">
+    <span><a href="/">Inicio</a> / <a href="/autor">Compositores</a></span>
+</div>
+
+<article class="ficha ficha-autor">
+    <header class="ficha-cab">
+        <h1><?= V::e($fullName) ?></h1>
+        <p class="ficha-frase"><?= $frase ?></p>
+<?php if ($nM >= 12): ?>
+        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#datos">Datos</a> · <a href="#obra">Obra</a></nav>
 <?php endif; ?>
     </header>
+<?php if ($portadas !== []): ?>
+    <div class="ficha-portadas"><?= H::mosaico($portadas, 8, 'Discos con su obra') ?></div>
+<?php endif; ?>
 
-    <div class="fgrid">
-    <aside class="fcol">
-    <section class="blk">
-    <div class="shead"><h2>Ficha</h2><span class="n">A-<?= $aid ?></span></div>
+    <section class="ficha-datos blk">
+    <div class="shead"><h2>Datos</h2></div>
     <dl class="desc" id="datos">
 <?php if ($t($a['NOMBRE_ART'])): ?>
         <div class="f"><dt>Nombre artístico</dt><dd><?= V::e($a['NOMBRE_ART']) ?></dd></div>
@@ -56,18 +71,13 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
 <?php if ($def > 1000): ?>
         <div class="f"><dt>Fallecimiento</dt><dd><?= $def ?></dd></div>
 <?php endif; ?>
-<?php if ((int) $a['ACT_DESDE'] > 0): ?>
-        <div class="f"><dt>Actividad</dt><dd><?= $a['ACT_DESDE'] === $a['ACT_HASTA'] ? $a['ACT_DESDE'] : $a['ACT_DESDE'] . '–' . $a['ACT_HASTA'] ?></dd></div>
-<?php endif; ?>
-        <div class="f"><dt>Marchas</dt><dd><?= $num($nM) ?></dd></div>
 <?php if ($nG > 0): ?>
         <div class="f"><dt>Grabaciones de su obra</dt><dd><?= $num($nG) ?></dd></div>
 <?php endif; ?>
-<?php if ($ppal && (int) $ppal['N'] > 1): ?>
-        <div class="f"><dt>Banda principal</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) ?>"><?= V::e($ppal['NOMBRE_BREVE']) ?></a><?php if ($t($ppal['LOCALIDAD'])): ?> (<?= V::e($ppal['LOCALIDAD']) ?>)<?php endif; ?> <span class="cnt"><?= $num($ppal['N']) ?> estrenos</span></dd></div>
-<?php endif; ?>
     </dl>
     </section>
+<?php if ($t($a['BIO']) || !empty($pm)): ?>
+    <div class="ficha-notas">
 <?php if ($t($a['BIO'])): ?>
     <section class="blk">
     <div class="shead" id="bio"><h2>Biografía</h2></div>
@@ -77,50 +87,48 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
 <?php if (!empty($pm)): ?>
     <section class="blk">
     <div class="shead"><h2>En banda de música</h2></div>
-    <p class="notas">Las marchas de <?= V::e($fullName) ?> para banda de música están en Patrimonio Musical.</p>
-    <p class="vermas"><a href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver su ficha en Patrimonio Musical</a></p>
+    <p class="notas">Las marchas de <?= V::e($fullName) ?> para banda de música están en Patrimonio Musical. <a href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver su ficha en Patrimonio Musical</a></p>
     </section>
 <?php endif; ?>
-    </aside>
+    </div>
+<?php endif; ?>
 
-    <div class="fmain">
+    <div class="ficha-cuerpo">
     <section class="blk">
     <div class="shead" id="obra">
         <h2>Obra</h2>
-        <span class="n" id="obra-count"><?= $num($nM) ?> marchas</span>
+        <span class="n" id="obra-count"><?= $num($nM) ?> marchas · por décadas</span>
 <?php if ($nM >= 8): ?>
         <input class="filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas del compositor" data-filter="obra-table" data-count="obra-count" data-total="<?= $nM ?>">
 <?php endif; ?>
     </div>
     <div class="scrollx">
-    <table class="reg" id="obra-table" data-sortable>
+    <table class="t t-grupos" id="obra-table">
         <thead><tr>
-            <th scope="col">Marcha <span class="ar">↕</span></th>
-            <th scope="col" data-type="num">Año <span class="ar">↕</span></th>
-            <th scope="col">Banda de estreno <span class="ar">↕</span></th>
-            <th scope="col" class="mobile-hide">Dedicatoria <span class="ar">↕</span></th>
-            <th scope="col" class="num mobile-hide" data-type="num">Grabaciones <span class="ar">↕</span></th>
+            <th scope="col">Marcha</th>
+            <th scope="col">Banda de estreno</th>
+            <th scope="col">Dedicatoria</th>
+            <th scope="col" class="t-num">Año</th>
+            <th scope="col" class="t-num">Grab.</th>
         </tr></thead>
         <tbody>
-<?php foreach ($a['marchas'] as $m): ?>
+<?php foreach ($porDecada as $dec => $filasD): ?>
+            <tr class="t-grupo"><th scope="rowgroup" colspan="5"><?= $dec > 0 ? $dec . '–' . ($dec + 9) : 'Sin fecha' ?> <span class="muted">· <?= count($filasD) ?></span></th></tr>
+<?php foreach ($filasD as $m): ?>
             <tr>
-                <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td><?= $t($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
-                <td><?php if ($t($m['BANDA_ESTRENO'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php if ($t($m['BANDA_LOC'])): ?> (<?= V::e($m['BANDA_LOC']) ?>)<?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="mobile-hide"><?php if ($t($m['DEDICATORIA'])): ?><?= V::e($m['DEDICATORIA']) ?><?php if ($t($m['LOCALIDAD'])): ?> (<?= V::e($m['LOCALIDAD']) ?>)<?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
+                <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                <td data-l=""><?php if ($t($m['BANDA_ESTRENO'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                <td data-l=""><?php if ($t($m['DEDICATORIA'])): ?><?= V::e($m['DEDICATORIA']) ?><?php if ($t($m['LOCALIDAD'])): ?> (<?= V::e($m['LOCALIDAD']) ?>)<?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?= $m['_Y'] > 0 ? $m['_Y'] : '<span class="muted">—</span>' ?></td>
+                <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
             </tr>
+<?php endforeach; ?>
 <?php endforeach; ?>
         </tbody>
     </table>
     </div>
     </section>
     </div>
-    </div>
 
-    <div class="ids">
-<?php if (!empty($url)): ?>
-        <span>Enlace permanente: <?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></span>
-<?php endif; ?>
-    </div>
+    <footer class="ficha-pie">Ficha A-<?= $aid ?><?php if (!empty($url)): ?> · enlace permanente: <a href="<?= V::e($url) ?>"><?= V::e(preg_replace('#^https?://#', '', (string) $url)) ?></a><?php endif; ?></footer>
 </article>
