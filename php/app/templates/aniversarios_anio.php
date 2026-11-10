@@ -23,27 +23,27 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     $result = $t['result'];
     $total = (int) $result['totalRows']; ?>
         <details class="collapse" open>
-            <summary class="collapse-title"><?php if ($centenario): ?>🎉 <?php endif; ?><?= $t['ANIOS'] ?> años — compuestas en <?= $t['ANIO_COMPUESTO'] ?><?php if ($centenario): ?> (centenario)<?php endif; ?></summary>
+            <summary class="collapse-title"><?= $t['ANIOS'] ?> años — compuestas en <?= $t['ANIO_COMPUESTO'] ?><?php if ($centenario): ?> (centenario)<?php endif; ?></summary>
             <div class="collapse-content">
-                <div class="scrollx tableList">
-                <table class="reg">
+                <div class="tableList">
+                <table class="t">
                     <thead><tr>
                         <th>Marcha</th>
                         <th>Compositor</th>
-                        <th class="mobile-hide">Prov.</th>
-                        <th class="num">Grab.</th>
+                        <th>Provincia</th>
+                        <th class="t-num">Grab.</th>
                     </tr></thead>
                     <tbody>
 <?php foreach ($result['data'] as $m): ?>
                         <tr>
-                            <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                            <td>
+                            <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                            <td data-l="">
 <?php foreach ($m['AUTOR'] as $a): ?>
                                 <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                             </td>
-                            <td class="mobile-hide"><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="muted">—</span>' ?></td>
-                            <td class="num"><?= (int) $m['N_GRAB'] ?></td>
+                            <td data-l=""><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="t-vacio">—</span>' ?></td>
+                            <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
                         </tr>
 <?php endforeach; ?>
                     </tbody>
