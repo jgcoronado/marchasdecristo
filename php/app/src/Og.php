@@ -394,6 +394,11 @@ final class Og
 
     private static function serveFile(string $file): never
     {
+        // Marca de último uso para la poda por tamaño (tools/og_prune.php);
+        // como mucho una escritura al día por tarjeta.
+        if (time() - (int) @filemtime($file) > 86400) {
+            @touch($file);
+        }
         header('Content-Type: image/jpeg');
         Http::cachePublic(604800); // 7 días (el nombre incluye hash de contenido)
         header('Content-Length: ' . (string) filesize($file));
