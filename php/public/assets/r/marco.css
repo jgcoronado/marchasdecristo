@@ -1,1 +1,114 @@
 /* Rediseño 2026-11 · área: marco. Ver docs/rediseno-2026-11.md. Solo lo escribe el agente de esta área. */
+/* Cabecera, menú, migas, pie y piel de la portada (diseño A, §2.3). Anula aquí
+   lo que estorba de app.css/identidad.css en lugar de tocarlas. */
+
+/* ── Cabecera: paño noche, sin filete; misma altura en todas las páginas ─── */
+body > header { background: var(--marca, #151b36); color: var(--marca-fg, var(--cab-fg)); border-bottom: 0; }
+.header-top {
+    display: flex; flex-wrap: nowrap; align-items: center;
+    gap: var(--e3, .75rem) var(--e5, 1.5rem);
+    /* Alto fijo de la fila: el logotipo, la caja y el tema caben siempre
+       en 3.5rem, así que la marca no se mueve de una página a otra. */
+    min-height: 3.5rem; padding: var(--e3, .75rem) 0 var(--e2, .5rem);
+}
+.brand { font-size: var(--t-l); white-space: nowrap; }
+.site-search-row { flex: 1 1 18rem; justify-content: flex-end; }
+.site-search, .site-search:focus-within { border-radius: var(--r, 4px); }
+.site-search { min-height: 2.5rem; padding-block: 0; max-width: 34rem; }
+.site-search:focus-within { outline: 2px solid var(--foco, var(--oro)); outline-offset: 2px; }
+.site-search .kbd { border-radius: var(--r, 4px); font-size: var(--t-xs); }
+@media (hover: none), (pointer: coarse) { .site-search .kbd { display: none; } }
+.tema-toggle, .nav-mobile > summary, .buscar-toggle {
+    width: 2.75rem; height: 2.75rem; flex: none; padding: 0; border: 0; border-radius: var(--r, 4px);
+    display: inline-flex; align-items: center; justify-content: center;
+    background: none; color: var(--marca-fg, var(--cab-fg)); cursor: pointer;
+}
+.tema-toggle:hover, .nav-mobile > summary:hover, .buscar-toggle:hover { background: color-mix(in srgb, var(--marca-fg, var(--cab-fg)) 12%, transparent); }
+.buscar-toggle svg { width: 1.3rem; height: 1.3rem; }
+.buscar-toggle { display: none; }
+
+/* Menú: una fila que nunca parte en dos (si no cabe, se desliza), para que la
+   barra mida igual en todas las páginas. */
+body > header nav { padding: 0 0 var(--e2, .5rem); }
+.nav-links { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: var(--e1, .25rem); margin-left: calc(-1 * var(--e3, .75rem)); font-size: var(--t-s); }
+.nav-links a { padding: var(--e2, .5rem) var(--e3, .75rem); border: 0; box-shadow: none; border-radius: var(--r, 4px); white-space: nowrap; font-weight: 400; }
+.nav-links a:hover { text-decoration: none; }
+.nav-links a[aria-current="page"] { color: var(--marca-fg, var(--cab-fg)); background: color-mix(in srgb, var(--marca-fg, var(--cab-fg)) 10%, transparent); box-shadow: none; border: 0; font-weight: 400; }
+.nav-mobile ul { border-radius: var(--r, 4px); }
+.nav-mobile ul a { min-height: 2.75rem; display: flex; align-items: center; border-radius: var(--r, 4px); }
+
+/* Móvil: una sola fila (logotipo, lupa, tema, menú); el buscador baja a todo
+   el ancho cuando la lupa lo abre. Sin JS (no hay .js) la lupa no se pinta y
+   el buscador queda siempre visible bajo la fila. */
+@media (max-width: 47.99rem) {
+    .header-top { flex-wrap: wrap; gap: 0 var(--e1, .25rem); padding: var(--e2, .5rem) 0; min-height: 0; }
+    .header-top .brand { margin-right: auto; font-size: var(--t-l); }
+    .brand-mark { width: 2.25rem; height: 2.25rem; }
+    .brand .brand-sub { display: none; }
+    .nav-links, body > header nav { display: none; }
+    .nav-mobile { display: block; }
+    .js .buscar-toggle { display: inline-flex; }
+    .site-search-row { order: 5; flex: 1 0 100%; padding-top: var(--e2, .5rem); }
+    .js .buscar-toggle[aria-expanded="false"] ~ .site-search-row { display: none; }
+    .buscar-toggle[aria-expanded="true"] { background: color-mix(in srgb, var(--marca-fg, var(--cab-fg)) 10%, transparent); }
+    .site-search { max-width: none; min-height: 2.75rem; }
+}
+/* La lupa ya no se usa en ancho aunque se quedara abierta. */
+@media (min-width: 48rem) { .site-search-row { display: flex !important; } }
+
+/* ── Migas ─────────────────────────────────────────────────────────────── */
+.crumbs, .crumbs a { font-size: var(--t-s); color: var(--muted, var(--muted-c)); }
+
+/* ── Pie: tres grupos que llenan el ancho ──────────────────────────────── */
+footer { background: var(--marca, #151b36); border-top: 0; }
+footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner.pie {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e5, 1.5rem) var(--e6, 2rem);
+    align-items: start; padding: var(--e6, 2rem) var(--gut); font-size: var(--t-s);
+}
+.pie p { margin: 0 0 var(--e2, .5rem); }
+.pie .foot-brand { margin: 0 0 var(--e2, .5rem); font-size: var(--t-l); }
+.pie .pie-t { color: var(--marca-fg, var(--cab-fg)); font-weight: 600; }
+.pie-secc { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e1, .25rem) var(--e4, 1rem); }
+@media (max-width: 47.99rem) {
+    footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner.pie { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Portada: misma estructura, otra piel ──────────────────────────────── */
+/* Cifras: una línea de datos, sin caja ni números gigantes. */
+.welcome-counts, .stack.home .welcome-counts {
+    display: block; margin: var(--e4, 1rem) 0 0; padding: 0; border: 0; background: none; box-shadow: none;
+    text-align: center; font-size: var(--t-l); line-height: 1.6; text-wrap: balance; color: var(--muted, var(--muted-c));
+}
+.welcome-counts .cifra { display: inline; white-space: nowrap; }
+/* El separador va pegado al final de cada cifra: si la línea parte, el «·»
+   se queda arriba y la siguiente no empieza con él. */
+.welcome-counts .cifra:not(:last-child)::after { content: " ·"; }
+/* En móvil caben dos cifras por línea a --t-l: 2+2+1 dejaba la quinta sola.
+   La primera (marchas, la del sitio) va en su línea y las otras cuatro en dos
+   parejas. */
+@media (max-width: 47.99rem) { .welcome-counts .cifra:first-child { display: block; } .welcome-counts .cifra:first-child::after { content: none; } }
+.welcome-counts .cifra b, .welcome-counts .cifra span { display: inline; font-family: inherit; font-size: inherit; letter-spacing: 0; line-height: inherit; }
+.welcome-counts .cifra b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.welcome-counts .cifra b::after { content: " "; }
+.welcome-counts .cifra span { color: inherit; }
+
+/* Marcha del día y Explorar: tarjetas que llenan su celda de la rejilla. */
+.home-top { align-items: stretch; }
+.home-top > .card, .home-top > .explora-col { height: 100%; margin: 0; border-radius: var(--r, 4px); box-shadow: var(--sombra, none); }
+.explora-col .section-title { border-bottom: 0; }
+.marcha-dia .ytembed { border-radius: var(--r, 4px); }
+
+/* Últimas incorporaciones: tabla .t (el CSS definitivo de .t es de tablas.css;
+   esto es lo mínimo para que se lea bien mientras tanto). */
+.ultimas-t { width: 100%; border-collapse: collapse; background: var(--card); }
+.ultimas-t th, .ultimas-t td { padding: var(--e2, .5rem) var(--e3, .75rem); text-align: left; border-bottom: 1px solid var(--linea, var(--line)); vertical-align: baseline; }
+.ultimas-t th { font-size: var(--t-s); font-weight: 600; }
+.ultimas-t .t-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ultimas-t .t-main a { font-weight: 600; }
+@media (max-width: 47.99rem) {
+    .ultimas-t thead { display: none; }
+    .ultimas-t tr { display: block; padding: var(--e2, .5rem) var(--e3, .75rem); border-bottom: 1px solid var(--linea, var(--line)); }
+    .ultimas-t td { display: inline; padding: 0; border: 0; font-size: var(--t-s); color: var(--muted, var(--muted-c)); }
+    .ultimas-t td.t-main { display: block; font-size: var(--t-m); }
+    .ultimas-t td:not(.t-main):not(:nth-child(2))::before { content: " · "; }
+}

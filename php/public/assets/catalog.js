@@ -219,10 +219,31 @@
             var tag = document.activeElement ? document.activeElement.tagName : '';
             if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) {
                 e.preventDefault();
+                if (lupa) { lupa.setAttribute('aria-expanded', 'true'); } // plegada en móvil
                 q.focus();
             }
         });
         initAutocomplete(q);
+    }
+
+    // Lupa de la cabecera (solo se ve en móvil, ver r/marco.css): abre y cierra
+    // el buscador bajo la fila. Al abrir, el foco va a la caja; Escape la cierra
+    // y devuelve el foco a la lupa. El estado vive en aria-expanded y la CSS
+    // lee de ahí, así que no hay dos fuentes de verdad.
+    var lupa = document.querySelector('.buscar-toggle');
+    if (lupa && q) {
+        var fijar = function (abierto) {
+            lupa.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+            if (abierto) { q.focus(); }
+        };
+        lupa.addEventListener('click', function () { fijar(lupa.getAttribute('aria-expanded') !== 'true'); });
+        q.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && lupa.getAttribute('aria-expanded') === 'true' && lupa.offsetParent !== null) {
+                fijar(false); lupa.focus();
+            }
+        });
+        // En /buscar la caja ya trae la consulta: se abre desplegada.
+        if (q.value !== '') { lupa.setAttribute('aria-expanded', 'true'); }
     }
 
     // Correo ofuscado (/contacto): el HTML trae usuario y dominio invertidos en
