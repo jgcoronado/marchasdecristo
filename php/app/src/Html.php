@@ -336,20 +336,25 @@ final class Html
             return $basePath . '?' . http_build_query($params);
         };
 
+        // Clases pg-*: r/controles.css. «pg-lejos» marca los números que no son
+        // ni el actual ni sus extremos: en móvil se ocultan para que la fila
+        // quepa en 360 px sin desbordar (Anterior · 1 … 7 … 40 · Siguiente).
         $out = '<nav class="pagination" aria-label="Paginación">';
         if ($currentPage > 1) {
-            $out .= '<a class="btn btn-sm btn-ghost" href="' . self::e($url($currentPage - 1)) . '">‹ Anterior</a>';
+            $out .= '<a class="btn btn-sm btn-ghost pg-prev" href="' . self::e($url($currentPage - 1)) . '" rel="prev">‹ Anterior</a>';
         }
         foreach (self::pageList($currentPage, $totalPages) as $p) {
             if ($p === '…') {
-                $out .= '<span class="ellipsis">…</span>';
+                $out .= '<span class="ellipsis" aria-hidden="true">…</span>';
+            } elseif ($p === $currentPage) {
+                $out .= '<a class="btn btn-sm btn-neutral pg-cur" href="' . self::e($url((int) $p)) . '" aria-current="page">' . $p . '</a>';
             } else {
-                $cls = $p === $currentPage ? 'btn btn-sm btn-neutral' : 'btn btn-sm btn-ghost';
-                $out .= '<a class="' . $cls . '" href="' . self::e($url((int) $p)) . '">' . $p . '</a>';
+                $lejos = $p !== 1 && $p !== $totalPages ? ' pg-lejos' : '';
+                $out .= '<a class="btn btn-sm btn-ghost pg-num' . $lejos . '" href="' . self::e($url((int) $p)) . '">' . $p . '</a>';
             }
         }
         if ($currentPage < $totalPages) {
-            $out .= '<a class="btn btn-sm btn-ghost" href="' . self::e($url($currentPage + 1)) . '">Siguiente ›</a>';
+            $out .= '<a class="btn btn-sm btn-ghost pg-next" href="' . self::e($url($currentPage + 1)) . '" rel="next">Siguiente ›</a>';
         }
         return $out . '</nav>';
     }
@@ -365,13 +370,13 @@ final class Html
      */
     public static function porPagina(int $limit, string $basePath, array $criteria, array $opciones = [10, 20, 50]): string
     {
-        // Control segmentado (ver .toolbar .sortby en app.css): la etiqueta es
-        // una celda propia y el filete entre celdas sustituye al separador "·".
-        $out = '<span class="sortby"><span class="lbl">por página</span>';
+        // Control segmentado .seg (contrato en r/controles.css); .sortby se
+        // conserva por compatibilidad con las hojas antiguas y catalog.js.
+        $out = '<span class="sortby seg"><span class="lbl">por página</span>';
         foreach ($opciones as $opt) {
             $params = array_merge(array_filter($criteria, static fn($v) => (string) $v !== ''), ['limit' => (string) $opt]);
             $href = $basePath . '?' . http_build_query($params);
-            $cls = $opt === $limit ? ' class="on"' : '';
+            $cls = $opt === $limit ? ' class="on" aria-current="true"' : '';
             $out .= '<a href="' . self::e($href) . '"' . $cls . '>' . (int) $opt . '</a>';
         }
         return $out . '</span>';

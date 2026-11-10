@@ -1,1 +1,178 @@
 /* Rediseño 2026-11 · área: controles. Ver docs/rediseno-2026-11.md. Solo lo escribe el agente de esta área. */
+
+/* ════════════════════════════════════════════════════════════════════════
+   CONTRATO DE CONTROLES (diseño A, §2.4). Las demás áreas usan estas clases
+   y no redefinen su forma; si necesitan colocarlas, solo margen/posición.
+
+   Botones          .btn                 secundario: borde --linea, fondo --card
+                    .btn.btn-neutral     primario: fondo --enlace, texto blanco
+                    .btn.btn-primario    (alias nuevo de lo anterior)
+                    .btn.btn-ghost       de texto: sin caja hasta pasar el ratón
+                    .btn.btn-texto       (alias nuevo de lo anterior)
+                    .btn-sm              más bajo en escritorio (36 px); en móvil
+                                         todos miden 44 px.
+   Segmentado       .seg > a|button|label (.on o aria-current = elegida)
+                    .seg > .lbl          celda-rótulo opcional («orden», «por página»)
+                    .toolbar .sortby     clase antigua equivalente (Html::porPagina
+                                         emite «sortby seg»).
+                    Piezas rectangulares unidas; la elegida, fondo --enlace.
+                    En móvil se envuelve en varias filas, nunca desborda.
+   Pestañas         Mismo .seg. Para «Versión original / actual» con radios sin
+                    JS: <input class="vtab-in"> + .vtab-bar > label.vtab (marcado
+                    actual de Html::escuchar), ya con piel de segmentado.
+   Campos           .input, .select, y input/select/textarea dentro de .field:
+                    1 px --linea, radio --r, foco con anillo --foco.
+   Filtros          details.adv, details.facet-rail-toggle, details.filtros:
+                    el summary es un botón secundario con chevron de texto ▾/▴.
+   Estilo           .chip-estilo.chip-cctt / .chip-am (Html::chipEstilo):
+                    rectángulo sólido, 600, sin mayúsculas forzadas.
+                    .etq: etiqueta secundaria, texto --muted sin caja.
+   Paginación       nav.pagination (Html::pagination): .pg-prev .pg-next
+                    .pg-num .pg-cur[aria-current] .ellipsis; .pg-lejos se oculta
+                    en móvil.
+   Iconos           .compartir (cuadrado --r), .tema-toggle (único círculo
+                    permitido, §0.3; su color lo pone el área marco).
+   Nada de píldoras ni filetes de color (§0.1, §0.3).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Respaldos mientras base.css no defina los tokens comunes (§1). */
+.btn, .seg, .toolbar .sortby, .vtab-bar, .input, .select, .field input, .field select, .field textarea,
+details.adv, details.facet-rail-toggle, details.filtros, .chip-estilo, .pagination, .compartir {
+    --c-r: var(--r, 4px);
+    --c-linea: var(--linea, var(--line-ctrl));
+    --c-enlace: var(--enlace, var(--acc));
+    --c-enlace-fg: var(--enlace-fg, var(--acc-fg));
+    --c-card: var(--card);
+    --c-sup2: var(--sup2, var(--s2));
+    --c-foco: var(--foco, var(--enlace, var(--acc)));
+    --c-alto: 2.5rem;
+}
+@media (max-width: 47.99rem) {
+    .btn, .seg, .toolbar .sortby, .vtab-bar, .input, .select, .field input, .field select,
+    details.adv, details.facet-rail-toggle, details.filtros, .pagination { --c-alto: 2.75rem; }
+}
+
+/* ── Botones ─────────────────────────────────────────────────────────────── */
+.btn {
+    min-height: var(--c-alto); padding: 0 var(--e4, 1rem);
+    border: 1px solid var(--c-linea); border-radius: var(--c-r);
+    background: var(--c-card); color: var(--ink); font-weight: 600; font-size: var(--t-s, .9rem);
+    box-shadow: none;
+}
+.btn:hover { background: var(--c-sup2); border-color: var(--c-linea); color: var(--ink); }
+.btn-sm { --c-alto: 2.25rem; padding: 0 var(--e3, .75rem); }
+@media (max-width: 47.99rem) { .btn-sm { --c-alto: 2.75rem; } }
+.btn-neutral, .btn-primario,
+.btn-neutral:hover, .btn-primario:hover { background: var(--c-enlace); border-color: var(--c-enlace); color: var(--c-enlace-fg); opacity: 1; }
+.btn-neutral:hover, .btn-primario:hover { filter: brightness(1.08); }
+.btn-ghost, .btn-texto { background: transparent; border-color: transparent; color: var(--c-enlace); }
+.btn-ghost:hover, .btn-texto:hover { background: var(--c-sup2); border-color: transparent; color: var(--c-enlace); }
+.btn:focus-visible, .seg > :focus-visible, .toolbar .sortby a:focus-visible, .compartir:focus-visible,
+details > summary:focus-visible, .pagination a:focus-visible { outline: 2px solid var(--c-foco); outline-offset: 2px; }
+
+/* ── Segmentado (.seg y .toolbar .sortby) ───────────────────────────────── */
+/* Cada pieza lleva su propio borde y se solapa 1 px con la anterior: así,
+   cuando en móvil el control se envuelve en dos filas, cada fila sigue
+   cerrada y no hace falta convertirlo en <select>. */
+.seg, .toolbar .sortby {
+    display: inline-flex; flex-wrap: wrap; align-items: stretch; max-width: 100%;
+    border: 0; border-radius: 0; background: none; overflow: visible;
+    font-size: var(--t-s, .9rem); padding: 1px 0 0 1px;
+}
+.seg > *, .toolbar .sortby > * {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: var(--c-alto); padding: 0 var(--e3, .75rem); margin: -1px 0 0 -1px;
+    border: 1px solid var(--c-linea); border-radius: 0;
+    background: var(--c-card); color: var(--ink); text-decoration: none; white-space: nowrap;
+    font-weight: 400; cursor: pointer;
+}
+.seg > :first-child, .toolbar .sortby > :first-child { border-radius: var(--c-r) 0 0 var(--c-r); }
+.seg > :last-child, .toolbar .sortby > :last-child { border-radius: 0 var(--c-r) var(--c-r) 0; }
+.seg > .lbl, .toolbar .sortby > .lbl { background: var(--c-sup2); color: var(--muted); cursor: default; }
+.seg > a:hover, .seg > button:hover, .seg > label:hover,
+.toolbar .sortby a:hover { background: var(--c-sup2); color: var(--ink); }
+.seg > .on, .seg > [aria-current], .seg > [aria-selected="true"],
+.toolbar .sortby a.on, .toolbar .sortby a.on:hover {
+    position: relative; z-index: 1;
+    background: var(--c-enlace); border-color: var(--c-enlace); color: var(--c-enlace-fg); font-weight: 600;
+}
+
+/* ── Pestañas de versión (Html::escuchar): piel de segmentado ───────────── */
+.vtab-bar { display: inline-flex; flex-wrap: wrap; gap: 0; border: 0; margin: 0 0 var(--e3, .75rem); padding: 1px 0 0 1px; max-width: 100%; }
+.vtab {
+    display: inline-flex; align-items: center; min-height: var(--c-alto, 2.5rem);
+    padding: 0 var(--e4, 1rem); margin: -1px 0 0 -1px;
+    border: 1px solid var(--linea, var(--line-ctrl)); border-radius: 0;
+    background: var(--card); color: var(--ink); font-size: var(--t-s, .9rem); font-weight: 400;
+}
+.vtab-o { border-radius: var(--r, 4px) 0 0 var(--r, 4px); }
+.vtab-a { border-radius: 0 var(--r, 4px) var(--r, 4px) 0; }
+.vtab:hover { background: var(--sup2, var(--s2)); color: var(--ink); }
+.vtab-in-o:checked ~ .vtab-bar .vtab-o, .vtab-in-a:checked ~ .vtab-bar .vtab-a {
+    position: relative; z-index: 1; font-weight: 600;
+    background: var(--enlace, var(--acc)); border-color: var(--enlace, var(--acc)); color: var(--enlace-fg, var(--acc-fg));
+}
+.vtab-in-o:focus-visible ~ .vtab-bar .vtab-o,
+.vtab-in-a:focus-visible ~ .vtab-bar .vtab-a { outline: 2px solid var(--foco, var(--enlace)); outline-offset: 2px; }
+@media (max-width: 47.99rem) { .vtab { min-height: 2.75rem; } }
+
+/* ── Campos y selects ────────────────────────────────────────────────────── */
+.input, .select, .field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea {
+    min-height: var(--c-alto); padding: 0 var(--e3, .75rem);
+    border: 1px solid var(--c-linea); border-radius: var(--c-r);
+    background: var(--c-card); color: var(--ink); font: inherit; font-size: var(--t-m, 1rem);
+}
+.field textarea, textarea.input { padding: var(--e2, .5rem) var(--e3, .75rem); }
+.input:focus, .select:focus, .field input:focus, .field select:focus, .field textarea:focus { outline: none; }
+.input:focus-visible, .select:focus-visible, .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible,
+.input:focus, .select:focus, .field input:not([type="checkbox"]):not([type="radio"]):focus, .field select:focus, .field textarea:focus {
+    border-color: var(--c-foco); outline: 2px solid var(--c-foco); outline-offset: 2px;
+}
+.field-label { color: var(--muted); font-weight: 600; font-size: var(--t-xs, .8125rem); }
+
+/* ── Desplegables de filtros: el summary es un botón secundario ─────────── */
+details.adv, details.facet-rail-toggle, details.filtros { border-top: 0; padding-top: 0; }
+details.adv > summary, details.facet-rail-toggle > summary, details.filtros > summary {
+    list-style: none; display: inline-flex; align-items: center; gap: var(--e2, .5rem);
+    min-height: var(--c-alto); padding: 0 var(--e4, 1rem);
+    border: 1px solid var(--c-linea); border-radius: var(--c-r);
+    background: var(--c-card); color: var(--ink); font-size: var(--t-s, .9rem); font-weight: 600; cursor: pointer;
+}
+details.adv > summary::-webkit-details-marker, details.facet-rail-toggle > summary::-webkit-details-marker,
+details.filtros > summary::-webkit-details-marker { display: none; }
+details.adv > summary::before, details.facet-rail-toggle > summary::before, details.filtros > summary::before { content: none; }
+details.adv > summary::after, details.facet-rail-toggle > summary::after, details.filtros > summary::after {
+    content: "▾"; color: var(--muted); font-weight: 400;
+}
+details.adv[open] > summary::after, details.facet-rail-toggle[open] > summary::after, details.filtros[open] > summary::after { content: "▴"; }
+details.adv > summary:hover, details.facet-rail-toggle > summary:hover, details.filtros > summary:hover { background: var(--c-sup2); color: var(--ink); }
+
+/* ── Etiquetas ───────────────────────────────────────────────────────────── */
+.chip-estilo {
+    display: inline-flex; align-items: center; border-radius: var(--r, 4px);
+    padding: .15rem var(--e2, .5rem); font-size: var(--t-xs, .8125rem); font-weight: 600;
+    text-transform: none; letter-spacing: 0; line-height: 1.35; border: 0;
+}
+.chip-cctt, main a.chip-cctt, main a.chip-cctt:hover,
+table.reg td a.chip-cctt, .table td a.chip-cctt { background: var(--cctt, var(--grana)); color: var(--cctt-fg, var(--cab-fg)); }
+.chip-am, main a.chip-am, main a.chip-am:hover,
+table.reg td a.chip-am, .table td a.chip-am { background: var(--am, var(--oro)); color: var(--am-fg, var(--ink)); }
+main a.chip-estilo:hover { filter: brightness(1.08); text-decoration: none; }
+.etq { color: var(--muted); font-size: var(--t-s, .9rem); background: none; border: 0; padding: 0; }
+
+/* ── Paginación ──────────────────────────────────────────────────────────── */
+.pagination { gap: var(--e1, .25rem); font-size: var(--t-s, .9rem); }
+.pagination .btn { min-width: var(--c-alto); padding: 0 var(--e3, .75rem); border-radius: var(--c-r); }
+.pagination .pg-num { color: var(--ink); font-weight: 400; }
+.pagination .pg-prev, .pagination .pg-next { color: var(--c-enlace); }
+.pagination .pg-cur { background: var(--c-enlace); border-color: var(--c-enlace); color: var(--c-enlace-fg); }
+.pagination .ellipsis { color: var(--muted); }
+@media (max-width: 47.99rem) {
+    .pagination .pg-lejos { display: none; }
+    .pagination .btn { padding: 0 var(--e2, .5rem); }
+}
+
+/* ── Botones de icono ────────────────────────────────────────────────────── */
+.compartir { width: var(--c-alto); height: var(--c-alto); border-radius: var(--c-r); color: var(--muted); }
+.compartir:hover { background: var(--c-sup2); color: var(--ink); }
+.tema-toggle:focus-visible { outline: 2px solid var(--foco, currentColor); outline-offset: 2px; }
