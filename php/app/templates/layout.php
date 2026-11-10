@@ -208,6 +208,11 @@ if (!empty($meta['ancho'])) {
     <?php /* Identidad visual (cabecera, sello, mosaico, fichas en dos
              columnas). Va entre app.css y dark.css: ver su cabecera. */ ?>
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/identidad.css')) ?>">
+    <?php /* Rediseño 2026-11: una hoja por área (docs/rediseno-2026-11.md),
+             en orden de cascada. Solo tokens; los colores del oscuro, en dark.css. */ ?>
+    <?php foreach (['base', 'marco', 'controles', 'tablas', 'media', 'fichas'] as $hojaR): ?>
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/r/' . $hojaR . '.css')) ?>">
+    <?php endforeach; ?>
     <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
              atributo media (ver la cabecera de dark.css). Por defecto sigue al
              sistema; el script siguiente la fuerza si el visitante eligió un
