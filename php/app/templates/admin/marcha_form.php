@@ -10,7 +10,8 @@ $isEdit = $mode === 'edit';
 $proposalMode = $proposalMode ?? false;
 $val = static fn(string $k): string => V::e($marcha[$k] ?? '');
 $estilo = (string) ($marcha['ESTILO'] ?? '');
-$tipo = (string) ($marcha['TIPO'] ?? '');
+// Alta nueva: «Marcha procesional» de entrada (lo mismo que haría AdminRepo::addMarcha sin tipo).
+$tipo = (string) ($marcha['TIPO'] ?? ($isEdit ? '' : \App\AdminRepo::TIPO_POR_DEFECTO));
 $tipoLabel = static fn(string $t): string => ucfirst(mb_strtolower($t, 'UTF-8'));
 // ID numérico de la banda de estreno ya guardada (para el campo hidden)
 $bandaEstrenoId  = (string) ($marcha['BANDA_ESTRENO'] ?? '');

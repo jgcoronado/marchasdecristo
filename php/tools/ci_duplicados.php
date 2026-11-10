@@ -76,6 +76,12 @@ $exit = ciEjecuta([
         $id = $candidato('Marcha Nueva de Verdad', 2, 'dmp-ci-3');
         $r = AdminRepo::aceptarCandidato($id, ['TITULO' => 'Marcha Nueva de Verdad', 'BANDA_ESTRENO' => '2'], [4], false);
         assertIgual('CREATED', $r['code'], 'código');
+        // La ingesta no pide tipo: la marcha nace como marcha procesional.
+        assertIgual(AdminRepo::TIPO_POR_DEFECTO, Db::one('SELECT TIPO FROM marcha WHERE ID_MARCHA = ?', [$r['marchaId']])['TIPO'], 'tipo por defecto');
+    },
+    'un tipo explícito se respeta' => static function (): void {
+        $r = AdminRepo::addMarcha(['TITULO' => 'Adaptación de prueba', 'TIPO' => 'ADAPTACIÓN MÚSICA POPULAR'], [4]);
+        assertIgual('ADAPTACIÓN MÚSICA POPULAR', Db::one('SELECT TIPO FROM marcha WHERE ID_MARCHA = ?', [$r['marchaId']])['TIPO'], 'tipo');
     },
 ]);
 

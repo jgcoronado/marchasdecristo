@@ -19,6 +19,8 @@ final class AdminRepo
      * Campo heredado de la importación original — se valida contra esta lista
      * cerrada para no admitir texto libre nuevo, igual que ESTILO.
      */
+    /** Tipo que recibe una marcha creada sin tipo (ingesta, propuestas, formulario). */
+    public const TIPO_POR_DEFECTO = 'MARCHA PROCESIONAL';
     public const MARCHA_TIPOS = [
         'MARCHA PROCESIONAL',
         'ADAPTACIÓN MARCHA DE BANDA DE MÚSICA',
@@ -194,6 +196,10 @@ final class AdminRepo
             if (array_key_exists($f, $fields)) $safe[$f] = self::normalize($fields[$f]);
         }
         if ($safe === []) return ['code' => 'INVALID_PAYLOAD'];
+
+        // Toda marcha de la BD es una marcha procesional salvo que se diga que es
+        // una adaptación: sin tipo explícito (la ingesta no lo pide), se da ese.
+        if (($safe['TIPO'] ?? null) === null) $safe['TIPO'] = self::TIPO_POR_DEFECTO;
 
         if (array_key_exists('FECHA', $safe) && $safe['FECHA'] !== null && !preg_match('/^\d{4}$/', (string) $safe['FECHA'])) {
             return ['code' => 'INVALID_FECHA'];
