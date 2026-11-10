@@ -28,26 +28,28 @@
        apenas se levanta del fondo (1,11:1); lo que la separa es el filete
        de 1px (ver .card/.record), como en esas apps, no el salto de tono.
        Cabecera y pie van del color de la página (ver más abajo). */
+    /* 2026-11 (diseño A «Uniforme»): tokens de §1 en oscuro. Los nombres
+       antiguos (--acc, --enlace-apoyo, --noche…) son alias en r/base.css y
+       se resuelven solos con estos valores. Contrastes medidos 2026-11-11:
+       ink/bg 16,5 · ink/card 14,8 · muted/card 7,8 · enlace/card 9,2 ·
+       enlace/sup2 8,0 · cctt-fg/cctt 7,0 · am-fg/am 10,2 · marca-fg/marca 16,9. */
     --bg: #0e1120;
     --card: #171c31;
-    --ink: #eef0f6;         /* 2026-10-09: de #ece9e1 a #f6f4ef; ver --enlace */
-    /* 2026-09-27: el acento deja de ser índigo en oscuro. Un azul pastel
-       sobre marrón casi negro era el único color frío de la página y los
-       enlaces se leían incómodos. Burdeos claro, de la familia del papel:
-       8,23:1 sobre --card, 9,11 sobre --bg, 7,08 sobre --s2 (medido). */
-    --acc: #e2bb68;
-    --acc-fg: #0e1120;  /* el acento claro pide tinta oscura encima, no blanca */
-    /* Enlaces de texto (2026-10-09; ver el mismo bloque en app.css). El
-       burdeos claro --acc frente a la tinta medía 1,66:1: indistinguible sin
-       subrayado. Con la tinta de antes (#ece9e1) no existía ningún tono que
-       diera 3:1 frente a ella y 4,5:1 sobre --zebra a la vez; subiéndola a
-       #f6f4ef sí:
-       - --enlace: coral de la misma familia. 3,09:1 frente a --ink; 4,91
-         sobre --card, 4,55 sobre --zebra.
-       - --enlace-apoyo: la propia tinta, que entre el gris de --apoyo es lo
-         más claro de la línea (3,18:1). */
-    --enlace: #e2bb68;
-    --enlace-apoyo: var(--ink);
+    --sup2: #212741;
+    --ink: #eef0f6;
+    --muted: #aab0c6;
+    --linea: #2e3553;
+    --enlace: #e0bb63;      /* oro: el grana no llega a 4,5:1 sobre la tarjeta */
+    --marca: #151b36;       /* la barra noche no cambia de tema */
+    --marca-fg: #ffffff;
+    --acento: #e0bb63;
+    --cctt: #a8273d;
+    --cctt-fg: #ffffff;
+    --am: #e0bb63;
+    --am-fg: #0e1120;
+    --foco: #e0bb63;
+    --acc-fg: #0e1120;      /* el enlace oro como fondo pide tinta oscura encima */
+    --sombra: none;         /* una sombra negra sobre casi negro no se ve: separa la --linea */
     --est: #7cc39a;
     --nov: #5fc3cd;
     --rec: #d7a866;
@@ -123,6 +125,5 @@ main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, 
 .tema-toggle .tema-sol { display: block; }
 
 /* ── Identidad 2026-11 en oscuro ─────────────────────────────────────────── */
-:root { --noche: #0a0d1c; --noche-2: #2a3261; --grana: #a8273d; }
-.card, .blk, .fh { box-shadow: none; }
+.card, .blk, .fh { box-shadow: 0 0 0 1px var(--linea); }
 .stream-tidal::before { background: #fff; }

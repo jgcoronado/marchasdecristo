@@ -1,1 +1,124 @@
-/* Rediseño 2026-11 · área: base. Ver docs/rediseno-2026-11.md. Solo lo escribe el agente de esta área. */
+/* Rediseño 2026-11 · área: base. Ver docs/rediseno-2026-11.md. Solo lo escribe el agente de esta área.
+
+   Qué hay aquí:
+     1. Los tokens de §1 con los valores del diseño A «Uniforme» (tema claro;
+        el oscuro los redefine en dark.css, que se carga DESPUÉS de esta hoja).
+     2. Los nombres antiguos de app.css/identidad.css enlazados a los nuevos,
+        para que todo el sitio herede la paleta sin tocar esas hojas.
+     3. La base tipográfica (§2.2 A) y el foco (§1).
+     4. El barrido no-IA de §2.8: lo que app.css/identidad.css/dark.css
+        pintaban contra las reglas de §0, anulado aquí y agrupado por motivo.
+
+   Es la ÚNICA hoja (con dark.css) donde se escriben colores literales. */
+
+/* ── 1. Tokens del diseño A ──────────────────────────────────────────────── */
+:root {
+    /* Color. Contrastes medidos (script de comprobación, 2026-11-11):
+       ink/bg 14,7 · ink/card 16,1 · muted/card 6,9 · muted/sup2 5,9 ·
+       enlace/card 8,8 · enlace/sup2 7,6 · cctt-fg/cctt 8,8 ·
+       am-fg/am 7,3 · marca-fg/marca 16,9. */
+    --bg: #f3f4f7;          /* página: gris claro, las tarjetas blancas encima */
+    --card: #ffffff;
+    --sup2: #eceef3;        /* superficie hundida: cabecera de tabla, cebra */
+    --ink: #1c2033;
+    --muted: #535a70;
+    --linea: #d9dce5;       /* la única línea admitida: neutra, 1 px */
+    --enlace: #8f1d30;      /* grana */
+    --marca: #151b36;       /* noche: la barra, igual en los dos temas */
+    --marca-fg: #ffffff;
+    --acento: #d4a94a;      /* oro */
+    --cctt: #8f1d30;        /* cordón grana */
+    --cctt-fg: #ffffff;
+    --am: #d4a94a;          /* galón oro */
+    --am-fg: #1c2033;       /* el oro pide tinta oscura, no blanco  */
+    --foco: #8f1d30;
+
+    /* Forma: un radio y una sombra de 1 px (§0.3, §0.5). */
+    --r: 4px;
+    --sombra: 0 1px 2px rgba(21, 27, 54, 0.08);
+
+    /* Escala: seis tamaños y siete espacios. */
+    --t-xs: 0.8125rem; --t-s: 0.9rem; --t-m: 1rem; --t-l: 1.2rem; --t-xl: 1.6rem; --t-xxl: clamp(1.8rem, 3.6vw, 2.4rem);
+    --e1: 0.25rem; --e2: 0.5rem; --e3: 0.75rem; --e4: 1rem; --e5: 1.5rem; --e6: 2rem; --e7: 3rem;
+    --wrap: 82rem; --wrap-ancho: 82rem;
+    --gut: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+/* ── 2. Nombres antiguos → tokens nuevos ─────────────────────────────────── */
+/* Van con var() y no con el valor: así dark.css solo redefine los tokens
+   nuevos y los alias se resuelven solos en cada tema. Los derivados de
+   app.css (--zebra, --acc-tint, --map-*…) siguen calculándose desde --acc,
+   --ink y --card, que ya apuntan aquí. */
+:root {
+    --acc: var(--enlace);
+    --acc-fg: var(--marca-fg);
+    --enlace-apoyo: var(--ink);
+    --noche: var(--marca);
+    --noche-2: color-mix(in srgb, var(--marca-fg) 10%, var(--marca));
+    --grana: var(--cctt);
+    --oro: var(--acento);
+    --cab-fg: var(--marca-fg);
+    --cab-fg-2: color-mix(in srgb, var(--marca-fg) 78%, var(--marca));
+    --muted-c: var(--muted);
+    --faint: var(--muted);
+    --apoyo: var(--muted);
+    --s2: var(--sup2);
+    --zebra: color-mix(in srgb, var(--sup2) 50%, var(--card));
+    --line: var(--linea);
+    --radius: var(--r);
+    --radius-sm: var(--r);
+    --caja-sombra: var(--sombra);
+    --sombra-suave: var(--sombra);
+    --sombra-media: var(--sombra);
+    --sombra-panel: var(--sombra);
+}
+
+/* ── 3. Base tipográfica (§2.2 A) ────────────────────────────────────────── */
+body { font-family: var(--sans); font-size: var(--t-m); font-weight: 400; line-height: 1.5; color: var(--ink); background: var(--bg); }
+h1, h2, h3 { font-family: var(--sans); font-weight: 700; font-style: normal; line-height: 1.15; letter-spacing: 0; text-transform: none; color: var(--ink); }
+h1 { font-size: var(--t-xxl); }
+h2 { font-size: var(--t-xl); }
+h3 { font-size: var(--t-l); }
+main a { color: var(--enlace); }
+/* Cifras alineadas en las tablas: las columnas de números se leen en vertical. */
+td.num, td.t-num, .t-num, td.n, td[data-num], table td:has(> .num) { font-variant-numeric: tabular-nums; }
+table { font-variant-numeric: tabular-nums; }
+/* Foco: siempre visible, nunca quitado (§1). En la barra noche, oro. */
+:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
+body > header :focus-visible, footer :focus-visible { outline-color: var(--acento); }
+
+/* ── 4. Barrido no-IA (§2.8) ─────────────────────────────────────────────── */
+
+/* 4a. Filetes de color (§0.1): lo activo se marca con fondo o color. */
+body > header { border-bottom: 0; }                                         /* identidad.css: 3px oro bajo la barra */
+.nav-links a,
+.nav-links a[aria-current="page"] { box-shadow: none; border-bottom: 0; }  /* identidad.css: inset -3px oro; app.css: border-bottom acc */
+.nav-links a[aria-current="page"] { background: color-mix(in srgb, var(--marca-fg) 10%, transparent); color: var(--marca-fg); }
+.vtab-in-o:checked ~ .vtab-bar .vtab-o,
+.vtab-in-a:checked ~ .vtab-bar .vtab-a { border-bottom-color: transparent; background: var(--sup2); }  /* app.css: subrayado acc de la pestaña */
+.danger-ribbon { border-bottom: 0; }                                        /* app.css: 2px de error bajo el aviso */
+
+/* 4b. Píldoras (§0.3): radio único --r. El botón de tema y el menú móvil,
+   que son iconos, conservan su forma; los puntos de leyenda de datos
+   (.acs-dias, .tl-dot, ul.lnB) también: son marcas, no cajas. */
+.site-search,
+.site-search:focus-within,
+.shead .n, .filter, .perc, .chip-estilo, .fh-k .dato,
+.rectabs a, main .rectabs a:hover,
+.stream-btn, .toolbar .sortby, .si,
+.acs-loc-barra, .ytfacade-play { border-radius: var(--r); }
+.acs-tira { border-radius: var(--r); }
+
+/* 4c. Mayúsculas espaciadas (§0.2): siglas reales en caja normal. */
+.ln-chip, .ln-ytag { text-transform: none; letter-spacing: 0; font-size: var(--t-xs); font-weight: 600; }
+.danger-ribbon { letter-spacing: 0; }
+
+/* 4d. Sombras difusas (§0.5): los tokens ya valen --sombra (arriba); se
+   repiten aquí las que estaban escritas a mano en dark.css. */
+.card, .record, .blk, .fh { box-shadow: var(--sombra); }
+
+/* 4e. El puntito de color delante de cada servicio de streaming: fuera. */
+.stream-btn::before { content: none; display: none; }
+
+/* 4f. El atajo «/» no se enseña en táctil (ni en pantalla sin ratón). */
+@media (hover: none), (pointer: coarse) { .site-search .kbd { display: none; } }
