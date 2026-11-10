@@ -81,6 +81,7 @@ $excludeId = $isEdit ? (int) ($marcha['ID_MARCHA'] ?? 0) : 0;
             <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
             <div class="autocomplete">
                 <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text" autocomplete="off" value="<?= $val('DEDICATORIA') ?>" placeholder="p. ej. «A la Hdad. del Gran Poder de Sevilla»">
+                <button type="button" class="autocomplete-clear" data-clear-for="DEDICATORIA" aria-label="Borrar dedicatoria" title="Borrar dedicatoria" hidden>&times;</button>
                 <div id="dedicatoriaSuggest" class="suggest" hidden></div>
             </div>
             <p class="field-help muted small">A quién está dedicada la marcha (hermandad, paso, persona…). Copia el texto original de la partitura o del disco si está disponible. Escribe «hdad» para elegir entre las hermandades de la Semana Santa de la localidad.</p>

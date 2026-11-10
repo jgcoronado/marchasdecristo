@@ -45,7 +45,7 @@ const UMBRAL_MEDIA = 0.75;
 
 $candidatos = App\Db::all(
     "SELECT ID_CAND, ID_BANDA, P_BANDA_ESTRENO, P_TITULO, VIDEO_TITULO, ESTADO, MOTIVO, MATCH_MARCHA_ID, MATCH_SCORE
-     FROM ingest_candidato WHERE ESTADO IN ('pendiente', 'descartado')"
+     FROM ingest_candidato WHERE ESTADO = 'pendiente'"
 );
 
 $revisados = 0;

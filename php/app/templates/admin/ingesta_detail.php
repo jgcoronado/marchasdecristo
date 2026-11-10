@@ -8,8 +8,13 @@ $csrf = Auth::csrfToken($session);
 $val = static fn(string $k, string $default = ''): string => V::e($cand[$k] ?? $default);
 $flags = $cand['FLAGS'] ? (json_decode((string) $cand['FLAGS'], true) ?: []) : [];
 
+// Título en minúscula salvo la primera letra (los orígenes lo dan en MAYÚSCULAS o Title Case).
+$fraseTitulo = static function (string $t): string {
+    $t = trim($t);
+    return $t === '' ? '' : mb_strtoupper(mb_substr($t, 0, 1)) . mb_strtolower(mb_substr($t, 1));
+};
 $fields = [
-    ['TITULO', 'Título', 'text', $cand['P_TITULO'] ?? ''],
+    ['TITULO', 'Título', 'text', $fraseTitulo((string) ($cand['P_TITULO'] ?? ''))],
     ['FECHA', 'Fecha (año de 4 dígitos)', 'text', $cand['P_FECHA'] ?? ($fechaDisco ?? '')],
 ];
 // Sin dedicatoria propuesta no se precargan localidad ni provincia.
@@ -118,41 +123,12 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/aceptar" method="POST" id="aceptarForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
-<?php foreach ($fields as [$key, $label, $type, $default]): ?>
+<?php foreach ($fields as [$key, $label, $type, $default]): if ($key !== 'TITULO') continue; ?>
         <div class="field">
             <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
             <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>" value="<?= V::e($default) ?>">
         </div>
 <?php endforeach; ?>
-        <div class="field">
-            <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
-            <div class="autocomplete">
-                <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text"
-                       value="<?= V::e($cand['P_DEDICATORIA'] ?? '') ?>" autocomplete="off">
-                <div id="dedicatoriaSuggest" class="suggest" hidden></div>
-            </div>
-            <p class="muted">Escribe 7+ caracteres para buscar hermandades ya existentes en la BD. Al elegir una, se rellenan también localidad y provincia.</p>
-        </div>
-<?= H::municipioFields($candLocalidad, $candProvincia) ?>
-        <div class="field">
-            <label class="field-label" for="BANDA_ESTRENO">ID de la banda de estreno</label>
-            <input class="input" id="BANDA_ESTRENO" name="BANDA_ESTRENO" type="number" value="<?= V::e($bandaEstrenoVal) ?>">
-            <p class="muted">Banda del candidato: <strong><?= V::e($cand['NOMBRE_BREVE'] ?? ('#' . $cand['ID_BANDA'])) ?></strong> (#<?= (int) $cand['ID_BANDA'] ?>)<?php if ($cand['BANDA_LOCALIDAD']): ?> — <?= V::e($cand['BANDA_LOCALIDAD']) ?><?php endif; ?><?php if ((string) $bandaEstrenoVal !== (string) $cand['ID_BANDA']): ?> — el valor del campo es distinto, revísalo<?php endif; ?>.</p>
-        </div>
-        <div class="field">
-            <label class="field-label" for="ESTILO">Estilo</label>
-            <select class="input" id="ESTILO" name="ESTILO">
-                <option value="">— Sin asignar —</option>
-                <option value="CCTT"<?= ($estiloSugerido ?? '') === 'CCTT' ? ' selected' : '' ?>>Cornetas y Tambores (CCTT)</option>
-                <option value="AM"<?= ($estiloSugerido ?? '') === 'AM' ? ' selected' : '' ?>>Agrupación Musical (AM)</option>
-            </select>
-            <p class="muted small" id="estiloHint"><?= $estiloSugerido ? 'Sugerido automáticamente según las marchas existentes de esta banda.' : 'No hay marchas previas de esta banda; selecciónalo manualmente.' ?></p>
-        </div>
-        <div class="field">
-            <label class="field-label" for="DETALLES_MARCHA">Detalles</label>
-            <textarea class="input" id="DETALLES_MARCHA" name="DETALLES_MARCHA" rows="3"></textarea>
-        </div>
-
         <div class="field">
             <label class="field-label">Autor(es)</label>
 <?php if ($autoresAuto): ?>
@@ -179,6 +155,41 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
                 <a class="btn btn-sm btn-ghost" href="/dashboard/autor/add" target="_blank">＋ crear</a>
             </div>
             <p class="muted">Debe haber al menos un autor. Si no existe, créalo con el enlace "＋ crear" y vuelve a buscarlo aquí.</p>
+        </div>
+<?php foreach ($fields as [$key, $label, $type, $default]): if ($key === 'TITULO') continue; ?>
+        <div class="field">
+            <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
+            <input class="input" id="<?= $key ?>" name="<?= $key ?>" type="<?= $type ?>" value="<?= V::e($default) ?>">
+        </div>
+<?php endforeach; ?>
+<?= H::municipioFields($candLocalidad, $candProvincia) ?>
+        <div class="field">
+            <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
+            <div class="autocomplete">
+                <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text"
+                       value="<?= V::e($cand['P_DEDICATORIA'] ?? '') ?>" autocomplete="off">
+                <button type="button" class="autocomplete-clear" data-clear-for="DEDICATORIA" aria-label="Borrar dedicatoria" title="Borrar dedicatoria" hidden>&times;</button>
+                <div id="dedicatoriaSuggest" class="suggest" hidden></div>
+            </div>
+            <p class="muted">Escribe 7+ caracteres para buscar hermandades ya existentes en la BD. Al elegir una, se rellenan también localidad y provincia.</p>
+        </div>
+        <div class="field">
+            <label class="field-label" for="BANDA_ESTRENO">ID de la banda de estreno</label>
+            <input class="input" id="BANDA_ESTRENO" name="BANDA_ESTRENO" type="number" value="<?= V::e($bandaEstrenoVal) ?>">
+            <p class="muted">Banda del candidato: <strong><?= V::e($cand['NOMBRE_BREVE'] ?? ('#' . $cand['ID_BANDA'])) ?></strong> (#<?= (int) $cand['ID_BANDA'] ?>)<?php if ($cand['BANDA_LOCALIDAD']): ?> — <?= V::e($cand['BANDA_LOCALIDAD']) ?><?php endif; ?><?php if ((string) $bandaEstrenoVal !== (string) $cand['ID_BANDA']): ?> — el valor del campo es distinto, revísalo<?php endif; ?>.</p>
+        </div>
+        <div class="field">
+            <label class="field-label" for="ESTILO">Estilo</label>
+            <select class="input" id="ESTILO" name="ESTILO">
+                <option value="">— Sin asignar —</option>
+                <option value="CCTT"<?= ($estiloSugerido ?? '') === 'CCTT' ? ' selected' : '' ?>>Cornetas y Tambores (CCTT)</option>
+                <option value="AM"<?= ($estiloSugerido ?? '') === 'AM' ? ' selected' : '' ?>>Agrupación Musical (AM)</option>
+            </select>
+            <p class="muted small" id="estiloHint"><?= $estiloSugerido ? 'Sugerido automáticamente según las marchas existentes de esta banda.' : 'No hay marchas previas de esta banda; selecciónalo manualmente.' ?></p>
+        </div>
+        <div class="field">
+            <label class="field-label" for="DETALLES_MARCHA">Detalles</label>
+            <textarea class="input" id="DETALLES_MARCHA" name="DETALLES_MARCHA" rows="3"></textarea>
         </div>
 
         <div class="field">

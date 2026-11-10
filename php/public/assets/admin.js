@@ -110,8 +110,25 @@
         }
         syncDisabled();
 
+        // ✕ dentro del campo: vacía la localidad sin tocar la provincia.
+        const clearBtn = root.querySelector('[data-municipio-clear]');
+        function syncClear() { if (clearBtn) clearBtn.hidden = locInput.value === ''; }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                locInput.value = '';
+                closeSuggest(suggest);
+                syncClear();
+                locInput.dispatchEvent(new Event('change', { bubbles: true }));
+                if (!locInput.disabled) locInput.focus();
+            });
+            locInput.addEventListener('input', syncClear);
+            new MutationObserver(syncClear).observe(locInput, { attributes: true, attributeFilter: ['value'] });
+        }
+        syncClear();
+
         provSel.addEventListener('change', () => {
             locInput.value = '';
+            syncClear();
             syncDisabled();
             closeSuggest(suggest);
         });
@@ -133,7 +150,7 @@
                 });
                 const data = await res.json();
                 if (data.code !== 'CREATED') { alert('No se pudo añadir: ' + data.code); return; }
-                locInput.value = nombre;
+                locInput.value = nombre; syncClear();
             } catch (_) { alert('No se pudo añadir: error de red'); }
             closeSuggest(suggest);
             locInput.focus();
@@ -159,7 +176,7 @@
                     const hayExacta = items.some((v) => v.toLowerCase() === q.toLowerCase());
                     items.forEach((val) => {
                         addItem(val, 'suggest-item', () => {
-                            locInput.value = val;
+                            locInput.value = val; syncClear();
                             closeSuggest(suggest);
                             locInput.focus();
                         });
@@ -168,7 +185,7 @@
                         addItem(
                             isAdmin ? '+ Añadir «' + q + '» a ' + provincia : 'Usar «' + q + '» (se propondrá al administrador)',
                             'suggest-item suggest-item-add',
-                            () => { isAdmin ? crearYUsar(provincia, q) : (locInput.value = q, closeSuggest(suggest)); }
+                            () => { isAdmin ? crearYUsar(provincia, q) : (locInput.value = q, syncClear(), closeSuggest(suggest)); }
                         );
                     }
                     if (!items.length && hayExacta) { closeSuggest(suggest); return; }
@@ -190,6 +207,7 @@
                 provSel.dispatchEvent(new Event('change'));
             }
             if (nombre) locInput.value = nombre;
+            syncClear();
         };
     }
 
@@ -520,5 +538,23 @@
             const search = row.querySelector('[data-banda-edit-search]');
             if (!suggest.contains(e.target) && e.target !== search) closeSuggest(row);
         });
+    });
+})();
+
+/* ✕ genérico dentro de un campo de texto: <button data-clear-for="ID_INPUT">
+   vacía el input. Se muestra solo si el campo tiene texto. */
+(function () {
+    document.querySelectorAll('[data-clear-for]').forEach(function (btn) {
+        var input = document.getElementById(btn.dataset.clearFor);
+        if (!input) return;
+        function sync() { btn.hidden = input.value === ''; }
+        ['input', 'focus', 'blur', 'change'].forEach(function (ev) { input.addEventListener(ev, sync); });
+        btn.addEventListener('click', function () {
+            input.value = '';
+            sync();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus();
+        });
+        sync();
     });
 })();

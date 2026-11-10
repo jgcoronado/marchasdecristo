@@ -58,6 +58,7 @@ final class Html
             <div class="autocomplete">
                 <input class="input" id="LOCALIDAD" name="LOCALIDAD" type="text" autocomplete="off"
                        value="{$locVal}" data-municipio-localidad>
+                <button type="button" class="autocomplete-clear" data-municipio-clear aria-label="Borrar localidad" title="Borrar localidad" hidden>&times;</button>
                 <div class="suggest" hidden data-municipio-suggest></div>
             </div>
             <p class="field-help muted small">Escribe para buscar; si no aparece en la lista, podrás añadirla.</p>
