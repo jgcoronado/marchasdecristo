@@ -498,6 +498,33 @@ DB_PATH=php/data/mdc.db php php/app/tools/reevaluar_ingesta.php --aplicar
 
 ---
 
+### `fusionar_marchas.php` — Fusionar marchas duplicadas
+
+Para cada par `CONSERVAR:BORRAR`, pasa a la marcha que se conserva los autores,
+las pistas de disco, los enlaces (publicados y en curación) y las referencias de
+la ingesta, rellena solo sus campos vacíos y añade la nota de `DATOS_INT` de la
+otra. Después borra la sobrante. Usa una transacción por par y se puede volver a
+ejecutar sin problema.
+
+```bash
+php php/app/tools/fusionar_marchas.php --pares=3996:5539,2147:5545 --dry-run
+php php/app/tools/fusionar_marchas.php --pares=3996:5539,2147:5545
+```
+
+### `crear_discos_desde_spec.php` — Alta de discos con sus pistas desde un JSON
+
+Crea discos y enlaza sus pistas a marchas que **ya existen**, a partir de una
+especificación revisada a mano (`[{nombre, anio, banda, id_disco|null, notas,
+pistas:[{n, marcha}]}]`). Con `id_disco`, solo añade las pistas que falten a ese
+disco. Nunca pisa un número de pista ocupado por otra marcha: lo informa como
+conflicto.
+
+```bash
+php php/app/tools/crear_discos_desde_spec.php --spec=discos.json --dry-run
+```
+
+---
+
 ### `migrate_banda_relacion.php` — Migración one-shot: linaje de bandas
 
 Mueve los datos de `FORMACION_ANT`/`FORMACION_SIG` a la tabla `banda_relacion` y hace
@@ -773,6 +800,18 @@ El resto del formulario es idéntico: mismos campos que "Añadir marcha",
 autocompletado de autor y dedicatoria, selector de municipio y estilo sugerido
 (ahora respeta el `P_ESTILO` que propone el descubridor, y si no lo hay lo
 deduce de las marchas previas de la banda, como antes).
+
+### Freno a duplicados al aceptar (2026-11-10)
+
+El detalle del candidato avisa de las marchas parecidas que ya existen: al abrirlo
+(con el título propuesto, los autores resueltos solos y la banda) y en vivo al
+editar título, autores o banda. El criterio es `AdminRepo::posiblesDuplicadosMarcha()`:
+autor común y título ≥ 80 %, o misma banda de estreno (salvo la 0, «Varias
+bandas») y título ≥ 90 %. Es el mismo que usa el aviso del formulario de marcha.
+Si hay coincidencias, el servidor no crea la marcha (`POSIBLE_DUPLICADO`) salvo
+que se marque «He revisado las marchas parecidas y esta es una marcha
+distinta». Si es la misma, lo correcto es «Asociar a marcha existente». Contexto
+y causas en [duplicados-2026-11-10.md](duplicados-2026-11-10.md).
 
 ### Veto: un descarte no vuelve a aparecer
 

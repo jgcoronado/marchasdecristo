@@ -73,6 +73,9 @@ CREATE TABLE ingest_candidato (
   FUENTE TEXT NOT NULL DEFAULT 'youtube',
   ESTADO TEXT NOT NULL DEFAULT 'pendiente', MOTIVO TEXT,
   PUBLICADO_AT TEXT, REVIEWED_AT TEXT,
+  -- Las anota IngestaRepo::reevaluarTrasCrearMarcha cuando la marcha recién
+  -- creada se parece a otro candidato pendiente (ci_duplicados.php lo ejercita).
+  MATCH_MARCHA_ID INTEGER, MATCH_SCORE REAL,
   ISRC TEXT  -- R-01: espejo de migrate_ingest.php
 );
 CREATE TABLE ingest_veto (

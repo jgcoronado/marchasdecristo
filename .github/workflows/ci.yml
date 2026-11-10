@@ -72,6 +72,11 @@ jobs:
       - name: Unit tests (propuestas de editores)
         run: php php/tools/ci_propuestas.php
 
+      # Duplicados de marcha: autor común o misma banda de estreno, y el panel
+      # de ingesta no deja crear uno sin confirmarlo (docs/duplicados-2026-11-10.md).
+      - name: Unit tests (detector de duplicados de marcha)
+        run: php php/tools/ci_duplicados.php
+
       - name: Start built-in server
         env:
           DB_PATH: /tmp/ci-mdc.db

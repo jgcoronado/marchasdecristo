@@ -58,6 +58,17 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     </div>
 <?php endif; ?>
 
+<?php if (!empty($duplicados)): ?>
+    <div class="alert alert-error">
+        ⚠ Ya existe<?= count($duplicados) > 1 ? 'n marchas parecidas' : ' una marcha parecida' ?>:
+        <?= implode('; ', array_map(static fn(array $d): string =>
+            '<a href="/dashboard/marcha/' . (int) $d['ID_MARCHA'] . '" target="_blank">' . V::e($d['TITULO'])
+            . ' (M-' . (int) $d['ID_MARCHA'] . ($d['FECHA'] ? ', ' . (int) $d['FECHA'] : '') . ($d['BANDA'] ? ', ' . V::e($d['BANDA']) : '') . ')</a>'
+            . ' — ' . (int) round($d['sim'] * 100) . '%, ' . V::e($d['motivo']), $duplicados)) ?>.
+        Si es la misma, usa «Asociar a marcha existente».
+    </div>
+<?php endif; ?>
+
     <div class="panel">
         <div class="row" style="flex-wrap:wrap;gap:1rem">
             <div style="flex:1;min-width:280px">
@@ -123,6 +134,7 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
     <form class="panel" action="/dashboard/ingesta/<?= (int) $cand['ID_CAND'] ?>/aceptar" method="POST" id="aceptarForm" <?= H::municipioFormAttrs(true, $csrf) ?>>
         <input type="hidden" name="_csrf" value="<?= V::e($csrf) ?>">
         <input type="hidden" name="ref" value="<?= V::e($back) ?>">
+        <div id="duplicateAlert" class="alert alert-error" hidden></div>
 <?php foreach ($fields as [$key, $label, $type, $default]): if ($key !== 'TITULO') continue; ?>
         <div class="field">
             <label class="field-label" for="<?= $key ?>"><?= $label ?></label>
@@ -198,6 +210,13 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
 <?= $esYoutube
     ? 'Guardar el vídeo como audio de la marcha'
     : ($fuente === 'dmp' ? 'Guardar el disco de origen como nota interna de la marcha' : 'Guardar el enlace de ' . V::e($fuenteLabel) . ' en la ficha de la marcha') ?>
+            </label>
+        </div>
+
+        <div class="field" id="confirmarNoDuplicado"<?= empty($duplicados) ? ' hidden' : '' ?>>
+            <label class="row" style="align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" name="confirmar_no_duplicado" value="1">
+                He revisado las marchas parecidas y esta es una marcha distinta
             </label>
         </div>
 

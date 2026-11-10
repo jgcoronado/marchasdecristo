@@ -236,6 +236,7 @@
         if (estiloSel && estilo) estiloSel.value = estilo;
         close();
         search.focus();
+        if (window.triggerDuplicateCheck) window.triggerDuplicateCheck();
     }
 
     if (clear) {
@@ -243,6 +244,7 @@
             hidden.value = '';
             search.value = '';
             close();
+            if (window.triggerDuplicateCheck) window.triggerDuplicateCheck();
         });
     }
 
@@ -337,17 +339,29 @@
     });
 })();
 
-/* Comprobación de duplicados: avisa si ya existe una marcha con título similar (≥ 80 %)
-   para los mismos autores. Se dispara al cambiar el título o los autores. */
+/* Comprobación de duplicados: avisa si ya existe una marcha con título similar
+   (≥ 80 % con un autor común, o ≥ 90 % en la misma banda de estreno; criterio en
+   AdminRepo::posiblesDuplicadosMarcha). Se dispara al cambiar el título, los
+   autores o la banda de estreno. En la revisión de ingesta, además, muestra la
+   casilla de confirmación sin la que el servidor no deja crear la marcha. */
 (function () {
     const tituloInput = document.getElementById('TITULO');
     const alert = document.getElementById('duplicateAlert');
     if (!tituloInput || !alert) return;
 
     const excludeId = (typeof window._marchaExcludeId !== 'undefined') ? window._marchaExcludeId : 0;
+    const bandaInput = document.getElementById('BANDA_ESTRENO');
+    const confirmar = document.getElementById('confirmarNoDuplicado');
+    // Si el servidor ya avisó al pintar la página, la casilla se queda visible.
+    const confirmarInicial = confirmar ? !confirmar.hidden : false;
 
     function getAutorIds() {
         return Array.from(document.querySelectorAll('input[name="autoresIds[]"]')).map((i) => i.value);
+    }
+
+    function mostrar(hayHits) {
+        alert.hidden = !hayHits;
+        if (confirmar) confirmar.hidden = !(hayHits || confirmarInicial);
     }
 
     let timer, ctrl;
@@ -355,35 +369,42 @@
     function triggerCheck() {
         const titulo = tituloInput.value.trim();
         const ids = getAutorIds();
+        const banda = bandaInput ? String(bandaInput.value || '').trim() : '';
         clearTimeout(timer);
-        alert.hidden = true;
-        if (titulo.length < 3 || ids.length === 0) return;
+        mostrar(false);
+        if (titulo.length < 3 || (ids.length === 0 && !(Number(banda) > 0))) return;
         timer = setTimeout(async () => {
             if (ctrl) ctrl.abort();
             ctrl = new AbortController();
             try {
                 const params = new URLSearchParams({ titulo, excludeId });
                 ids.forEach((id) => params.append('autorIds[]', id));
+                if (Number(banda) > 0) params.set('banda', banda);
                 const res = await fetch('/api/marcha/checkDuplicate?' + params.toString(),
                     { signal: ctrl.signal, credentials: 'same-origin' });
                 const data = await res.json();
                 const hits = Array.isArray(data.data) ? data.data : [];
-                if (!hits.length) { alert.hidden = true; return; }
+                if (!hits.length) { mostrar(false); return; }
                 const links = hits.map((h) =>
                     '<a href="/dashboard/marcha/' + h.ID_MARCHA + '" target="_blank">' +
-                    escHtml(h.TITULO) + ' (M-' + h.ID_MARCHA + ', ' + Math.round(h.sim * 100) + '% similitud)</a>'
+                    escHtml(h.TITULO) + ' (M-' + h.ID_MARCHA +
+                    (h.FECHA ? ', ' + h.FECHA : '') + (h.BANDA ? ', ' + escHtml(h.BANDA) : '') +
+                    ', ' + Math.round(h.sim * 100) + '% similitud, ' + escHtml(h.motivo || '') + ')</a>'
                 ).join('; ');
                 alert.innerHTML = '⚠️ Posible duplicado — ya existe una marcha similar: ' + links + '. Revísala antes de continuar.';
-                alert.hidden = false;
+                mostrar(true);
             } catch (_) { /* abortado o red */ }
         }, 400);
     }
 
     function escHtml(s) {
-        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     tituloInput.addEventListener('input', triggerCheck);
+    // En la ingesta la banda es un campo numérico editable; en el formulario de
+    // marcha es un hidden que rellena su autocompletado (llama a triggerDuplicateCheck).
+    if (bandaInput && bandaInput.type !== 'hidden') bandaInput.addEventListener('input', triggerCheck);
 
     // Se llama también desde el bloque de autores al añadir/quitar chips.
     window.triggerDuplicateCheck = triggerCheck;
