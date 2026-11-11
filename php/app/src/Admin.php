@@ -2511,8 +2511,12 @@ final class Admin
             echo json_encode(['code' => 'AUTH_REQUIRED', 'data' => []]);
             return;
         }
-        $q = trim((string) ($_GET['q'] ?? ''));
-        $data = Repo::searchDedicatorias($q);
+        // ?localidad (+ ?provincia): la lista entera de esa localidad, sin ?q.
+        // Si no, el predictivo de ?q, con las de ?bandaLoc primero.
+        $localidad = trim((string) ($_GET['localidad'] ?? ''));
+        $data = $localidad !== ''
+            ? Repo::dedicatoriasDeLocalidad($localidad, trim((string) ($_GET['provincia'] ?? '')))
+            : Repo::searchDedicatorias(trim((string) ($_GET['q'] ?? '')), 10, trim((string) ($_GET['bandaLoc'] ?? '')));
         echo json_encode(['rowsReturned' => count($data), 'data' => $data], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 

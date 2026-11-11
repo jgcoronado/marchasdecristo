@@ -179,11 +179,12 @@ $repro = MD::embedDeUrl((string) $cand['VIDEO_URL']);
             <label class="field-label" for="DEDICATORIA">Dedicatoria</label>
             <div class="autocomplete">
                 <input class="input" id="DEDICATORIA" name="DEDICATORIA" type="text"
-                       value="<?= V::e($cand['P_DEDICATORIA'] ?? '') ?>" autocomplete="off">
+                       value="<?= V::e($cand['P_DEDICATORIA'] ?? '') ?>" autocomplete="off"
+                       data-banda-localidad="<?= V::e((string) ($cand['BANDA_LOCALIDAD'] ?? '')) ?>">
                 <button type="button" class="autocomplete-clear" data-clear-for="DEDICATORIA" aria-label="Borrar dedicatoria" title="Borrar dedicatoria" hidden>&times;</button>
                 <div id="dedicatoriaSuggest" class="suggest" hidden></div>
             </div>
-            <p class="muted">Escribe 7+ caracteres para buscar hermandades ya existentes en la BD. Al elegir una, se rellenan también localidad y provincia.</p>
+            <p class="muted">Con provincia y localidad puestas, salen las hermandades que ya hay en esa localidad (escribe para filtrar). Si no hay ninguna, escribe 7+ caracteres para buscar en toda la BD: primero las de la localidad de la banda. Al elegir una, se rellenan también localidad y provincia.</p>
         </div>
         <div class="field">
             <label class="field-label" for="BANDA_ESTRENO">ID de la banda de estreno</label>
@@ -321,58 +322,96 @@ document.querySelectorAll('.sugerido-autor').forEach(function (btn) {
     });
 });
 
-// Predictivo de dedicatorias: a partir de 7 caracteres busca hermandades ya
-// existentes en la BD (/api/dedicatoria/fastSearch). Si la dedicatoria es de
-// tipo hermandad ("Hdad" en el texto), al aceptar la sugerencia se rellenan
-// también localidad y provincia.
+// Predictivo de dedicatorias.
+//  - Con provincia y localidad puestas: la lista de dedicatorias (no
+//    personales) que ya tienen marchas de esa localidad, filtrada por lo
+//    escrito (/api/dedicatoria/fastSearch?localidad=…&provincia=…).
+//  - Si esa localidad no tiene ninguna (o nada casa y se han escrito 7+
+//    caracteres): búsqueda en toda la BD, con las de la localidad de la banda
+//    del candidato primero (&bandaLoc=…).
+// Si la dedicatoria es de tipo hermandad ("Hdad" en el texto), al aceptar la
+// sugerencia se rellenan también localidad y provincia.
 (function () {
     var input = document.getElementById('DEDICATORIA');
     var suggest = document.getElementById('dedicatoriaSuggest');
+    var provSel = document.getElementById('PROVINCIA');
+    var locInput = document.getElementById('LOCALIDAD');
     if (!input || !suggest) return;
+    var bandaLoc = input.dataset.bandaLocalidad || '';
 
     function closeSuggest() { suggest.hidden = true; suggest.innerHTML = ''; }
+    function norm(t) { return (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+    function pintar(rows) {
+        if (!rows.length) { closeSuggest(); return; }
+        suggest.innerHTML = '';
+        rows.forEach(function (r) {
+            var esHermandad = /hdad/i.test(r.DEDICATORIA || '');
+            var label = esHermandad
+                ? [r.DEDICATORIA, r.LOCALIDAD, r.PROVINCIA].filter(Boolean).join(' - ')
+                : r.DEDICATORIA;
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'suggest-item';
+            b.textContent = label;
+            b.addEventListener('click', function () {
+                input.value = r.DEDICATORIA;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                if (esHermandad && r.LOCALIDAD) {
+                    var form = document.getElementById('aceptarForm');
+                    if (form && typeof form.municipioSetValue === 'function') {
+                        form.municipioSetValue(r.PROVINCIA || '', r.LOCALIDAD);
+                    }
+                }
+                closeSuggest();
+                input.focus();
+            });
+            suggest.appendChild(b);
+        });
+        suggest.hidden = false;
+    }
+
+    async function pedir(params, signal) {
+        var res = await fetch('/api/dedicatoria/fastSearch?' + new URLSearchParams(params),
+            { signal: signal, credentials: 'same-origin' });
+        var data = await res.json();
+        return Array.isArray(data.data) ? data.data : [];
+    }
+
+    // Lista de la localidad fijada, cacheada por provincia|localidad.
+    var cache = {};
+    async function listaLocalidad(signal) {
+        var prov = provSel ? provSel.value.trim() : '';
+        var loc = locInput ? locInput.value.trim() : '';
+        if (!prov || !loc) return [];
+        var k = prov + '|' + loc;
+        if (!cache[k]) cache[k] = await pedir({ localidad: loc, provincia: prov }, signal);
+        return cache[k];
+    }
 
     var timer, controller;
-    input.addEventListener('input', function () {
+    function actualizar(espera) {
         var q = input.value.trim();
         clearTimeout(timer);
-        if (q.length < 7) { closeSuggest(); return; }
         timer = setTimeout(async function () {
             if (controller) controller.abort();
             controller = new AbortController();
             try {
-                var res = await fetch('/api/dedicatoria/fastSearch?q=' + encodeURIComponent(q),
-                    { signal: controller.signal, credentials: 'same-origin' });
-                var data = await res.json();
-                var rows = Array.isArray(data.data) ? data.data : [];
-                if (!rows.length) { closeSuggest(); return; }
-                suggest.innerHTML = '';
-                rows.forEach(function (r) {
-                    var esHermandad = /hdad/i.test(r.DEDICATORIA || '');
-                    var label = esHermandad
-                        ? [r.DEDICATORIA, r.LOCALIDAD, r.PROVINCIA].filter(Boolean).join(' - ')
-                        : r.DEDICATORIA;
-                    var b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'suggest-item';
-                    b.textContent = label;
-                    b.addEventListener('click', function () {
-                        input.value = r.DEDICATORIA;
-                        if (esHermandad && r.LOCALIDAD) {
-                            var form = document.getElementById('aceptarForm');
-                            if (form && typeof form.municipioSetValue === 'function') {
-                                form.municipioSetValue(r.PROVINCIA || '', r.LOCALIDAD);
-                            }
-                        }
-                        closeSuggest();
-                        input.focus();
-                    });
-                    suggest.appendChild(b);
-                });
-                suggest.hidden = false;
+                var lista = await listaLocalidad(controller.signal);
+                if (lista.length) {
+                    var nq = norm(q);
+                    var hay = lista.filter(function (r) { return norm(r.DEDICATORIA).indexOf(nq) !== -1; });
+                    // Lo ya elegido tal cual no se vuelve a ofrecer a sí mismo.
+                    if (hay.length === 1 && hay[0].DEDICATORIA === q) { closeSuggest(); return; }
+                    if (hay.length || q.length < 7) { pintar(hay); return; }
+                }
+                if (q.length < 7) { closeSuggest(); return; }
+                pintar(await pedir({ q: q, bandaLoc: bandaLoc }, controller.signal));
             } catch (e) { /* abortado o red: ignorar */ }
-        }, 200);
-    });
+        }, espera);
+    }
+    input.addEventListener('input', function () { actualizar(200); });
+    input.addEventListener('focus', function () { actualizar(0); });
 
     document.addEventListener('mousedown', function (e) {
         if (!suggest.contains(e.target) && e.target !== input) closeSuggest();
