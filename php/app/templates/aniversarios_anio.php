@@ -14,7 +14,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
         <h1 class="rescount"><?= V::e($h1) ?></h1>
     </div>
 
-    <p class="welcome-text">Marchas procesionales que cumplen un aniversario redondo (25, 50, 75, 100 años o
+    <p class="asiento">Marchas procesionales que cumplen un aniversario redondo (25, 50, 75, 100 años o
         más) en <?= V::e($anio) ?>, agrupadas por el año en que se compusieron.</p>
 
     <div class="stack">

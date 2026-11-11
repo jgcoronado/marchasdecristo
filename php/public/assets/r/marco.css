@@ -79,14 +79,17 @@ footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner
     display: block; margin: var(--e4, 1rem) 0 0; padding: 0; border: 0; background: none; box-shadow: none;
     text-align: center; font-size: var(--t-l); line-height: 1.6; text-wrap: balance; color: var(--muted, var(--muted-c));
 }
-.welcome-counts .cifra { display: inline; white-space: nowrap; }
-/* El separador va pegado al final de cada cifra: si la línea parte, el «·»
-   se queda arriba y la siguiente no empieza con él. */
-.welcome-counts .cifra:not(:last-child)::after { content: " ·"; }
-/* En móvil caben dos cifras por línea a --t-l: 2+2+1 dejaba la quinta sola.
-   La primera (marchas, la del sitio) va en su línea y las otras cuatro en dos
-   parejas. */
-@media (max-width: 47.99rem) { .welcome-counts .cifra:first-child { display: block; } .welcome-counts .cifra:first-child::after { content: none; } }
+/* PC: una línea, cifras separadas solo por espacio (sin «·» que pueda
+   quedar colgando). Móvil: rejilla de dos columnas, marchas a lo ancho y las
+   otras cuatro en 2×2. */
+.welcome-counts, .stack.home .welcome-counts { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.25em; }
+.welcome-counts .cifra, .welcome-counts .cifra:nth-child(n) { display: block; grid-column: auto; white-space: nowrap; }
+@media (max-width: 47.99rem) {
+    .welcome-counts, .stack.home .welcome-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e1, .25rem) var(--e4, 1rem); }
+    .welcome-counts, .stack.home .welcome-counts { font-size: var(--t-m); }
+    .welcome-counts .cifra:nth-child(n) { white-space: normal; }
+    .welcome-counts .cifra:first-child { grid-column: 1 / -1; }
+}
 .welcome-counts .cifra b, .welcome-counts .cifra span { display: inline; font-family: inherit; font-size: inherit; letter-spacing: 0; line-height: inherit; }
 .welcome-counts .cifra b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .welcome-counts .cifra b::after { content: " "; }
@@ -112,3 +115,46 @@ footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner
     .ultimas-t td.t-main { display: block; font-size: var(--t-m); }
     .ultimas-t td:not(.t-main):not(:nth-child(2))::before { content: " · "; }
 }
+
+/* Marcha del día en PC: el vídeo ocupa a la derecha la altura de la tarjeta
+   (desde el título de sección) y los datos van arriba a la izquierda; antes
+   empezaba bajo el título y dejaba vacía la mitad inferior izquierda. */
+@media (min-width: 48rem) {
+    .marcha-dia { grid-template-rows: auto 1fr; }
+    .marcha-dia > .shead { grid-column: 1; }
+    .marcha-dia .ultima-row { grid-column: 1; grid-row: 2; }
+    /* Llena la altura de la celda (la marca la columna «Explorar»): el póster
+       no necesita 16:9 y el iframe se adapta. */
+    .marcha-dia .ytembed { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; aspect-ratio: auto; min-height: 15rem; }
+}
+/* Póster propio de la fachada (§0.8): nada de YouTube (ni la miniatura de
+   i.ytimg.com) hasta pulsar. Fondo de marca, título y banda en texto y botón
+   de reproducir rectangular. */
+.ytembed .ytfacade.ytposter {
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: var(--e1, .25rem);
+    padding: var(--e4, 1rem) var(--e4, 1rem) var(--e4, 1rem); text-align: left;
+    background: var(--marca, #151b36); color: var(--marca-fg, #fff); font: inherit;
+}
+.ytposter .ytposter-t { font-size: var(--t-l); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+.ytposter .ytposter-b { font-size: var(--t-s); opacity: .85; }
+.ytposter .ytfacade-play { top: 42%; border-radius: var(--r, 4px); }
+.ytposter:hover .ytposter-t, .ytposter:focus-visible .ytposter-t { text-decoration: underline; }
+.ytposter:focus-visible { outline: 2px solid var(--enlace); outline-offset: 2px; }
+
+/* ── Páginas de sección ─────────────────────────────────────────────────── */
+/* Entradilla: prosa a ~70ch, alineada al borde del contenido y sin caja. */
+.asiento { max-width: 70ch; margin-left: 0; }
+.asiento a, .record p a { color: var(--enlace); text-decoration: underline; text-underline-offset: 2px; }
+
+/* /rankings: la tabla ya está dentro de la tarjeta del desplegable; sin
+   segunda caja (borde y radio de .tableList) dentro. */
+.rank-grid .tableList:has(> .t) { border: 0; border-radius: 0; padding: 0; background: none; }
+
+/* /acompanamientos: lista compacta en columnas, nombre y cifra a la derecha
+   (tabular). Sin barras: muchas eran un punto de 3 px, una raya de color. */
+.acs-locs { columns: 15rem 4; column-gap: var(--e5, 1.5rem); border: 0; border-radius: 0; background: none; overflow: visible; margin: 0 0 var(--e4, 1rem); }
+.acs-locs li, .acs-locs li:nth-child(even) { background: none; break-inside: avoid; }
+.acs-locs li + li { border-top: 0; }
+.acs-locs .acs-loc, .acs .acs-loc { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e3, .75rem); padding: var(--e1, .25rem) 0; border-bottom: 1px solid var(--linea, var(--line)); background: none; }
+.acs-locs .acs-loc-t { font-family: inherit; font-size: var(--t-m); font-weight: 600; color: var(--enlace); }
+.acs-locs .acs-loc-n { font-size: var(--t-m); color: var(--ink); font-variant-numeric: tabular-nums; }

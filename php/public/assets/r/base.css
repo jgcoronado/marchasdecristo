@@ -115,7 +115,16 @@ body > header { border-bottom: 0; }                                         /* i
 
 /* 4d. Sombras difusas (§0.5): los tokens ya valen --sombra (arriba); se
    repiten aquí las que estaban escritas a mano en dark.css. */
-.card, .record, .blk, .fh { box-shadow: var(--sombra); }
+.card, .blk, .fh { box-shadow: var(--sombra); }
+/* .record nunca es tarjeta: en todas las páginas que lo usan (/buscar,
+   /rankings, /dedicatorias, /acompanamientos, /datos, /contacto…) es la
+   cabecera de página y su contenido trae sus propias cajas. Con sombra o
+   borde pero sin fondo ni relleno quedaba un marco fantasma pegado al h1. */
+.record { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+/* h1 único por tipo de página: sección/listado a --t-xl, ficha a --t-xxl
+   (.fh h1 en identidad.css). app.css daba a .record h1 un clamp de ~40 px. */
+.record h1, .record > h1 { font-size: var(--t-xl); margin: 0 0 var(--e2, .5rem); }
+.record .fh h1 { font-size: var(--t-xxl); margin: 0; }
 
 /* 4e. El puntito de color delante de cada servicio de streaming: fuera. */
 .stream-btn::before { content: none; display: none; }

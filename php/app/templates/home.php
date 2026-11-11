@@ -19,8 +19,8 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             las marchas de más rabiosa actualidad, con la más completa información sobre autores, bandas y discos.
         </p>
 <?php /* Las cifras van en una línea de datos (--t-l), no en mosaico de números
-         gigantes (§0.5). Cada cifra es un bloque que no se parte y r/marco.css
-         equilibra las líneas para que la quinta no quede sola en móvil. */ ?>
+         gigantes (§0.5). Cada cifra es un bloque que no se parte; r/marco.css las
+         separa por espacio en PC y en móvil las pone en rejilla de dos. */ ?>
 <?php if ($estado): ?>
         <div class="welcome-counts">
             <span class="cifra"><b><?= $num($estado['MARCHAS']) ?></b><span>marchas</span></span>
@@ -58,9 +58,14 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             </a>
 <?php if ($mddYtid !== null): ?>
             <div class="ytembed" data-ytid="<?= V::e($mddYtid) ?>">
-                <button type="button" class="ytfacade" aria-label="Reproducir el vídeo (carga YouTube al pulsar)">
-                    <img class="ytfacade-img" src="<?= V::e(MD::youtubeThumb($mddYtid)) ?>" alt="" loading="lazy" width="480" height="270">
+                <?php /* Póster propio (§0.8): ni la miniatura de i.ytimg.com se pide
+                         antes del clic; catalog.js pone el iframe al pulsar. */ ?>
+                <button type="button" class="ytfacade ytposter" aria-label="Reproducir el vídeo de <?= V::e($mdd['TITULO']) ?> (carga YouTube al pulsar)">
                     <span class="ytfacade-play" aria-hidden="true"></span>
+                    <span class="ytposter-t" aria-hidden="true"><?= V::e($mdd['TITULO']) ?></span>
+<?php if (!empty($mdd['BANDA_NOMBRE'])): ?>
+                    <span class="ytposter-b" aria-hidden="true"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?></span>
+<?php endif; ?>
                 </button>
             </div>
 <?php endif; ?>

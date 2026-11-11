@@ -113,7 +113,7 @@ main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, 
      fondo casi negro no se ve. */
 /* Cabecera y pie: paño noche en los dos temas (identidad.css). */
 .rectabs a { color: var(--acc); }
-.card, .record { box-shadow: 0 0 0 1px var(--line); }
+.card { box-shadow: 0 0 0 1px var(--line); }
 
 /* Acompañamientos: los claros de la tira se oscurecen hacia la tarjeta y en
    oscuro esa mezcla apaga mucho más, así que se sube la proporción (ver .acs
@@ -125,5 +125,7 @@ main a:not(.btn):not(.svc):hover { color: color-mix(in srgb, var(--enlace) 70%, 
 .tema-toggle .tema-sol { display: block; }
 
 /* ── Identidad 2026-11 en oscuro ─────────────────────────────────────────── */
-.card, .blk, .fh { box-shadow: 0 0 0 1px var(--linea); }
+/* .card/.blk/.fh ya llevan su borde de 1 px (identidad.css): una sombra
+   de 1 px del mismo color encima lo doblaba a 2 px. */
+.card, .blk, .fh { box-shadow: none; }
 .stream-tidal::before { background: #fff; }
