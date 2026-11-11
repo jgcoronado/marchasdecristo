@@ -9,6 +9,10 @@
  */
 $asunto = 'Aporte a Marchas de Cristo';
 ?>
+<div class="crumbs">
+    <span><a href="/">Inicio</a> / Contacto</span>
+</div>
+
 <article class="record">
     <h1>Contacto</h1>
     <p class="asiento">Marchas de Cristo es un proyecto personal de Javier Guerra que quiere documentar la música
