@@ -2,15 +2,18 @@
 
 /* ── Regiones con nombre (§2.7) ──────────────────────────────────────────
    Las cuatro fichas (marcha, banda, compositor, disco) comparten el mismo
-   marcado: .ficha > .ficha-cab, -portadas, -escuchar, -datos, -notas,
-   -cuerpo, -pie. La colocación sale entera de las variables de abajo, así
-   que otro diseño (B) reordena la ficha redefiniendo solo --ficha-areas y
-   --ficha-cols, sin tocar las plantillas. Una región que no existe en una
-   ficha deja su celda vacía y la fila se cierra (filas «auto»). */
+   marcado y estas ÁREAS: cab, portadas, esc, lado, cuerpo, pie.
+   .ficha-lado envuelve .ficha-datos y .ficha-notas: una sola celda, para que
+   la columna lateral no alinee sus filas con las de la principal (en B dejaba
+   200 px entre el mosaico y Datos). La colocación sale entera de
+   --ficha-areas y --ficha-cols: otro diseño (B) reordena la ficha
+   redefiniendo solo esas dos variables, sin tocar las plantillas. Una región
+   que no existe deja su celda vacía y la fila se cierra (filas «auto»); la
+   plantilla no emite regiones vacías (sin mosaico no hay .ficha-portadas). */
 .ficha {
-    /* Móvil: título → escuchar → datos → cuerpo (portadas y notas, después). */
+    /* Móvil: título → escuchar → datos → cuerpo (portadas, después). */
     --ficha-cols: minmax(0, 1fr);
-    --ficha-areas: "cab" "esc" "datos" "cuerpo" "portadas" "notas" "pie";
+    --ficha-areas: "cab" "esc" "lado" "cuerpo" "portadas" "pie";
     display: grid;
     grid-template-columns: var(--ficha-cols);
     grid-template-areas: var(--ficha-areas);
@@ -21,38 +24,50 @@
 /* Disco: la portada grande va junto al título también en móvil. */
 .ficha-disco {
     --ficha-cols: 7.5rem minmax(0, 1fr);
-    --ficha-areas: "portadas cab" "esc esc" "datos datos" "cuerpo cuerpo" "notas notas" "pie pie";
+    --ficha-areas: "portadas cab" "esc esc" "lado lado" "cuerpo cuerpo" "pie pie";
 }
 @media (min-width: 64rem) {
     /* Diseño A: cabecera a todo el ancho (título y frase a la izquierda,
-       portadas a la derecha); debajo, columna estrecha (escuchar, datos,
-       notas) y columna ancha (cuerpo). La columna estrecha se apila en una
-       sola celda que abarca todas las filas del cuerpo. */
+       portadas a la derecha); debajo, columna estrecha (escuchar y lado) y
+       columna ancha (cuerpo). El lado está en la fila 1fr, que abarca todo
+       el alto del cuerpo: así puede ir pegajoso (§0.4, sin miles de px de
+       columna vacía). */
     .ficha {
         --ficha-cols: minmax(17rem, 22rem) minmax(0, 1fr) auto;
         --ficha-areas:
             "cab    cab    portadas"
             "esc    cuerpo cuerpo"
-            "datos  cuerpo cuerpo"
-            "notas  cuerpo cuerpo"
-            ".      cuerpo cuerpo"
+            "lado   cuerpo cuerpo"
             "pie    pie    pie";
-        grid-template-rows: auto auto auto auto 1fr auto;
+        grid-template-rows: auto auto 1fr auto;
         column-gap: var(--e5, 1.5rem);
     }
-    /* Disco: portada junto al título y a escuchar; debajo, el contenido a
-       todo el ancho. Sin filas 1fr repartidas con el cuerpo: con ellas la
-       fila de escuchar crecía tanto como el contenido y lo empujaba abajo. */
+    /* Sin escuchar ni lado (compositor sin biografía), la columna estrecha
+       sobra: el cuerpo se lleva todo el ancho. */
+    .ficha:not(:has(> .ficha-escuchar, > .ficha-lado)) {
+        --ficha-cols: minmax(0, 1fr) auto;
+        --ficha-areas: "cab portadas" "cuerpo cuerpo" "pie pie";
+        grid-template-rows: auto auto auto;
+    }
+    /* Disco: portada (200 px, su tamaño real: más grande se ve borrosa)
+       junto al título y a escuchar; debajo, el contenido a todo el ancho. */
     .ficha-disco {
-        --ficha-cols: 15rem minmax(0, 1fr);
+        --ficha-cols: 12.5rem minmax(0, 1fr);
         --ficha-areas:
             "portadas cab"
             "portadas esc"
-            "datos    datos"
-            "notas    notas"
+            "lado     lado"
             "cuerpo   cuerpo"
             "pie      pie";
-        grid-template-rows: auto 1fr auto auto auto auto;
+        grid-template-rows: auto 1fr auto auto auto;
+    }
+}
+/* Pegajoso solo si la pantalla tiene alto para él; si aun así no cabe, se
+   desplaza por dentro en vez de quedar cortado. */
+@media (min-width: 64rem) and (min-height: 40rem) {
+    .ficha:not(.ficha-disco) > .ficha-lado {
+        position: sticky; top: var(--e4, 1rem);
+        max-height: calc(100vh - 2 * var(--e4, 1rem)); overflow-y: auto; overscroll-behavior: contain;
     }
 }
 .ficha > * { min-width: 0; margin: 0; }
@@ -60,12 +75,18 @@
 .ficha-cab      { grid-area: cab; }
 .ficha-portadas { grid-area: portadas; }
 .ficha-escuchar { grid-area: esc; }
-.ficha-datos    { grid-area: datos; }
-.ficha-notas    { grid-area: notas; }
+.ficha-lado     { grid-area: lado; display: grid; gap: var(--e4, 1rem); align-content: start; }
+.ficha-lado > * { margin: 0; min-width: 0; }
 .ficha-cuerpo   { grid-area: cuerpo; display: grid; gap: var(--e4, 1rem); }
-.ficha-cuerpo > .blk + .blk { margin-top: 0; }
+.ficha-cuerpo > .blk + .blk, .ficha-lado > .blk + .blk { margin-top: 0; }
 .ficha-notas:not(.blk) { display: grid; gap: var(--e4, 1rem); }
 .ficha-notas:not(.blk) > .blk + .blk { margin-top: 0; }
+
+/* Compartir (lo inserta catalog.js en .h1-compartir): pegado al final del
+   título, centrado en su primera línea, igual en las cuatro fichas. */
+.ficha-cab .h1-compartir { display: flex; align-items: flex-start; justify-content: flex-start; gap: var(--e2, .5rem); margin: 0 0 var(--e2, .5rem); }
+.ficha-cab .h1-compartir h1 { flex: 0 1 auto; margin: 0; }
+.ficha-cab .h1-compartir .compartir { flex: none; margin-top: calc((var(--t-xxl, 2.2rem) * 1.15 - var(--c-alto, 2.5rem)) / 2); }
 
 /* ── Cabecera: título, etiqueta de estilo y frase. Sin caja: es el titular
    de la página, no una tarjeta más. ── */
@@ -104,7 +125,7 @@
 }
 
 /* Compositor: filas de década dentro de la tabla de obra. */
-.t .t-grupo th {
+.t tbody tr.t-grupo > th {
     text-align: left; font-weight: 600; font-size: var(--t-m, 1rem); color: var(--ink);
     background: var(--sup2, var(--s2)); padding: var(--e2, .5rem) var(--e3, .75rem);
 }
@@ -112,18 +133,72 @@
    contrato .t lo pone r/tablas.css. */
 .ficha .t { width: 100%; }
 
-/* Banda: discografía como rejilla de fundas (portada o funda tipográfica
-   con título y año debajo). auto-fill reparte el ancho: sin hueco a la derecha. */
-.fundas {
-    list-style: none; margin: 0; padding: 0;
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: var(--e4, 1rem);
-}
-.fundas li { min-width: 0; display: flex; flex-direction: column; gap: var(--e1, .25rem); }
-.fundas .mos { width: 100%; border-radius: var(--r, var(--radius)); border: 1px solid var(--linea, var(--line)); }
-.fundas .funda-t { font-weight: 600; font-size: var(--t-s, .9rem); line-height: 1.3; overflow-wrap: anywhere; }
-.fundas .funda-s { font-size: var(--t-xs, .8125rem); color: var(--muted, var(--muted-c)); }
-@media (max-width: 47.99rem) { .fundas { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: var(--e3, .75rem); } }
-
+/* Banda: discografía como rejilla de fundas. La forma (.fundas, .funda-item,
+   .funda-tit, .funda-sub) es la de r/media.css, la misma del listado de
+   discos: una sola pareja de clases para título y subtítulo. */
 /* ── Pie: identificador y enlace permanente, en gris. ── */
 .ficha-pie { grid-area: pie; background: none; border: 0; margin: 0; font-size: var(--t-s, .9rem); color: var(--muted, var(--muted-c)); padding: var(--e3, .75rem) 0; overflow-wrap: anywhere; }
 .ficha-pie a { color: inherit; }
+
+/* §0.4 y móvil: la etiqueta va encima del valor (a 390 px «Acompañamientos»
+   se montaba sobre la cifra) y los enlaces largos se parten. */
+@media (max-width: 47.99rem) {
+    .ficha dl.desc .f { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+.ficha dl.desc dd { min-width: 0; }
+.ficha dl.desc dd a { overflow-wrap: anywhere; }
+
+/* Formaciones (banda): lista limpia «años — nombre — estrenos», sin carril,
+   puntos ni guías punteadas. */
+.ficha ul.lnB > li { padding: var(--e1, .25rem) 0; display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); column-gap: var(--e3, .75rem); align-items: baseline; }
+.ficha ul.lnB > li::before, .ficha ul.lnB > li::after, .ficha ul.lnB .lead { content: none; display: none; }
+.ficha ul.lnB > li.juv { padding-left: 0; }
+.ficha ul.lnB .yr { grid-column: 1; grid-row: 1 / span 2; color: var(--muted, var(--muted-c)); font-size: var(--t-s, .9rem); }
+.ficha ul.lnB .nm { grid-column: 2; font-size: var(--t-m, 1rem); color: var(--enlace, var(--acc)); }
+.ficha ul.lnB li.focus .nm { color: var(--ink); font-weight: 600; }
+.ficha ul.lnB li.gap .nm, .ficha ul.lnB li.gap .yr { font-style: normal; color: var(--muted, var(--muted-c)); font-size: var(--t-s, .9rem); }
+.ficha ul.lnB .cnt2 { grid-column: 2; font-size: var(--t-s, .9rem); color: var(--muted, var(--muted-c)); white-space: nowrap; }
+
+/* Banda: acompañamientos anteriores como rejilla de años (anclas a cada
+   tabla, sin JS); la tabla del año elegido se ve con :target. */
+.acomp-anios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: var(--e2, .5rem); }
+.acomp-anios a {
+    display: flex; justify-content: space-between; align-items: center; min-height: 2.5rem; padding: 0 var(--e3, .75rem);
+    border: 1px solid var(--linea, var(--line)); border-radius: var(--r, 4px); background: var(--card);
+    color: var(--ink); text-decoration: none; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.acomp-anios a span { font-weight: 400; color: var(--muted, var(--muted-c)); font-size: var(--t-s, .9rem); }
+.acomp-anios a:hover { background: var(--sup2, var(--s2)); }
+@media (max-width: 47.99rem) { .acomp-anios { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); } .acomp-anios a { min-height: 44px; } }
+.acomp-anio { display: none; margin-top: var(--e4, 1rem); }
+.acomp-anio:target { display: block; }
+.acomp-anio h3 { font-size: var(--t-l, 1.2rem); margin: 0 0 var(--e2, .5rem); }
+
+/* Obra del compositor: la marcha manda en el ancho; dedicatoria y banda,
+   después. */
+@media (min-width: 48rem) {
+    .ficha-autor #obra-table { table-layout: fixed; }
+    .ficha-autor #obra-table th:nth-child(1) { width: 34%; }
+    .ficha-autor #obra-table th:nth-child(2) { width: 24%; }
+    .ficha-autor #obra-table th:nth-child(4) { width: 4.5rem; }
+    .ficha-autor #obra-table th:nth-child(5) { width: 4.5rem; }
+}
+/* Filas de grupo: fondo constante (la cebra de td no las toca, y en
+   oscuro se veía una sí y otra no). */
+.t tbody tr.t-grupo > th, .t tbody tr.t-grupo:hover > th { background: var(--sup2, var(--s2)); }
+
+/* Grabaciones: «perc.» en su propia línea bajo la duración: la cifra
+   alinea igual con o sin ella. */
+.ficha .t td.t-dur .perc { display: block; margin: 0; padding: 0; background: none; font-size: var(--t-xs, .8125rem); color: var(--muted, var(--muted-c)); line-height: 1.2; }
+@media (max-width: 47.99rem) { .ficha .t td.t-dur .perc { display: inline; margin-left: var(--e1, .25rem); } }
+
+/* Disco: número de pista delante del título (también en móvil). */
+.t td.t-pista { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted, var(--muted-c)); white-space: nowrap; width: 3.5rem; }
+@media (max-width: 47.99rem) {
+    .t td.t-pista { order: 1; width: auto; font-size: var(--t-m, 1rem); padding-right: var(--e2, .5rem); }
+    .t td.t-pista::before { content: none; }
+    .t td.t-pista + td.t-main + td::before { content: none; }
+}
+
+/* Véase también: enlaces de exploración en texto. */
+.ficha .vease { margin: 0 0 var(--e3, .75rem); line-height: 1.6; }
