@@ -124,6 +124,12 @@ body > header { border-bottom: 0; }                                         /* i
 /* h1 único por tipo de página: sección/listado a --t-xl, ficha a --t-xxl
    (.fh h1 en identidad.css). app.css daba a .record h1 un clamp de ~40 px. */
 .record h1, .record > h1 { font-size: var(--t-xl); margin: 0 0 var(--e2, .5rem); }
+/* Los listados y hubs ponen el h1 en la .toolbar (.rescount): app.css lo
+   bajaba a 1.2rem en móvil y quedaba más pequeño que el de /buscar o
+   /rankings. Misma regla en todas las anchuras (la media query es para ganar
+   a la de app.css, que también va dentro de una). */
+.toolbar .rescount, .toolbar > h1 { font-size: var(--t-xl); line-height: 1.15; }
+@media (max-width: 47.99rem) { body .toolbar .rescount, body .list-page > .toolbar .rescount, .toolbar > h1 { font-size: var(--t-xl); } }
 .record .fh h1 { font-size: var(--t-xxl); margin: 0; }
 
 /* 4e. El puntito de color delante de cada servicio de streaming: fuera. */

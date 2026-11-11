@@ -18,7 +18,7 @@ $dias = $serie['dias'];
 
     <header class="record acs-cab">
         <h1><?= V::e($h1) ?></h1>
-        <p class="asiento">Qué banda ha acompañado cada año a cada <?= V::e($pieza) ?> de Cristo en <?= V::e($localidad) ?>, día a día y hermandad por hermandad. La barra de cada <?= V::e($pieza) ?> va de su primer año con registro a <?= $eje['fin'] ?>: el tramo intenso es la banda actual, los claros las anteriores y los huecos, años sin registro. Debajo, la lista completa, de lo más reciente a lo más antiguo.</p>
+        <p class="asiento">Qué banda ha acompañado cada año a cada <?= V::e($pieza) ?> de Cristo en <?= V::e($localidad) ?>, día a día y hermandad por hermandad. La barra gris de cada <?= V::e($pieza) ?> va de su primer año con registro a <?= $eje['fin'] ?>: el tramo oscuro es la banda actual, los más claros las anteriores y los huecos, años sin registro. Debajo, la lista completa, de lo más reciente a lo más antiguo.</p>
 <?php if ($dias === []): ?>
         <p class="bio-empty">Todavía no hay acompañamientos registrados para <?= V::e($localidad) ?>.</p>
 <?php endif; ?>

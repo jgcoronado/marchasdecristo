@@ -72,11 +72,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 <?php foreach ($masGrabada as $g): ?>
                             <tr>
                                 <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $g['ID_MARCHA'], (string) $g['TITULO'])) ?>"><?= V::e($g['TITULO']) ?></a></td>
-                                <td data-l="">
-<?php foreach ($g['AUTOR'] as $a): ?>
-                                    <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
-<?php endforeach; ?>
-                                </td>
+                                <td data-l=""><?php foreach ($g['AUTOR'] as $a): ?><div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div><?php endforeach; ?></td>
                                 <td class="t-num" data-l=""><?= V::e($g['GRABACIONES']) ?></td>
                             </tr>
 <?php endforeach; ?>

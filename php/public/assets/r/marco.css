@@ -158,3 +158,94 @@ footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner
 .acs-locs .acs-loc, .acs .acs-loc { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e3, .75rem); padding: var(--e1, .25rem) 0; border-bottom: 1px solid var(--linea, var(--line)); background: none; }
 .acs-locs .acs-loc-t { font-family: inherit; font-size: var(--t-m); font-weight: 600; color: var(--enlace); }
 .acs-locs .acs-loc-n { font-size: var(--t-m); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ── Ronda 2 de QA ─────────────────────────────────────────────────────── */
+/* Entradilla: ocupa su fila (§0.4). El tope de 70ch dejaba media fila vacía
+   al lado y no comparte fila con nada. */
+.asiento { max-width: none; }
+/* Distancia h1 → entradilla igual en todas: en .record la da el margen del
+   h1 (--e2) más el del párrafo; en los listados el h1 va en .toolbar dentro
+   de un .stack (hueco de 1rem), así que se recorta a lo mismo. */
+.record > .asiento { margin-top: var(--e2, .5rem); }
+.stack > .toolbar:has(+ .asiento) { padding-bottom: 0; margin-bottom: 0; min-height: 0; }
+.stack > .toolbar + .asiento { margin-top: calc(-1 * var(--e2, .5rem)); }
+/* Lo que sigue a la entradilla no va pegado a ella (/dedicatorias «Filtros»,
+   /contacto primera tarjeta). */
+.record > .asiento + * { margin-top: var(--e5, 1.5rem); }
+
+/* /buscar: un solo buscador, el de la página, a todo el ancho de su fila. La
+   fila de búsqueda de la cabecera no se pinta aquí (ni su lupa en móvil). */
+body:has(.buscar-form) .site-search-row, body:has(.buscar-form) .buscar-toggle { display: none !important; }
+.buscar-form { max-width: none; }
+.buscar-form .input { flex: 1 1 auto; min-width: 0; }
+.buscar-form input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+/* Grupos: sin caja propia, el texto empieza en el borde del h1 y los tres
+   rótulos a la misma altura. */
+.buscar-grupos > .card { padding: 0; background: none; border: 0; box-shadow: none; }
+.buscar-grupos > .card > .shead { margin-top: 0; padding-top: 0; }
+
+/* Áreas táctiles de 44 px sin agrandar lo que se ve: un ::after invisible
+   que desborda el elemento por arriba y abajo. */
+@media (pointer: coarse), (max-width: 47.99rem) {
+    .acs-locs .acs-loc, .aznav a, .azitem > a, .svc { position: relative; }
+    .acs-locs .acs-loc::after, .aznav a::after, .azitem > a::after, .svc::after {
+        content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2.75rem; transform: translateY(-50%);
+    }
+    .aznav { gap: var(--e1, .25rem); }
+    .aznav { row-gap: var(--e3, .75rem); }
+    .aznav a { min-width: 2.25rem; display: inline-flex; align-items: center; justify-content: center; }
+    .svc { display: inline-flex; align-items: center; min-height: 2.75rem; }
+    /* a.sortcol::after ya es la flecha de orden (tablas.css): el área va en
+       ::before, sobre la celda de cabecera entera. */
+    .t th:has(> a.sortcol) { position: relative; }
+    .t th > a.sortcol::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; min-height: 2.75rem; height: 100%; transform: translateY(-50%); }
+}
+
+/* /contacto: los botones .svc no se subrayan. */
+main a.svc, main a.svc:hover { text-decoration: none; }
+
+/* /rankings: el nombre ocupa todo lo que deja la cifra (sin partirlo antes
+   de tiempo) y la cifra no se parte. */
+.rank-grid .t { width: 100%; }
+.rank-grid .t td.t-main, .rank-grid .t th:first-child { width: 100%; max-width: none; }
+.rank-grid .t td.t-num { white-space: nowrap; }
+/* El rótulo largo («Marchas compuestas») era lo que ensanchaba la columna de
+   la cifra: que parta él y no el nombre. */
+.rank-grid .t { table-layout: auto; }
+.rank-grid .t th.t-num { white-space: normal; width: 1%; }
+
+/* /aniversarios: la tabla ya va dentro del desplegable; sin segunda caja. */
+.collapse .collapse-content > .tableList:has(> .t) { border: 0; border-radius: 0; background: none; padding: 0; box-shadow: none; }
+
+/* /dedicatorias y /rankings: la cuenta de la letra o década es texto de
+   apoyo, no una etiqueta en cajita; y el nombre, enlace principal, a 600. */
+.shead[id^="letra-"] .n, .shead[id^="decada-"] .n { background: none; border: 0; padding: 0; color: var(--muted); font-size: var(--t-s); font-weight: 400; }
+.azitem .aznom { font-weight: 600; }
+
+/* /acompanamientos (índice): capitales a todo el ancho; las «otras» en
+   rejillas compactas con la provincia como rótulo discreto. */
+.acs > .acs-locs { columns: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); column-gap: var(--e5, 1.5rem); }
+.acs > h3 { font-size: var(--t-m); font-weight: 600; margin: 0 0 calc(-1 * var(--e3, .75rem)); color: var(--muted); }
+.acs > h3 + .acs-locs { margin-bottom: 0; }
+
+/* /acompanamientos/{localidad}: sin paleta propia ni puntos de color. La
+   barra de cada paso, en grises de tinta con extremos rectos: la banda actual
+   en --ink, las anteriores en mezclas de --muted; el resaltado del JS
+   (banda ↔ tramo) en --enlace. Días: sin punto delante. */
+.acs, .acs-dia, .acs-dias a, .acs-locs li { --dia: var(--muted); --foco: var(--enlace); }
+.acs .t-v { background: var(--ink); }
+.acs .t-w { background: color-mix(in srgb, var(--ink) 70%, var(--card)); }
+.acs .t-b { background: color-mix(in srgb, var(--muted) 60%, var(--card)); }
+.acs .t-c { background: color-mix(in srgb, var(--muted) 40%, var(--card)); }
+.acs .t-a { background: color-mix(in srgb, var(--muted) 22%, var(--card)); }
+.acs-tira { border-radius: 0; background-color: var(--sup2); }
+.acs .sw { border-radius: 0; }
+.acs-dias a::before, .acs-dia-t::before { content: none; display: none; }
+.acs-dias { box-shadow: none; border: 1px solid var(--linea); }
+.acs-h h3 { font-family: inherit; }
+@media (max-width: 47.99rem) {
+    /* Envuelve en varias líneas (antes se cortaba en «Doming…»); por eso deja
+       de ser fija: tres líneas pegadas arriba taparían la lista. */
+    .acs-dias { position: static; flex-wrap: wrap; overflow: visible; margin-inline: 0; border-radius: var(--r); }
+    .acs-dias a { min-height: 2.75rem; }
+}

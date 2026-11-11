@@ -37,11 +37,9 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 <?php foreach ($result['data'] as $m): ?>
                         <tr>
                             <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                            <td data-l="">
-<?php foreach ($m['AUTOR'] as $a): ?>
-                                <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
-<?php endforeach; ?>
-                            </td>
+<?php /* Sin espacios entre los <div>: en móvil van en línea con «, » delante
+       y el salto de línea dejaba « , ». */ ?>
+                            <td data-l=""><?php foreach ($m['AUTOR'] as $a): ?><div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div><?php endforeach; ?></td>
                             <td data-l=""><?= !empty($m['PROVINCIA']) ? V::e($m['PROVINCIA']) : '<span class="t-vacio">—</span>' ?></td>
                             <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
                         </tr>
