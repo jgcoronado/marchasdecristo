@@ -1166,6 +1166,11 @@ final class NominaRepo
         }
         $h = $plan['h'];
         $dia = $h !== null ? (string) $h['DIA'] : $plan['diaIn'];
+        // El día en que quedará: el del paso encontrado o, si no, el día extra escrito.
+        $idDiaDestino = $plan['paso'] !== null ? self::diaDePaso((int) $plan['paso']['ID_PASO']) : $plan['idDiaExtra'];
+        if ($h !== null && $idDiaDestino !== null) {
+            $dia = (string) (Db::one('SELECT NOMBRE FROM semana_santa_dia WHERE ID_DIA = ?', [$idDiaDestino])['NOMBRE'] ?? $dia);
+        }
         if ($h === null) {
             $diaExiste = false;
             foreach (Db::all('SELECT NOMBRE FROM semana_santa_dia WHERE LOCALIDAD = ?', [$localidad]) as $d) {
@@ -1337,7 +1342,7 @@ final class NominaRepo
 
         return [
             'code' => 'OK', 'localidad' => $localidad, 'provNueva' => $prov === null ? $provIn : null,
-            'h' => $h, 'paso' => $h !== null && $pasoIn !== '' ? self::buscarPaso((int) $h['ID_HERMANDAD'], $pasoIn, $localidad, $idDiaExtra) : null,
+            'h' => $h, 'paso' => $h !== null && $pasoIn !== '' ? self::buscarPaso((int) $h['ID_HERMANDAD'], $pasoIn, $localidad, $idDiaExtra, $diaIn !== '') : null,
             'diaIn' => $diaIn, 'herIn' => $herIn, 'pasoIn' => $pasoIn, 'idDiaExtra' => $idDiaExtra,
         ];
     }
@@ -1385,13 +1390,18 @@ final class NominaRepo
     }
 
     /** Paso de la hermandad por slugify(NOMBRE), con los datos de pasoDeLocalidad(). */
-    /** Paso de la hermandad por nombre; si sale en varios días, el del día $idDia (null = el principal). */
-    private static function buscarPaso(int $idHermandad, string $nombre, string $localidad, ?int $idDia = null): ?array
+    /**
+     * Paso de la hermandad por nombre; si sale en varios días, el del día
+     * $idDia (null = el principal). Con $soloEseDia (se ha escrito el día), un
+     * paso que solo está en otro día no vale: devuelve null y el alta crea el
+     * paso en ese día. Si no, sin uno en ese día vale el de cualquier otro.
+     */
+    private static function buscarPaso(int $idHermandad, string $nombre, string $localidad, ?int $idDia = null, bool $soloEseDia = false): ?array
     {
         $elegido = null;
         foreach (Db::all('SELECT ID_PASO, NOMBRE FROM paso WHERE ID_HERMANDAD = ? ORDER BY ID_PASO', [$idHermandad]) as $p) {
             if (Slug::slugify((string) $p['NOMBRE']) !== Slug::slugify($nombre)) continue;
-            $elegido ??= (int) $p['ID_PASO'];
+            if (!$soloEseDia) $elegido ??= (int) $p['ID_PASO'];
             if (self::diaDePaso((int) $p['ID_PASO']) === $idDia) {
                 $elegido = (int) $p['ID_PASO'];
                 break;

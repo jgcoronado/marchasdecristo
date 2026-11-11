@@ -216,6 +216,24 @@ $tests['el mismo paso en dos días de la hermandad: sí; dos veces el mismo día
     assertIgual($jueves, $enlazado(2032), 'Jueves → el del Jueves');
 };
 
+$tests['alta con día extra de un paso que solo sale el principal: se crea ese día, no se cuelga del otro'] = static function () use ($dia, $alta): void {
+    // Caso real (Vera-Cruz de Alcalá del Río): Madrugá + Jueves Santo, el Cristo solo dado de alta la Madrugá.
+    $id = NominaRepo::addHermandad('Sevilla', $dia['Viernes Santo'], 'La Vera-Cruz')['id'];
+    NominaRepo::addDiaExtra($id, $dia['Jueves Santo']);
+    $principal = NominaRepo::addPaso($id, 'Cristo de la Vera-Cruz', false)['id'];
+    $sim = NominaRepo::simularDestino(['localidad' => 'Sevilla', 'provincia' => 'Sevilla', 'hermandad' => 'La Vera-Cruz', 'dia' => 'Jueves Santo', 'paso' => 'Cristo de la Vera-Cruz']);
+    assertIgual(['Jueves Santo', ['paso «Cristo de la Vera-Cruz»']], [$sim['dia'] ?? null, $sim['nuevos'] ?? null], 'la simulación avisa del paso nuevo ese día');
+    assertIgual('CREATED', $alta(['hermandad' => 'La Vera-Cruz', 'dia' => 'Jueves Santo', 'paso' => 'Cristo de la Vera-Cruz', 'anioInicio' => 2033, 'anioFin' => 2033])['code'], 'alta');
+    $v = vista();
+    assertIgual(['Cristo de la Vera-Cruz'], $v['Jueves Santo']['La Vera-Cruz'] ?? null, 'el paso, también el Jueves');
+    $fila = array_values(array_filter(Repo::acompanamientosDeBandaAdmin(2)[2033] ?? [], static fn($f) => $f['HERMANDAD'] === 'La Vera-Cruz'));
+    assertIgual(['Jueves Santo'], array_column($fila, 'DIA'), 'y el acompañamiento sale el Jueves');
+    // Sin día escrito sigue valiendo el que hay (el principal).
+    assertIgual('CREATED', $alta(['hermandad' => 'La Vera-Cruz', 'dia' => '', 'paso' => 'Cristo de la Vera-Cruz', 'anioInicio' => 2034, 'anioFin' => 2034])['code'], 'alta sin día');
+    $enlazado = (int) Db::one('SELECT cp.ID_PASO FROM contrato c INNER JOIN contrato_paso cp USING (ID_CONTRATO) WHERE c.ID_BANDA = 2 AND c.ANIO = 2034')['ID_PASO'];
+    assertIgual($principal, $enlazado, 'sin día → el del día principal');
+};
+
 $code = ciEjecuta($tests);
 ciLimpia($dbPath);
 exit($code);
