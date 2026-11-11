@@ -608,7 +608,12 @@ final class Repo
      *
      * @return list<array{DEDICATORIA:string,LOCALIDAD:?string,PROVINCIA:?string,N:int}>
      */
-    public static function searchDedicatorias(string $q, int $limit = 10): array
+    /**
+     * Predictivo de dedicatorias (7+ caracteres). Con $prioLocalidad (la de la
+     * banda del candidato en la ingesta), las de esa localidad van primero:
+     * "Hdad Esperanza" casa en media Andalucía y la buena suele ser la de casa.
+     */
+    public static function searchDedicatorias(string $q, int $limit = 10, string $prioLocalidad = ''): array
     {
         if (mb_strlen($q) < 7) return [];
         return Db::all(
@@ -616,9 +621,34 @@ final class Repo
              FROM marcha
              WHERE DEDICATORIA IS NOT NULL AND DEDICATORIA <> '' AND DEDICATORIA LIKE ?
              GROUP BY DEDICATORIA, LOCALIDAD, PROVINCIA
-             ORDER BY N DESC, DEDICATORIA ASC
+             ORDER BY (? <> '' AND LOCALIDAD = ? COLLATE NOCASE) DESC, N DESC, DEDICATORIA ASC
              LIMIT ?",
-            ['%' . $q . '%', $limit]
+            ['%' . $q . '%', $prioLocalidad, $prioLocalidad, $limit]
+        );
+    }
+
+    /**
+     * Dedicatorias que ya tienen marchas de una localidad (y provincia, si se
+     * da), para elegir de la lista en la ingesta en cuanto se fija la
+     * localidad. Fuera las personales ("A Manuel Rodríguez", dedicatoria.PERSONAL):
+     * aquí se buscan hermandades. Las marchas sin provincia también cuentan.
+     * @return list<array{DEDICATORIA:string, LOCALIDAD:string, PROVINCIA:?string, N:int}>
+     */
+    public static function dedicatoriasDeLocalidad(string $localidad, string $provincia = ''): array
+    {
+        if (trim($localidad) === '') return [];
+        return Db::all(
+            "SELECT m.DEDICATORIA, MAX(m.LOCALIDAD) AS LOCALIDAD, MAX(m.PROVINCIA) AS PROVINCIA, COUNT(*) AS N
+             FROM marcha m
+             LEFT JOIN dedicatoria_alias da ON da.VARIANTE = m.DEDICATORIA AND da.LOCALIDAD = COALESCE(m.LOCALIDAD, '')
+             LEFT JOIN dedicatoria d ON d.ID_DEDIC = da.ID_DEDIC
+             WHERE m.DEDICATORIA IS NOT NULL AND m.DEDICATORIA <> ''
+               AND m.LOCALIDAD = ? COLLATE NOCASE
+               AND (? = '' OR IFNULL(m.PROVINCIA, '') IN ('', ?))
+               AND COALESCE(d.PERSONAL, 0) = 0
+             GROUP BY m.DEDICATORIA
+             ORDER BY m.DEDICATORIA COLLATE NOCASE ASC",
+            [$localidad, $provincia, $provincia]
         );
     }
 
