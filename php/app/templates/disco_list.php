@@ -1,6 +1,6 @@
 <?php use App\View as V; use App\Slug as S; use App\Html as H;
 /** @var array<string,string> $criteria @var array $result @var int $page @var int $limit
- *  @var array{decada:list<array>} $facets */
+ *  @var array{decada:list<array>} $facets @var bool $tabla */
 $val = static fn(string $k): string => V::e($criteria[$k] ?? '');
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
@@ -10,7 +10,7 @@ $href = static function (array $over) use ($criteria): string {
     unset($q['page']);
     return '/disco' . ($q !== [] ? '?' . http_build_query($q) : '');
 };
-$orden = (string) ($criteria['orden'] ?? 'anio');
+$orden = (string) (($criteria['orden'] ?? '') !== '' ? $criteria['orden'] : 'anio');
 $dir = (string) ($criteria['dir'] ?? 'asc');
 /** Enlace de cabecera ordenable: alterna asc/desc al reordenar por la misma columna. */
 $sortHref = static function (string $col) use ($href, $orden, $dir): string {
@@ -23,23 +23,29 @@ $ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' 
 $total = (int) $result['totalRows'];
 /* Vista (§2.6): por defecto, rejilla de fundas —un disco se reconoce por la
    portada—; ?vista=tabla deja la tabla de siempre para quien quiera ordenar
-   y comparar columnas. No viaja en $criteria (no es un criterio de búsqueda),
-   así que se añade a mano a los enlaces de orden y paginación de la tabla. */
-$tabla = ($_GET['vista'] ?? '') === 'tabla';
+   y comparar columnas. No viaja en $criteria (Pages::discoList la saca: no es
+   un criterio de búsqueda ni cuenta como filtro), así que se añade a mano a
+   los enlaces de orden y paginación de la tabla. */
 $conVista = static fn(string $u): string => $tabla ? $u . (str_contains($u, '?') ? '&' : '?') . 'vista=tabla' : $u;
-$hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+$sinOrden = array_diff_key($criteria, ['orden' => 1, 'dir' => 1]);
+$hayFiltro = array_filter($sinOrden, static fn($x) => trim((string) $x) !== '') !== [];
 ?>
 <div class="stack list-page">
 <?php
-// Mismo patrón que el listado de marchas (§2.4): por página y vista a la
+// Mismo patrón que el listado de marchas (§2.4): orden y por página a la
 // derecha del título en escritorio; en móvil, dentro del único botón «Filtros».
-$controles = H::porPagina($limit, '/disco', $criteria + ($tabla ? ['vista' => 'tabla'] : []))
-    . '<span class="seg vista-seg" aria-label="Vista"><a class="seg-op' . ($tabla ? '' : ' on') . '" href="' . V::e($href([])) . '"' . ($tabla ? '' : ' aria-current="true"') . '>Portadas</a><a class="seg-op' . ($tabla ? ' on' : '') . '" href="' . V::e($href(['vista' => 'tabla'])) . '"' . ($tabla ? ' aria-current="true"' : '') . '>Tabla</a></span>';
-$nFiltros = count(array_filter($criteria, static fn($x) => trim((string) $x) !== ''));
+// La tabla se ordena desde sus cabeceras; la rejilla, con el segmentado.
+$orden2 = static fn(string $o): string => $href(['orden' => $o, 'dir' => '']);
+$controles = ($tabla ? '' : '<span class="sortby seg"><span class="lbl">orden</span><a href="' . V::e($orden2('nombre')) . '"' . ($orden === 'nombre' ? ' class="on" aria-current="true"' : '') . '>título</a><a href="' . V::e($orden2('')) . '"' . ($orden === 'anio' ? ' class="on" aria-current="true"' : '') . '>año</a></span>')
+    . H::porPagina($limit, '/disco', $criteria + ($tabla ? ['vista' => 'tabla'] : []), $tabla ? [10, 20, 50] : [24, 48, 96]);
+// Portadas/Tabla no es un filtro: va siempre a la vista, junto al título.
+$vistaSeg = '<span class="seg vista-seg" aria-label="Vista"><a class="seg-op' . ($tabla ? '' : ' on') . '" href="' . V::e($href([])) . '"' . ($tabla ? '' : ' aria-current="true"') . '>Portadas</a><a class="seg-op' . ($tabla ? ' on' : '') . '" href="' . V::e($href(['vista' => 'tabla'])) . '"' . ($tabla ? ' aria-current="true"' : '') . '>Tabla</a></span>';
+$nFiltros = count(array_filter($sinOrden, static fn($x) => trim((string) $x) !== ''));
 ?>
     <div class="toolbar">
         <h1 class="rescount"><b><?= $num($total) ?></b> discos</h1>
         <div class="t-ctl"><?= $controles ?></div>
+        <?= $vistaSeg ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
 <?php endif; ?>
@@ -98,7 +104,7 @@ $nFiltros = count(array_filter($criteria, static fn($x) => trim((string) $x) !==
             <?= H::pagination($page, $total, $limit, '/disco', $criteria) ?>
 <?php else: ?>
             <div class="scrollx tableList">
-            <table class="t reg">
+            <table class="t">
                 <thead><tr>
                     <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('nombre'))) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
                     <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('banda'))) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>
@@ -108,15 +114,15 @@ $nFiltros = count(array_filter($criteria, static fn($x) => trim((string) $x) !==
                 <tbody>
 <?php foreach ($result['data'] as $d): ?>
                     <tr>
-                        <td class="t-main"><div class="con-mini"><?= \App\Html::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></div></td>
-                        <td data-l="Banda">
+                        <td class="t-main" data-l=""><div class="con-mini"><?= \App\Html::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></div></td>
+                        <td data-l="">
 <?php if (!empty($d['ID_BANDA'])): ?>
                             <a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA'])) ?>"><?= V::e($d['BANDA']) ?></a>
 <?php else: ?>
-                            <span class="muted">—</span>
+                            <span class="t-vacio">—</span>
 <?php endif; ?>
                         </td>
-                        <td class="t-num" data-l=""><?= !empty($d['FECHA_CD']) ? V::e($d['FECHA_CD']) : '—' ?></td>
+                        <td class="t-num" data-l=""><?= (int) ($d['FECHA_CD'] ?? 0) > 1800 ? (int) $d['FECHA_CD'] : '<span class="t-vacio">—</span>' ?></td>
                         <td class="col-escucha" data-l="">
 <?php if (!empty($d['TIENE_STREAMING'])): ?>
                             <span class="ico-escucha" role="img" aria-label="Disponible en streaming" title="Disponible en streaming">
@@ -126,7 +132,7 @@ $nFiltros = count(array_filter($criteria, static fn($x) => trim((string) $x) !==
                                 </svg>
                             </span>
 <?php else: ?>
-                            <span class="muted" aria-label="Sin enlaces de streaming" title="Sin enlaces de streaming">—</span>
+                            <span class="t-vacio" aria-label="Sin enlaces de streaming" title="Sin enlaces de streaming">—</span>
 <?php endif; ?>
                         </td>
                     </tr>
