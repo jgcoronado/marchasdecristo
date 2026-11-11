@@ -184,6 +184,38 @@ $tests['borrar la hermandad limpia sus días extra y de otros años'] = static f
     assertIgual(0, $resto, 'sin filas huérfanas');
 };
 
+$tests['el mismo paso en dos días de la hermandad: sí; dos veces el mismo día: no'] = static function () use ($dia, $alta): void {
+    $id = NominaRepo::addHermandad('Sevilla', $dia['Jueves Santo'], 'La de Dos Días')['id'];
+    NominaRepo::addDiaExtra($id, $dia['Viernes Santo']);
+    $jueves = NominaRepo::addPaso($id, 'Santo Cristo', false)['id'];
+    NominaRepo::addPaso($id, 'Cruz de guía', true);
+    $r = NominaRepo::addPaso($id, 'Santo Cristo', false, $dia['Viernes Santo']);
+    assertIgual('CREATED', $r['code'], 'mismo nombre, otro día');
+    $viernes = $r['id'];
+    assertIgual('CREATED', NominaRepo::addPaso($id, 'Cruz de guía', true, $dia['Viernes Santo'])['code'], 'cruz de guía también el otro día');
+    $v = vista();
+    assertIgual(['Cruz de guía', 'Santo Cristo'], $v['Jueves Santo']['La de Dos Días'], 'Jueves');
+    assertIgual(['Cruz de guía', 'Santo Cristo'], $v['Viernes Santo']['La de Dos Días'], 'Viernes');
+
+    assertIgual('PASO_DUPLICADO', NominaRepo::addPaso($id, 'Santo Cristo', false)['code'], 'repetido el mismo día');
+    assertIgual('YA_TIENE_CRUZ_GUIA', NominaRepo::addPaso($id, 'Otra cruz', true, $dia['Viernes Santo'])['code'], 'dos cruces el mismo día');
+    $otro = NominaRepo::addPaso($id, 'Virgen', false, $dia['Viernes Santo'])['id'];
+    assertIgual('PASO_DUPLICADO', NominaRepo::renamePaso($otro, 'Santo Cristo')['code'], 'renombrar a uno del mismo día');
+    assertIgual('UPDATED', NominaRepo::renamePaso($viernes, 'Santo Cristo')['code'], 'renombrar sin cambiar el nombre');
+    assertIgual('PASO_DUPLICADO', NominaRepo::setPasoDia($viernes, $dia['Jueves Santo'])['code'], 'llevarlo al día donde ya está');
+    assertIgual('PASO_DUPLICADO', NominaRepo::removeDiaExtra($id, $dia['Viernes Santo'])['code'], 'quitar el día juntaría dos iguales');
+    assertIgual(['Cruz de guía', 'Santo Cristo', 'Virgen'], vista()['Viernes Santo']['La de Dos Días'], 'y no se ha tocado nada');
+
+    // El alta desde la ficha de banda cuelga el acompañamiento del paso del día que se escribe.
+    $enlazado = static fn(int $anio): int => (int) Db::one(
+        'SELECT cp.ID_PASO FROM contrato c INNER JOIN contrato_paso cp ON cp.ID_CONTRATO = c.ID_CONTRATO WHERE c.ID_BANDA = 2 AND c.ANIO = ?', [$anio]
+    )['ID_PASO'];
+    assertIgual('CREATED', $alta(['hermandad' => 'La de Dos Días', 'dia' => 'Viernes Santo', 'paso' => 'santo cristo', 'anioInicio' => 2031, 'anioFin' => 2031])['code'], 'alta Viernes');
+    assertIgual($viernes, $enlazado(2031), 'Viernes → el paso del Viernes');
+    assertIgual('CREATED', $alta(['hermandad' => 'La de Dos Días', 'dia' => 'Jueves Santo', 'paso' => 'Santo Cristo', 'anioInicio' => 2032, 'anioFin' => 2032])['code'], 'alta Jueves');
+    assertIgual($jueves, $enlazado(2032), 'Jueves → el del Jueves');
+};
+
 $code = ciEjecuta($tests);
 ciLimpia($dbPath);
 exit($code);

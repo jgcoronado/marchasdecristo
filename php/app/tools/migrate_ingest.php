@@ -228,6 +228,41 @@ try {
         echo "reconstruida: enlace_streaming (fuera la UNIQUE de tabla sin VERSION)\n";
     }
 
+    // ── UNIQUE (ID_HERMANDAD, NOMBRE) vieja en paso ──────────────────────────
+    // 012 creaba paso con el nombre único por hermandad, pero desde 020 una
+    // hermandad puede salir varios días y sacar el mismo paso en más de uno:
+    // el nombre es único por DÍA, y eso lo comprueba NominaRepo (paso_dia está
+    // en otra tabla, no cabe en un índice). Se rehace la tabla como la de
+    // enlace_streaming, pero creando la nueva y renombrándola al final: si se
+    // renombrara la vieja, SQLite reescribiría las FK de contrato_paso y
+    // paso_dia para que apuntaran a la tabla que luego se borra.
+    $uniquePaso = null;
+    foreach ($pdo->query('PRAGMA index_list(paso)')->fetchAll(PDO::FETCH_ASSOC) as $idx) {
+        if ((int) ($idx['unique'] ?? 0) !== 1 || ($idx['origin'] ?? '') !== 'u') continue;
+        $cols = $pdo->query("PRAGMA index_info('" . $idx['name'] . "')")->fetchAll(PDO::FETCH_COLUMN, 2);
+        if ($cols === ['ID_HERMANDAD', 'NOMBRE']) $uniquePaso = $idx['name'];
+    }
+    if ($uniquePaso !== null) {
+        $cols = implode(', ', $columnasDe('paso'));
+        $pdo->exec('PRAGMA foreign_keys = OFF');
+        $pdo->beginTransaction();
+        $pdo->exec('DROP TABLE IF EXISTS paso__nuevo');
+        $pdo->exec('CREATE TABLE paso__nuevo (
+            ID_PASO      INTEGER PRIMARY KEY,
+            ID_HERMANDAD INTEGER NOT NULL REFERENCES hermandad(ID_HERMANDAD),
+            NOMBRE       TEXT    NOT NULL,
+            ORDEN        INTEGER NOT NULL,
+            ES_CRUZ_GUIA INTEGER NOT NULL DEFAULT 0
+        )');
+        $pdo->exec("INSERT INTO paso__nuevo ($cols) SELECT $cols FROM paso");
+        $pdo->exec('DROP TABLE paso');
+        $pdo->exec('ALTER TABLE paso__nuevo RENAME TO paso');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_paso_hermandad ON paso (ID_HERMANDAD, ORDEN)');
+        $pdo->commit();
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        echo "reconstruida: paso (el nombre ya no es único por hermandad, sino por día)\n";
+    }
+
     // Verificación: listar las tablas ingest_* resultantes.
     $tables = $pdo->query(
         "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'ingest_%' ORDER BY name"
