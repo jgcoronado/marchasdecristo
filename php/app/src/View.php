@@ -53,4 +53,23 @@ final class View
         $conj = preg_match('/^h?[ií](?![aeiouáéíóú])/iu', $ultimo) === 1 ? ' e ' : ' y ';
         return implode(', ', $items) . $conj . $ultimo;
     }
+    /**
+     * Nombre propio para mostrar: las partículas que la BD trae en mayúscula
+     * por haberse capitalizado palabra a palabra («Cristo De Las Tres Caídas»,
+     * «Nazareno Y Esperanza», «Jerez De La Frontera») pasan a minúscula, salvo
+     * al principio. Solo para nombres de banda, dedicatoria y lugar: los
+     * títulos de marcha son obra de su autor y no se tocan. No escapa.
+     */
+    public static function nombre(?string $s): string
+    {
+        $s = trim((string) $s);
+        if ($s === '') {
+            return '';
+        }
+        return (string) preg_replace_callback(
+            '/(?<=\s)(De|Del|La|Las|Los|Y|E|En|El|Al|A)(?=\s)/u',
+            static fn(array $m): string => mb_strtolower($m[1]),
+            $s
+        );
+    }
 }
