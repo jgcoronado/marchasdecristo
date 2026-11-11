@@ -2,18 +2,24 @@
 
 /* ── Regiones con nombre (§2.7) ──────────────────────────────────────────
    Las cuatro fichas (marcha, banda, compositor, disco) comparten el mismo
-   marcado y estas ÁREAS: cab, portadas, esc, lado, cuerpo, pie.
-   .ficha-lado envuelve .ficha-datos y .ficha-notas: una sola celda, para que
-   la columna lateral no alinee sus filas con las de la principal (en B dejaba
-   200 px entre el mosaico y Datos). La colocación sale entera de
-   --ficha-areas y --ficha-cols: otro diseño (B) reordena la ficha
-   redefiniendo solo esas dos variables, sin tocar las plantillas. Una región
-   que no existe deja su celda vacía y la fila se cierra (filas «auto»); la
-   plantilla no emite regiones vacías (sin mosaico no hay .ficha-portadas). */
+   marcado. ÁREAS del diseño A: cab, portadas, col, cuerpo, pie.
+   .ficha-col envuelve .ficha-escuchar y .ficha-lado (en el disco no: allí
+   escuchar va junto a la portada y las notas, debajo, a todo el ancho).
+   Es una sola celda pegajosa: antes solo el lado (datos y notas) lo era y,
+   al bajar por las 52 grabaciones de La saeta, se quedaba fijo lo
+   secundario y desaparecía Escuchar, que es a lo que se viene.
+   .ficha-lado envuelve .ficha-datos y .ficha-notas por la misma razón: una
+   celda, para que la columna lateral no alinee sus filas con la principal.
+   CONTRATO CON B: la colocación sale entera de --ficha-areas y
+   --ficha-cols; B reordena la ficha redefiniendo solo esas dos variables y
+   poniendo  .ficha-col { display: contents }, que devuelve sus hijos a las
+   áreas esc y lado (los hijos conservan grid-area: esc / lado).
+   Una región que no existe deja su celda vacía y la fila se cierra (filas
+   «auto»); la plantilla no emite regiones vacías. */
 .ficha {
-    /* Móvil: título → escuchar → datos → cuerpo (portadas, después). */
+    /* Móvil: título → escuchar y datos → cuerpo (portadas, después). */
     --ficha-cols: minmax(0, 1fr);
-    --ficha-areas: "cab" "esc" "lado" "cuerpo" "portadas" "pie";
+    --ficha-areas: "cab" "col" "cuerpo" "portadas" "pie";
     display: grid;
     grid-template-columns: var(--ficha-cols);
     grid-template-areas: var(--ficha-areas);
@@ -28,23 +34,22 @@
 }
 @media (min-width: 64rem) {
     /* Diseño A: cabecera a todo el ancho (título y frase a la izquierda,
-       portadas a la derecha); debajo, columna estrecha (escuchar y lado) y
-       columna ancha (cuerpo). El lado está en la fila 1fr, que abarca todo
-       el alto del cuerpo: así puede ir pegajoso (§0.4, sin miles de px de
-       columna vacía). */
+       portadas a la derecha); debajo, columna estrecha (escuchar y lado,
+       en .ficha-col) y columna ancha (cuerpo). La columna está en la fila
+       1fr, que abarca todo el alto del cuerpo: así puede ir pegajosa (§0.4,
+       sin miles de px de columna vacía). */
     .ficha {
-        --ficha-cols: minmax(17rem, 22rem) minmax(0, 1fr) auto;
+        --ficha-cols: minmax(18rem, 23rem) minmax(0, 1fr) auto;
         --ficha-areas:
             "cab    cab    portadas"
-            "esc    cuerpo cuerpo"
-            "lado   cuerpo cuerpo"
+            "col    cuerpo cuerpo"
             "pie    pie    pie";
-        grid-template-rows: auto auto 1fr auto;
+        grid-template-rows: auto 1fr auto;
         column-gap: var(--e5, 1.5rem);
     }
-    /* Sin escuchar ni lado (compositor sin biografía), la columna estrecha
-       sobra: el cuerpo se lleva todo el ancho. */
-    .ficha:not(:has(> .ficha-escuchar, > .ficha-lado)) {
+    /* Sin columna (compositor sin biografía), el cuerpo se lleva todo el
+       ancho. */
+    .ficha:not(:has(> .ficha-col, > .ficha-escuchar, > .ficha-lado)) {
         --ficha-cols: minmax(0, 1fr) auto;
         --ficha-areas: "cab portadas" "cuerpo cuerpo" "pie pie";
         grid-template-rows: auto auto auto;
@@ -62,14 +67,18 @@
         grid-template-rows: auto 1fr auto auto auto;
     }
 }
-/* Pegajoso solo si la pantalla tiene alto para él; si aun así no cabe, se
-   desplaza por dentro en vez de quedar cortado. */
+/* Pegajosa solo si la pantalla tiene alto para ella; si aun así no cabe,
+   se desplaza por dentro en vez de quedar cortada. */
 @media (min-width: 64rem) and (min-height: 40rem) {
-    .ficha:not(.ficha-disco) > .ficha-lado {
+    .ficha > .ficha-col {
         position: sticky; top: var(--e4, 1rem);
         max-height: calc(100vh - 2 * var(--e4, 1rem)); overflow-y: auto; overscroll-behavior: contain;
     }
 }
+/* Flex y no grid: dentro de una rejilla sin áreas, el grid-area: esc / lado
+   de los hijos (que B necesita) crearía líneas implícitas y los montaría. */
+.ficha-col { grid-area: col; display: flex; flex-direction: column; gap: var(--e4, 1rem); min-width: 0; }
+.ficha-col > * { margin: 0; min-width: 0; }
 .ficha > * { min-width: 0; margin: 0; }
 .ficha > .blk + .blk { margin-top: 0; }
 .ficha-cab      { grid-area: cab; }
@@ -82,11 +91,28 @@
 .ficha-notas:not(.blk) { display: grid; gap: var(--e4, 1rem); }
 .ficha-notas:not(.blk) > .blk + .blk { margin-top: 0; }
 
-/* Compartir (lo inserta catalog.js en .h1-compartir): pegado al final del
-   título, centrado en su primera línea, igual en las cuatro fichas. */
-.ficha-cab .h1-compartir { display: flex; align-items: flex-start; justify-content: flex-start; gap: var(--e2, .5rem); margin: 0 0 var(--e2, .5rem); }
-.ficha-cab .h1-compartir h1 { flex: 0 1 auto; margin: 0; }
-.ficha-cab .h1-compartir .compartir { flex: none; margin-top: calc((var(--t-xxl, 2.2rem) * 1.15 - var(--c-alto, 2.5rem)) / 2); }
+/* ── Compartir · GLOBAL (todo el sitio, no solo fichas) ──────────────────
+   Va aquí, aunque no sea de fichas, porque esta hoja es la última de la
+   cascada y el botón es de esta área. catalog.js envuelve el <h1> de las
+   páginas con <main data-compartir> en .h1-compartir y añade el botón.
+   Regla única en todas las páginas y anchuras: el botón va en línea tras la
+   última palabra del título (h1 en línea, botón inline-flex centrado), ni
+   pegado al extremo derecho ni saltando a otra fila cuando el título parte.
+   Los márgenes negativos evitan que sus 40/44 px engorden la línea. */
+.h1-compartir, .toolbar .h1-compartir, .fh .h1-compartir {
+    display: block; position: relative; min-width: 0; flex: 1 1 auto;
+}
+.h1-compartir { margin: 0 0 var(--e3, .75rem); }
+.toolbar .h1-compartir { margin: 0 auto 0 0; }
+.ficha-cab .h1-compartir { margin: 0 0 var(--e2, .5rem); }
+.h1-compartir > h1, .toolbar .h1-compartir .rescount { display: inline; margin: 0; }
+.h1-compartir > .compartir {
+    display: inline-flex; vertical-align: middle; margin: -.5rem 0 -.5rem var(--e2, .5rem);
+}
+@media (max-width: 47.99rem) {
+    .h1-compartir > .compartir { width: 44px; height: 44px; margin-left: var(--e1, .25rem); }
+    .toolbar .h1-compartir { flex: 1 0 100%; margin-right: 0; }
+}
 
 /* ── Cabecera: título, etiqueta de estilo y frase. Sin caja: es el titular
    de la página, no una tarjeta más. ── */
@@ -113,7 +139,14 @@
     padding: var(--e3, .75rem); font-size: var(--t-s, .9rem); line-height: 1.25; color: var(--ink); overflow-wrap: anywhere;
 }
 .funda-txt span { color: var(--muted, var(--muted-c)); font-size: var(--t-xs, .8125rem); }
-.funda-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* La portada se ve entera y nunca más grande que su tamaño real (200 px de
+   ancho y alto variable, p. ej. 200×172): contain sobre el fondo de la
+   funda, centrada, sin ampliarse. */
+.funda-img {
+    position: absolute; inset: 0; margin: auto; display: block;
+    width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain;
+}
+.ficha-disco .funda-g { max-width: 200px; background: var(--sup2, var(--s2)); }
 
 /* ── Bloques de la ficha ── */
 .ficha .shead .n { background: none; border-radius: 0; padding: 0; color: var(--muted, var(--muted-c)); }
@@ -202,3 +235,32 @@
 
 /* Véase también: enlaces de exploración en texto. */
 .ficha .vease { margin: 0 0 var(--e3, .75rem); line-height: 1.6; }
+
+/* Grabaciones en móvil: la duración y «perc.» no se parten. */
+@media (max-width: 47.99rem) { .ficha .t td.t-dur { white-space: nowrap; } }
+
+/* Disco en móvil: el compositor (segunda línea) arranca bajo el título, no
+   bajo el número de pista: la pista tiene ancho fijo y la segunda línea la
+   misma sangría (ancho de pista + hueco de columna de la fila). */
+@media (max-width: 47.99rem) {
+    .ficha-disco .t td.t-pista { flex: 0 0 2rem; box-sizing: border-box; }
+    .ficha-disco .t td.t-pista + td.t-main + td { margin-left: calc(2rem + var(--e4, 1rem)); }
+}
+
+/* Mosaico en móvil: llena el ancho (con 4 teselas quedaban ~45 px). */
+@media (max-width: 63.99rem) {
+    .ficha-portadas .mosaico { grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr)); }
+    .ficha-portadas .mosaico > .mos { width: auto; }
+}
+
+/* Banda: discografía en lista compacta cuando pocos discos tienen portada. */
+.disco-lista { list-style: none; margin: 0; padding: 0; columns: 18rem; column-gap: var(--e5, 1.5rem); }
+.disco-lista li { break-inside: avoid; padding: var(--e1, .25rem) 0; line-height: 1.4; }
+.disco-lista li a { font-weight: 600; }
+.disco-lista li span { font-size: var(--t-s, .9rem); color: var(--muted, var(--muted-c)); white-space: nowrap; }
+@media (max-width: 47.99rem) { .disco-lista li { padding: var(--e2, .5rem) 0; } }
+
+/* Escuchar en la ficha: los rótulos no parten («Amazon Music» en dos
+   líneas); la rejilla pide el ancho que necesita el más largo. */
+.ficha .esc .stream-btn { white-space: nowrap; padding: 0 var(--e2, .5rem); }
+.ficha .streaming.esc { grid-template-columns: repeat(auto-fill, minmax(9.25rem, 1fr)); }

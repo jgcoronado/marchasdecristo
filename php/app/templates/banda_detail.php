@@ -148,6 +148,9 @@ $tablaAcomp = static function (array $filasAnio): string {
     <div class="ficha-portadas"><?= $mosaico ?></div>
 <?php endif; ?>
 
+<?php /* .ficha-col: escuchar y lado en una sola columna pegajosa (A). En
+         B, display: contents devuelve sus hijos a las áreas esc y lado. */ ?>
+    <div class="ficha-col">
 <?php if ($botones !== ''): ?>
     <section class="ficha-escuchar blk">
     <div class="shead"><h2>Escuchar</h2></div>
@@ -180,6 +183,8 @@ $tablaAcomp = static function (array $filasAnio): string {
     </dl>
     </section>
 
+<?php /* Con una sola fila, «Formaciones» solo repetía la propia banda. */ ?>
+<?php if (count($filas) > 1): ?>
     <div class="ficha-notas">
     <section class="blk">
     <div class="shead" id="formaciones">
@@ -204,6 +209,8 @@ $tablaAcomp = static function (array $filasAnio): string {
     </ul>
 
     </section>
+    </div>
+<?php endif; ?>
     </div>
     </div>
 
@@ -260,13 +267,17 @@ $tablaAcomp = static function (array $filasAnio): string {
     </section>
 
 <?php if ($nDiscos > 0): ?>
-<?php /* Discografía como rejilla de fundas: portada (o funda tipográfica) con
-         el título y el año debajo. */ ?>
+<?php /* Discografía: rejilla de fundas si al menos un tercio de los discos
+         tiene portada real; si no, la rejilla era una pared de cuadros grises
+         con texto, y una lista compacta (título · año · pistas) se lee mejor. */
+$conPortada = count(array_filter($b['discos'], static fn(array $d): bool => H::hayPortada((int) $d['ID_DISCO']) !== false));
+$enRejilla = $conPortada * 3 >= count($b['discos']); ?>
     <section class="blk">
     <div class="shead" id="discografia">
         <h2>Discografía propia</h2>
         <span class="n"><?= $num($nDiscos) ?></span>
     </div>
+<?php if ($enRejilla): ?>
     <ul class="fundas">
 <?php foreach (array_reverse($b['discos']) as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
 <?php /* Con funda tipográfica el título ya está dentro del cuadrado: debajo,
@@ -278,6 +289,13 @@ $tablaAcomp = static function (array $filasAnio): string {
             <span class="funda-sub"><?= $anio > 1800 ? $anio . ' · ' : '' ?><?= (int) $d['PISTAS'] ?> pistas</span></li>
 <?php endforeach; ?>
     </ul>
+<?php else: ?>
+    <ul class="disco-lista">
+<?php foreach (array_reverse($b['discos']) as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
+        <li><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a> <span><?= $anio > 1800 ? '· ' . $anio . ' ' : '' ?>· <?= (int) $d['PISTAS'] ?> pistas</span></li>
+<?php endforeach; ?>
+    </ul>
+<?php endif; ?>
     </section>
 <?php endif; ?>
 
