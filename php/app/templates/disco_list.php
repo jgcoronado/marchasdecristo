@@ -45,12 +45,12 @@ $nFiltros = count(array_filter($sinOrden, static fn($x) => trim((string) $x) !==
     <div class="toolbar">
         <h1 class="rescount"><b><?= $num($total) ?></b> discos</h1>
         <div class="t-ctl"><?= $controles ?></div>
-        <?= $vistaSeg ?>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
+    <div class="vista-fila">
     <details class="filtros"<?= $val('nombre') !== '' ? ' open' : '' ?>>
         <summary>Filtros<?php if ($nFiltros > 0): ?> <span class="n">(<?= $nFiltros ?>)</span><?php endif; ?></summary>
         <div class="filtros-panel">
@@ -73,13 +73,15 @@ $nFiltros = count(array_filter($sinOrden, static fn($x) => trim((string) $x) !==
 <?php foreach ($facets['decada'] as $f):
     $d0 = (string) $f['K'];
     $on = ($criteria['decada'] ?? '') === $d0; ?>
-                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['decada' => $on ? '' : $d0])) ?>"><?= V::e($d0) ?>s<?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
+                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['decada' => $on ? '' : $d0])) ?>"><?= V::e($d0) ?>–<?= (int) $d0 + 9 ?><?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
 <?php endforeach; ?>
             </div>
         </div>
 <?php endif; ?>
         </div>
     </details>
+    <?= $vistaSeg ?>
+    </div>
 
     <section>
 <?php if ($total === 0): ?>
@@ -104,7 +106,7 @@ $nFiltros = count(array_filter($sinOrden, static fn($x) => trim((string) $x) !==
             <?= H::pagination($page, $total, $limit, '/disco', $criteria) ?>
 <?php else: ?>
             <div class="scrollx tableList">
-            <table class="t">
+            <table class="t t-discos">
                 <thead><tr>
                     <th aria-sort="<?= $ariaSort('nombre') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('nombre'))) ?>">Nombre <span class="ar"><?= $arrow('nombre') ?></span></a></th>
                     <th aria-sort="<?= $ariaSort('banda') ?>"><a class="sortcol" href="<?= V::e($conVista($sortHref('banda'))) ?>">Banda <span class="ar"><?= $arrow('banda') ?></span></a></th>

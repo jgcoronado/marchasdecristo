@@ -12,7 +12,10 @@ $showDate = static function ($fund, $ext): string {
     $f = ((int) $fund) > 1800 ? (string) (int) $fund : null;
     $e = ($ext !== null && (int) $ext > 1800) ? (string) (int) $ext : null;
     if ($f === null && $e === null) return $vacio;
-    return ($f ?? $vacio) . ($e !== null ? ' – ' . $e : '');
+    // Un solo extremo se dice con palabras: «— – 2009» parecía una errata.
+    if ($f === null) return 'hasta ' . $e;
+    if ($e === null) return 'desde ' . $f;
+    return $f . '–' . $e;
 };
 // Los sentinelas heredados de la era MySQL llegan como 0 o "0"; los dos son
 // falsy en PHP, así que basta la comprobación de verdad para descartarlos.
@@ -107,9 +110,12 @@ $controles = H::porPagina($limit, '/banda', $criteria);
                     <th class="t-num" aria-sort="<?= $ariaSort('fundacion') ?>"><a class="sortcol" href="<?= V::e($sortHref('fundacion')) ?>">Fundación</a></th>
                 </tr></thead>
                 <tbody>
+<?php /* El orden «Nombre» va por el nombre corto: es el que se muestra
+         primero (enlazado), con el oficial completo debajo. Antes se veía
+         solo el completo y el orden parecía aleatorio. */ ?>
 <?php foreach ($result['data'] as $b): ?>
                     <tr>
-                        <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['NOMBRE_COMPLETO'])) ?>"><?= V::e($b['NOMBRE_COMPLETO']) ?></a></td>
+                        <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['NOMBRE_COMPLETO'])) ?>"><?= V::e($b['NOMBRE_BREVE']) ?></a><?php if (trim((string) $b['NOMBRE_COMPLETO']) !== '' && $b['NOMBRE_COMPLETO'] !== $b['NOMBRE_BREVE']): ?><span class="t-desc"><?= V::e($b['NOMBRE_COMPLETO']) ?></span><?php endif; ?></td>
                         <td data-l=""><?= ($l = $showLocalidad($b['LOCALIDAD'], $b['PROVINCIA'])) !== '' ? V::e($l) : '<span class="t-vacio">—</span>' ?></td>
                         <td class="t-num" data-l=""><?= $showDate($b['FECHA_FUND'], $b['FECHA_EXT']) ?></td>
                     </tr>

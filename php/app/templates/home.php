@@ -56,6 +56,23 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                 <span class="ultima-date"><?= V::e($mddFecha) ?></span>
 <?php endif; ?>
             </a>
+<?php /* Ficha breve con datos reales de la marcha: llena la columna
+         izquierda frente al póster en PC (antes quedaban ~215 px vacíos).
+         Solo lo que hay; lo que falta no se pinta. */
+$mddDedic = trim((string) ($mdd['DEDICATORIA'] ?? ''));
+$mddDur = (int) ($mdd['DURACION_SEG'] ?? 0); ?>
+            <dl class="mdd-datos">
+<?php if (!empty($mdd['ESTILO'])): ?>
+                <div><dt>Estilo</dt><dd><?= \App\Html::chipEstilo((string) $mdd['ESTILO']) ?></dd></div>
+<?php endif; ?>
+<?php if ($mddDedic !== '' && $mddDedic !== '0'): ?>
+                <div><dt>Dedicatoria</dt><dd><?= V::e($mddDedic) ?></dd></div>
+<?php endif; ?>
+<?php if ($mddDur > 0): ?>
+                <div><dt>Duración</dt><dd><?= gmdate($mddDur >= 3600 ? 'G:i:s' : 'i:s', $mddDur) ?></dd></div>
+<?php endif; ?>
+            </dl>
+            <p class="mdd-ver"><a class="btn" href="<?= V::e($mddPath) ?>">Ver ficha</a></p>
 <?php if ($mddYtid !== null): ?>
             <div class="ytembed" data-ytid="<?= V::e($mddYtid) ?>">
                 <?php /* Póster propio (§0.8): ni la miniatura de i.ytimg.com se pide
@@ -89,7 +106,7 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
         <h2 class="section-title">Últimas incorporaciones</h2>
 <?php /* Tabla con el contrato común de §2.5 (.t / .t-main / .t-num /
          data-l): en móvil, r/tablas.css la pasa a filas de dos líneas. */ ?>
-        <table class="t ultimas-t">
+        <table class="t">
             <thead><tr><th scope="col">Marcha</th><th scope="col">Compositor</th><th scope="col">Banda</th><th scope="col" class="t-num">Año</th></tr></thead>
             <tbody>
 <?php foreach ($ultimas as $m):
@@ -106,5 +123,4 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
     </section>
 <?php endif; ?>
 
-    <p class="firma">Javier Guerra — <a href="https://x.com/JaviWarSVQ">@JaviWarSVQ</a></p>
 </div>

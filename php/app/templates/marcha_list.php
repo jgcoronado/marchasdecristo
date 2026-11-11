@@ -113,7 +113,7 @@ $nFiltros = count(array_filter(array_diff_key($criteria, ['orden' => 1, 'limit' 
 <?php foreach ($facets['decada'] as $f):
     $d0 = (string) $f['K']; $d9 = (string) ((int) $f['K'] + 9);
     $on = ($criteria['fechaDesde'] ?? '') === $d0 && ($criteria['fechaHasta'] ?? '') === $d9; ?>
-                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['fechaDesde' => $on ? '' : $d0, 'fechaHasta' => $on ? '' : $d9])) ?>"><?= V::e($d0) ?>s<?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
+                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['fechaDesde' => $on ? '' : $d0, 'fechaHasta' => $on ? '' : $d9])) ?>"><?= V::e($d0) ?>–<?= (int) $d0 + 9 ?><?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
 <?php endforeach; ?>
             </div>
 <?php endif; ?>

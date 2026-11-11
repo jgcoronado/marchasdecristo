@@ -62,8 +62,12 @@ body {
 .t td.t-main a:not([class*="chip"]) { color: var(--enlace); font-weight: 600; }
 .t .t-num { text-align: right; white-space: nowrap; width: 1%; }
 .t .t-vacio { color: var(--tb-muted); }
-/* Varios autores en una celda: uno por línea en escritorio, seguidos en móvil. */
-.t td > div + div { margin-top: .1rem; }
+/* Varios autores en una celda: seguidos con «, » también en escritorio. Uno
+   por línea no se distinguía de un solo nombre largo partido en dos. */
+.t td > div:not(.con-mini) { display: inline; }
+.t td > div:not(.con-mini) + div::before { content: ", "; }
+/* Nombre oficial bajo el corto (listado de bandas). */
+.t td.t-main .t-desc { display: block; font-size: var(--t-s); font-weight: 400; color: var(--tb-muted); }
 
 /* Orden: la flecha sale de aria-sort, así vale igual para el orden en
    servidor (/banda) que para el de catalog.js, que escribe ↑↓↕ en .ar. */
@@ -114,14 +118,17 @@ body {
     .t td a:not([class*="chip"]) { color: var(--tb-muted); }
     .t td.t-main { order: 1; flex: 1 1 0; font-size: var(--t-m); font-weight: 600; color: var(--ink); }
     .t td.t-main a:not([class*="chip"]) { color: var(--enlace); }
-    .t td.t-num { width: auto; }
+    .t td.t-num { width: auto; white-space: nowrap; }
     .t td.t-num:not(.t-num ~ .t-num) { order: 2; margin-left: auto; padding-left: var(--e3, .75rem); font-size: var(--t-m); color: var(--ink); }
     .t tr::after { content: ""; order: 2; flex-basis: 100%; height: 0; }
-    .t td.t-num ~ td.t-num { order: 3; }
-    /* Varios autores: seguidos con coma. .con-mini (miniatura + título) no:
-       es una fila flex y en línea dejaba la miniatura suelta sobre el título. */
-    .t td > div:not(.con-mini) { display: inline; }
-    .t td > div:not(.con-mini) + div::before { content: ", "; }
+    .t td.t-num ~ td.t-num { order: 4; }
+    /* La etiqueta de estilo abre la segunda línea: al final se quedaba sola
+       en una tercera cuando había dos compositores. */
+    .t td:not(.t-main):has(> .chip-estilo:only-child) { order: 3; }
+    .t td:not(.t-main):not(.t-num):not(.t-pista):not(:has(> .chip-estilo:only-child)) { order: 4; }
+    /* Con etiqueta, el texto que la sigue se encoge y parte dentro de su
+       celda en vez de saltar entero a otra línea dejando la etiqueta sola. */
+    .t tr:has(td > .chip-estilo:only-child) > td:not(.t-main):not(.t-num):not(.t-pista):not(:has(> .chip-estilo:only-child)) { flex: 1 1 8rem; }
     .t td .con-mini { gap: var(--e2, .5rem); }
     .t td .con-mini .mos { width: 2rem; }
     /* Separación de la segunda línea: hueco de columna del flex, sin
@@ -198,10 +205,25 @@ body {
 /* Rejilla de portadas: columnas fijas que dividen 24 (la página trae 24, 48
    o 96), para que la última fila no quede coja. Prevalece sobre la rejilla
    auto-fill genérica de r/media.css. */
-.list-page .fundas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.list-page .fundas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 30rem) { .list-page .fundas { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 36rem) { .list-page .fundas { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 60rem) { .list-page .fundas { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (min-width: 84rem) { .list-page .fundas { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
-/* Portadas/Tabla no es un filtro: siempre a la vista, junto al título. */
-.toolbar > .vista-seg { flex: none; }
-@media (max-width: 47.99rem) { .toolbar > .vista-seg { margin-left: auto; } }
+/* Portadas/Tabla no es un filtro, pero comparte fila con «Filtros» (en
+   móvil, título + vista + Filtros eran tres filas, ~170 px). Rejilla de una
+   fila: el desplegable ocupa todo el ancho (su panel también) y la vista se
+   superpone a la derecha, a la altura del botón. */
+.vista-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.vista-fila > .filtros { grid-column: 1 / -1; grid-row: 1; }
+.vista-fila > .vista-seg { grid-column: 2; grid-row: 1; margin: 0; min-height: 2.375rem; position: relative; z-index: 1; }
+@media (max-width: 47.99rem) { .vista-fila > .vista-seg { min-height: 2.75rem; } }
+
+/* Tabla de discos: miniatura y título centrados en la fila con el resto. */
+.t-discos td { vertical-align: middle; }
+.t-discos .con-mini { display: flex; align-items: center; gap: var(--e3, .75rem); }
+
+/* Formulario de filtros: los campos se reparten la fila (la tercera celda
+   de la rejilla quedaba vacía con cinco campos). */
+.filtros-panel .adv-grid { display: flex; flex-wrap: wrap; }
+.filtros-panel .adv-grid > .field { flex: 1 1 14rem; min-width: 0; }

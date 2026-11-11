@@ -68,6 +68,10 @@ main a.mos:hover, main a.mos:focus-visible { outline: 2px solid var(--foco, var(
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
     overflow-wrap: anywhere;
 }
+.funda b { hyphens: manual; overflow-wrap: normal; word-break: normal; }
+/* En el listado la banda y el año ya van en el pie bajo la funda: dentro,
+   solo el título. */
+.funda-item .funda small { display: none; }
 .funda small { font-size: var(--t-xs, .8125rem); color: var(--muted-c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* En miniaturas (fila de tabla) la funda no cabe: queda el cuadrado liso. */
 @container (max-width: 5rem) { .funda { display: none; } }
@@ -87,7 +91,7 @@ main a.mos:hover, main a.mos:focus-visible { outline: 2px solid var(--foco, var(
 }
 .funda-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .funda-item .mos { margin-bottom: var(--e2, .5rem); }
-.funda-tit { font-weight: 600; font-size: var(--t-s, .9rem); color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
+.funda-tit { font-weight: 600; font-size: var(--t-s, .9rem); color: var(--ink); line-height: 1.3; hyphens: manual; overflow-wrap: break-word; }
 .funda-sub { font-size: var(--t-xs, .8125rem); color: var(--muted-c); }
 a.funda-sub { color: var(--muted-c); }
 .funda-tit:hover, a.funda-sub:hover { text-decoration: underline; }

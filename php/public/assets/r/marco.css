@@ -80,15 +80,15 @@ footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner
     text-align: center; font-size: var(--t-l); line-height: 1.6; text-wrap: balance; color: var(--muted, var(--muted-c));
 }
 /* PC: una línea, cifras separadas solo por espacio (sin «·» que pueda
-   quedar colgando). Móvil: rejilla de dos columnas, marchas a lo ancho y las
-   otras cuatro en 2×2. */
+   quedar colgando). Móvil: rejilla de dos columnas alineada a la izquierda
+   (marchas|compositores, bandas|discos) y acompañamientos a lo ancho; cada
+   cifra con su rótulo no se parte nunca. */
 .welcome-counts, .stack.home .welcome-counts { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.25em; }
 .welcome-counts .cifra, .welcome-counts .cifra:nth-child(n) { display: block; grid-column: auto; white-space: nowrap; }
 @media (max-width: 47.99rem) {
-    .welcome-counts, .stack.home .welcome-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e1, .25rem) var(--e4, 1rem); }
-    .welcome-counts, .stack.home .welcome-counts { font-size: var(--t-m); }
-    .welcome-counts .cifra:nth-child(n) { white-space: normal; }
-    .welcome-counts .cifra:first-child { grid-column: 1 / -1; }
+    .welcome-counts, .stack.home .welcome-counts { display: grid; grid-template-columns: repeat(2, max-content); justify-content: start; justify-items: start; text-align: left; gap: var(--e1, .25rem) var(--e5, 1.5rem); font-size: var(--t-m); }
+    .welcome-counts .cifra:nth-child(n) { justify-self: start; text-align: left; margin: 0; }
+    .welcome-counts .cifra:nth-child(5) { grid-column: 1 / -1; }
 }
 .welcome-counts .cifra b, .welcome-counts .cifra span { display: inline; font-family: inherit; font-size: inherit; letter-spacing: 0; line-height: inherit; }
 .welcome-counts .cifra b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -101,32 +101,26 @@ footer .inner.pie, body.p-catalogo footer .inner.pie, body.p-ancho footer .inner
 .explora-col .section-title { border-bottom: 0; }
 .marcha-dia .ytembed { border-radius: var(--r, 4px); }
 
-/* Últimas incorporaciones: tabla .t (el CSS definitivo de .t es de tablas.css;
-   esto es lo mínimo para que se lea bien mientras tanto). */
-.ultimas-t { width: 100%; border-collapse: collapse; background: var(--card); }
-.ultimas-t th, .ultimas-t td { padding: var(--e2, .5rem) var(--e3, .75rem); text-align: left; border-bottom: 1px solid var(--linea, var(--line)); vertical-align: baseline; }
-.ultimas-t th { font-size: var(--t-s); font-weight: 600; }
-.ultimas-t .t-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ultimas-t .t-main a { font-weight: 600; }
-@media (max-width: 47.99rem) {
-    .ultimas-t thead { display: none; }
-    .ultimas-t tr { display: block; padding: var(--e2, .5rem) var(--e3, .75rem); border-bottom: 1px solid var(--linea, var(--line)); }
-    .ultimas-t td { display: inline; padding: 0; border: 0; font-size: var(--t-s); color: var(--muted, var(--muted-c)); }
-    .ultimas-t td.t-main { display: block; font-size: var(--t-m); }
-    .ultimas-t td:not(.t-main):not(:nth-child(2))::before { content: " · "; }
-}
-
 /* Marcha del día en PC: el vídeo ocupa a la derecha la altura de la tarjeta
    (desde el título de sección) y los datos van arriba a la izquierda; antes
    empezaba bajo el título y dejaba vacía la mitad inferior izquierda. */
 @media (min-width: 48rem) {
-    .marcha-dia { grid-template-rows: auto 1fr; }
+    .marcha-dia { grid-template-rows: auto auto auto 1fr; }
     .marcha-dia > .shead { grid-column: 1; }
     .marcha-dia .ultima-row { grid-column: 1; grid-row: 2; }
+    .marcha-dia .mdd-datos { grid-column: 1; grid-row: 3; }
+    /* «Ver ficha» al pie de la columna: las dos acaban a la misma altura. */
+    .marcha-dia .mdd-ver { grid-column: 1; grid-row: 4; align-self: end; }
     /* Llena la altura de la celda (la marca la columna «Explorar»): el póster
        no necesita 16:9 y el iframe se adapta. */
-    .marcha-dia .ytembed { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; aspect-ratio: auto; min-height: 15rem; }
+    .marcha-dia .ytembed { grid-column: 2; grid-row: 1 / -1; align-self: stretch; aspect-ratio: auto; min-height: 15rem; }
 }
+/* Datos breves de la marcha del día (estilo, dedicatoria, duración). */
+.mdd-datos { margin: var(--e4, 1rem) 0 0; display: grid; gap: var(--e2, .5rem); font-size: var(--t-s); }
+.mdd-datos > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--e3, .75rem); align-items: baseline; }
+.mdd-datos dt { color: var(--muted, var(--muted-c)); margin: 0; }
+.mdd-datos dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mdd-ver { margin: var(--e4, 1rem) 0 0; }
 /* Póster propio de la fachada (§0.8): nada de YouTube (ni la miniatura de
    i.ytimg.com) hasta pulsar. Fondo de marca, título y banda en texto y botón
    de reproducir rectangular. */
