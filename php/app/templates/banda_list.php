@@ -4,10 +4,15 @@
 $val = static fn(string $k): string => V::e($criteria[$k] ?? '');
 $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 
+/* Devuelve HTML ya escapado. Sin fecha conocida, el «—» atenuado del
+   contrato .t en vez de la abreviatura «s/f» de la base de datos (y en móvil
+   la celda no se pinta). */
 $showDate = static function ($fund, $ext): string {
-    $funRes = ((int) $fund) > 1800 ? (string) $fund : 's/f';
-    $extRes = $ext === null ? '' : ' – ' . $ext;
-    return $funRes . $extRes;
+    $vacio = '<span class="t-vacio">—</span>';
+    $f = ((int) $fund) > 1800 ? (string) (int) $fund : null;
+    $e = ($ext !== null && (int) $ext > 1800) ? (string) (int) $ext : null;
+    if ($f === null && $e === null) return $vacio;
+    return ($f ?? $vacio) . ($e !== null ? ' – ' . $e : '');
 };
 // Los sentinelas heredados de la era MySQL llegan como 0 o "0"; los dos son
 // falsy en PHP, así que basta la comprobación de verdad para descartarlos.
@@ -35,7 +40,7 @@ $sortHref = static function (string $col) use ($href, $orden, $dir): string {
 $ariaSort = static fn(string $col): string => $orden === $col ? ($dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
 $total = (int) $result['totalRows'];
-$hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+$hayFiltro = array_filter(array_diff_key($criteria, ['orden' => 1, 'dir' => 1]), static fn($x) => trim((string) $x) !== '') !== [];
 $nFiltros = count(array_filter(array_intersect_key($criteria, ['titulo' => 1, 'localidad' => 1, 'provincia' => 1]), static fn($x) => trim((string) $x) !== ''));
 // Por página: a la derecha del título en escritorio, dentro de «Filtros» en
 // móvil (mismo patrón que /marcha; r/tablas.css enseña una u otra copia).
@@ -105,8 +110,8 @@ $controles = H::porPagina($limit, '/banda', $criteria);
 <?php foreach ($result['data'] as $b): ?>
                     <tr>
                         <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $b['ID_BANDA'], (string) $b['NOMBRE_COMPLETO'])) ?>"><?= V::e($b['NOMBRE_COMPLETO']) ?></a></td>
-                        <td data-l=""><?= V::e($showLocalidad($b['LOCALIDAD'], $b['PROVINCIA'])) ?></td>
-                        <td class="t-num" data-l=""><?= V::e($showDate($b['FECHA_FUND'], $b['FECHA_EXT'])) ?></td>
+                        <td data-l=""><?= ($l = $showLocalidad($b['LOCALIDAD'], $b['PROVINCIA'])) !== '' ? V::e($l) : '<span class="t-vacio">—</span>' ?></td>
+                        <td class="t-num" data-l=""><?= $showDate($b['FECHA_FUND'], $b['FECHA_EXT']) ?></td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>

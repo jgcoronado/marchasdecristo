@@ -12,7 +12,7 @@ $href = static function (array $over) use ($criteria): string {
 };
 $orden = (string) ($criteria['orden'] ?? '');
 $total = (int) $result['totalRows'];
-$hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+$hayFiltro = array_filter(array_diff_key($criteria, ['orden' => 1]), static fn($x) => trim((string) $x) !== '') !== [];
 
 // El panel se abre solo si hay algún criterio que las facetas de la izquierda
 // no sepan mostrar (título, dedicatoria, localidad): si el filtro activo ya se
@@ -23,7 +23,7 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
          se pliegan dentro de «Filtros» para que la primera fila de resultados
          entre en el primer pantallazo (390×844). Se pintan dos veces y la hoja
          r/tablas.css enseña una u otra: sin JS y sin mover nodos. */
-$controles = '<span class="sortby"><span class="lbl">orden</span><a href="' . V::e($href(['orden' => ''])) . '"' . ($orden === '' ? ' class="on"' : '') . '>título</a><a href="' . V::e($href(['orden' => 'fecha'])) . '"' . ($orden === 'fecha' ? ' class="on"' : '') . '>año</a><a href="' . V::e($href(['orden' => 'grabaciones'])) . '"' . ($orden === 'grabaciones' ? ' class="on"' : '') . '>grabaciones</a></span>'
+$controles = '<span class="sortby seg"><span class="lbl">orden</span><a href="' . V::e($href(['orden' => ''])) . '"' . ($orden === '' ? ' class="on"' : '') . '>título</a><a href="' . V::e($href(['orden' => 'fecha'])) . '"' . ($orden === 'fecha' ? ' class="on"' : '') . '>año</a><a href="' . V::e($href(['orden' => 'grabaciones'])) . '"' . ($orden === 'grabaciones' ? ' class="on"' : '') . '>grabaciones</a></span>'
     . H::porPagina($limit, '/marcha', $criteria);
 $nFiltros = count(array_filter(array_diff_key($criteria, ['orden' => 1, 'limit' => 1, 'page' => 1]), static fn($x) => trim((string) $x) !== ''));
 ?>
@@ -142,7 +142,7 @@ $nFiltros = count(array_filter(array_diff_key($criteria, ['orden' => 1, 'limit' 
                     <tr>
                         <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
                         <td data-l=""><?php foreach ($m['AUTOR'] as $a): ?><div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div><?php endforeach; ?></td>
-                        <td class="t-num" data-l=""><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
+                        <td class="t-num" data-l=""><?= !empty($m['FECHA']) && $m['FECHA'] !== 's/f' ? V::e($m['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
                         <td data-l=""><?= \App\Html::chipEstilo($m['ESTILO'] ?? null, false) ?: '<span class="t-vacio">—</span>' ?></td>
                         <td class="t-opt" data-l=""><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="t-vacio">—</span>' ?></td>
                         <td class="t-opt" data-l=""><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="t-vacio">—</span>' ?></td>

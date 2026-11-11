@@ -176,3 +176,11 @@ main a.chip-estilo:hover { filter: brightness(1.08); text-decoration: none; }
 .compartir { width: var(--c-alto); height: var(--c-alto); border-radius: var(--c-r); color: var(--muted); }
 .compartir:hover { background: var(--c-sup2); color: var(--ink); }
 .tema-toggle:focus-visible { outline: 2px solid var(--foco, currentColor); outline-offset: 2px; }
+
+/* ── Área táctil en móvil (≥44 px) ───────────────────────────────────────── */
+@media (max-width: 47.99rem) {
+    /* Filtro de las tablas de ficha: a todo el ancho, sin el hueco a la
+       izquierda que dejaba el margin-left:auto de la cabecera. */
+    input.filter { min-height: 2.75rem; width: 100%; min-width: 0; flex: 1 0 100%; margin-left: 0; font-size: var(--t-m, 1rem); }
+    a.fopt { min-height: 2.75rem; align-items: center; padding-block: 0; }
+}

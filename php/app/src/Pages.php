@@ -236,11 +236,22 @@ final class Pages
     {
         [$criteria, $hasQuery, $page, $limit] = self::searchParams();
         // Explorador: lista siempre (sin filtros = catálogo completo paginado).
+        // «vista» no es un criterio de búsqueda: fuera de $criteria para que no
+        // cuente como filtro («Filtros (1)», «limpiar filtros») ni se arrastre
+        // a los enlaces; la plantilla la añade donde haga falta.
+        $tabla = ($criteria['vista'] ?? '') === 'tabla';
+        unset($criteria['vista']);
+        if (!$tabla) {
+            // Rejilla de portadas: múltiplos de 24, que se reparten sin fila
+            // coja en 3, 4, 6 u 8 columnas (390 px … 1440 px).
+            $limitIn = (int) ($_GET['limit'] ?? 24);
+            $limit = in_array($limitIn, [24, 48, 96], true) ? $limitIn : 24;
+        }
         $qs = http_build_query($criteria);
         $result = Repo::searchDiscos($qs, $page, $limit);
         $facets = Repo::discoFacets($qs);
         $hasQuery ? Http::noStore() : Http::cachePublic(3600);
-        View::render('disco_list', compact('criteria', 'result', 'page', 'limit', 'facets'), [
+        View::render('disco_list', compact('criteria', 'result', 'page', 'limit', 'facets', 'tabla'), [
             'title' => 'Buscador de discos — Marchas de Cristo',
             'description' => 'Busca discos de música procesional de Semana Santa por nombre.',
             ...self::listadoMeta('/disco', $page, (int) $result['totalRows'], $limit),

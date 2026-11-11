@@ -242,8 +242,9 @@
                 fijar(false); lupa.focus();
             }
         });
-        // En /buscar la caja ya trae la consulta: se abre desplegada.
-        if (q.value !== '') { lupa.setAttribute('aria-expanded', 'true'); }
+        // Con consulta se abre desplegada, salvo en /buscar: la página ya trae
+        // su propio buscador y salían dos cajas apiladas en móvil.
+        if (q.value !== '' && !document.querySelector('.buscar-form')) { lupa.setAttribute('aria-expanded', 'true'); }
     }
 
     // Correo ofuscado (/contacto): el HTML trae usuario y dominio invertidos en
