@@ -69,7 +69,7 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
 <?php endif; ?>
 
 <?php if ($t($a['BIO']) || !empty($pm)): ?>
-    <div class="ficha-lado"><div class="ficha-notas">
+    <div class="ficha-col"><div class="ficha-lado"><div class="ficha-notas">
 <?php if ($t($a['BIO'])): ?>
     <section class="blk">
     <div class="shead" id="bio"><h2>Biografía</h2></div>
@@ -82,7 +82,7 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
     <p class="notas">Las marchas de <?= V::e($fullName) ?> para banda de música están en Patrimonio Musical. <a href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver su ficha en Patrimonio Musical</a></p>
     </section>
 <?php endif; ?>
-    </div></div>
+    </div></div></div>
 <?php endif; ?>
 
     <div class="ficha-cuerpo">

@@ -111,6 +111,30 @@ if ($hayDedic) {
 $enl = $enlaces ?? ['original' => [], 'actual' => []];
 $anioMarcha = $anioOk ? (int) $m['FECHA'] : null;
 $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarcha), $mid);
+/* Datos: solo lo que no dice ya la frase ni otra sección (el estilo
+         va en la etiqueta y las grabaciones en el título de su tabla). Los
+         enlaces de exploración van a «Véase también». */
+$datos = [];
+if (!$anioOk && $t($m['FECHA'])) $datos[] = ['Año', V::e($m['FECHA'])];
+if (!$hayDedic && $localidad !== '') $datos[] = ['Localidad', V::e($localidad)];
+if ($duracion !== '') $datos[] = ['Duración', V::e($duracion)];
+$explorar = [];
+foreach ($autores as $a) {
+    if ((int) $a['N_MARCHAS'] > 1) $explorar[] = '<a href="' . V::e($autorPath($a)) . '">Obra de ' . V::e($autoridad($a)) . '</a> (' . $num($a['N_MARCHAS']) . ')';
+}
+if ($t($m['BANDA_ESTRENO']) && (int) $m['BANDA_ESTRENOS'] > 1) $explorar[] = '<a href="' . V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_NOMBRE'])) . '">Estrenos de ' . V::e($m['BANDA_NOMBRE']) . '</a> (' . $num($m['BANDA_ESTRENOS']) . ')';
+if ($anioOk && (int) $m['N_MISMO_ANIO'] > 1) $explorar[] = '<a href="' . V::e(P::anioHubPath((string) $m['FECHA'])) . '">Marchas de ' . V::e($m['FECHA']) . '</a> (' . $num($m['N_MISMO_ANIO']) . ')';
+$estiloHub = $estilo !== '' ? P::estiloHubPath((string) $m['ESTILO']) : null;
+if ($estiloHub !== null) $explorar[] = '<a href="' . V::e($estiloHub) . '">Marchas de ' . V::e(mb_strtolower($estilo, 'UTF-8')) . '</a>';
+if ($t($m['PROVINCIA']) && (int) $m['N_MISMA_PROV'] > 1) $explorar[] = '<a href="' . V::e(P::provinciaHubPath((string) $m['PROVINCIA'])) . '">Marchas de la provincia de ' . V::e($m['PROVINCIA']) . '</a> (' . $num($m['N_MISMA_PROV']) . ')';
+/* Una tarjeta «Datos» con un solo par (casi siempre la duración) es una
+   caja para una cifra: con 0–1 pares, el dato va en la frase y no hay
+   tarjeta. */
+if (count($datos) === 1) {
+    [$k1, $v1] = $datos[0];
+    $frase .= $k1 === 'Duración' ? ' Dura ' . $v1 . '.' : ' ' . $k1 . ': ' . $v1 . '.';
+    $datos = [];
+}
 ?>
 <div class="crumbs">
     <span><a href="/">Inicio</a> / <a href="/marcha">Marchas</a><?php if ($anioOk): ?> / <a href="<?= V::e(P::anioHubPath((string) $m['FECHA'])) ?>"><?= V::e($m['FECHA']) ?></a><?php endif; ?></span>
@@ -133,6 +157,9 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
 <?php /* Escuchar va primero y sin reproductor incrustado: nada de terceros
          hasta que el visitante decide irse. Sin enlaces, el hueco pide la
          grabación en vez de desaparecer. */ ?>
+<?php /* .ficha-col: escuchar y lado en una sola columna pegajosa (A). En
+         B, display: contents devuelve sus hijos a las áreas esc y lado. */ ?>
+    <div class="ficha-col">
     <section class="ficha-escuchar blk">
     <div class="shead" id="escuchar"><h2>Escuchar</h2></div>
 <?php if ($escuchar !== ''): ?>
@@ -142,23 +169,6 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
 <?php endif; ?>
     </section>
 
-<?php /* Datos: solo lo que no dice ya la frase ni otra sección (el estilo
-         va en la etiqueta y las grabaciones en el título de su tabla). Los
-         enlaces de exploración van a «Véase también». */
-$datos = [];
-if (!$anioOk && $t($m['FECHA'])) $datos[] = ['Año', V::e($m['FECHA'])];
-if (!$hayDedic && $localidad !== '') $datos[] = ['Localidad', V::e($localidad)];
-if ($duracion !== '') $datos[] = ['Duración', V::e($duracion)];
-$explorar = [];
-foreach ($autores as $a) {
-    if ((int) $a['N_MARCHAS'] > 1) $explorar[] = '<a href="' . V::e($autorPath($a)) . '">Obra de ' . V::e($autoridad($a)) . '</a> (' . $num($a['N_MARCHAS']) . ')';
-}
-if ($t($m['BANDA_ESTRENO']) && (int) $m['BANDA_ESTRENOS'] > 1) $explorar[] = '<a href="' . V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_NOMBRE'])) . '">Estrenos de ' . V::e($m['BANDA_NOMBRE']) . '</a> (' . $num($m['BANDA_ESTRENOS']) . ')';
-if ($anioOk && (int) $m['N_MISMO_ANIO'] > 1) $explorar[] = '<a href="' . V::e(P::anioHubPath((string) $m['FECHA'])) . '">Marchas de ' . V::e($m['FECHA']) . '</a> (' . $num($m['N_MISMO_ANIO']) . ')';
-$estiloHub = $estilo !== '' ? P::estiloHubPath((string) $m['ESTILO']) : null;
-if ($estiloHub !== null) $explorar[] = '<a href="' . V::e($estiloHub) . '">Marchas de ' . V::e(mb_strtolower($estilo, 'UTF-8')) . '</a>';
-if ($t($m['PROVINCIA']) && (int) $m['N_MISMA_PROV'] > 1) $explorar[] = '<a href="' . V::e(P::provinciaHubPath((string) $m['PROVINCIA'])) . '">Marchas de la provincia de ' . V::e($m['PROVINCIA']) . '</a> (' . $num($m['N_MISMA_PROV']) . ')';
-?>
 <?php if ($datos !== [] || $notas !== ''): ?>
     <div class="ficha-lado">
 <?php if ($datos !== []): ?>
@@ -179,8 +189,12 @@ if ($t($m['PROVINCIA']) && (int) $m['N_MISMA_PROV'] > 1) $explorar[] = '<a href=
 <?php endif; ?>
     </div>
 <?php endif; ?>
+    </div>
 
     <div class="ficha-cuerpo">
+<?php /* Sin grabaciones no hay bloque: Escuchar ya dice que falta; dos
+         estados vacíos seguidos solo repetían el hueco. */ ?>
+<?php if ($nGrab > 0): ?>
     <section class="blk">
     <div class="shead" id="grabaciones">
         <h2>Grabaciones</h2>
@@ -223,6 +237,7 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
     </div>
 <?php endif; ?>
     </section>
+<?php endif; ?>
 
 <?php if (!empty($relacionadas) || $explorar !== []): ?>
     <section class="blk">
