@@ -414,6 +414,35 @@ final class NominaRepo
         ));
     }
 
+    /**
+     * ¿Otro paso de la hermandad (no $excluir) que sale el día $idDia (null =
+     * el principal) y cumple $cond? Un mismo paso puede salir en días
+     * distintos (un día extra con la misma imagen), así que el nombre y la
+     * cruz de guía son únicos por día, no por hermandad.
+     */
+    private static function hayPasoEnDia(int $idHermandad, ?int $idDia, string $cond, array $params, int $excluir = 0): bool
+    {
+        $sql = "SELECT 1 FROM paso WHERE ID_HERMANDAD = ? AND ID_PASO != ? AND $cond";
+        $args = [$idHermandad, $excluir, ...$params];
+        // Contra la columna y no contra un IFNULL(...): PDO pasa los parámetros
+        // como texto y solo la afinidad de la columna los convierte a número.
+        if (self::variosDiasDisponible() && $idDia === null) {
+            $sql .= ' AND NOT EXISTS (SELECT 1 FROM paso_dia WHERE ID_PASO = paso.ID_PASO)';
+        } elseif (self::variosDiasDisponible()) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM paso_dia WHERE ID_PASO = paso.ID_PASO AND ID_DIA = ?)';
+            $args[] = $idDia;
+        }
+        return Db::one($sql . ' LIMIT 1', $args) !== null;
+    }
+
+    /** Día extra en que sale el paso, o null si sale el principal de su hermandad. */
+    private static function diaDePaso(int $idPaso): ?int
+    {
+        if (!self::variosDiasDisponible()) return null;
+        $r = Db::one('SELECT ID_DIA FROM paso_dia WHERE ID_PASO = ?', [$idPaso]);
+        return $r === null ? null : (int) $r['ID_DIA'];
+    }
+
     /** Mueve la hermandad a otro día de la misma localidad: DIA/DIA_ORDEN al del destino, ORDEN = último+1. */
     public static function moveHermandad(int $idHermandad, int $idDiaDestino): array
     {
@@ -504,10 +533,26 @@ final class NominaRepo
         return ['code' => 'CREATED'];
     }
 
-    /** Deja de salir ese día extra; sus pasos vuelven al día principal (no se borra nada más). */
+    /**
+     * Deja de salir ese día extra; sus pasos vuelven al día principal (no se
+     * borra nada más). Si alguno ya está también en el principal (mismo
+     * nombre, o una segunda cruz de guía), no se quita: quedarían dos iguales
+     * el mismo día, y cuál sobra (con sus acompañamientos) se decide a mano.
+     */
     public static function removeDiaExtra(int $idHermandad, int $idDia): array
     {
         if (!isset(self::diasExtra($idHermandad)[$idDia])) return ['code' => 'NOT_FOUND'];
+        $pasos = Db::all(
+            'SELECT p.ID_PASO, p.NOMBRE, p.ES_CRUZ_GUIA FROM paso p INNER JOIN paso_dia pd ON pd.ID_PASO = p.ID_PASO
+             WHERE p.ID_HERMANDAD = ? AND pd.ID_DIA = ?',
+            [$idHermandad, $idDia]
+        );
+        foreach ($pasos as $p) {
+            if (self::hayPasoEnDia($idHermandad, null, 'NOMBRE = ?', [$p['NOMBRE']], (int) $p['ID_PASO'])) return ['code' => 'PASO_DUPLICADO'];
+            if ((int) $p['ES_CRUZ_GUIA'] === 1 && self::hayPasoEnDia($idHermandad, null, 'ES_CRUZ_GUIA = 1', [], (int) $p['ID_PASO'])) {
+                return ['code' => 'YA_TIENE_CRUZ_GUIA'];
+            }
+        }
         Db::transaction(function () use ($idHermandad, $idDia) {
             Db::run(
                 'DELETE FROM paso_dia WHERE ID_DIA = ? AND ID_PASO IN (SELECT ID_PASO FROM paso WHERE ID_HERMANDAD = ?)',
@@ -547,17 +592,22 @@ final class NominaRepo
     public static function setPasoDia(int $idPaso, int $idDia): array
     {
         $p = Db::one(
-            'SELECT p.ID_HERMANDAD, h.LOCALIDAD, h.DIA FROM paso p INNER JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE p.ID_PASO = ?',
+            'SELECT p.ID_HERMANDAD, p.NOMBRE, p.ES_CRUZ_GUIA, h.LOCALIDAD, h.DIA FROM paso p INNER JOIN hermandad h ON h.ID_HERMANDAD = p.ID_HERMANDAD WHERE p.ID_PASO = ?',
             [$idPaso]
         );
         if ($p === null) return ['code' => 'NOT_FOUND'];
+        $idHermandad = (int) $p['ID_HERMANDAD'];
         $principal = Db::one('SELECT ID_DIA FROM semana_santa_dia WHERE LOCALIDAD = ? AND NOMBRE = ?', [$p['LOCALIDAD'], $p['DIA']]);
-        if ($principal !== null && (int) $principal['ID_DIA'] === $idDia) {
+        $destino = $principal !== null && (int) $principal['ID_DIA'] === $idDia ? null : $idDia; // null = el principal
+        if ($destino !== null && !isset(self::diasExtra($idHermandad)[$destino])) return ['code' => 'DIA_NOT_FOUND'];
+        if (self::hayPasoEnDia($idHermandad, $destino, 'NOMBRE = ?', [$p['NOMBRE']], $idPaso)) return ['code' => 'PASO_DUPLICADO'];
+        if ((int) $p['ES_CRUZ_GUIA'] === 1 && self::hayPasoEnDia($idHermandad, $destino, 'ES_CRUZ_GUIA = 1', [], $idPaso)) {
+            return ['code' => 'YA_TIENE_CRUZ_GUIA'];
+        }
+        if ($destino === null) {
             Db::run('DELETE FROM paso_dia WHERE ID_PASO = ?', [$idPaso]);
-        } elseif (isset(self::diasExtra((int) $p['ID_HERMANDAD'])[$idDia])) {
-            Db::run('INSERT OR REPLACE INTO paso_dia (ID_PASO, ID_DIA) VALUES (?, ?)', [$idPaso, $idDia]);
         } else {
-            return ['code' => 'DIA_NOT_FOUND'];
+            Db::run('INSERT OR REPLACE INTO paso_dia (ID_PASO, ID_DIA) VALUES (?, ?)', [$idPaso, $destino]);
         }
         Db::logAdmin('UPDATE', 'paso_dia', $idPaso, ['dia' => $idDia]);
         return ['code' => 'UPDATED'];
@@ -601,6 +651,8 @@ final class NominaRepo
 
     /**
      * $idDia: día extra de la hermandad en que sale el paso (null = el principal).
+     * El mismo paso puede darse de alta en otro día de la hermandad; en un
+     * mismo día, el nombre y la cruz de guía no se repiten.
      * @return array{code:string, id?:int}
      */
     public static function addPaso(int $idHermandad, string $nombre, bool $esCruzGuia, ?int $idDia = null): array
@@ -610,11 +662,9 @@ final class NominaRepo
         $h = Db::one('SELECT ID_HERMANDAD FROM hermandad WHERE ID_HERMANDAD = ?', [$idHermandad]);
         if ($h === null) return ['code' => 'NOT_FOUND'];
         if ($idDia !== null && !isset(self::diasExtra($idHermandad)[$idDia])) $idDia = null; // su día principal
-        $dup = Db::one('SELECT ID_PASO FROM paso WHERE ID_HERMANDAD = ? AND NOMBRE = ?', [$idHermandad, $nombre]);
-        if ($dup !== null) return ['code' => 'PASO_DUPLICADO'];
+        if (self::hayPasoEnDia($idHermandad, $idDia, 'NOMBRE = ?', [$nombre])) return ['code' => 'PASO_DUPLICADO'];
         if ($esCruzGuia) {
-            $yaTiene = Db::one('SELECT ID_PASO FROM paso WHERE ID_HERMANDAD = ? AND ES_CRUZ_GUIA = 1', [$idHermandad]);
-            if ($yaTiene !== null) return ['code' => 'YA_TIENE_CRUZ_GUIA'];
+            if (self::hayPasoEnDia($idHermandad, $idDia, 'ES_CRUZ_GUIA = 1', [])) return ['code' => 'YA_TIENE_CRUZ_GUIA'];
             $orden = 0;
         } else {
             $orden = (int) (Db::one('SELECT MAX(ORDEN) AS m FROM paso WHERE ID_HERMANDAD = ? AND ES_CRUZ_GUIA = 0', [$idHermandad])['m'] ?? 0) + 1;
@@ -635,8 +685,7 @@ final class NominaRepo
         if ($nombre === '') return ['code' => 'NOMBRE_REQUERIDO'];
         $p = Db::one('SELECT ID_HERMANDAD FROM paso WHERE ID_PASO = ?', [$idPaso]);
         if ($p === null) return ['code' => 'NOT_FOUND'];
-        $dup = Db::one('SELECT ID_PASO FROM paso WHERE ID_HERMANDAD = ? AND NOMBRE = ? AND ID_PASO != ?', [$p['ID_HERMANDAD'], $nombre, $idPaso]);
-        if ($dup !== null) return ['code' => 'PASO_DUPLICADO'];
+        if (self::hayPasoEnDia((int) $p['ID_HERMANDAD'], self::diaDePaso($idPaso), 'NOMBRE = ?', [$nombre], $idPaso)) return ['code' => 'PASO_DUPLICADO'];
         Db::run('UPDATE paso SET NOMBRE = ? WHERE ID_PASO = ?', [$nombre, $idPaso]);
         Db::logAdmin('UPDATE', 'paso', $idPaso, ['nombre' => $nombre]);
         return ['code' => 'UPDATED'];
@@ -1288,7 +1337,7 @@ final class NominaRepo
 
         return [
             'code' => 'OK', 'localidad' => $localidad, 'provNueva' => $prov === null ? $provIn : null,
-            'h' => $h, 'paso' => $h !== null && $pasoIn !== '' ? self::buscarPaso((int) $h['ID_HERMANDAD'], $pasoIn, $localidad) : null,
+            'h' => $h, 'paso' => $h !== null && $pasoIn !== '' ? self::buscarPaso((int) $h['ID_HERMANDAD'], $pasoIn, $localidad, $idDiaExtra) : null,
             'diaIn' => $diaIn, 'herIn' => $herIn, 'pasoIn' => $pasoIn, 'idDiaExtra' => $idDiaExtra,
         ];
     }
@@ -1336,12 +1385,19 @@ final class NominaRepo
     }
 
     /** Paso de la hermandad por slugify(NOMBRE), con los datos de pasoDeLocalidad(). */
-    private static function buscarPaso(int $idHermandad, string $nombre, string $localidad): ?array
+    /** Paso de la hermandad por nombre; si sale en varios días, el del día $idDia (null = el principal). */
+    private static function buscarPaso(int $idHermandad, string $nombre, string $localidad, ?int $idDia = null): ?array
     {
-        foreach (Db::all('SELECT ID_PASO, NOMBRE FROM paso WHERE ID_HERMANDAD = ?', [$idHermandad]) as $p) {
-            if (Slug::slugify((string) $p['NOMBRE']) === Slug::slugify($nombre)) return self::pasoDeLocalidad((int) $p['ID_PASO'], $localidad);
+        $elegido = null;
+        foreach (Db::all('SELECT ID_PASO, NOMBRE FROM paso WHERE ID_HERMANDAD = ? ORDER BY ID_PASO', [$idHermandad]) as $p) {
+            if (Slug::slugify((string) $p['NOMBRE']) !== Slug::slugify($nombre)) continue;
+            $elegido ??= (int) $p['ID_PASO'];
+            if (self::diaDePaso((int) $p['ID_PASO']) === $idDia) {
+                $elegido = (int) $p['ID_PASO'];
+                break;
+            }
         }
-        return null;
+        return $elegido === null ? null : self::pasoDeLocalidad($elegido, $localidad);
     }
 
     /**

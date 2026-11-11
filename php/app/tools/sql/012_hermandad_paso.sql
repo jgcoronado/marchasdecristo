@@ -65,8 +65,10 @@ CREATE TABLE IF NOT EXISTS paso (
     ID_HERMANDAD INTEGER NOT NULL REFERENCES hermandad(ID_HERMANDAD),
     NOMBRE       TEXT    NOT NULL,             -- nombre popular o del titular
     ORDEN        INTEGER NOT NULL,             -- 0 = cruz de guía, luego 1..n
-    ES_CRUZ_GUIA INTEGER NOT NULL DEFAULT 0,
-    UNIQUE (ID_HERMANDAD, NOMBRE)
+    ES_CRUZ_GUIA INTEGER NOT NULL DEFAULT 0
+    -- Sin UNIQUE (ID_HERMANDAD, NOMBRE): desde 020 el mismo paso puede salir
+    -- en dos días de la hermandad. NominaRepo lo hace único por día, y
+    -- migrate_ingest.php quita la UNIQUE de las bases creadas antes.
 );
 CREATE INDEX IF NOT EXISTS idx_paso_hermandad ON paso (ID_HERMANDAD, ORDEN);
 

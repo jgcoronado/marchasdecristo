@@ -122,6 +122,8 @@ final class Admin
         'DIA_DISTINTO_DE_HERMANDAD' => 'Esa hermandad sale otro día: déjalo vacío o elige uno de los suyos (el cambio de día se hace en Semana Santa).',
         'PROVINCIA_DISTINTA' => 'Esa localidad ya está registrada en otra provincia.',
         'INVALID_LOCALIDAD' => 'Esa localidad no está en el catálogo de municipios de la provincia elegida.',
+        'PASO_DUPLICADO' => 'Esa hermandad ya tiene un paso con ese nombre ese mismo día. El mismo paso sí puede estar en otro de sus días.',
+        'YA_TIENE_CRUZ_GUIA' => 'Esa hermandad ya tiene cruz de guía ese mismo día.',
         'POSIBLE_DUPLICADO' => 'No se ha creado la marcha: se parece a otra que ya existe (mismo autor o misma banda de estreno). Si es la misma, usa «Asociar a marcha existente»; si de verdad es otra, marca la casilla de confirmación antes de aceptar.',
     ];
 
