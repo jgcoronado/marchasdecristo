@@ -6,7 +6,7 @@
    Rejilla y no fila: los botones salen del mismo ancho y llenan la columna,
    sin hueco a la derecha (§0.4). */
 .streaming.esc {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: var(--e2, .5rem); margin: var(--e3, .75rem) 0 0; align-items: stretch;
 }
 /* El rótulo «Escuchar en» lo dice ya el título de la sección: solo para lectores. */
@@ -38,27 +38,8 @@ main .esc a.stream-btn:hover, .esc .stream-btn:hover {
 }
 .esc .stream-btn:focus-visible { outline: 2px solid var(--foco, var(--acc)); outline-offset: 2px; }
 
-/* ── Versión original / actual: segmentado (§2.4) ─────────────────────────
-   Estilo mínimo por si el área de controles no define .seg: celdas unidas,
-   la elegida con fondo y sin subrayado de color (§0.1). */
-.seg {
-    display: inline-flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--linea, var(--line));
-    border-radius: var(--r, var(--radius-sm, 4px)); overflow: hidden; background: var(--card);
-}
-.seg > .seg-op {
-    display: inline-flex; align-items: center; min-height: 36px; padding: 0 var(--e3, .75rem);
-    font-size: var(--t-s, .9rem); color: var(--ink); cursor: pointer; text-decoration: none;
-    border: 0; margin: 0; font-weight: 400;
-}
-.seg > .seg-op + .seg-op { border-left: 1px solid var(--linea, var(--line)); }
-.seg > .seg-op:hover { background: var(--sup2, var(--s2)); color: var(--ink); text-decoration: none; }
-.seg > .seg-op.on { background: var(--ink); color: var(--card); }
-@media (max-width: 47.99rem) { .seg > .seg-op { min-height: 44px; } }
-.vtab-bar.seg { border-bottom: 1px solid var(--linea, var(--line)); margin: 0 0 var(--e1, .25rem); }
-.vtab-in-o:checked ~ .vtab-bar .vtab-o,
-.vtab-in-a:checked ~ .vtab-bar .vtab-a { background: var(--ink); color: var(--card); border-bottom: 0; font-weight: 600; }
-.vtab-in-o:focus-visible ~ .vtab-bar .vtab-o,
-.vtab-in-a:focus-visible ~ .vtab-bar .vtab-a { outline: 2px solid var(--foco, var(--acc)); outline-offset: -2px; }
+/* Versión original / actual: la forma de segmentado la da r/controles.css
+   (.vtab-bar/.vtab); aquí no se repite para no pisarla. */
 
 /* ── Estado vacío: ocupa el sitio de los botones, sin icono ──────────────── */
 .esc-vacio {

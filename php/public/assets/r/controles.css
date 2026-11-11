@@ -94,7 +94,7 @@ details > summary:focus-visible, .pagination a:focus-visible { outline: 2px soli
 .seg > .on, .seg > [aria-current], .seg > [aria-selected="true"],
 .toolbar .sortby a.on, .toolbar .sortby a.on:hover {
     position: relative; z-index: 1;
-    background: var(--c-enlace); border-color: var(--c-enlace); color: var(--c-enlace-fg); font-weight: 600;
+    background: var(--ink); border-color: var(--ink); color: var(--card); font-weight: 600;
 }
 
 /* ── Pestañas de versión (Html::escuchar): piel de segmentado ───────────── */
@@ -110,7 +110,7 @@ details > summary:focus-visible, .pagination a:focus-visible { outline: 2px soli
 .vtab:hover { background: var(--sup2, var(--s2)); color: var(--ink); }
 .vtab-in-o:checked ~ .vtab-bar .vtab-o, .vtab-in-a:checked ~ .vtab-bar .vtab-a {
     position: relative; z-index: 1; font-weight: 600;
-    background: var(--enlace, var(--acc)); border-color: var(--enlace, var(--acc)); color: var(--enlace-fg, var(--acc-fg));
+    background: var(--ink); border-color: var(--ink); color: var(--card);
 }
 .vtab-in-o:focus-visible ~ .vtab-bar .vtab-o,
 .vtab-in-a:focus-visible ~ .vtab-bar .vtab-a { outline: 2px solid var(--foco, var(--enlace)); outline-offset: 2px; }

@@ -124,7 +124,7 @@ $tablaAcomp = static function (array $filasAnio): string {
         $locUrl = '/acompanamientos/' . S::slugify((string) $f['LOCALIDAD']);
         $h .= '<tr><td class="t-main"><a href="' . V::e($locUrl . ($f['EN_NOMINA'] ? '#h-' . $f['HERMANDAD_SLUG'] : '')) . '">' . V::e($f['HERMANDAD']) . '</a></td>'
             . '<td data-l=""><a href="' . V::e($locUrl) . '">' . V::e($f['LOCALIDAD_NOMBRE']) . '</a></td>'
-            . '<td data-l="">' . ($f['DIA'] !== null ? V::e($f['DIA']) : '<span class="muted">—</span>') . '</td></tr>';
+            . '<td data-l="">' . ($f['DIA'] !== null ? V::e($f['DIA']) : '<span class="t-vacio">—</span>') . '</td></tr>';
     }
     return $h . '</tbody></table></div>';
 };
@@ -244,8 +244,8 @@ $tablaAcomp = static function (array $filasAnio): string {
 <?php foreach ($b['marchas'] as $m): ?>
             <tr>
                 <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td data-l=""><?php foreach ($m['AUTOR'] as $i => $a): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a><?php endforeach; ?><?php if ($m['AUTOR'] === []): ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="t-num" data-l=""><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '<span class="muted">—</span>' ?></td>
+                <td data-l=""><?php foreach ($m['AUTOR'] as $i => $a): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a><?php endforeach; ?><?php if ($m['AUTOR'] === []): ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?= $t($m['FECHA']) ? (int) $m['FECHA'] : '<span class="t-vacio">—</span>' ?></td>
                 <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>

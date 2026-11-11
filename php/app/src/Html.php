@@ -275,7 +275,7 @@ final class Html
     public static function escucharVacio(string $que = 'esta marcha', string $href = '/contacto'): string
     {
         return '<p class="esc-vacio">Todavía no tenemos ninguna grabación enlazada de ' . self::e($que)
-            . '. Si conoces una, <a href="' . self::e($href) . '">propónla</a>.</p>';
+            . '. Si conoces una, <a href="' . self::e($href) . '">proponla</a>.</p>';
     }
 
     /**

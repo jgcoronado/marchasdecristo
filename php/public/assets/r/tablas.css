@@ -129,6 +129,18 @@ body {
     .t td.t-main + td[data-l]:not([data-l=""]):not(.t-num)::before,
     .t td.t-main + td.t-num + td[data-l]:not([data-l=""])::before { content: attr(data-l) " "; }
     .t td:empty, .t td:has(> .t-vacio:only-child), .t td.t-opt { display: none; }
+    /* Si el primer dato de la segunda línea está vacío (y oculto), el
+       siguiente no abre con « · ». */
+    .t td.t-main + td:is(:empty, :has(> .t-vacio:only-child)) + td::before,
+    .t td.t-main + td.t-num + td:is(:empty, :has(> .t-vacio:only-child)) + td::before { content: none; }
+    .t td.t-main + td:is(:empty, :has(> .t-vacio:only-child)) + td[data-l]:not([data-l=""])::before { content: attr(data-l) " "; }
+    /* Filas de grupo (décadas de la obra de un compositor): titulillo a todo
+       el ancho, sin caja. */
+    .t tr.t-grupo { display: block; padding: var(--e4, 1rem) 0 var(--e1, .25rem); border-bottom: 1px solid var(--tb-linea); }
+    .t tr.t-grupo::after { content: none; }
+    .t tr.t-grupo th { display: block; padding: 0; background: none; border: 0; font-size: var(--t-l); }
+    /* La etiqueta de estilo en la línea secundaria, a su escala. */
+    .t td .chip-estilo { font-size: var(--t-xs); padding: 0 var(--e1, .25rem); line-height: 1.5; }
 }
 
 /* ── Filtros (§2.4): «Búsqueda avanzada» + «Refinar por» bajo un botón ────── */

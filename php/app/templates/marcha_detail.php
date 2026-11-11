@@ -138,7 +138,7 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
 <?php if ($escuchar !== ''): ?>
     <?= $escuchar ?>
 <?php else: ?>
-    <p class="pide">Todavía no tenemos ninguna grabación enlazada de esta marcha. Si conoces una, <a href="/contacto">propónla</a>.</p>
+    <?= H::escucharVacio() ?>
 <?php endif; ?>
     </section>
 
@@ -168,7 +168,9 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
 <?php if ($duracion !== ''): ?>
         <div class="f"><dt>Duración</dt><dd><?= V::e($duracion) ?></dd></div>
 <?php endif; ?>
+<?php if ($nGrab > 0): ?>
         <div class="f"><dt>Grabaciones</dt><dd><?= $num($nGrab) ?></dd></div>
+<?php endif; ?>
     </dl>
     </section>
 
@@ -210,11 +212,11 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
 ?>
             <tr>
                 <td class="t-main"><a href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a></td>
-                <td data-l=""><?php if ($t($d['ID_BANDA'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA_BREVE'])) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?> · <?= V::e($d['BANDA_LOC']) ?><?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="t-num" data-l=""><?= $anio > 1800 ? $anio : '<span class="muted">—</span>' ?></td>
+                <td data-l=""><?php if ($t($d['ID_BANDA'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $d['ID_BANDA'], (string) $d['BANDA_BREVE'])) ?>"><?= V::e($d['BANDA_BREVE']) ?></a><?php if ($t($d['BANDA_LOC'])): ?> · <?= V::e($d['BANDA_LOC']) ?><?php endif; ?><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?= $anio > 1800 ? $anio : '<span class="t-vacio">—</span>' ?></td>
                 <?php /* La duración mostrada es la REAL del track. Si abre con
                          intro de percusión se marca con una etiqueta de texto. */ ?>
-                <td class="t-num" data-l=""><?php if (!empty($d['DURACION_SEG'])): ?><?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?> <abbr class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)">perc.</abbr><?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?php if (!empty($d['DURACION_SEG'])): ?><?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?> <abbr class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)">perc.</abbr><?php endif; ?><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
@@ -233,8 +235,8 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
 <?php foreach ($relacionadas as $r): ?>
             <tr>
                 <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $r['ID_MARCHA'], (string) $r['TITULO'])) ?>"><?= V::e($r['TITULO']) ?></a></td>
-                <td data-l=""><?= $r['AUTOR'] !== [] ? V::e(V::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $r['AUTOR']))) : '<span class="muted">—</span>' ?></td>
-                <td class="t-num" data-l=""><?= preg_match('/^\d{4}$/', (string) $r['FECHA']) === 1 ? V::e($r['FECHA']) : '<span class="muted">—</span>' ?></td>
+                <td data-l=""><?= $r['AUTOR'] !== [] ? V::e(V::listaY(array_map(static fn(array $a): string => (string) $a['nombre'], $r['AUTOR']))) : '<span class="t-vacio">—</span>' ?></td>
+                <td class="t-num" data-l=""><?= preg_match('/^\d{4}$/', (string) $r['FECHA']) === 1 ? V::e($r['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>

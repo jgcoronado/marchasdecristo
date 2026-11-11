@@ -30,21 +30,26 @@ $conVista = static fn(string $u): string => $tabla ? $u . (str_contains($u, '?')
 $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
 ?>
 <div class="stack list-page">
+<?php
+// Mismo patrón que el listado de marchas (§2.4): por página y vista a la
+// derecha del título en escritorio; en móvil, dentro del único botón «Filtros».
+$controles = H::porPagina($limit, '/disco', $criteria + ($tabla ? ['vista' => 'tabla'] : []))
+    . '<span class="seg vista-seg" aria-label="Vista"><a class="seg-op' . ($tabla ? '' : ' on') . '" href="' . V::e($href([])) . '"' . ($tabla ? '' : ' aria-current="true"') . '>Portadas</a><a class="seg-op' . ($tabla ? ' on' : '') . '" href="' . V::e($href(['vista' => 'tabla'])) . '"' . ($tabla ? ' aria-current="true"' : '') . '>Tabla</a></span>';
+$nFiltros = count(array_filter($criteria, static fn($x) => trim((string) $x) !== ''));
+?>
     <div class="toolbar">
         <h1 class="rescount"><b><?= $num($total) ?></b> discos</h1>
-        <?= H::porPagina($limit, '/disco', $criteria) ?>
-        <span class="seg vista-seg" aria-label="Vista">
-            <a class="seg-op<?= $tabla ? '' : ' on' ?>" href="<?= V::e($href([])) ?>"<?= $tabla ? '' : ' aria-current="true"' ?>>Portadas</a>
-            <a class="seg-op<?= $tabla ? ' on' : '' ?>" href="<?= V::e($href(['vista' => 'tabla'])) ?>"<?= $tabla ? ' aria-current="true"' : '' ?>>Tabla</a>
-        </span>
+        <div class="t-ctl"><?= $controles ?></div>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/disco">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-    <details class="adv"<?= $val('nombre') !== '' ? ' open' : '' ?>>
-        <summary>Búsqueda avanzada</summary>
-        <form class="adv-form" action="/disco" method="GET">
+    <details class="filtros"<?= $val('nombre') !== '' ? ' open' : '' ?>>
+        <summary>Filtros<?php if ($nFiltros > 0): ?> <span class="n">(<?= $nFiltros ?>)</span><?php endif; ?></summary>
+        <div class="filtros-panel">
+        <div class="t-ctl t-ctl-movil"><?= $controles ?></div>
+        <form class="adv-form" aria-label="Búsqueda avanzada" action="/disco" method="GET">
             <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="nombre">Nombre del disco</label>
@@ -53,17 +58,10 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
             </div>
             <div class="adv-actions">
                 <button class="btn btn-sm btn-neutral" type="submit">Buscar</button>
-<?php if ($hayFiltro): ?>
-                <a href="/disco">limpiar</a>
-<?php endif; ?>
             </div>
         </form>
-    </details>
-
-    <details class="facet-rail-toggle">
-        <summary class="rail-title">Refinar por</summary>
-        <div class="facet-groups">
 <?php if ($facets['decada'] !== []): ?>
+        <div class="facet-groups">
             <div class="fgroup">
                 <div class="ftitle">Década</div>
 <?php foreach ($facets['decada'] as $f):
@@ -72,6 +70,7 @@ $hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') 
                 <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['decada' => $on ? '' : $d0])) ?>"><?= V::e($d0) ?>s<?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
 <?php endforeach; ?>
             </div>
+        </div>
 <?php endif; ?>
         </div>
     </details>

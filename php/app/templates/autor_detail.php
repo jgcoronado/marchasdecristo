@@ -117,10 +117,10 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
 <?php foreach ($filasD as $m): ?>
             <tr>
                 <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                <td data-l=""><?php if ($t($m['BANDA_ESTRENO'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td data-l=""><?php if ($t($m['DEDICATORIA'])): ?><?= V::e($m['DEDICATORIA']) ?><?php if ($t($m['LOCALIDAD'])): ?> (<?= V::e($m['LOCALIDAD']) ?>)<?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="t-num" data-l=""><?= $m['_Y'] > 0 ? $m['_Y'] : '<span class="muted">—</span>' ?></td>
-                <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
+                <td data-l=""><?php if ($t($m['BANDA_ESTRENO'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td data-l=""><?php if ($t($m['DEDICATORIA'])): ?><?= V::e($m['DEDICATORIA']) ?><?php if ($t($m['LOCALIDAD'])): ?> (<?= V::e($m['LOCALIDAD']) ?>)<?php endif; ?><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td class="t-num" data-l=""><?= $m['_Y'] > 0 ? $m['_Y'] : '<span class="t-vacio">—</span>' ?></td>
+                <td class="t-num" data-l="Grabaciones"><?= (int) $m['N_GRAB'] > 0 ? (int) $m['N_GRAB'] : '<span class="t-vacio">—</span>' ?></td>
             </tr>
 <?php endforeach; ?>
 <?php endforeach; ?>
