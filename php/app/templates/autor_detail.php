@@ -23,6 +23,15 @@ if ($ppal && (int) $ppal['N'] > 1) {
     $frase .= ' Vinculado sobre todo a <a href="' . V::e(S::buildDetailPath('banda', $ppal['ID_BANDA'], (string) $ppal['NOMBRE_BREVE'])) . '">' . V::e($ppal['NOMBRE_BREVE']) . '</a>'
         . ($t($ppal['LOCALIDAD']) ? ' (' . V::e($ppal['LOCALIDAD']) . ')' : '') . ', que estrenó ' . $num($ppal['N']) . ' de sus marchas.';
 }
+/* Los pocos datos personales (nombre artístico, nacimiento, muerte) y el
+   total de grabaciones van en la frase: una tarjeta «Datos» de uno o dos
+   renglones dejaba la columna estrecha vacía miles de px (§0.4). */
+$vida = [];
+if ($t($a['NOMBRE_ART'])) $vida[] = 'Conocido como ' . V::e($a['NOMBRE_ART']);
+if ($nac > 1000 || $t($a['LUGAR_NAC'])) $vida[] = 'Nacido' . ($t($a['LUGAR_NAC']) ? ' en ' . V::e($a['LUGAR_NAC']) : '') . ($nac > 1000 ? ($t($a['LUGAR_NAC']) ? ', ' : ' en ') . $nac : '');
+if ($def > 1000) $vida[] = 'fallecido en ' . $def;
+if ($vida !== []) $frase .= ' ' . ucfirst(implode('; ', $vida)) . '.';
+if ($nG > 0) $frase .= ' Su obra suma ' . ($nG === 1 ? 'una grabación' : $num($nG) . ' grabaciones') . '.';
 
 /* Obra agrupada por décadas: una fila de subtítulo por década dentro de la
    misma tabla (se lee bien a 390 px y el filtro sigue valiendo). Sin fecha, al
@@ -52,32 +61,15 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
         <h1><?= V::e($fullName) ?></h1>
         <p class="ficha-frase"><?= $frase ?></p>
 <?php if ($nM >= 12): ?>
-        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#datos">Datos</a> · <a href="#obra">Obra</a></nav>
+        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#obra">Obra</a><?php if ($t($a['BIO'])): ?> · <a href="#bio">Biografía</a><?php endif; ?></nav>
 <?php endif; ?>
     </header>
-<?php if ($portadas !== []): ?>
-    <div class="ficha-portadas"><?= H::mosaico($portadas, 8, 'Discos con su obra') ?></div>
+<?php $mosaico = H::mosaico($portadas, 8, 'Discos con su obra'); if ($mosaico !== ''): ?>
+    <div class="ficha-portadas"><?= $mosaico ?></div>
 <?php endif; ?>
 
-    <section class="ficha-datos blk">
-    <div class="shead"><h2>Datos</h2></div>
-    <dl class="desc" id="datos">
-<?php if ($t($a['NOMBRE_ART'])): ?>
-        <div class="f"><dt>Nombre artístico</dt><dd><?= V::e($a['NOMBRE_ART']) ?></dd></div>
-<?php endif; ?>
-<?php if ($nac > 1000 || $t($a['LUGAR_NAC'])): ?>
-        <div class="f"><dt>Nacimiento</dt><dd><?= V::e(trim(($a['LUGAR_NAC'] ?? '') . ($nac > 1000 ? ($t($a['LUGAR_NAC']) ? ', ' : '') . $nac : ''))) ?></dd></div>
-<?php endif; ?>
-<?php if ($def > 1000): ?>
-        <div class="f"><dt>Fallecimiento</dt><dd><?= $def ?></dd></div>
-<?php endif; ?>
-<?php if ($nG > 0): ?>
-        <div class="f"><dt>Grabaciones de su obra</dt><dd><?= $num($nG) ?></dd></div>
-<?php endif; ?>
-    </dl>
-    </section>
 <?php if ($t($a['BIO']) || !empty($pm)): ?>
-    <div class="ficha-notas">
+    <div class="ficha-lado"><div class="ficha-notas">
 <?php if ($t($a['BIO'])): ?>
     <section class="blk">
     <div class="shead" id="bio"><h2>Biografía</h2></div>
@@ -90,7 +82,7 @@ foreach ($a['DISCOS_OBRA'] ?? [] as $d) {
     <p class="notas">Las marchas de <?= V::e($fullName) ?> para banda de música están en Patrimonio Musical. <a href="https://www.patrimoniomusical.com/bd-autor-<?= (int) $pm ?>" target="_blank" rel="noopener">Ver su ficha en Patrimonio Musical</a></p>
     </section>
 <?php endif; ?>
-    </div>
+    </div></div>
 <?php endif; ?>
 
     <div class="ficha-cuerpo">

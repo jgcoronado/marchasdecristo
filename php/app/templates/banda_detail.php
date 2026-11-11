@@ -144,8 +144,8 @@ $tablaAcomp = static function (array $filasAnio): string {
         <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#datos">Datos</a><?php if ($nAcomp > 0): ?> · <a href="#acompanamientos">Acompañamientos</a><?php endif; ?> · <a href="#estrenos">Estrenos</a><?php if ($nDiscos > 0): ?> · <a href="#discografia">Discografía</a><?php endif; ?></nav>
 <?php endif; ?>
     </header>
-<?php if ($portadas !== []): ?>
-    <div class="ficha-portadas"><?= H::mosaico($portadas, 8, count($portadas) === 1 ? 'Su disco' : 'Su discografía') ?></div>
+<?php $mosaico = H::mosaico($portadas, 8, 'Su discografía'); if ($mosaico !== ''): ?>
+    <div class="ficha-portadas"><?= $mosaico ?></div>
 <?php endif; ?>
 
 <?php if ($botones !== ''): ?>
@@ -155,6 +155,7 @@ $tablaAcomp = static function (array $filasAnio): string {
     </section>
 <?php endif; ?>
 
+    <div class="ficha-lado">
     <section class="ficha-datos blk">
     <div class="shead"><h2>Datos</h2></div>
     <dl class="desc" id="datos">
@@ -203,6 +204,7 @@ $tablaAcomp = static function (array $filasAnio): string {
     </ul>
 
     </section>
+    </div>
     </div>
 
     <div class="ficha-cuerpo">
@@ -267,9 +269,13 @@ $tablaAcomp = static function (array $filasAnio): string {
     </div>
     <ul class="fundas">
 <?php foreach (array_reverse($b['discos']) as $d): $anio = (int) ($d['FECHA_CD'] ?? 0); ?>
-        <li><?= H::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], $anio > 1800 ? $anio : null) ?>
-            <a class="funda-t" href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a>
-            <span class="funda-s"><?= $anio > 1800 ? $anio . ' · ' : '' ?><?= (int) $d['PISTAS'] ?> pistas</span></li>
+<?php /* Con funda tipográfica el título ya está dentro del cuadrado: debajo,
+         solo año y pistas. */ ?>
+        <li class="funda-item"><?= H::tesela((int) $d['ID_DISCO'], (string) $d['NOMBRE_CD'], null) ?>
+<?php if (H::hayPortada((int) $d['ID_DISCO']) !== false): ?>
+            <a class="funda-tit" href="<?= V::e(S::buildDetailPath('disco', $d['ID_DISCO'], (string) $d['NOMBRE_CD'])) ?>"><?= V::e($d['NOMBRE_CD']) ?></a>
+<?php endif; ?>
+            <span class="funda-sub"><?= $anio > 1800 ? $anio . ' · ' : '' ?><?= (int) $d['PISTAS'] ?> pistas</span></li>
 <?php endforeach; ?>
     </ul>
     </section>
@@ -278,14 +284,16 @@ $tablaAcomp = static function (array $filasAnio): string {
 <?php if (count($acomp) > 1): ?>
     <section class="blk">
     <div class="shead"><h2>Acompañamientos anteriores</h2></div>
-    <div class="stack acomp-anios">
+<?php /* Rejilla de años: cada uno es un ancla a su tabla, que se ve con
+         :target. Sin JS y sin 45 acordeones a todo el ancho. */ ?>
+    <ul class="acomp-anios">
 <?php foreach ($acomp as $anio => $filasAnio): if ((int) $anio === $anioUlt) continue; ?>
-        <details class="collapse">
-            <summary class="collapse-title"><?= (int) $anio ?> <span class="muted">(<?= count($filasAnio) ?>)</span></summary>
-            <div class="collapse-content"><?= $tablaAcomp($filasAnio) ?></div>
-        </details>
+        <li><a href="#acomp-<?= (int) $anio ?>"><?= (int) $anio ?> <span><?= count($filasAnio) ?></span></a></li>
 <?php endforeach; ?>
-    </div>
+    </ul>
+<?php foreach ($acomp as $anio => $filasAnio): if ((int) $anio === $anioUlt) continue; ?>
+    <div class="acomp-anio" id="acomp-<?= (int) $anio ?>"><h3>Acompañamientos de <?= (int) $anio ?></h3><?= $tablaAcomp($filasAnio) ?></div>
+<?php endforeach; ?>
     </section>
 <?php endif; ?>
     </div>

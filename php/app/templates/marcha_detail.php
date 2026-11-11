@@ -123,11 +123,11 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
         <p class="ficha-frase"><?= $frase ?></p>
 <?php /* Atajos de texto, solo en móvil y solo si la ficha es larga. */ ?>
 <?php if ($nGrab >= 12): ?>
-        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#datos">Datos</a> · <a href="#grabaciones">Grabaciones</a></nav>
+        <nav class="ficha-anclas" aria-label="Secciones de la ficha"><a href="#grabaciones">Grabaciones</a></nav>
 <?php endif; ?>
     </header>
-<?php if ($portadas !== []): ?>
-    <div class="ficha-portadas"><?= H::mosaico($portadas, 8, count($portadas) === 1 ? 'Disco donde está grabada' : 'Discos donde está grabada') ?></div>
+<?php $mosaico = H::mosaico($portadas, 8, 'Discos donde está grabada'); if ($mosaico !== ''): ?>
+    <div class="ficha-portadas"><?= $mosaico ?></div>
 <?php endif; ?>
 
 <?php /* Escuchar va primero y sin reproductor incrustado: nada de terceros
@@ -142,43 +142,42 @@ $escuchar = H::escuchar($enl, $m['AUDIO'] ?? null, ER::admiteVersiones($anioMarc
 <?php endif; ?>
     </section>
 
+<?php /* Datos: solo lo que no dice ya la frase ni otra sección (el estilo
+         va en la etiqueta y las grabaciones en el título de su tabla). Los
+         enlaces de exploración van a «Véase también». */
+$datos = [];
+if (!$anioOk && $t($m['FECHA'])) $datos[] = ['Año', V::e($m['FECHA'])];
+if (!$hayDedic && $localidad !== '') $datos[] = ['Localidad', V::e($localidad)];
+if ($duracion !== '') $datos[] = ['Duración', V::e($duracion)];
+$explorar = [];
+foreach ($autores as $a) {
+    if ((int) $a['N_MARCHAS'] > 1) $explorar[] = '<a href="' . V::e($autorPath($a)) . '">Obra de ' . V::e($autoridad($a)) . '</a> (' . $num($a['N_MARCHAS']) . ')';
+}
+if ($t($m['BANDA_ESTRENO']) && (int) $m['BANDA_ESTRENOS'] > 1) $explorar[] = '<a href="' . V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_NOMBRE'])) . '">Estrenos de ' . V::e($m['BANDA_NOMBRE']) . '</a> (' . $num($m['BANDA_ESTRENOS']) . ')';
+if ($anioOk && (int) $m['N_MISMO_ANIO'] > 1) $explorar[] = '<a href="' . V::e(P::anioHubPath((string) $m['FECHA'])) . '">Marchas de ' . V::e($m['FECHA']) . '</a> (' . $num($m['N_MISMO_ANIO']) . ')';
+$estiloHub = $estilo !== '' ? P::estiloHubPath((string) $m['ESTILO']) : null;
+if ($estiloHub !== null) $explorar[] = '<a href="' . V::e($estiloHub) . '">Marchas de ' . V::e(mb_strtolower($estilo, 'UTF-8')) . '</a>';
+if ($t($m['PROVINCIA']) && (int) $m['N_MISMA_PROV'] > 1) $explorar[] = '<a href="' . V::e(P::provinciaHubPath((string) $m['PROVINCIA'])) . '">Marchas de la provincia de ' . V::e($m['PROVINCIA']) . '</a> (' . $num($m['N_MISMA_PROV']) . ')';
+?>
+<?php if ($datos !== [] || $notas !== ''): ?>
+    <div class="ficha-lado">
+<?php if ($datos !== []): ?>
     <section class="ficha-datos blk">
     <div class="shead"><h2>Datos</h2></div>
     <dl class="desc" id="datos">
-<?php foreach ($autores as $a): if ((int) $a['N_MARCHAS'] > 1): ?>
-        <div class="f"><dt>Obra de <?= V::e($autoridad($a)) ?></dt><dd><a href="<?= V::e($autorPath($a)) ?>"><?= $num($a['N_MARCHAS']) ?> marchas</a></dd></div>
-<?php endif; endforeach; ?>
-<?php if ($t($m['BANDA_ESTRENO']) && (int) $m['BANDA_ESTRENOS'] > 1): ?>
-        <div class="f"><dt>Estrenos de la banda</dt><dd><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_NOMBRE'])) ?>"><?= $num($m['BANDA_ESTRENOS']) ?> marchas</a></dd></div>
-<?php endif; ?>
-<?php if ($anioOk && (int) $m['N_MISMO_ANIO'] > 1): ?>
-        <div class="f"><dt>Del mismo año</dt><dd><a href="<?= V::e(P::anioHubPath((string) $m['FECHA'])) ?>"><?= $num($m['N_MISMO_ANIO']) ?> marchas</a></dd></div>
-<?php elseif (!$anioOk && $t($m['FECHA'])): ?>
-        <div class="f"><dt>Año</dt><dd><?= V::e($m['FECHA']) ?></dd></div>
-<?php endif; ?>
-<?php if (!$hayDedic && $localidad !== ''): ?>
-        <div class="f"><dt>Localidad</dt><dd><?= V::e($localidad) ?></dd></div>
-<?php endif; ?>
-<?php if ($estilo !== ''): $estiloHub = P::estiloHubPath((string) $m['ESTILO']); ?>
-        <div class="f"><dt>Estilo</dt><dd><?php if ($estiloHub !== null): ?><a href="<?= V::e($estiloHub) ?>"><?= V::e($estilo) ?></a><?php else: ?><?= V::e($estilo) ?><?php endif; ?></dd></div>
-<?php endif; ?>
-<?php if ($t($m['PROVINCIA']) && (int) $m['N_MISMA_PROV'] > 1): ?>
-        <div class="f"><dt>Provincia</dt><dd><a href="<?= V::e(P::provinciaHubPath((string) $m['PROVINCIA'])) ?>"><?= V::e($m['PROVINCIA']) ?></a> <span class="cnt"><?= $num($m['N_MISMA_PROV']) ?> marchas</span></dd></div>
-<?php endif; ?>
-<?php if ($duracion !== ''): ?>
-        <div class="f"><dt>Duración</dt><dd><?= V::e($duracion) ?></dd></div>
-<?php endif; ?>
-<?php if ($nGrab > 0): ?>
-        <div class="f"><dt>Grabaciones</dt><dd><?= $num($nGrab) ?></dd></div>
-<?php endif; ?>
+<?php foreach ($datos as [$k, $v]): ?>
+        <div class="f"><dt><?= $k ?></dt><dd><?= $v ?></dd></div>
+<?php endforeach; ?>
     </dl>
     </section>
-
+<?php endif; ?>
 <?php if ($notas !== ''): ?>
     <section class="ficha-notas blk">
     <div class="shead"><h2>Notas</h2></div>
     <p class="notas"><?= $notas ?></p>
     </section>
+<?php endif; ?>
+    </div>
 <?php endif; ?>
 
     <div class="ficha-cuerpo">
@@ -216,7 +215,7 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
                 <td class="t-num" data-l=""><?= $anio > 1800 ? $anio : '<span class="t-vacio">—</span>' ?></td>
                 <?php /* La duración mostrada es la REAL del track. Si abre con
                          intro de percusión se marca con una etiqueta de texto. */ ?>
-                <td class="t-num" data-l=""><?php if (!empty($d['DURACION_SEG'])): ?><?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?> <abbr class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)">perc.</abbr><?php endif; ?><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td class="t-num t-dur" data-l=""><?php if (!empty($d['DURACION_SEG'])): ?><?= gmdate('i:s', (int) $d['DURACION_SEG']) ?><?php if (!empty($d['PERCUSION'])): ?> <abbr class="perc" title="Empieza con introducción de percusión (unos 40 s de tambores antes de la marcha)">perc.</abbr><?php endif; ?><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>
@@ -225,9 +224,13 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
 <?php endif; ?>
     </section>
 
-<?php if (!empty($relacionadas)): ?>
+<?php if (!empty($relacionadas) || $explorar !== []): ?>
     <section class="blk">
-    <div class="shead"><h2>Véase también</h2><span class="n">mismo compositor, dedicatoria o banda</span></div>
+    <div class="shead"><h2>Véase también</h2><?php if (!empty($relacionadas)): ?><span class="n">mismo compositor, dedicatoria o banda</span><?php endif; ?></div>
+<?php if ($explorar !== []): ?>
+    <p class="vease"><?= implode(' · ', $explorar) ?></p>
+<?php endif; ?>
+<?php if (!empty($relacionadas)): ?>
     <div class="scrollx">
     <table class="t">
         <thead><tr><th scope="col">Marcha</th><th scope="col">Compositor</th><th scope="col" class="t-num" data-type="num">Año</th></tr></thead>
@@ -242,6 +245,7 @@ $ordenable = count($m['discos']) > 2; $ar = $ordenable ? ' <span class="ar">↕<
         </tbody>
     </table>
     </div>
+<?php endif; ?>
     </section>
 <?php endif; ?>
     </div>

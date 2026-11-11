@@ -43,18 +43,18 @@ $frase = 'Disco'
         <p class="ficha-frase"><?= $frase ?></p>
     </header>
 
-<?php if ($botones !== ''): ?>
+<?php /* Escuchar siempre, junto a la portada: sin enlaces, el estado vacío
+         ocupa el sitio de los botones (§2.6). */ ?>
     <section class="ficha-escuchar blk">
     <div class="shead"><h2>Escuchar</h2></div>
-    <?= $botones ?>
+    <?= $botones !== '' ? $botones : H::escucharVacio('este disco') ?>
     </section>
-<?php endif; ?>
 
 <?php if ($t($detalles)): ?>
-    <section class="ficha-notas blk">
+    <div class="ficha-lado"><section class="ficha-notas blk">
     <div class="shead" id="notas"><h2>Notas</h2></div>
     <p class="notas"><?= str_replace(['&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;'], '<br>', V::e($detalles)) ?></p>
-    </section>
+    </section></div>
 <?php endif; ?>
 
     <div class="ficha-cuerpo">
@@ -67,21 +67,33 @@ $frase = 'Disco'
 <?php endif; ?>
     </div>
     <div class="scrollx">
-    <table class="t" id="pistas-table" data-sortable>
+<?php /* Varios volúmenes: una fila de grupo por volumen (como las décadas
+         del compositor) y la pista sola; sin orden por columnas, que
+         mezclaría los grupos. El número va delante del título, también en
+         móvil (.t-pista, no .t-num). */
+$porVol = [];
+foreach ($d['marchas'] as $m) $porVol[$multi ? (int) $m['N_DISCO'] : 0][] = $m;
+ksort($porVol); ?>
+    <table class="t<?= $multi ? ' t-grupos' : '' ?>" id="pistas-table"<?= $multi ? '' : ' data-sortable' ?>>
         <thead><tr>
-            <th scope="col" class="t-num" data-type="num"><?= $multi ? 'Vol./pista' : 'Pista' ?> <span class="ar">↕</span></th>
-            <th scope="col">Marcha <span class="ar">↕</span></th>
-            <th scope="col">Compositor <span class="ar">↕</span></th>
-            <th scope="col" class="t-num" data-type="num">Año <span class="ar">↕</span></th>
+            <th scope="col" class="t-num" data-type="num">Pista<?= $multi ? '' : ' <span class="ar">↕</span>' ?></th>
+            <th scope="col">Marcha<?= $multi ? '' : ' <span class="ar">↕</span>' ?></th>
+            <th scope="col">Compositor<?= $multi ? '' : ' <span class="ar">↕</span>' ?></th>
+            <th scope="col" class="t-num" data-type="num">Año<?= $multi ? '' : ' <span class="ar">↕</span>' ?></th>
         </tr></thead>
         <tbody>
-<?php foreach ($d['marchas'] as $m): ?>
+<?php foreach ($porVol as $vol => $filasV): ?>
+<?php if ($multi): ?>
+            <tr class="t-grupo"><th scope="rowgroup" colspan="4">Volumen <?= $vol ?> <span class="muted">· <?= count($filasV) ?> pistas</span></th></tr>
+<?php endif; ?>
+<?php foreach ($filasV as $m): ?>
             <tr>
-                <td class="t-num" data-l="" data-v="<?= (int) $m['N_DISCO'] * 1000 + (int) $m['NUMEROMARCHA'] ?>"><?= $multi ? (int) $m['N_DISCO'] . '.' : '' ?><?= (int) $m['NUMEROMARCHA'] ?></td>
+                <td class="t-pista" data-l="" data-v="<?= (int) $m['N_DISCO'] * 1000 + (int) $m['NUMEROMARCHA'] ?>"><?= (int) $m['NUMEROMARCHA'] ?></td>
                 <td class="t-main"><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
                 <td data-l=""><?php foreach ($m['AUTOR'] as $i => $a): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a><?php endforeach; ?><?php if ($m['AUTOR'] === []): ?><span class="t-vacio">—</span><?php endif; ?></td>
                 <td class="t-num" data-l=""><?= $t($m['FECHA']) ? V::e($m['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
             </tr>
+<?php endforeach; ?>
 <?php endforeach; ?>
         </tbody>
     </table>
