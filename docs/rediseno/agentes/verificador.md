@@ -20,6 +20,7 @@ No corriges nada: mides y reportas.
 4. Entrega una tabla de pasa / no pasa por página y regla, con la cifra medida.
 
 ## Reglas comunes
+- La copia para el smoke en pro necesita el enlace no versionado php/public/cover; sin él falla la prueba de og:image.
 - Responde, comenta el código y escribe los commits en español.
 - Trabaja solo en el worktree y el puerto que te indique el orquestador. Nunca toques `main`, `pre`, el checkout principal ni PRO.
 - Especificación: `docs/rediseno/lineas-maestras.md` (manda) y `docs/rediseno/clasificacion-disenos-a-b.md` §1 (reglas fijas). Si algo choca con ellas, para y repórtalo; no lo resuelvas por tu cuenta.
