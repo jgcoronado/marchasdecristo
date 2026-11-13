@@ -33,8 +33,8 @@
    neutras de 1 px. Sin caja, sin sombra, sin cebra. */
 .c-ficha .c-datos { margin: 0 0 2rem; }
 .c-datos h2 { margin-bottom: 0.5rem; }
-.c-datos dl { margin: 0; max-width: 46rem; }
-.c-datos dl > div { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0 1rem; padding: 0.4rem 0; border-bottom: 1px solid var(--c-linea); }
+.c-datos dl { margin: 0; }
+.c-datos dl > div { display: grid; grid-template-columns: 11.5rem minmax(0, 1fr); gap: 0 1rem; padding: 0.4rem 0; border-bottom: 1px solid var(--c-linea); }
 .c-datos dl > div:first-child { border-top: 1px solid var(--c-linea); }
 .c-datos dt { font-family: var(--f-sans); font-weight: 400; color: var(--c-secundario); }
 .c-datos dd { margin: 0; color: var(--c-texto); overflow-wrap: anywhere; }
