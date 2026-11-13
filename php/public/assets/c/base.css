@@ -1,0 +1,135 @@
+/* Rediseño C · base mínima (F1).
+   Solo marco y tipografía: ningún componente ni estilo por página (eso es F2
+   y F3). Ningún color literal: todos salen de c/tokens.css, que se puede
+   cambiar por cualquier candidato c/tokens-<n>.css sin tocar esta hoja.
+   Reglas: líneas maestras §2 (principios 1, 4, 5 y 9), §3 y §4;
+   clasificación §1 (los enlaces no se subrayan nunca). */
+
+/* Crimson Pro variable, autoalojada (ver assets/fonts/README.md). */
+@font-face {
+    font-family: "Crimson Pro";
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    /* Crimson Pro tiene el ojo pequeño: a igual tamaño se ve menor que la
+       sans del sistema. Se iguala aquí, en la métrica de la fuente, para que
+       la frase de la ficha quede «a tamaño de texto» sin un quinto tamaño. */
+    size-adjust: 112%;
+    src: url(/assets/fonts/crimson-pro-latin-ext-wght-normal.woff2) format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Crimson Pro";
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    /* Crimson Pro tiene el ojo pequeño: a igual tamaño se ve menor que la
+       sans del sistema. Se iguala aquí, en la métrica de la fuente, para que
+       la frase de la ficha quede «a tamaño de texto» sin un quinto tamaño. */
+    size-adjust: 112%;
+    src: url(/assets/fonts/crimson-pro-latin-wght-normal.woff2) format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    background: var(--c-pagina);
+    color: var(--c-texto);
+    font-family: var(--f-sans);
+    font-size: 100%;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+}
+body {
+    margin: 0;
+    background: var(--c-pagina);
+    color: var(--c-texto);
+    font-size: var(--t-2);
+}
+
+/* Todo el texto usa uno de los cuatro tamaños de los tokens. */
+h1, h2, h3, h4, h5, h6, p, ul, ol, dl, table, figure { margin: 0 0 1rem; }
+h3, h4, h5, h6, small, input, select, textarea, button, th, td, dt, dd, summary, label { font-size: var(--t-2); }
+small { color: var(--c-secundario); }
+
+/* Nombres en serif (§4): h1, h2 y la frase de la ficha. En redonda siempre;
+   la jerarquía la da el cambio de familia, no el tamaño (principio 4). */
+h1, h2, .ficha-frase { font-family: var(--f-serif); font-style: normal; }
+h1 { font-size: var(--t-4); font-weight: 600; line-height: 1.15; }
+h2 { font-size: var(--t-3); font-weight: 600; line-height: 1.2; }
+h3, h4, h5, h6 { font-weight: 600; }
+.ficha-frase { font-size: var(--t-2); line-height: 1.5; }
+
+/* Enlaces: solo el tono, sin subrayado en ningún estado. */
+a, a:link, a:visited, a:hover, a:focus, a:active { color: var(--c-tono); text-decoration: none; }
+:focus-visible { outline: 2px solid var(--c-tono); outline-offset: 2px; }
+
+img, svg, video { max-width: 100%; height: auto; }
+hr { border: 0; border-top: 1px solid var(--c-linea); }
+
+/* Campos: superficie hundida con borde de línea. El primario rellena con el
+   tono (la única superficie que lo admite, §3). */
+input, select, textarea, button { font-family: inherit; color: inherit; }
+input, select, textarea {
+    background: var(--c-hundida);
+    border: 1px solid var(--c-linea);
+    border-radius: 2px;
+    padding: 0.35rem 0.5rem;
+}
+button { background: var(--c-hundida); border: 1px solid var(--c-linea); border-radius: 2px; padding: 0.35rem 0.75rem; cursor: pointer; }
+::placeholder { color: var(--c-secundario); opacity: 1; }
+
+/* Tabla .t: cabecera y cebra en neutro 2, separadores de 1 px, cifras
+   tabulares a la derecha. La primera columna es el nombre enlazado. */
+.t { width: 100%; border-collapse: collapse; }
+.t th, .t td { padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--c-linea); }
+.t thead th { background: var(--c-hundida); font-weight: 600; }
+.t tbody tr:nth-child(even) { background: var(--c-hundida); }
+.t .t-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t .t-vacio { color: var(--c-secundario); }
+.tableList, .scrollx { overflow-x: auto; }
+
+/* Marco: cabecera y pie planos, en el color de la página (principio 5),
+   separados del contenido por una línea neutra. */
+.skip-link { position: absolute; left: -999rem; }
+.skip-link:focus { left: 1rem; top: 0.5rem; background: var(--c-pagina); padding: 0.25rem 0.5rem; }
+body > header, body > footer, main { padding-left: 1rem; padding-right: 1rem; }
+body > header { background: var(--c-pagina); border-bottom: 1px solid var(--c-linea); padding-top: 0.75rem; }
+body > footer { background: var(--c-pagina); border-top: 1px solid var(--c-linea); padding-top: 1.5rem; padding-bottom: 1.5rem; margin-top: 3rem; color: var(--c-secundario); }
+main { padding-top: 1.5rem; }
+.header-top { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 0.5rem; color: var(--c-texto); }
+.brand:link, .brand:visited { color: var(--c-texto); }
+.brand-mark { width: 2.25rem; height: 2.25rem; flex: none; }
+.brand-txt { font-family: var(--f-serif); font-size: var(--t-3); font-weight: 600; line-height: 1.1; display: flex; flex-direction: column; }
+.brand-sub { font-family: var(--f-sans); font-size: var(--t-1); font-weight: 400; color: var(--c-secundario); }
+.site-search-row { flex: 1 1 18rem; min-width: 0; }
+.site-search { display: flex; align-items: center; gap: 0.5rem; position: relative; }
+.site-search input { flex: 1; min-width: 0; }
+.site-search .kbd { color: var(--c-secundario); }
+.buscar-toggle { display: none; }
+.tema-toggle { background: none; border: 0; color: var(--c-texto); padding: 0.25rem; }
+.tema-toggle svg, .nav-mobile svg, .buscar-toggle svg { width: 1.5rem; height: 1.5rem; display: block; }
+.tema-toggle .tema-sol { display: none; }
+:root[data-tema="oscuro"] .tema-toggle .tema-sol { display: block; }
+:root[data-tema="oscuro"] .tema-toggle .tema-luna { display: none; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-tema="claro"]) .tema-toggle .tema-sol { display: block; }
+    :root:not([data-tema="claro"]) .tema-toggle .tema-luna { display: none; }
+}
+.nav-mobile { display: none; }
+.nav-links { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; padding: 0; margin: 0.75rem 0 0; }
+.nav-links a { display: inline-block; padding: 0.4rem 0; }
+.nav-links a[aria-current="page"] { color: var(--c-texto); font-weight: 600; }
+body > footer ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
+body > footer p { margin: 0 0 0.5rem; }
+
+@media (max-width: 47.99rem) {
+    .site-search-row { flex-basis: 100%; order: 3; }
+    .nav-links { display: none; }
+    .nav-mobile { display: block; margin-left: auto; }
+    .nav-mobile summary { list-style: none; cursor: pointer; }
+    .nav-mobile summary::-webkit-details-marker { display: none; }
+    .nav-mobile ul { list-style: none; padding: 0; }
+}

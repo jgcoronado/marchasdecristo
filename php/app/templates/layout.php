@@ -78,6 +78,11 @@ $current = '/' . (explode('/', trim($reqPath, '/'))[0] ?? '');
 // dentro del panel de administración.
 $showSearch = !str_starts_with($reqPath, '/dashboard') && !str_starts_with($reqPath, '/login');
 
+// Rediseño C: lo público carga c/tokens.css + c/base.css; el panel (/dashboard
+// y /login) sigue con las hojas antiguas (app.css y dark.css) hasta que se
+// rehaga por su cuenta. Ver docs/rediseno/plan.md, F1.
+$esPanel = !$showSearch;
+
 // Panel en solo lectura: el admin en PRE y PRO. La BD maestra es la local, así
 // que ahí no guarda ni propone nada (Auth::soloLectura; sus envíos los corta
 // Auth::requireAuth). Como las pantallas son las mismas que en local, se avisa
@@ -161,14 +166,12 @@ if (!empty($meta['ancho'])) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php /* La barra del navegador en móvil acompaña al tema. Los dos valores
-             son --bg de cada tema (BLOQUE 1 de app.css y BLOQUE 1-bis de
-             dark.css): si cambian allí, hay que cambiarlos aquí y en COLOR del
-             script de tema de más abajo, que son los únicos sitios del
-             proyecto donde un color de la paleta se repite fuera de las hojas.
-             El oscuro es --bg (#141413), que desde 2026-09-27 es también el
-             fondo de la cabecera. */ ?>
-    <meta name="theme-color" content="#151b36" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0a0d1c" media="(prefers-color-scheme: dark)">
+             son --c-pagina (neutro 1) de cada tema en c/tokens.css: si cambian
+             allí, hay que cambiarlos aquí y en COLOR del script de tema de más
+             abajo, que son los únicos sitios del proyecto donde un color de la
+             paleta se repite fuera de las hojas. */ ?>
+    <meta name="theme-color" content="#f9fbff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111315" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
@@ -203,21 +206,20 @@ if (!empty($meta['ancho'])) {
     <meta name="twitter:image:alt" content="<?= $e($ogImageAlt) ?>">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="preload" href="/assets/fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
+<?php if ($esPanel): ?>
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/app.css')) ?>">
-    <?php /* Identidad visual (cabecera, sello, mosaico, fichas en dos
-             columnas). Va entre app.css y dark.css: ver su cabecera. */ ?>
-    <link rel="stylesheet" href="<?= $e($assetVer('/assets/identidad.css')) ?>">
-    <?php /* Rediseño 2026-11: una hoja por área (docs/rediseno-2026-11.md),
-             en orden de cascada. Solo tokens; los colores del oscuro, en dark.css. */ ?>
-    <?php foreach (['base', 'marco', 'controles', 'tablas', 'media', 'fichas'] as $hojaR): ?>
-    <link rel="stylesheet" href="<?= $e($assetVer('/assets/r/' . $hojaR . '.css')) ?>">
-    <?php endforeach; ?>
-    <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
-             atributo media (ver la cabecera de dark.css). Por defecto sigue al
-             sistema; el script siguiente la fuerza si el visitante eligió un
-             tema con el botón. */ ?>
+    <?php /* Tema oscuro del panel: una hoja aparte que se enciende o apaga
+             con su atributo media (ver la cabecera de dark.css). Por defecto
+             sigue al sistema; el script siguiente la fuerza si el visitante
+             eligió un tema con el botón. */ ?>
     <link rel="stylesheet" id="css-oscuro" href="<?= $e($assetVer('/assets/dark.css')) ?>" media="screen and (prefers-color-scheme: dark)">
+<?php else: ?>
+    <?php /* Rediseño C. El tema oscuro va dentro de c/tokens.css
+             (prefers-color-scheme + [data-tema]); no hay hoja aparte. */ ?>
+    <link rel="preload" href="/assets/fonts/crimson-pro-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/c/tokens.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/c/base.css')) ?>">
+<?php endif; ?>
     <?php /* Tema elegido con el botón (.tema-toggle). En línea y antes de
              <body> para que la página no salga un instante con el tema del
              sistema y luego cambie. La elección se guarda en localStorage
@@ -230,11 +232,12 @@ if (!empty($meta['ancho'])) {
     <script>
     (function () {
         var SISTEMA = 'screen and (prefers-color-scheme: dark)';
-        var COLOR = { claro: '#151b36', oscuro: '#0a0d1c' };
+        var COLOR = { claro: '#f9fbff', oscuro: '#111315' };
         var raiz = document.documentElement;
-        // Marca que hay JS: solo entonces se pliega el buscador en móvil tras
-        // la lupa (r/marco.css). Sin JS el buscador queda siempre a la vista.
+        // Marca que hay JS (para lo que solo deba verse con JS).
         raiz.className += ' js';
+        // Solo existe en el panel; en lo público el tema lo decide data-tema
+        // sobre c/tokens.css.
         var hoja = document.getElementById('css-oscuro');
         var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
         function guardado() {
@@ -243,7 +246,7 @@ if (!empty($meta['ancho'])) {
         function sistema() { return mq && mq.matches ? 'oscuro' : 'claro'; }
         var elegido = guardado();
         function aplicar() {
-            hoja.media = elegido === 'oscuro' ? 'screen' : elegido === 'claro' ? 'not all' : SISTEMA;
+            if (hoja) { hoja.media = elegido === 'oscuro' ? 'screen' : elegido === 'claro' ? 'not all' : SISTEMA; }
             if (elegido) { raiz.setAttribute('data-tema', elegido); } else { raiz.removeAttribute('data-tema'); }
             var metas = document.querySelectorAll('meta[name="theme-color"]');
             for (var i = 0; i < metas.length; i++) {
@@ -287,7 +290,7 @@ if (!empty($meta['ancho'])) {
             <a class="brand" href="/" aria-label="<?= $siteName ?>, inicio">
                 <?php /* Marca: una M entre los dos aros de un tambor; los trazos de
                          la M son los tensores. */ ?>
-                <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="5" width="34" height="4.5" rx="1" fill="#d4a94a"/><rect x="3" y="30.5" width="34" height="4.5" rx="1" fill="#d4a94a"/><path d="M8 28V13l12 10.5L32 13v15" fill="none" stroke="#fff" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="5" width="34" height="4.5" rx="1" fill="#d4a94a"/><rect x="3" y="30.5" width="34" height="4.5" rx="1" fill="#d4a94a"/><path d="M8 28V13l12 10.5L32 13v15" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
                 <span class="brand-txt"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></span></a>
 <?php if ($showSearch): ?>
             <?php /* Lupa (solo móvil, solo con JS): despliega el buscador a todo
