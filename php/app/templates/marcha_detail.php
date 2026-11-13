@@ -171,6 +171,10 @@ foreach ($relacionadas as $r) {
     ];
 }
 
+/* $mosaico se imprime sin escapar porque ya es HTML seguro: Html::mosaico()
+   escapa con Html::e() el título y la banda de cada disco (title y alt), y
+   los href y src salen de Slug::buildDetailPath() y de coverSrc() con el
+   ID entero del disco. No entra ningún dato sin escapar. */
 $mosaico = H::mosaico($portadas, 8);
 ?>
 <?= new Migas([['Inicio', '/'], ['Marchas', '/marcha']]) ?>

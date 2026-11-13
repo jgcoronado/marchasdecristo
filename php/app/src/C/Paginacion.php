@@ -32,6 +32,12 @@ final class Paginacion extends Componente
         private readonly bool $conLimite = true,
         private readonly array $porPaginaOpciones = [],
     ) {
+        // La ruta se concatena con la query en cada enlace: tiene que ser una
+        // ruta propia («/marcha»), nunca un esquema (javascript:) ni un host
+        // («//otro», «/\\otro»), ni llevar espacios o caracteres de control.
+        if (preg_match('~^/(?![/\\\\])[^\x00-\x20\x7f\\\\]*$~', $ruta) !== 1) {
+            throw new \InvalidArgumentException('Paginacion: la ruta tiene que ser una ruta propia que empiece por «/».');
+        }
         if ($porPagina < 1) {
             throw new \InvalidArgumentException('Paginacion: porPagina tiene que ser al menos 1.');
         }

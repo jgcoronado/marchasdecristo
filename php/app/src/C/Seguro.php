@@ -30,7 +30,12 @@ final class Seguro
         if (preg_match('/[\x00-\x20\x7f]/', $u) === 1) {
             return null;
         }
-        $relativa = (str_starts_with($u, '/') && !str_starts_with($u, '//'))
+        // La barra invertida la normaliza el navegador a «/»: «/\\evil.com»
+        // acaba siendo «//evil.com», otro host. Se rechaza en cualquier sitio.
+        if (str_contains($u, '\\')) {
+            return null;
+        }
+        $relativa = preg_match('~^/(?![/\\\\])~', $u) === 1
             || str_starts_with($u, '?') || str_starts_with($u, '#');
         if ($relativa || preg_match('~^(https?://|mailto:)~i', $u) === 1) {
             return self::e($u);

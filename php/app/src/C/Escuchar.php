@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\C;
 
 use App\Html;
-use App\Media;
 
 /**
  * Escuchar: lista de texto con el nombre de cada servicio en el color de
@@ -47,7 +46,7 @@ final class Escuchar extends Componente
         $actual = $porVersion['actual'];
         $audio = trim((string) $audio);
         if ($audio !== '' && preg_match('~^https?://~i', $audio) === 1) {
-            $svc = Media::embedDeUrl($audio)['servicio'] ?? 'otro';
+            $svc = self::servicioDeUrl($audio);
             $actual = [$svc => $audio] + $actual;
         }
         $grupos = $conVersiones
@@ -56,6 +55,35 @@ final class Escuchar extends Componente
         $vacio = Texto::de('Todavía no tenemos ninguna grabación enlazada de esta marcha. Si conoces una, ')
             ->enlace('proponla', '/contacto')->texto('.');
         return new self($grupos, $vacio);
+    }
+
+    /**
+     * Servicio de una URL por su host EXACTO. No se usa Media::embedDeUrl():
+     * sus expresiones no anclan el host, y «https://evil.example/?u=open.spotify.com/…»
+     * saldría rotulada como Spotify. Lo que no coincide es 'otro': rótulo
+     * neutro («Escuchar») y el triángulo de reproducir, sin icono de marca.
+     */
+    public static function servicioDeUrl(string $url): string
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $host = rtrim($host, '.');
+        $hosts = [
+            'spotify' => ['open.spotify.com'],
+            'youtube' => ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'],
+            'apple' => ['music.apple.com'],
+            'deezer' => ['deezer.com', 'www.deezer.com'],
+            'tidal' => ['tidal.com', 'listen.tidal.com'],
+        ];
+        foreach ($hosts as $servicio => $lista) {
+            if (in_array($host, $lista, true)) {
+                return $servicio;
+            }
+        }
+        // music.amazon.es, music.amazon.com, music.amazon.co.uk…
+        if (preg_match('/^music\.amazon\.(com|es|de|fr|it|co\.uk|com\.mx|ca|co\.jp|com\.br)$/', $host) === 1) {
+            return 'amazon';
+        }
+        return 'otro';
     }
 
     public function render(): string
