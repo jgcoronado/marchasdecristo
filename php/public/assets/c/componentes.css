@@ -15,6 +15,9 @@
     .c-ficha > .c-ficha-principal { grid-area: principal; }
     .c-ficha > .c-ficha-lateral { grid-area: lateral; }
     .c-ficha > .c-pie-ficha { grid-area: pie; }
+    /* Sin portadas no hay columna derecha: la principal ocupa todo el ancho
+       (sin hueco vacío a la derecha, clasificación §1). */
+    .c-ficha.c-ficha-sin-lateral { grid-template-columns: minmax(0, 1fr); grid-template-areas: "cab" "principal" "pie"; }
 }
 .c-ficha section { margin: 0 0 2rem; }
 .c-ficha .notas { font-family: var(--f-serif); }
@@ -22,17 +25,20 @@
 /* ── CabeceraFicha */
 .c-cab { margin: 0 0 1.5rem; }
 .c-cab h1 { margin: 0 0 0.5rem; }
-.c-cab .ficha-frase { margin: 0; max-width: 46rem; }
 .c-cab-anclas { margin-top: 0.5rem; }
 @media (min-width: 48rem) { .c-cab-anclas { display: none; } }
 
-/* ── FichaTecnica */
+/* ── FichaTecnica: tabla de datos plana bajo el h1, en la columna principal.
+   Clave en sans y secundario, valor en texto, enlaces en el tono; líneas
+   neutras de 1 px. Sin caja, sin sombra, sin cebra. */
+.c-ficha .c-datos { margin: 0 0 2rem; }
 .c-datos h2 { margin-bottom: 0.5rem; }
 .c-datos dl { margin: 0; }
-.c-datos dl > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid var(--c-linea); }
+.c-datos dl > div { display: grid; grid-template-columns: 11.5rem minmax(0, 1fr); gap: 0 1rem; padding: 0.4rem 0; border-bottom: 1px solid var(--c-linea); }
 .c-datos dl > div:first-child { border-top: 1px solid var(--c-linea); }
-.c-datos dt { color: var(--c-secundario); }
-.c-datos dd { margin: 0; }
+.c-datos dt { font-family: var(--f-sans); font-weight: 400; color: var(--c-secundario); }
+.c-datos dd { margin: 0; color: var(--c-texto); overflow-wrap: anywhere; }
+@media (max-width: 29.99rem) { .c-datos dl > div { grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0 0.75rem; } }
 
 /* Portadas de la columna lateral (Html::mosaico): el único multicolor. */
 .c-portadas .mosaico { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.375rem; }

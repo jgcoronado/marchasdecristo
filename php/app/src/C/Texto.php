@@ -59,6 +59,17 @@ final class Texto implements \Stringable
         return new self(implode($sep, array_map(static fn(self $t): string => $t->html, $partes)));
     }
 
+    /**
+     * Varios Texto, uno por línea (<br> entre ellos): varios compositores en
+     * una misma celda de la tabla de datos.
+     *
+     * @param list<self> $partes
+     */
+    public static function lineas(array $partes): self
+    {
+        return new self(implode('<br>', array_map(static fn(self $t): string => $t->html, $partes)));
+    }
+
     public function vacio(): bool
     {
         return $this->html === '';
