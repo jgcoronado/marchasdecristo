@@ -30,7 +30,7 @@
 
 Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/model` Opus 5.5 medium.
 
-- [ ] **F0 · Preparación** (`integrador`)
+- [x] **F0 · Preparación** (`integrador`)
   - Crear `rediseno/c` desde `origin/pre`.
   - Traer de `rediseno/a-uniforme` solo `php/app/templates/`, `php/app/src/{Html,Repo,Pages,View}.php` y los cambios de `php/tools/ci_smoke.php`.
   - Pasar smoke y `php -l`.
@@ -63,3 +63,4 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 
 | Fecha | Fase | Resultado | Commit |
 |---|---|---|---|
+| 2026-11-13 | F0 | php -l 25/25; smoke pro 103/103 ok; smoke local 103/103 ok; sin CSS ni fuentes traídos (páginas sin estilo, esperado) | 8c239a7 |
