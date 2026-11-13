@@ -82,7 +82,8 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 ## Decisiones tomadas (no reabrir)
 
 - Escuchar va después de la información. Los enlaces no se subrayan nunca.
-- Migas sin el año: el año ya está enlazado en la frase de la ficha y mantiene el enlace interno al hub del año.
+- Migas sin el año: el año ya está enlazado en la tabla de datos de la ficha y mantiene el enlace interno al hub del año.
+- Fichas (requisito fijo del mantenedor, 2026-11-13): toda ficha abre con el nombre y su tabla de datos clave–valor en la columna principal, con los mismos campos que en `pre` (marcha: Compositor, Año, Estilo, Duración, Tipo). Sin frase descriptiva bajo el título. Ningún agente puede pasar esos datos a prosa ni quitar campos de la tabla. Vale para marcha, compositor, banda y disco.
 - Portada (decidido 2026-11-13): fuera la línea de cifras y el bloque centrado; se mantienen un h1 con el nombre del sitio y el párrafo descriptivo como prosa normal alineada a la izquierda, encima del buscador y de «Últimas incorporaciones». Excepción explícita al principio 10 de las líneas maestras, por SEO.
 - Tono (Puerta 1, 2026-11-13): Petróleo, `#007386` en claro y `#4a91a1` en oscuro, con sus neutros en `c/tokens.css`.
 - Los aros del logotipo se quedan en dorado `#d4a94a`: es logotipo, no tono de interfaz, y no cuenta en el límite de colores.
