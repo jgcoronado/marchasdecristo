@@ -13,7 +13,7 @@ foreach ($anios as $a) {
 krsort($decadas);
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › Rankings</span>
+    <span><a href="/">Inicio</a> / Rankings</span>
 </div>
 
 <article class="record">
@@ -23,20 +23,22 @@ krsort($decadas);
         Para saber qué falta por documentar, en vez de qué ya destaca,
         está el <a href="/estado-catalogo">estado del catálogo</a>.<?php endif; ?></p>
 
-    <div class="stack">
-        <?php /* El primero va abierto: /rankings se abría con cuatro barras
+    <div class="rank-grid">
+        <?php /* Los cuatro abiertos y en rejilla: son tablas de dos columnas y a
+                 todo el ancho el número quedaba a un palmo de su nombre. */ ?>
+        <?php /* (antes) El primero va abierto: /rankings se abría con cuatro barras
                  cerradas y ni un dato a la vista. */ ?>
         <details class="collapse" open>
             <summary class="collapse-title">Autores que más marchas han compuesto</summary>
             <div class="collapse-content">
                 <div class="tableList">
-                    <table class="table table-zebra">
-                        <thead class="thead-neutral"><tr><td>Nombre</td><td>Marchas compuestas</td></tr></thead>
+                    <table class="t">
+                        <thead><tr><th>Nombre</th><th class="t-num">Marchas compuestas</th></tr></thead>
                         <tbody>
 <?php foreach ($masAutor as $a): ?>
                             <tr>
-                                <td><a href="<?= V::e(S::buildDetailPath('autor', $a['ID_AUTOR'], (string) $a['AUTOR'])) ?>"><?= V::e($a['AUTOR']) ?></a></td>
-                                <td><?= V::e($a['MARCHAS']) ?></td>
+                                <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('autor', $a['ID_AUTOR'], (string) $a['AUTOR'])) ?>"><?= V::e($a['AUTOR']) ?></a></td>
+                                <td class="t-num" data-l=""><?= V::e($a['MARCHAS']) ?></td>
                             </tr>
 <?php endforeach; ?>
                         </tbody>
@@ -45,15 +47,15 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Hermandades con más marchas dedicadas</summary>
             <div class="collapse-content">
                 <div class="tableList">
-                    <table class="table table-zebra">
-                        <thead class="thead-neutral"><tr><td>Nombre</td><td>Marchas dedicadas</td></tr></thead>
+                    <table class="t">
+                        <thead><tr><th>Nombre</th><th class="t-num">Marchas dedicadas</th></tr></thead>
                         <tbody>
 <?php foreach ($masDedica as $d): ?>
-                            <tr><td><?= V::e($d['LUGAR']) ?></td><td><?= V::e($d['CUENTA']) ?></td></tr>
+                            <tr><td class="t-main" data-l=""><?= V::e($d['LUGAR']) ?></td><td class="t-num" data-l=""><?= V::e($d['CUENTA']) ?></td></tr>
 <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -61,17 +63,17 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Bandas que más marchas han estrenado</summary>
             <div class="collapse-content">
                 <div class="tableList">
-                    <table class="table table-zebra">
-                        <thead class="thead-neutral"><tr><td>Banda</td><td>Marchas estrenadas</td></tr></thead>
+                    <table class="t">
+                        <thead><tr><th>Banda</th><th class="t-num">Marchas estrenadas</th></tr></thead>
                         <tbody>
 <?php foreach ($masEstreno as $e): ?>
                             <tr>
-                                <td><a href="<?= V::e(S::buildDetailPath('banda', $e['ID_BANDA'], (string) $e['BANDA'])) ?>"><?= V::e($e['BANDA']) ?></a></td>
-                                <td><?= V::e($e['MARCHAS']) ?></td>
+                                <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('banda', $e['ID_BANDA'], (string) $e['BANDA'])) ?>"><?= V::e($e['BANDA']) ?></a></td>
+                                <td class="t-num" data-l=""><?= V::e($e['MARCHAS']) ?></td>
                             </tr>
 <?php endforeach; ?>
                         </tbody>
@@ -80,22 +82,18 @@ krsort($decadas);
             </div>
         </details>
 
-        <details class="collapse">
+        <details class="collapse" open>
             <summary class="collapse-title">Marchas que más veces han sido grabadas</summary>
             <div class="collapse-content">
                 <div class="tableList">
-                    <table class="table table-zebra">
-                        <thead class="thead-neutral"><tr><td>Marcha</td><td>Autor/es</td><td>Grabaciones</td></tr></thead>
+                    <table class="t">
+                        <thead><tr><th>Marcha</th><th>Autor/es</th><th class="t-num">Grabaciones</th></tr></thead>
                         <tbody>
 <?php foreach ($masGrabada as $g): ?>
                             <tr>
-                                <td><a href="<?= V::e(S::buildDetailPath('marcha', $g['ID_MARCHA'], (string) $g['TITULO'])) ?>"><?= V::e($g['TITULO']) ?></a></td>
-                                <td>
-<?php foreach ($g['AUTOR'] as $a): ?>
-                                    <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
-<?php endforeach; ?>
-                                </td>
-                                <td><?= V::e($g['GRABACIONES']) ?></td>
+                                <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $g['ID_MARCHA'], (string) $g['TITULO'])) ?>"><?= V::e($g['TITULO']) ?></a></td>
+                                <td data-l=""><?php foreach ($g['AUTOR'] as $a): ?><div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div><?php endforeach; ?></td>
+                                <td class="t-num" data-l=""><?= V::e($g['GRABACIONES']) ?></td>
                             </tr>
 <?php endforeach; ?>
                         </tbody>

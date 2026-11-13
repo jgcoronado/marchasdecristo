@@ -18,9 +18,9 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
             y tambores y agrupación musical de España. Desde los inicios del género hasta
             las marchas de más rabiosa actualidad, con la más completa información sobre autores, bandas y discos.
         </p>
-<?php /* Las cuatro cifras son el activo del sitio, no un pie de página: van en
-         fila, con el número al tamaño de un titular. $num aplica separador de
-         millares, que la línea anterior no tenía ("5024 marchas"). */ ?>
+<?php /* Las cifras van en una línea de datos (--t-l), no en mosaico de números
+         gigantes (§0.5). Cada cifra es un bloque que no se parte; r/marco.css las
+         separa por espacio en PC y en móvil las pone en rejilla de dos. */ ?>
 <?php if ($estado): ?>
         <div class="welcome-counts">
             <span class="cifra"><b><?= $num($estado['MARCHAS']) ?></b><span>marchas</span></span>
@@ -56,11 +56,33 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
                 <span class="ultima-date"><?= V::e($mddFecha) ?></span>
 <?php endif; ?>
             </a>
+<?php /* Ficha breve con datos reales de la marcha: llena la columna
+         izquierda frente al póster en PC (antes quedaban ~215 px vacíos).
+         Solo lo que hay; lo que falta no se pinta. */
+$mddDedic = trim((string) ($mdd['DEDICATORIA'] ?? ''));
+$mddDur = (int) ($mdd['DURACION_SEG'] ?? 0); ?>
+            <dl class="mdd-datos">
+<?php if (!empty($mdd['ESTILO'])): ?>
+                <div><dt>Estilo</dt><dd><?= \App\Html::chipEstilo((string) $mdd['ESTILO']) ?></dd></div>
+<?php endif; ?>
+<?php if ($mddDedic !== '' && $mddDedic !== '0'): ?>
+                <div><dt>Dedicatoria</dt><dd><?= V::e($mddDedic) ?></dd></div>
+<?php endif; ?>
+<?php if ($mddDur > 0): ?>
+                <div><dt>Duración</dt><dd><?= gmdate($mddDur >= 3600 ? 'G:i:s' : 'i:s', $mddDur) ?></dd></div>
+<?php endif; ?>
+            </dl>
+            <p class="mdd-ver"><a class="btn" href="<?= V::e($mddPath) ?>">Ver ficha</a></p>
 <?php if ($mddYtid !== null): ?>
             <div class="ytembed" data-ytid="<?= V::e($mddYtid) ?>">
-                <button type="button" class="ytfacade" aria-label="Reproducir el vídeo (carga YouTube al pulsar)">
-                    <img class="ytfacade-img" src="<?= V::e(MD::youtubeThumb($mddYtid)) ?>" alt="" loading="lazy" width="480" height="270">
+                <?php /* Póster propio (§0.8): ni la miniatura de i.ytimg.com se pide
+                         antes del clic; catalog.js pone el iframe al pulsar. */ ?>
+                <button type="button" class="ytfacade ytposter" aria-label="Reproducir el vídeo de <?= V::e($mdd['TITULO']) ?> (carga YouTube al pulsar)">
                     <span class="ytfacade-play" aria-hidden="true"></span>
+                    <span class="ytposter-t" aria-hidden="true"><?= V::e($mdd['TITULO']) ?></span>
+<?php if (!empty($mdd['BANDA_NOMBRE'])): ?>
+                    <span class="ytposter-b" aria-hidden="true"><?= V::e((string) $mdd['BANDA_NOMBRE']) ?></span>
+<?php endif; ?>
                 </button>
             </div>
 <?php endif; ?>
@@ -82,23 +104,23 @@ $num = static fn($n): string => number_format((int) $n, 0, ',', '.');
 <?php if ($ultimas): ?>
     <section>
         <h2 class="section-title">Últimas incorporaciones</h2>
-        <div class="ultimas">
+<?php /* Tabla con el contrato común de §2.5 (.t / .t-main / .t-num /
+         data-l): en móvil, r/tablas.css la pasa a filas de dos líneas. */ ?>
+        <table class="t">
+            <thead><tr><th scope="col">Marcha</th><th scope="col">Compositor</th><th scope="col">Banda</th><th scope="col" class="t-num">Año</th></tr></thead>
+            <tbody>
 <?php foreach ($ultimas as $m):
     $authors = implode(', ', array_map(static fn(array $a): string => (string) $a['nombre'], $m['AUTOR'])); ?>
-            <a class="ultima-row" href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>">
-                <span class="ultima-title"><?= V::e($m['TITULO']) ?></span>
-                <span class="ultima-meta">
-                    <span class="ultima-authors"><?= V::e($authors) ?></span>
-<?php if (!empty($m['BANDA_BREVE'])): ?>
-                    <span class="ultima-banda"><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?></span>
-<?php endif; ?>
-                </span>
-                <span class="ultima-date"><?= V::e($m['FECHA']) ?></span>
-            </a>
+                <tr>
+                    <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                    <td data-l=""><?= V::e($authors) ?></td>
+                    <td data-l=""><?php if (!empty($m['BANDA_BREVE'])): ?><?= V::e((string) $m['BANDA_BREVE']) ?><?php if (!empty($m['BANDA_LOC'])): ?>, <?= V::e($m['BANDA_LOC']) ?><?php endif; ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
+                    <td class="t-num" data-l=""><?= V::e($m['FECHA']) ?></td>
+                </tr>
 <?php endforeach; ?>
-        </div>
+            </tbody>
+        </table>
     </section>
 <?php endif; ?>
 
-    <p class="firma">Javier Guerra — <a href="https://x.com/JaviWarSVQ">@JaviWarSVQ</a></p>
 </div>

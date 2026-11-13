@@ -12,31 +12,37 @@ $href = static function (array $over) use ($criteria): string {
 };
 $orden = (string) ($criteria['orden'] ?? '');
 $total = (int) $result['totalRows'];
-$hayFiltro = array_filter($criteria, static fn($x) => trim((string) $x) !== '') !== [];
+$hayFiltro = array_filter(array_diff_key($criteria, ['orden' => 1]), static fn($x) => trim((string) $x) !== '') !== [];
 
 // El panel se abre solo si hay algún criterio que las facetas de la izquierda
 // no sepan mostrar (título, dedicatoria, localidad): si el filtro activo ya se
 // ve en la barra lateral, abrirlo sería repetir la misma información.
 $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('localidad') !== '';
 ?>
+<?php /* Orden y por página: a la derecha del título en escritorio; en móvil
+         se pliegan dentro de «Filtros» para que la primera fila de resultados
+         entre en el primer pantallazo (390×844). Se pintan dos veces y la hoja
+         r/tablas.css enseña una u otra: sin JS y sin mover nodos. */
+$controles = '<span class="sortby seg"><span class="lbl">orden</span><a href="' . V::e($href(['orden' => ''])) . '"' . ($orden === '' ? ' class="on"' : '') . '>título</a><a href="' . V::e($href(['orden' => 'fecha'])) . '"' . ($orden === 'fecha' ? ' class="on"' : '') . '>año</a><a href="' . V::e($href(['orden' => 'grabaciones'])) . '"' . ($orden === 'grabaciones' ? ' class="on"' : '') . '>grabaciones</a></span>'
+    . H::porPagina($limit, '/marcha', $criteria);
+$nFiltros = count(array_filter(array_diff_key($criteria, ['orden' => 1, 'limit' => 1, 'page' => 1]), static fn($x) => trim((string) $x) !== ''));
+?>
 <div class="stack list-page">
     <div class="toolbar">
-        <h1 class="rescount">Marchas — <b><?= $num($total) ?></b> registros</h1>
-        <?php /* Control segmentado: la etiqueta es una celda más (.lbl) y los
-                 separadores "·" desaparecen — el filete entre celdas ya separa. */ ?>
-        <span class="sortby"><span class="lbl">orden</span><a href="<?= V::e($href(['orden' => ''])) ?>"<?= $orden === '' ? ' class="on"' : '' ?>>título</a><a href="<?= V::e($href(['orden' => 'fecha'])) ?>"<?= $orden === 'fecha' ? ' class="on"' : '' ?>>año</a><a href="<?= V::e($href(['orden' => 'grabaciones'])) ?>"<?= $orden === 'grabaciones' ? ' class="on"' : '' ?>>grabaciones</a></span>
-        <?= H::porPagina($limit, '/marcha', $criteria) ?>
+        <h1 class="rescount"><b><?= $num($total) ?></b> marchas</h1>
+        <div class="t-ctl"><?= $controles ?></div>
 <?php if ($hayFiltro): ?>
         <a class="clearall" href="/marcha">limpiar filtros ×</a>
 <?php endif; ?>
     </div>
 
-<?php /* Sin tarjeta ni recuadro: es un desplegable en línea, separado por un
-         filete, igual que el resto de secciones. Antes era un .panel que, aun
-         cerrado, ocupaba un bloque en blanco entre la barra y los resultados. */ ?>
-    <details class="adv"<?= $advAbierto ? ' open' : '' ?>>
-        <summary>Búsqueda avanzada</summary>
-        <form class="adv-form" action="/marcha" method="GET">
+<?php /* «Búsqueda avanzada» y «Refinar por» bajo un solo botón (§2.4): antes
+         eran dos desplegables seguidos que empujaban la tabla hacia abajo. */ ?>
+    <details class="filtros"<?= $advAbierto ? ' open' : '' ?>>
+        <summary>Filtros<?php if ($nFiltros > 0): ?> <span class="n">(<?= $nFiltros ?>)</span><?php endif; ?></summary>
+        <div class="filtros-panel">
+        <div class="t-ctl t-ctl-movil"><?= $controles ?></div>
+        <form class="adv-form" aria-label="Búsqueda avanzada" action="/marcha" method="GET">
             <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="titulo">Título</label>
@@ -70,11 +76,8 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php endif; ?>
             </div>
         </form>
-    </details>
 
-    <details class="facet-rail-toggle">
-        <summary class="rail-title">Refinar por</summary>
-        <div class="facet-groups">
+        <div class="facet-groups" aria-label="Refinar por">
 <?php if ($facets['tipo'] !== []): ?>
             <div class="fgroup">
                 <div class="ftitle">Tipo</div>
@@ -110,10 +113,11 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php foreach ($facets['decada'] as $f):
     $d0 = (string) $f['K']; $d9 = (string) ((int) $f['K'] + 9);
     $on = ($criteria['fechaDesde'] ?? '') === $d0 && ($criteria['fechaHasta'] ?? '') === $d9; ?>
-                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['fechaDesde' => $on ? '' : $d0, 'fechaHasta' => $on ? '' : $d9])) ?>"><?= V::e($d0) ?>s<?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
+                <a class="fopt<?= $on ? ' on' : '' ?>" href="<?= V::e($href(['fechaDesde' => $on ? '' : $d0, 'fechaHasta' => $on ? '' : $d9])) ?>"><?= V::e($d0) ?>–<?= (int) $d0 + 9 ?><?php if ($on): ?> <span class="x">×</span><?php endif; ?><span class="fcount"><?= $num($f['N']) ?></span></a>
 <?php endforeach; ?>
             </div>
 <?php endif; ?>
+        </div>
         </div>
     </details>
 
@@ -121,52 +125,29 @@ $advAbierto = $val('titulo') !== '' || $val('dedicatoria') !== '' || $val('local
 <?php if ($total === 0): ?>
             <p class="bio-empty">No se han encontrado marchas con esos criterios.</p>
 <?php else: ?>
-            <div class="scrollx tableList">
-            <table class="reg">
-                <colgroup>
-                    <col style="width:30%">
-                    <col style="width:20%">
-                    <col style="width:5%">
-                    <col style="width:20%" class="mobile-hide">
-                    <col style="width:15%" class="mobile-hide">
-                    <col style="width:5%" class="mobile-hide">
-                    <col style="width:5%" class="mobile-hide">
-                </colgroup>
+            <div class="tableList">
+            <table class="t">
                 <thead><tr>
                     <th>Marcha</th>
                     <th>Compositor</th>
-                    <th>Año</th>
-                    <th class="mobile-hide">Dedicatoria</th>
-                    <th class="mobile-hide">Localidad</th>
-                    <th class="ico-col mobile-hide" title="¿Tiene enlace de RRSS?">RRSS</th>
-                    <th class="ico-col mobile-hide" title="¿Grabada en algún disco?">Grabada</th>
+                    <th class="t-num">Año</th>
+                    <th>Estilo</th>
+                    <th>Dedicatoria</th>
+                    <th>Localidad</th>
+                    <th title="¿Tiene enlace de redes sociales?">Redes</th>
+                    <th class="t-num" title="Número de discos en que está grabada">Discos</th>
                 </tr></thead>
                 <tbody>
-<?php foreach ($result['data'] as $m): ?>
+<?php foreach ($result['data'] as $m): $nGrab = (int) $m['N_GRAB']; ?>
                     <tr>
-                        <td><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
-                        <td>
-<?php foreach ($m['AUTOR'] as $a): ?>
-                            <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
-<?php endforeach; ?>
-                        </td>
-                        <td><?= !empty($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
-                        <td class="mobile-hide"><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="muted">—</span>' ?></td>
-                        <td class="mobile-hide"><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="muted">—</span>' ?></td>
-                        <td class="ico-col mobile-hide">
-<?php if (!empty($m['TIENE_RRSS'])): ?>
-                            <span role="img" aria-label="Tiene enlace de RRSS" title="Tiene enlace de RRSS">🔗</span>
-<?php else: ?>
-                            <span class="muted" aria-label="Sin enlace de RRSS" title="Sin enlace de RRSS">—</span>
-<?php endif; ?>
-                        </td>
-                        <td class="ico-col mobile-hide">
-<?php if ((int) $m['N_GRAB'] > 0): ?>
-                            <span role="img" aria-label="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)" title="Grabada en <?= (int) $m['N_GRAB'] ?> disco(s)">💿</span>
-<?php else: ?>
-                            <span class="muted" aria-label="No grabada en ningún disco" title="No grabada en ningún disco">—</span>
-<?php endif; ?>
-                        </td>
+                        <td class="t-main" data-l=""><a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a></td>
+                        <td data-l=""><?php foreach ($m['AUTOR'] as $a): ?><div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div><?php endforeach; ?></td>
+                        <td class="t-num" data-l=""><?= !empty($m['FECHA']) && $m['FECHA'] !== 's/f' ? V::e($m['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
+                        <td data-l=""><?= \App\Html::chipEstilo($m['ESTILO'] ?? null, false) ?: '<span class="t-vacio">—</span>' ?></td>
+                        <td class="t-opt" data-l=""><?= !empty($m['DEDICATORIA']) ? V::e($m['DEDICATORIA']) : '<span class="t-vacio">—</span>' ?></td>
+                        <td class="t-opt" data-l=""><?= !empty($m['LOCALIDAD']) ? V::e($m['LOCALIDAD']) : '<span class="t-vacio">—</span>' ?></td>
+                        <td class="t-opt" data-l=""><?= !empty($m['TIENE_RRSS']) ? '<span title="Tiene enlace de redes sociales">Sí</span>' : '<span class="t-vacio" title="Sin enlace de RRSS">—</span>' ?></td>
+                        <td class="t-num" data-l="Discos"><?= $nGrab > 0 ? $nGrab : '<span class="t-vacio" title="No grabada en ningún disco">—</span>' ?></td>
                     </tr>
 <?php endforeach; ?>
                 </tbody>

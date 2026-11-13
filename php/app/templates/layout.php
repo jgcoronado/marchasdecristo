@@ -167,8 +167,8 @@ if (!empty($meta['ancho'])) {
              proyecto donde un color de la paleta se repite fuera de las hojas.
              El oscuro es --bg (#141413), que desde 2026-09-27 es también el
              fondo de la cabecera. */ ?>
-    <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#151b36" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0a0d1c" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
@@ -203,7 +203,16 @@ if (!empty($meta['ancho'])) {
     <meta name="twitter:image:alt" content="<?= $e($ogImageAlt) ?>">
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preload" href="/assets/fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/app.css')) ?>">
+    <?php /* Identidad visual (cabecera, sello, mosaico, fichas en dos
+             columnas). Va entre app.css y dark.css: ver su cabecera. */ ?>
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/identidad.css')) ?>">
+    <?php /* Rediseño 2026-11: una hoja por área (docs/rediseno-2026-11.md),
+             en orden de cascada. Solo tokens; los colores del oscuro, en dark.css. */ ?>
+    <?php foreach (['base', 'marco', 'controles', 'tablas', 'media', 'fichas'] as $hojaR): ?>
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/r/' . $hojaR . '.css')) ?>">
+    <?php endforeach; ?>
     <?php /* Tema oscuro: una hoja aparte que se enciende o apaga con su
              atributo media (ver la cabecera de dark.css). Por defecto sigue al
              sistema; el script siguiente la fuerza si el visitante eligió un
@@ -221,8 +230,11 @@ if (!empty($meta['ancho'])) {
     <script>
     (function () {
         var SISTEMA = 'screen and (prefers-color-scheme: dark)';
-        var COLOR = { claro: '#f4f5f8', oscuro: '#141413' };
+        var COLOR = { claro: '#151b36', oscuro: '#0a0d1c' };
         var raiz = document.documentElement;
+        // Marca que hay JS: solo entonces se pliega el buscador en móvil tras
+        // la lupa (r/marco.css). Sin JS el buscador queda siempre a la vista.
+        raiz.className += ' js';
         var hoja = document.getElementById('css-oscuro');
         var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
         function guardado() {
@@ -272,9 +284,19 @@ if (!empty($meta['ancho'])) {
     <header>
         <div class="header-inner">
         <div class="header-top">
-            <a class="brand" href="/"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></a>
+            <a class="brand" href="/" aria-label="<?= $siteName ?>, inicio">
+                <?php /* Marca: una M entre los dos aros de un tambor; los trazos de
+                         la M son los tensores. */ ?>
+                <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="5" width="34" height="4.5" rx="1" fill="#d4a94a"/><rect x="3" y="30.5" width="34" height="4.5" rx="1" fill="#d4a94a"/><path d="M8 28V13l12 10.5L32 13v15" fill="none" stroke="#fff" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                <span class="brand-txt"><?= $siteName ?><span class="brand-sub">Base de datos de música procesional</span></span></a>
 <?php if ($showSearch): ?>
-            <div class="site-search-row">
+            <?php /* Lupa (solo móvil, solo con JS): despliega el buscador a todo
+                     el ancho bajo la fila. Sin JS no se pinta y el buscador se
+                     ve siempre; catalog.js la gobierna. */ ?>
+            <button type="button" class="buscar-toggle" aria-expanded="false" aria-controls="site-search-row" aria-label="Buscar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+            </button>
+            <div class="site-search-row" id="site-search-row">
                 <form class="site-search" action="/buscar" method="get" role="search" aria-label="Buscar en todo el sitio" autocomplete="off">
                     <span aria-hidden="true">⌕</span>
                     <input id="site-q" type="search" name="q" value="<?= $e($searchValue) ?>"
@@ -340,14 +362,31 @@ if (!empty($meta['ancho'])) {
     </script>
 <?php endif; ?>
 
+    <?php /* Pie en tres grupos que llenan el ancho (docs/rediseno-2026-11.md
+             §2.3): secciones del sitio; datos, licencia y cifras; contacto y
+             autor. En móvil se apilan. */ ?>
     <footer>
-        <div class="inner">
+        <div class="inner pie">
+            <nav class="pie-g" aria-label="Secciones (pie)">
+                <p class="foot-brand"><?= $siteName ?></p>
+                <ul class="pie-secc">
+<?php foreach ($nav as $href => $label): ?>
+                    <li><a href="<?= $href ?>"><?= $label ?></a></li>
+<?php endforeach; ?>
+                </ul>
+            </nav>
+            <div class="pie-g">
+                <p class="pie-t">Datos</p>
 <?php if ($counts !== null): ?>
-            <?= $counts['MARCHAS'] ?> marchas · <?= $counts['AUTORES'] ?> compositores · <?= $counts['BANDAS'] ?> bandas · <?= $counts['DISCOS'] ?> discos
-<?php else: ?>
-            <?= $siteName ?>
+                <p><?= number_format((int) $counts['MARCHAS'], 0, ',', '.') ?> marchas · <?= number_format((int) $counts['AUTORES'], 0, ',', '.') ?> compositores · <?= number_format((int) $counts['BANDAS'], 0, ',', '.') ?> bandas · <?= number_format((int) $counts['DISCOS'], 0, ',', '.') ?> discos</p>
 <?php endif; ?>
-            <span class="foot-sep">·</span> <a href="/datos">Datos y licencia (CC BY 4.0)</a>
+                <p><a href="/datos">Datos y licencia (CC BY 4.0)</a> · <a href="/feed.xml">RSS</a></p>
+            </div>
+            <div class="pie-g">
+                <p class="pie-t">Contacto</p>
+                <p><a href="/contacto">Contacto</a> para correcciones y altas.</p>
+                <p>Javier Guerra — <a href="https://x.com/JaviWarSVQ">@JaviWarSVQ</a></p>
+            </div>
         </div>
     </footer>
     <script src="<?= $e($assetVer('/assets/catalog.js')) ?>" defer></script>

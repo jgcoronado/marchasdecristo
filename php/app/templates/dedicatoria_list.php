@@ -18,8 +18,7 @@ ksort($grupos);
 $letras = array_keys($grupos);
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › Dedicatorias</span>
-    <span class="regnav"><?= $num(count($items)) ?> advocaciones</span>
+    <span><a href="/">Inicio</a> / Dedicatorias</span>
 </div>
 
 <article class="record">
@@ -27,9 +26,11 @@ $letras = array_keys($grupos);
     <p class="asiento">Advocaciones, hermandades, cofradías y agrupaciones a las que están dedicadas las marchas del catálogo.
         <?= $num(count($items)) ?> advocaciones · <?= $num($totalMarchas) ?> marchas dedicadas.</p>
 
-    <details class="adv"<?= $hayFiltro ? ' open' : '' ?>>
-        <summary>Búsqueda avanzada</summary>
-        <form class="adv-form" action="/dedicatorias" method="GET">
+    <?php /* «Filtros» (§2.4): mismo botón que en /marcha y /banda. */ ?>
+    <details class="filtros"<?= $hayFiltro ? ' open' : '' ?>>
+        <summary>Filtros<?php if ($hayFiltro): ?> <span class="n">(activos)</span><?php endif; ?></summary>
+        <div class="filtros-panel">
+        <form class="adv-form" aria-label="Búsqueda avanzada" action="/dedicatorias" method="GET">
             <div class="adv-grid">
                 <div class="field">
                     <label class="field-label" for="localidad">Localidad</label>
@@ -47,6 +48,7 @@ $letras = array_keys($grupos);
 <?php endif; ?>
             </div>
         </form>
+        </div>
     </details>
 
 <?php if ($items === [] && !$hayFiltro): ?>

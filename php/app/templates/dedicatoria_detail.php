@@ -14,7 +14,7 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
 
 ?>
 <div class="crumbs">
-    <span><a href="/">Inicio</a> › <a href="/dedicatorias">Dedicatorias</a><?php if ($letra !== ''): ?> › <?= V::e($letra) ?><?php endif; ?> › D-<?= $did ?></span>
+    <span><a href="/">Inicio</a> / <a href="/dedicatorias">Dedicatorias</a><?php if ($letra !== ''): ?> / <?= V::e($letra) ?><?php endif; ?> / D-<?= $did ?></span>
     <span class="regnav"><a href="/dedicatorias">↩ índice</a></span>
 </div>
 
@@ -42,30 +42,29 @@ $letra = strtoupper(mb_substr($d['NOMBRE'], 0, 1));
         <input class="filter" type="text" placeholder="filtrar…" aria-label="Filtrar marchas dedicadas" data-filter="ded-table" data-count="ded-count" data-total="<?= $nM ?>">
 <?php endif; ?>
     </div>
-    <div class="scrollx">
-    <table class="reg" id="ded-table" data-sortable>
+    <div class="tableList">
+    <table class="t" id="ded-table" data-sortable>
         <thead><tr>
             <th>Marcha <span class="ar">↕</span></th>
-            <th data-type="num">Año <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Año <span class="ar">↕</span></th>
             <th>Compositor <span class="ar">↕</span></th>
-            <th class="mobile-hide">Banda de estreno <span class="ar">↕</span></th>
-            <th class="num mobile-hide" data-type="num">Grab. <span class="ar">↕</span></th>
+            <th>Banda de estreno <span class="ar">↕</span></th>
+            <th class="t-num" data-type="num">Grab. <span class="ar">↕</span></th>
         </tr></thead>
         <tbody>
 <?php foreach ($d['marchas'] as $m): ?>
             <tr>
-                <td>
-                    <a href="<?= V::e(S::buildDetailPath('marcha', $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a>
+XX, $m['ID_MARCHA'], (string) $m['TITULO'])) ?>"><?= V::e($m['TITULO']) ?></a>
 <?php if ($t($m['AUDIO'])): ?> <span class="badge-1a" title="Con audio/vídeo">▶</span><?php endif; ?>
                 </td>
-                <td><?= $t($m['FECHA']) ? V::e($m['FECHA']) : '—' ?></td>
-                <td>
+                <td class="t-num" data-l=""><?= $t($m['FECHA']) ? V::e($m['FECHA']) : '<span class="t-vacio">—</span>' ?></td>
+                <td data-l="">
 <?php foreach ($m['AUTOR'] as $a): ?>
                     <div><a href="<?= V::e(S::buildDetailPath('autor', $a['autorId'], (string) $a['nombre'])) ?>"><?= V::e($a['nombre']) ?></a></div>
 <?php endforeach; ?>
                 </td>
-                <td class="mobile-hide"><?php if ($t($m['BANDA_ESTRENO']) && $t($m['BANDA_BREVE'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="muted">—</span><?php endif; ?></td>
-                <td class="num mobile-hide"><?= (int) $m['N_GRAB'] ?></td>
+                <td data-l="Estreno"><?php if ($t($m['BANDA_ESTRENO']) && $t($m['BANDA_BREVE'])): ?><a href="<?= V::e(S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_BREVE'])) ?>"><?= V::e($m['BANDA_BREVE']) ?></a><?php else: ?><span class="t-vacio">—</span><?php endif; ?></td>
+                <td class="t-num" data-l="Grab."><?= (int) $m['N_GRAB'] ?></td>
             </tr>
 <?php endforeach; ?>
         </tbody>

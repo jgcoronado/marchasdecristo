@@ -521,11 +521,12 @@ $tests = [
     // grabación) y Reina de San Román (ninguna): la más grabada va primero.
     'marcha: relacionadas por compositor, más grabadas primero' => static function () use ($base): void {
         $body = assertStatus('/marcha/consuelo-gitano-1', 200, $base)['body'];
-        $ini = strpos($body, '<h2>Marchas relacionadas</h2>');
+        $ini = strpos($body, '<h2>Véase también</h2>');
         if ($ini === false) {
-            throw new RuntimeException('/marcha/consuelo-gitano-1 → falta el bloque «Marchas relacionadas»');
+            throw new RuntimeException('/marcha/consuelo-gitano-1 → falta el bloque «Véase también»');
         }
-        $bloque = substr($body, $ini, (int) strpos($body, '</ul>', $ini) - $ini);
+        // (2026-11) El bloque es ahora una tabla (marcha, compositor, año), no una lista.
+        $bloque = substr($body, $ini, (int) strpos($body, '</table>', $ini) - $ini);
         $a = strpos($bloque, 'href="/marcha/la-madruga-2"');
         $b = strpos($bloque, 'href="/marcha/reina-de-san-roman-5"');
         if ($a === false || $b === false) {
@@ -540,8 +541,8 @@ $tests = [
     },
     // Sin coincidencias exactas no se inventa afinidad: no hay bloque.
     'marcha sin coincidencias: sin bloque de relacionadas' => static function () use ($base): void {
-        if (str_contains(assertStatus('/marcha/saeta-sola-6', 200, $base)['body'], 'Marchas relacionadas')) {
-            throw new RuntimeException('/marcha/saeta-sola-6 → no debería mostrar «Marchas relacionadas»');
+        if (str_contains(assertStatus('/marcha/saeta-sola-6', 200, $base)['body'], 'Véase también')) {
+            throw new RuntimeException('/marcha/saeta-sola-6 → no debería mostrar «Véase también»');
         }
     },
     'marcha sin año no separa versiones' => static function () use ($base): void {

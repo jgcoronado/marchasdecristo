@@ -80,17 +80,181 @@ final class Html
         return (string) ($GLOBALS['config']['cover_base_url'] ?? '') . '/cover/' . $idDisco . '.webp';
     }
 
-    public static function cover(string $src, string $alt, string $class = ''): string
+    /**
+     * ¿Existe la portada de este disco? true/false cuando las portadas viven en
+     * este mismo host (se mira el fichero); null cuando se cargan de otro
+     * (cover_base_url, caso de PRE) y no se puede saber sin pedirlas.
+     */
+    public static function hayPortada(int $idDisco): ?bool
     {
-        // JS mínimo: oculta la imagen si no existe y desactiva el menú contextual.
-        return '<img class="' . self::e($class) . '" src="' . self::e($src) . '" alt="' . self::e($alt)
-            . '" oncontextmenu="return false" onerror="this.style.display=\'none\'">';
+        if ((string) ($GLOBALS['config']['cover_base_url'] ?? '') !== '') return null;
+        $raiz = (string) ($_SERVER['DOCUMENT_ROOT'] ?? '');
+        return $raiz !== '' ? is_file($raiz . '/cover/' . $idDisco . '.webp') : null;
+    }
+
+    /**
+     * Funda tipográfica (§2.6): lo que ocupa el cuadrado de una portada que no
+     * tenemos. Título del disco y, debajo, banda y año en pequeño. Sustituye al
+     * cuadro de inicial + año gigante, que era una cifra en mosaico (§0.5) y no
+     * decía de qué disco se trataba.
+     */
+    public static function funda(string $titulo, string $banda = '', ?int $anio = null): string
+    {
+        return '<span class="funda" aria-hidden="true"><b>' . self::e($titulo) . '</b>'
+            . ($banda !== '' ? '<small>' . self::e($banda) . '</small>' : '')
+            . ($anio ? '<small>' . $anio . '</small>' : '')
+            . '</span>';
+    }
+
+    /** <img> de portada con todo lo que pide §2.6: perezosa, con medidas (sin saltos) y alt. */
+    private static function imgPortada(string $src, string $alt, string $onerror = 'this.remove()', int $px = 300): string
+    {
+        return '<img src="' . self::e($src) . '" alt="' . self::e($alt) . '" loading="lazy" decoding="async"'
+            . ' width="' . $px . '" height="' . $px . '" oncontextmenu="return false" onerror="' . self::e($onerror) . '">';
+    }
+
+    /**
+     * Portada suelta. Con $idDisco y $titulo se pinta dentro de una caja con la
+     * funda tipográfica debajo: si la portada no existe (o, en PRE, no carga)
+     * queda la funda en vez de un hueco. Sin ellos (llamadas antiguas), la
+     * imagen sola, que se oculta si falla.
+     */
+    public static function cover(string $src, string $alt, string $class = '', ?int $idDisco = null, string $titulo = '', string $banda = '', ?int $anio = null): string
+    {
+        if ($idDisco === null || $titulo === '') {
+            return '<img class="cover-img ' . self::e($class) . '" src="' . self::e($src) . '" alt="' . self::e($alt)
+                . '" loading="lazy" decoding="async" width="300" height="300" oncontextmenu="return false" onerror="this.style.display=\'none\'">';
+        }
+        $hay = self::hayPortada($idDisco);
+        return '<span class="cover-box ' . self::e($class) . '">'
+            . ($hay === true ? '' : self::funda($titulo, $banda, $anio))
+            . ($hay === false ? '' : self::imgPortada($src, $alt))
+            . '</span>';
+    }
+
+    // ── Identidad visual: mosaico de portadas y chip de estilo ───────────────
+
+    /**
+     * Sello: RETIRADO (§2.6). Era un cuadro de año o siglas generado, o sea,
+     * una cifra gigante en mosaico (§0.5). Se conserva la firma para que las
+     * plantillas que aún lo llaman sigan funcionando; devuelve ''.
+     */
+    public static function sello(string $grande, string $rotulo = '', string $variante = '', string $extra = ''): string
+    {
+        return '';
+    }
+
+    /** 'CCTT' | 'AM' | otro → clase de variante del sello y del chip. */
+    public static function varianteEstilo(?string $estilo): string
+    {
+        return match ($estilo) { 'CCTT' => 'cctt', 'AM' => 'am', default => '' };
+    }
+
+    /** Estilo deducido del nombre breve de una banda ("AM Redención", "BCT …"). */
+    public static function varianteBanda(string $nombreBreve): string
+    {
+        if (preg_match('/^\s*AM\b/u', $nombreBreve) === 1) return 'am';
+        if (preg_match('/^\s*(BCT|CCTT|CT)\b/u', $nombreBreve) === 1) return 'cctt';
+        return '';
+    }
+
+    /** Sigla inicial del nombre breve de una banda ("AM", "BCT"), o sus iniciales. */
+    public static function siglaBanda(string $nombreBreve): string
+    {
+        if (preg_match('/^\s*(AM|BCT|CCTT|CT|BM)\b/u', $nombreBreve, $m) === 1) return $m[1];
+        return self::iniciales($nombreBreve);
+    }
+
+    /** "Emilio Muñoz Serna" → "EM" (dos primeras palabras con mayúscula inicial). */
+    public static function iniciales(string $nombre): string
+    {
+        $out = '';
+        foreach (preg_split('/\s+/u', trim($nombre)) ?: [] as $w) {
+            $c = mb_substr($w, 0, 1, 'UTF-8');
+            if ($c !== '' && preg_match('/\p{Lu}/u', $c) === 1) $out .= $c;
+            if (mb_strlen($out, 'UTF-8') >= 2) break;
+        }
+        return $out !== '' ? $out : mb_strtoupper(mb_substr(trim($nombre), 0, 1, 'UTF-8'), 'UTF-8');
+    }
+
+    /** Chip de estilo enlazado a su hub: la señal de color del catálogo. */
+    public static function chipEstilo(?string $estilo, bool $largo = true): string
+    {
+        $v = self::varianteEstilo($estilo);
+        if ($v === '') return '';
+        $txt = $largo ? ($estilo === 'CCTT' ? 'Cornetas y tambores' : 'Agrupación musical') : (string) $estilo;
+        $href = Pages::estiloHubPath((string) $estilo);
+        $attr = 'class="chip-estilo chip-' . $v . '"' . ($largo ? '' : ' title="' . ($estilo === 'CCTT' ? 'Cornetas y tambores' : 'Agrupación musical') . '"');
+        return $href !== null ? '<a ' . $attr . ' href="' . self::e($href) . '">' . self::e($txt) . '</a>'
+                              : '<span ' . $attr . '>' . self::e($txt) . '</span>';
+    }
+
+    /**
+     * Una tesela de portada (cuadrada, enlazada al disco). Debajo va siempre la
+     * funda tipográfica: si la portada no existe o no carga, la imagen se
+     * retira sola y queda la funda, nunca un hueco ni un icono roto. $sub es la
+     * banda (o lo que identifique al disco además del título).
+     */
+    public static function tesela(int $idDisco, string $nombre, ?int $anio, string $sub = ''): string
+    {
+        $href = Slug::buildDetailPath('disco', $idDisco, $nombre);
+        $titulo = $nombre . ($sub !== '' ? ' — ' . $sub : '') . ($anio ? ' (' . $anio . ')' : '');
+        $hay = self::hayPortada($idDisco);
+        return '<a class="mos' . ($hay === false ? ' mos-sin' : '') . '" href="' . self::e($href) . '" title="' . self::e($titulo) . '">'
+            . ($hay === true ? '' : self::funda($nombre, $sub, $anio))
+            . ($hay === false ? '' : self::imgPortada(self::coverSrc($idDisco), 'Portada de ' . $nombre))
+            . '</a>';
+    }
+
+    /**
+     * Mosaico de portadas de la cabecera de ficha (§2.6): SOLO portadas reales.
+     * Con menos de tres no se pinta: dos cuadros no hacen imagen y una funda
+     * tipográfica en mosaico no aporta nada que no diga ya la ficha. En PRE
+     * (hayPortada null) se pintan todas y la que falle se retira entera.
+     *
+     * @param list<array{id:int,nombre:string,anio:?int,sub?:string}> $discos sin repetir
+     */
+    public static function mosaico(array $discos, int $max = 8, string $pie = ''): string
+    {
+        $discos = array_values(array_filter($discos, static fn($d) => self::hayPortada((int) $d['id']) !== false));
+        $total = count($discos);
+        if ($total < 3) return '';
+        $ver = array_slice($discos, 0, $max);
+        $html = '<div class="mosaico" data-n="' . count($ver) . '">';
+        foreach ($ver as $d) {
+            $nombre = (string) $d['nombre'];
+            $sub = (string) ($d['sub'] ?? '');
+            $anio = $d['anio'] ?? null;
+            $html .= '<a class="mos" href="' . self::e(Slug::buildDetailPath('disco', (int) $d['id'], $nombre)) . '" title="'
+                . self::e($nombre . ($sub !== '' ? ' — ' . $sub : '') . ($anio ? ' (' . $anio . ')' : '')) . '">'
+                . self::imgPortada(self::coverSrc((int) $d['id']), 'Portada de ' . $nombre, 'this.parentNode.remove()', 200)
+                . '</a>';
+        }
+        if ($pie !== '') $html .= '<p class="mos-pie">' . self::e($pie) . ($total > $max ? ' (' . $total . ')' : '') . '</p>';
+        return $html . '</div>';
     }
 
     // ── Enlaces de streaming (ficha pública) ─────────────────────────────────
     public const STREAMING_LABELS = [
         'spotify' => 'Spotify', 'apple' => 'Apple Music', 'deezer' => 'Deezer',
         'youtube' => 'YouTube', 'tidal' => 'Tidal', 'amazon' => 'Amazon Music',
+    ];
+
+    /**
+     * Logotipos monocromos de los servicios (rutas de Simple Icons, CC0, en
+     * viewBox 0 0 24 24). Van en línea: ni una petición más ni un tercero antes
+     * de que el visitante pulse (§0.8). Deezer sale de simple-icons 9 (lo
+     * retiraron después a petición de la marca; la ruta sigue siendo CC0).
+     * Amazon Music: su logotipo de texto era ilegible a 20 px; va solo la
+     * sonrisa con flecha de Amazon, dibujada a ese tamaño.
+     */
+    private const STREAMING_ICONOS = [
+        'spotify' => 'M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z',
+        'apple' => 'M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.045-1.773-.6-1.943-1.536a1.88 1.88 0 011.038-2.022c.323-.16.67-.25 1.018-.324.378-.082.758-.153 1.134-.24.274-.063.457-.23.51-.516a.904.904 0 00.02-.193c0-1.815 0-3.63-.002-5.443a.725.725 0 00-.026-.185c-.04-.15-.15-.243-.304-.234-.16.01-.318.035-.475.066-.76.15-1.52.303-2.28.456l-2.325.47-1.374.278c-.016.003-.032.01-.048.013-.277.077-.377.203-.39.49-.002.042 0 .086 0 .13-.002 2.602 0 5.204-.003 7.805 0 .42-.047.836-.215 1.227-.278.64-.77 1.04-1.434 1.233-.35.1-.71.16-1.075.172-.96.036-1.755-.6-1.92-1.544-.14-.812.23-1.685 1.154-2.075.357-.15.73-.232 1.108-.31.287-.06.575-.116.86-.177.383-.083.583-.323.6-.714v-.15c0-2.96 0-5.922.002-8.882 0-.123.013-.25.042-.37.07-.285.273-.448.546-.518.255-.066.515-.112.774-.165.733-.15 1.466-.296 2.2-.444l2.27-.46c.67-.134 1.34-.27 2.01-.403.22-.043.442-.088.663-.106.31-.025.523.17.554.482.008.073.012.148.012.223.002 1.91.002 3.822 0 5.732z',
+        'deezer' => 'M18.81 4.16v3.03H24V4.16h-5.19zM6.27 8.38v3.027h5.189V8.38h-5.19zm12.54 0v3.027H24V8.38h-5.19zM6.27 12.594v3.027h5.189v-3.027h-5.19zm6.271 0v3.027h5.19v-3.027h-5.19zm6.27 0v3.027H24v-3.027h-5.19zM0 16.81v3.029h5.19v-3.03H0zm6.27 0v3.029h5.189v-3.03h-5.19zm6.271 0v3.029h5.19v-3.03h-5.19zm6.27 0v3.029H24v-3.03h-5.19Z',
+        'youtube' => 'M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z',
+        'tidal' => 'M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l-4.004 4.004 4.004 4.004 4.004-4.004L12.012 12l4.004-4.004-4.004-4.004zM16.042 7.996l3.979-3.979L24 7.996l-3.979 3.979z',
+        'amazon' => 'M1 13.2c6.3 4.6 15.4 4.9 21.2.6l1 1.5c-6.6 5-16.6 4.7-23.3-.4zM18.8 11.6l4.9-.4.3 4.9-1.8.1-.2-3.1-3.1.3z',
     ];
 
     /**
@@ -106,6 +270,17 @@ final class Html
     }
 
     /**
+     * Estado vacío de «Escuchar» (§2.6): ocupa el sitio de los botones y pide
+     * la grabación. Las propuestas públicas no admiten aún enlaces de escucha,
+     * así que el enlace va a /contacto.
+     */
+    public static function escucharVacio(string $que = 'esta marcha', string $href = '/contacto'): string
+    {
+        return '<p class="esc-vacio">Todavía no tenemos ninguna grabación enlazada de ' . self::e($que)
+            . '. Si conoces una, <a href="' . self::e($href) . '">proponla</a>.</p>';
+    }
+
+    /**
      * Sección "Escuchar" de la ficha de marcha.
      *
      * Todas las escuchas se pintan como el MISMO botón, venga el enlace de
@@ -117,13 +292,16 @@ final class Html
      * Cuando la marcha tiene ya sus años ($conVersiones), los enlaces se
      * reparten en dos pestañas: una marcha de 1950 no se toca hoy como se tocó
      * al estrenarse, y mezclar ambas grabaciones en una lista plana engaña
-     * sobre lo que se va a oír. Las pestañas son radios + CSS, sin JS.
+     * sobre lo que se va a oír. Las pestañas son radios + CSS, sin JS, con el
+     * aspecto del segmentado (.seg, §2.4): el elegido con fondo, sin subrayado.
      *
      * @param array{original: array<string,string>, actual: array<string,string>} $porVersion
      * @param string|null $audio  marcha.AUDIO — su servicio se detecta; sin año
      *                            conocido cae siempre en la versión actual.
+     * @param bool $conVacio  true: sin enlaces devuelve el estado vacío
+     *                        (escucharVacio) en vez de ''.
      */
-    public static function escuchar(array $porVersion, ?string $audio, bool $conVersiones, int $idMarcha): string
+    public static function escuchar(array $porVersion, ?string $audio, bool $conVersiones, int $idMarcha, bool $conVacio = false): string
     {
         $original = $porVersion['original'] ?? [];
         $actual = $porVersion['actual'] ?? [];
@@ -138,7 +316,7 @@ final class Html
             $actual = [$svc => $audio] + $actual;
         }
 
-        if ($original === [] && $actual === []) return '';
+        if ($original === [] && $actual === []) return $conVacio ? self::escucharVacio() : '';
 
         // Sin antigüedad suficiente no hay pestañas: serían dos, una vacía,
         // para no decir nada.
@@ -157,19 +335,19 @@ final class Html
                 . ($abreOriginal ? ' checked' : '') . '>'
             . '<input class="vtab-in vtab-in-a" type="radio" name="' . self::e($n) . '" id="' . self::e($n) . '-a"'
                 . ($abreOriginal ? '' : ' checked') . '>'
-            . '<div class="vtab-bar">'
-            . '<label class="vtab vtab-o" for="' . self::e($n) . '-o">Versión original</label>'
-            . '<label class="vtab vtab-a" for="' . self::e($n) . '-a">Versión actual</label>'
+            . '<div class="seg vtab-bar">'
+            . '<label class="seg-op vtab vtab-o" for="' . self::e($n) . '-o">Versión original</label>'
+            . '<label class="seg-op vtab vtab-a" for="' . self::e($n) . '-a">Versión actual</label>'
             . '</div>'
             . '<div class="vtab-panel vtab-panel-o">'
             . ($original !== []
                 ? self::botonesEscucha($original)
-                : '<p class="vtab-vacio">Sin grabaciones de la época documentadas.</p>')
+                : '<p class="esc-vacio vtab-vacio">Sin grabaciones de la época documentadas.</p>')
             . '</div>'
             . '<div class="vtab-panel vtab-panel-a">'
             . ($actual !== []
                 ? self::botonesEscucha($actual)
-                : '<p class="vtab-vacio">Sin grabaciones actuales documentadas.</p>')
+                : '<p class="esc-vacio vtab-vacio">Sin grabaciones actuales documentadas.</p>')
             . '</div>'
             . '</div></div>';
     }
@@ -192,10 +370,15 @@ final class Html
         foreach ($ordenado as $servicio => $url) {
             $label = self::STREAMING_LABELS[$servicio]
                 ?? ($servicio === 'otro' ? 'Escuchar' : ucfirst((string) $servicio));
+            // Servicio sin logotipo: un triángulo de «reproducir» neutro.
+            $ruta = self::STREAMING_ICONOS[$servicio] ?? 'M6 3.5v17l14-8.5z';
             $btns .= '<a class="stream-btn stream-' . self::e($servicio) . '" href="' . self::e($url)
-                . '" target="_blank" rel="noopener noreferrer nofollow">' . self::e($label) . '</a>';
+                . '" target="_blank" rel="noopener noreferrer nofollow">'
+                . '<svg class="stream-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="' . $ruta . '"/></svg>'
+                . '<span>' . self::e($label) . '</span></a>';
         }
-        return '<div class="streaming"><span class="streaming-lbl">Escuchar en</span>' . $btns . '</div>';
+        // El rótulo queda para lectores de pantalla: la sección ya se titula «Escuchar».
+        return '<div class="streaming esc" role="group" aria-label="Escuchar en"><span class="streaming-lbl">Escuchar en</span>' . $btns . '</div>';
     }
 
     // ── Pagination ───────────────────────────────────────────────────────────
@@ -216,20 +399,25 @@ final class Html
             return $basePath . '?' . http_build_query($params);
         };
 
+        // Clases pg-*: r/controles.css. «pg-lejos» marca los números que no son
+        // ni el actual ni sus extremos: en móvil se ocultan para que la fila
+        // quepa en 360 px sin desbordar (Anterior · 1 … 7 … 40 · Siguiente).
         $out = '<nav class="pagination" aria-label="Paginación">';
         if ($currentPage > 1) {
-            $out .= '<a class="btn btn-sm btn-ghost" href="' . self::e($url($currentPage - 1)) . '">‹ Anterior</a>';
+            $out .= '<a class="btn btn-sm btn-ghost pg-prev" href="' . self::e($url($currentPage - 1)) . '" rel="prev">‹ Anterior</a>';
         }
         foreach (self::pageList($currentPage, $totalPages) as $p) {
             if ($p === '…') {
-                $out .= '<span class="ellipsis">…</span>';
+                $out .= '<span class="ellipsis" aria-hidden="true">…</span>';
+            } elseif ($p === $currentPage) {
+                $out .= '<a class="btn btn-sm btn-neutral pg-cur" href="' . self::e($url((int) $p)) . '" aria-current="page">' . $p . '</a>';
             } else {
-                $cls = $p === $currentPage ? 'btn btn-sm btn-neutral' : 'btn btn-sm btn-ghost';
-                $out .= '<a class="' . $cls . '" href="' . self::e($url((int) $p)) . '">' . $p . '</a>';
+                $lejos = $p !== 1 && $p !== $totalPages ? ' pg-lejos' : '';
+                $out .= '<a class="btn btn-sm btn-ghost pg-num' . $lejos . '" href="' . self::e($url((int) $p)) . '">' . $p . '</a>';
             }
         }
         if ($currentPage < $totalPages) {
-            $out .= '<a class="btn btn-sm btn-ghost" href="' . self::e($url($currentPage + 1)) . '">Siguiente ›</a>';
+            $out .= '<a class="btn btn-sm btn-ghost pg-next" href="' . self::e($url($currentPage + 1)) . '" rel="next">Siguiente ›</a>';
         }
         return $out . '</nav>';
     }
@@ -245,13 +433,13 @@ final class Html
      */
     public static function porPagina(int $limit, string $basePath, array $criteria, array $opciones = [10, 20, 50]): string
     {
-        // Control segmentado (ver .toolbar .sortby en app.css): la etiqueta es
-        // una celda propia y el filete entre celdas sustituye al separador "·".
-        $out = '<span class="sortby"><span class="lbl">por página</span>';
+        // Control segmentado .seg (contrato en r/controles.css); .sortby se
+        // conserva por compatibilidad con las hojas antiguas y catalog.js.
+        $out = '<span class="sortby seg"><span class="lbl">por página</span>';
         foreach ($opciones as $opt) {
             $params = array_merge(array_filter($criteria, static fn($v) => (string) $v !== ''), ['limit' => (string) $opt]);
             $href = $basePath . '?' . http_build_query($params);
-            $cls = $opt === $limit ? ' class="on"' : '';
+            $cls = $opt === $limit ? ' class="on" aria-current="true"' : '';
             $out .= '<a href="' . self::e($href) . '"' . $cls . '>' . (int) $opt . '</a>';
         }
         return $out . '</span>';
@@ -284,11 +472,14 @@ final class Html
         } else {
             $sub = self::e($disco['PISTAS'] ?? '') . ' marchas';
         }
+        $anio = (int) ($disco['FECHA_CD'] ?? 0);
 
         return '<ul class="cdlist">'
             . '<li class="cdlist-row">'
             . '<div class="cdlist-cover"><a href="' . self::e($discoPath) . '">'
-            . self::cover($coverSrc, "Portada del disco '" . $disco['NOMBRE_CD'] . "'", 'cover-thumb') . '</a></div>'
+            . self::cover($coverSrc, "Portada del disco '" . $disco['NOMBRE_CD'] . "'", 'cover-thumb',
+                (int) $disco['ID_DISCO'], (string) $disco['NOMBRE_CD'], $hasBanda ? (string) $disco['BANDA'] : '', $anio > 1800 ? $anio : null)
+            . '</a></div>'
             . '<div class="cdlist-main"><a class="cdlist-title link" href="' . self::e($discoPath) . '">'
             . self::e($disco['NOMBRE_CD']) . '</a>'
             . '<div class="cdlist-sub">' . $sub . '</div></div>'
