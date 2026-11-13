@@ -142,7 +142,7 @@ main { padding-top: 1.5rem; }
 .nav-mobile { display: none; }
 .nav-links { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; list-style: none; padding: 0; margin: 0.75rem 0 0; }
 .nav-links a { display: inline-block; padding: 0.4rem 0; }
-.nav-links a[aria-current="page"] { color: var(--c-texto); font-weight: 600; }
+.nav-links a[aria-current="page"], .nav-mobile a[aria-current="page"] { color: var(--c-texto); font-weight: 700; }
 body > footer ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
 body > footer p { margin: 0 0 0.5rem; }
 

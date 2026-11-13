@@ -60,11 +60,6 @@ $nav = array_filter(
     ARRAY_FILTER_USE_KEY
 );
 
-try {
-    $counts = Db::counts();
-} catch (\Throwable) {
-    $counts = null;
-}
 $e = static fn(mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
 // Sección activa para aria-current (primer segmento de la ruta, sin query string).
@@ -114,12 +109,10 @@ if (str_starts_with($reqPath, '/dashboard/')) {
 
 $searchValue = $current === '/buscar' ? (string) ($_GET['q'] ?? '') : '';
 
-// Botón de compartir junto al <h1> (lo inserta catalog.js; sin JS no hay
-// nada que compartir, así que tampoco botón). Fuera: portada, resultados de
-// búsqueda, panel/login y las páginas de error o mantenimiento (pasan
-// $meta['compartir'] = false desde App\Http).
-$compartir = ($meta['compartir'] ?? true) !== false
-    && $showSearch && $reqPath !== '/' && $current !== '/buscar';
+// Rediseño C: sin botón de compartir en ninguna página (líneas maestras §5,
+// «Metadatos del sistema»: el enlace permanente al pie de la ficha y el
+// navegador ya lo cubren). Sin data-compartir en <main>, catalog.js no lo
+// monta.
 
 // Ancho de la página. Dos anchos, no uno (ver --wrap / --wrap-ancho en
 // app.css): las pantallas de catálogo son tabla + facetas y a 54rem se
@@ -219,6 +212,7 @@ if (!empty($meta['ancho'])) {
     <link rel="preload" href="/assets/fonts/crimson-pro-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/c/tokens.css')) ?>">
     <link rel="stylesheet" href="<?= $e($assetVer('/assets/c/base.css')) ?>">
+    <link rel="stylesheet" href="<?= $e($assetVer('/assets/c/componentes.css')) ?>">
 <?php endif; ?>
     <?php /* Tema elegido con el botón (.tema-toggle). En línea y antes de
              <body> para que la página no salga un instante con el tema del
@@ -307,7 +301,6 @@ if (!empty($meta['ancho'])) {
                            aria-label="Buscar en el catálogo"
                            role="combobox" aria-expanded="false" aria-controls="site-ac"
                            aria-autocomplete="list" autocomplete="off">
-                    <span class="kbd">/</span>
                     <div id="site-ac" class="ac-panel" role="listbox" aria-label="Sugerencias" hidden></div>
                 </form>
             </div>
@@ -321,9 +314,9 @@ if (!empty($meta['ancho'])) {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </summary>
                 <ul>
-                    <li><a href="/">Inicio</a></li>
+                    <li><a href="/"<?= $reqPath === '/' ? ' aria-current="page"' : '' ?>>Inicio</a></li>
 <?php foreach ($nav as $href => $label): ?>
-                    <li><a href="<?= $href ?>"><?= $label ?></a></li>
+                    <li><a href="<?= $href ?>"<?= $current === $href ? ' aria-current="page"' : '' ?>><?= $label ?></a></li>
 <?php endforeach; ?>
                 </ul>
             </details>
@@ -343,7 +336,7 @@ if (!empty($meta['ancho'])) {
              (--wrap, 54rem) sus columnas se recortan. Ver .main-ancho.
              .main-catalogo hace lo propio, más contenido, con los listados
              públicos: ver RUTAS_CATALOGO arriba. */ ?>
-    <main id="main-content"<?= $compartir ? ' data-compartir' : '' ?><?= $soloLectura ? ' data-solo-lectura' : '' ?>><?php if ($pendientesAqui > 0): ?>
+    <main id="main-content"<?= $soloLectura ? ' data-solo-lectura' : '' ?>><?php if ($pendientesAqui > 0): ?>
         <div class="alert alert-info" role="status" style="margin-bottom:1rem"><?= $pendientesAqui === 1
                 ? 'Tienes 1 propuesta pendiente sobre esta pantalla: hasta que se acepte no verás aquí ese cambio, no hace falta repetirlo.'
                 : 'Tienes ' . $pendientesAqui . ' propuestas pendientes sobre esta pantalla: hasta que se acepten no verás aquí esos cambios, no hace falta repetirlos.' ?>
@@ -365,9 +358,14 @@ if (!empty($meta['ancho'])) {
     </script>
 <?php endif; ?>
 
-    <?php /* Pie en tres grupos que llenan el ancho (docs/rediseno-2026-11.md
-             §2.3): secciones del sitio; datos, licencia y cifras; contacto y
-             autor. En móvil se apilan. */ ?>
+<?php if ($esPanel):
+    try {
+        $counts = Db::counts();
+    } catch (\Throwable) {
+        $counts = null;
+    } ?>
+    <?php /* Pie del panel: el de antes, en tres grupos, hasta que el panel se
+             rehaga (sigue con app.css). */ ?>
     <footer>
         <div class="inner pie">
             <nav class="pie-g" aria-label="Secciones (pie)">
@@ -392,6 +390,16 @@ if (!empty($meta['ancho'])) {
             </div>
         </div>
     </footer>
+<?php else: ?>
+    <?php /* Pie del rediseño C (líneas maestras §2, principio 5; §5
+             «Metadatos del sistema»; WP, MB): plano, en el color de la página,
+             y una sola línea de enlaces de texto. Sin cifras del catálogo
+             (§5 «Recuentos»: ni pie ni portada) y sin repetir el menú, que ya
+             está en la cabecera. */ ?>
+    <footer>
+        <p class="pie-linea"><?= $siteName ?> · <a href="/datos">Datos y licencia (CC BY 4.0)</a> · <a href="/feed.xml">RSS</a> · <a href="/contacto">Contacto y correcciones</a> · Javier Guerra (<a href="https://x.com/JaviWarSVQ">@JaviWarSVQ</a>)</p>
+    </footer>
+<?php endif; ?>
     <script src="<?= $e($assetVer('/assets/catalog.js')) ?>" defer></script>
 <?php if (!empty($GLOBALS['config']['goatcounter_code'])): ?>
     <script data-goatcounter="https://<?= $e($GLOBALS['config']['goatcounter_code']) ?>.goatcounter.com/count"
