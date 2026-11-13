@@ -1,0 +1,107 @@
+/* Rediseño C · componentes (F2).
+   Estilos de las clases que pintan los componentes PHP de App\C
+   (php/app/src/C/). Ningún color literal: todos salen de c/tokens.css.
+   Ninguna regla pinta un fondo de color en un elemento en línea: no hay
+   etiquetas (líneas maestras §2, principio 2). El tono solo va en lo que se
+   pulsa y en el relleno del botón primario (§3).
+   Las hojas por área (c/<area>.css) de los maquetadores van encima. */
+
+/* ── Ficha: principal + columna lateral (B; líneas maestras §2, principio 6) */
+.c-ficha { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 2.5rem; }
+.c-ficha > * { min-width: 0; }
+@media (min-width: 60rem) {
+    .c-ficha { grid-template-columns: minmax(0, 1fr) 18rem; grid-template-areas: "cab cab" "principal lateral" "pie pie"; align-items: start; }
+    .c-ficha > .c-cab { grid-area: cab; }
+    .c-ficha > .c-ficha-principal { grid-area: principal; }
+    .c-ficha > .c-ficha-lateral { grid-area: lateral; }
+    .c-ficha > .c-pie-ficha { grid-area: pie; }
+}
+.c-ficha section { margin: 0 0 2rem; }
+.c-ficha .notas { font-family: var(--f-serif); }
+
+/* ── CabeceraFicha */
+.c-cab { margin: 0 0 1.5rem; }
+.c-cab h1 { margin: 0 0 0.5rem; }
+.c-cab .ficha-frase { margin: 0; max-width: 46rem; }
+.c-cab-anclas { margin-top: 0.5rem; }
+@media (min-width: 48rem) { .c-cab-anclas { display: none; } }
+
+/* ── FichaTecnica */
+.c-datos h2 { margin-bottom: 0.5rem; }
+.c-datos dl { margin: 0; }
+.c-datos dl > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0 0.75rem; padding: 0.35rem 0; border-bottom: 1px solid var(--c-linea); }
+.c-datos dl > div:first-child { border-top: 1px solid var(--c-linea); }
+.c-datos dt { color: var(--c-secundario); }
+.c-datos dd { margin: 0; }
+
+/* Portadas de la columna lateral (Html::mosaico): el único multicolor. */
+.c-portadas .mosaico { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.375rem; }
+.c-portadas .mos { display: block; aspect-ratio: 1; overflow: hidden; background: var(--c-hundida); }
+.c-portadas .mos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Escuchar: lista de texto con icono monocromo de 16 px */
+.c-escuchar-rotulo { margin: 0 0 0.25rem; color: var(--c-secundario); }
+.c-escuchar-lista { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; }
+.c-escuchar-lista a { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; }
+.c-escuchar-lista svg { width: 1rem; height: 1rem; flex: none; }
+.c-escuchar-vacio { margin: 0; }
+
+/* ── Tabla (.t, contrato en App\C\Tabla; base en c/base.css) */
+.t caption { text-align: left; color: var(--c-secundario); padding: 0 0 0.35rem; }
+.t td.t-main a { font-weight: 600; }
+.t abbr[title] { text-decoration: none; cursor: help; }
+.t tr.hidden { display: none; }
+.t th[aria-sort] { cursor: pointer; }
+.t th .ar { color: var(--c-secundario); }
+.c-filtro-tabla { display: block; width: 100%; max-width: 20rem; margin: 0 0 0.75rem; }
+@media (max-width: 47.99rem) {
+    /* Filas de dos líneas: la principal y la primera cifra arriba; el resto
+       debajo, en secundario, con su rótulo data-l delante. */
+    .t thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .t, .t tbody { display: block; }
+    .t tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 0.75rem; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--c-linea); }
+    .t td { display: block; padding: 0; border: 0; }
+    .t td.t-main { order: 1; flex: 1 1 calc(100% - 5rem); }
+    .t tr:not(:has(.t-linea1)) td.t-main { flex-basis: 100%; }
+    .t td.t-linea1 { order: 2; margin-left: auto; }
+    .t td:not(.t-main):not(.t-linea1) { order: 3; font-size: var(--t-1); color: var(--c-secundario); text-align: left; }
+    .t td[data-l]:not([data-l=""]):not(.t-main)::before { content: attr(data-l) " "; }
+    .t td:empty, .t td:has(> .t-vacio:only-child), .t td.t-opt { display: none; }
+}
+
+/* ── Paginación: total una vez y números en texto */
+.c-pag { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 1.5rem; margin: 1rem 0; }
+.c-pag p { margin: 0; }
+.c-pag-total { color: var(--c-secundario); font-variant-numeric: tabular-nums; }
+.c-pag-num { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; font-variant-numeric: tabular-nums; }
+.c-pag-num a, .c-pag-num span { display: inline-block; padding: 0.25rem 0.1rem; }
+.c-pag [aria-current] { color: var(--c-texto); font-weight: 700; }
+.c-pag-tam { color: var(--c-secundario); }
+@media (max-width: 47.99rem) { .c-pag-lejos { display: none; } }
+
+/* ── Filtros y facetas */
+.c-filtros-form { margin: 0 0 1.5rem; }
+.c-campo { margin: 0 0 0.75rem; }
+.c-campo label { display: block; margin: 0 0 0.2rem; color: var(--c-secundario); }
+.c-campo input { width: 100%; }
+.c-filtros-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0 0 1rem; }
+.c-facetas { border-top: 1px solid var(--c-linea); padding: 0.5rem 0; }
+.c-facetas summary { cursor: pointer; font-weight: 600; padding: 0.2rem 0; }
+.c-facetas ul { list-style: none; padding: 0; margin: 0.25rem 0 0; }
+.c-facetas li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.15rem 0; }
+.c-facetas a[aria-current] { color: var(--c-texto); font-weight: 700; }
+.c-n { color: var(--c-secundario); font-variant-numeric: tabular-nums; }
+
+/* Botón primario: la única superficie que rellena el tono (§3). */
+.c-primario, .c-primario:hover { background: var(--c-tono); border-color: var(--c-tono); color: var(--c-pagina); }
+
+/* ── Migas */
+.c-migas { color: var(--c-secundario); margin: 0 0 1rem; }
+.c-migas ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; }
+.c-migas li + li::before { content: "/"; padding: 0 0.4rem; color: var(--c-secundario); }
+
+/* ── Pie de ficha */
+.c-pie-ficha { color: var(--c-secundario); border-top: 1px solid var(--c-linea); padding-top: 0.75rem; margin-top: 1rem; overflow-wrap: anywhere; }
+
+/* ── Pie del sitio: una línea de enlaces */
+.pie-linea { margin: 0; }

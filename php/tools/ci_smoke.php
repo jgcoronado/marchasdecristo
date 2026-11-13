@@ -866,13 +866,10 @@ $tests = [
             @unlink($f);
         }
     },
-    // El botón (catalog.js) solo se monta donde <main> lo permite: en fichas y
-    // listados sí; en portada, búsqueda y errores no hay nada útil que compartir.
-    'compartir: botón en fichas y listados, no en portada/búsqueda/404' => static function () use ($base): void {
-        foreach (['/marcha/costalero-bueno-3', '/marcha', '/contacto'] as $ruta) {
-            assertContains($ruta, '<main id="main-content" data-compartir>', $base);
-        }
-        foreach (['/', '/buscar?q=garcia', '/no-existe-esta-ruta'] as $ruta) {
+    // Rediseño C (líneas maestras §5, «Metadatos del sistema»): sin botón de
+    // compartir en ninguna página. El enlace permanente va al pie de la ficha.
+    'compartir: ninguna página ofrece el botón' => static function () use ($base): void {
+        foreach (['/marcha/costalero-bueno-3', '/marcha', '/contacto', '/', '/buscar?q=garcia', '/no-existe-esta-ruta'] as $ruta) {
             if (str_contains(httpGet($base . $ruta)['body'], 'data-compartir')) {
                 throw new RuntimeException("$ruta → no debería ofrecer el botón de compartir");
             }
