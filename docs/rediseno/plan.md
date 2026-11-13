@@ -43,7 +43,31 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
   - Después: escribir `c/tokens.css` y alojar las fuentes.
   - **Cambio de alcance (2026-11-13):** F1 también deja las páginas públicas renderizables con un CSS nuevo mínimo, porque sin eso los candidatos de tono no se pueden juzgar. `layout.php` carga `c/tokens.css` + `c/base.css` en las rutas públicas (`/admin` sigue con `app.css`) y deja de precargar `archivo-var.woff2` y de enlazar `identidad.css` (sin ningún 404). `c/base.css` es mínimo y solo usa tokens: Crimson Pro en h1, h2 y la frase de la ficha; sans del sistema en el resto; cuatro tamaños de letra; enlaces sin subrayado; tabla `.t` con cebra y primera columna enlazada; cabecera y pie planos en el color de la página. Sin componentes ni estilos por página: los componentes siguen siendo de F2. Los candidatos `c/tokens-{1,2,3}.css` son intercambiables con `c/tokens.css` sin tocar `base.css`.
   - **Cerrada (2026-11-13):** tono Petróleo (candidato 2) en `c/tokens.css`; candidatos descartados borrados. Crimson Pro redonda y cursiva (latin + latin-ext, OFL) alojadas en `php/public/assets/fonts/`; la cursiva aún no la descarga ninguna página (llegará con las Notas). Capturas finales en `.claude/qa/caps/f1-final/`.
-- [ ] **F2 · Núcleo** (`nucleo-componentes`, luego `revisor-seguridad` sobre su diff)
+- [x] **F2 · Núcleo** (`nucleo-componentes`, luego `revisor-seguridad` sobre su diff)
+  - **Cerrada (2026-11-13).** Componentes en `php/app/src/C/` (espacio `App\C`, autoload sin cambios), con estilos en `c/componentes.css` (solo tokens):
+    - base: `Componente` (render + reglas en el docblock), `Texto` (único HTML admitido, ya escapado), `Seguro` (`e()` y `href()` con lista blanca de esquemas; rechaza `//`, `\` y caracteres de control);
+    - `CabeceraFicha` (h1 + frase; sin etiqueta ni compartir);
+    - `FichaTecnica` + `Dato` (clave–valor, valor enlazable);
+    - `Tabla` + `Columna` (contrato `.t`, `data-l` para móvil, orden desde 3 filas, filtro desde 8);
+    - `Escuchar` (lista de texto con icono monocromo, estado vacío en una frase, servicio deducido por host exacto);
+    - `Paginacion` (total «1–20 de 5.518» y números; solo rutas propias);
+    - `Filtros` + `Campo` + `Faceta` + `GrupoFacetas`;
+    - `Migas` (rechaza eslabones de año);
+    - `PieFicha` (identificador y enlace permanente).
+    - Recuentos solo en `Tabla`, `Filtros` y `Paginacion` (marcados con `data-cifras`). No hay componente de etiqueta.
+  - Ficha de marcha migrada como prueba (`marcha_detail.php`). Cabecera y pie públicos rehechos en `layout.php`: planos, sección activa en negrita y color de texto, pie sin cifras ni compartir. `ci_smoke.php` exige ahora que no haya botón de compartir.
+  - Auditor `.claude/qa/auditor.mjs` (no versionado). Contra `pre` detecta etiquetas (botones de streaming, segmentados) y recuentos (h1 «5.518 registros», «Grabaciones (52)», fila de cifras de portada), y 27+1 colores. Contra la ficha migrada (/marcha/la-saeta-1584 y /marcha/una-saeta-al-cielo-2625, claro, 1440/390) todo pasa: 6+1 colores por tema, 0 etiquetas, 0 recuentos, h1 1,75 rem sin dígitos, 0 subrayados, 0 scroll horizontal, 0 errores de consola. Capturas en `.claude/qa/caps/f2-nucleo/`.
+  - Revisión de seguridad: 3 hallazgos corregidos en f7ee2bd y verificados en una segunda pasada (ruta de `Paginacion` sin filtrar, `/\host` en `href()`, servicio de AUDIO deducido sin anclar el host).
+  - Abierto para F3/F4:
+    - `$` → `\z` en la regex de `Paginacion`;
+    - `Escuchar` pinta un div vacío si `href()` rechaza todos los enlaces;
+    - `Html::escuchar` y `Media::embedDeUrl` antiguos siguen sin anclar el host;
+    - código de compartir muerto en `catalog.js`;
+    - lema de la cabecera por decidir (§6);
+    - hamburguesa en segunda fila a 390 px;
+    - orden por Duración con « perc.»;
+    - 25 marchas con AUDIO sin esquema, que no se muestran.
+    - PHPStan: `quality.sh` sigue en rojo por 181 errores y desajustes de baseline que ya traía la base (la rama baja a 179; baseline intacta).
 - [ ] **F3 · Piloto en claro** (3 × `maquetador` → `verificador` → `revisor-referencias`)
   - Páginas: listado de marchas, ficha de marcha y ficha de banda.
   - → **Puerta 2 (tú):** aprobar las tres páginas en el artefacto antes de extender nada.
@@ -70,3 +94,4 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 | 2026-11-13 | F0 | php -l 25/25; smoke pro 103/103 ok; smoke local 103/103 ok; sin CSS ni fuentes traídos (páginas sin estilo, esperado) | 8c239a7 |
 | 2026-11-13 | F1 (hasta Puerta 1) | php -l 1/1; smoke pro 103/103 y local 103/103; 0 respuestas ≥400, 0 fallos de carga y 0 errores de consola en /marcha y /marcha/alma-de-dios-193 (claro/oscuro, 1440/390); contrastes AA en los tres candidatos | c07148e |
 | 2026-11-13 | F1 (cierre) | Petróleo; php -l 1/1; smoke pro 103/103 y local 103/103; 0 respuestas ≥400, 0 fallos de carga y 0 errores de consola en /marcha y /marcha/alma-de-dios-193 (claro/oscuro, 1440/390) | a8ba2d6 |
+| 2026-11-13 | F2 | php -l 20/20; smoke pro 103/103 y local 103/103; PHPStan 179 errores frente a 181 de la base, 0 nuevos, baseline intacta; auditor 9/9 reglas pasan en la ficha de marcha (2 páginas × 1440/390, claro); seguridad: 3 hallazgos corregidos y re-revisados | 0f737d7 |
