@@ -46,8 +46,8 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 - [x] **F2 · Núcleo** (`nucleo-componentes`, luego `revisor-seguridad` sobre su diff)
   - **Cerrada (2026-11-13).** Componentes en `php/app/src/C/` (espacio `App\C`, autoload sin cambios), con estilos en `c/componentes.css` (solo tokens):
     - base: `Componente` (render + reglas en el docblock), `Texto` (único HTML admitido, ya escapado), `Seguro` (`e()` y `href()` con lista blanca de esquemas; rechaza `//`, `\` y caracteres de control);
-    - `CabeceraFicha` (h1 + frase; sin etiqueta ni compartir);
-    - `FichaTecnica` + `Dato` (clave–valor, valor enlazable);
+    - `CabeceraFicha` (solo h1; sin frase, etiqueta ni compartir);
+    - `FichaTecnica` + `Dato` (tabla de datos clave–valor bajo el h1, a todo el ancho de la columna principal; valor enlazable);
     - `Tabla` + `Columna` (contrato `.t`, `data-l` para móvil, orden desde 3 filas, filtro desde 8);
     - `Escuchar` (lista de texto con icono monocromo, estado vacío en una frase, servicio deducido por host exacto);
     - `Paginacion` (total «1–20 de 5.518» y números; solo rutas propias);
