@@ -1,21 +1,24 @@
-/* Rediseño C · tokens · candidato 1: azul tinta: azul de enlace oscuro sobre neutros fríos casi blancos.
-   Generado en F1 (antes de la Puerta 1). Paleta de las líneas maestras §3:
-   cinco neutros con la temperatura del tono, el tono y el color de error,
-   en claro y en oscuro. El oscuro aclara el MISMO tono, no cambia de tono.
+/* Rediseño C · tokens · petróleo: verde azulado oscuro sobre neutros fríos verdosos.
+   Elegido por el mantenedor en la Puerta 1 de F1 (candidato 2 de tres).
+   Paleta de las líneas maestras §3: cinco neutros con la temperatura del
+   tono, el tono y el color de error, en claro y en oscuro. El oscuro aclara
+   el MISMO tono, no cambia de tono.
    Contrastes medidos (WCAG 2): texto, secundario, tono y error ≥ 4,5:1 sobre
    neutro 1 y 2; tono ≥ 3:1 frente al texto, porque el enlace no se subraya.
-   Los nombres de variable son los mismos en tokens-1/2/3 y en tokens.css:
-   base.css no cambia al cambiar de candidato. */
+   Si cambia --c-pagina (neutro 1) de algún tema, hay que cambiar también
+   theme-color y COLOR en templates/layout.php.
+   Los aros del logotipo siguen en dorado #d4a94a: es logotipo, no tono de
+   interfaz (decisión de la Puerta 1). */
 
 :root {
     color-scheme: light;
-    --c-pagina: #f9fbff;      /* neutro 1: fondo, cabecera y pie */
-    --c-hundida: #eff1f5;     /* neutro 2: cabecera de tabla, cebra, campos */
-    --c-linea: #d3d6db;       /* neutro 3: separadores de 1 px y bordes */
-    --c-secundario: #606369;  /* neutro 4: metadatos, migas */
-    --c-texto: #13161b;       /* neutro 5: todo lo demás */
-    --c-tono: #3765bf;        /* el tono: solo lo que se puede pulsar */
-    --c-error: #bd3833;       /* excepción funcional: errores de formulario */
+    --c-pagina: #f7fcfe;      /* neutro 1: fondo, cabecera y pie */
+    --c-hundida: #edf2f4;     /* neutro 2: cabecera de tabla, cebra, campos */
+    --c-linea: #d0d7d9;       /* neutro 3: separadores de 1 px y bordes */
+    --c-secundario: #5d6567;  /* neutro 4: metadatos, migas */
+    --c-texto: #111719;       /* neutro 5: todo lo demás */
+    --c-tono: #007386;        /* el tono: solo lo que se puede pulsar */
+    --c-error: #bd3933;       /* excepción funcional: errores de formulario */
 
     /* Tipografía: la serif para nombres (h1, h2, frase de la ficha) y la sans
        del sistema para todo lo demás. Cuatro tamaños, ni uno más. */
@@ -31,24 +34,24 @@
 @media (prefers-color-scheme: dark) {
     :root:not([data-tema="claro"]) {
         color-scheme: dark;
-        --c-pagina: #111315;      /* neutro 1: fondo, cabecera y pie */
-        --c-hundida: #1a1c1f;     /* neutro 2: cabecera de tabla, cebra, campos */
-        --c-linea: #33353a;       /* neutro 3: separadores de 1 px y bordes */
-        --c-secundario: #9ea2a8;  /* neutro 4: metadatos, migas */
-        --c-texto: #ecf0f7;       /* neutro 5: todo lo demás */
-        --c-tono: #6287ca;        /* el tono: solo lo que se puede pulsar */
-        --c-error: #c96c63;       /* excepción funcional: errores de formulario */
+        --c-pagina: #101314;      /* neutro 1: fondo, cabecera y pie */
+        --c-hundida: #191c1d;     /* neutro 2: cabecera de tabla, cebra, campos */
+        --c-linea: #313638;       /* neutro 3: separadores de 1 px y bordes */
+        --c-secundario: #9ba3a5;  /* neutro 4: metadatos, migas */
+        --c-texto: #e9f2f4;       /* neutro 5: todo lo demás */
+        --c-tono: #4a91a1;        /* el tono: solo lo que se puede pulsar */
+        --c-error: #ca6c63;       /* excepción funcional: errores de formulario */
     }
 }
 
 /* Oscuro elegido con el botón, aunque el sistema esté en claro. */
 :root[data-tema="oscuro"] {
     color-scheme: dark;
-    --c-pagina: #111315;      /* neutro 1: fondo, cabecera y pie */
-    --c-hundida: #1a1c1f;     /* neutro 2: cabecera de tabla, cebra, campos */
-    --c-linea: #33353a;       /* neutro 3: separadores de 1 px y bordes */
-    --c-secundario: #9ea2a8;  /* neutro 4: metadatos, migas */
-    --c-texto: #ecf0f7;       /* neutro 5: todo lo demás */
-    --c-tono: #6287ca;        /* el tono: solo lo que se puede pulsar */
-    --c-error: #c96c63;       /* excepción funcional: errores de formulario */
+    --c-pagina: #101314;      /* neutro 1: fondo, cabecera y pie */
+    --c-hundida: #191c1d;     /* neutro 2: cabecera de tabla, cebra, campos */
+    --c-linea: #313638;       /* neutro 3: separadores de 1 px y bordes */
+    --c-secundario: #9ba3a5;  /* neutro 4: metadatos, migas */
+    --c-texto: #e9f2f4;       /* neutro 5: todo lo demás */
+    --c-tono: #4a91a1;        /* el tono: solo lo que se puede pulsar */
+    --c-error: #ca6c63;       /* excepción funcional: errores de formulario */
 }

@@ -170,8 +170,8 @@ if (!empty($meta['ancho'])) {
              allí, hay que cambiarlos aquí y en COLOR del script de tema de más
              abajo, que son los únicos sitios del proyecto donde un color de la
              paleta se repite fuera de las hojas. */ ?>
-    <meta name="theme-color" content="#f9fbff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#111315" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f7fcfe" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#101314" media="(prefers-color-scheme: dark)">
     <title><?= $e($title) ?></title>
 <?php if ($description !== null): ?>
     <meta name="description" content="<?= $e($description) ?>">
@@ -232,7 +232,7 @@ if (!empty($meta['ancho'])) {
     <script>
     (function () {
         var SISTEMA = 'screen and (prefers-color-scheme: dark)';
-        var COLOR = { claro: '#f9fbff', oscuro: '#111315' };
+        var COLOR = { claro: '#f7fcfe', oscuro: '#101314' };
         var raiz = document.documentElement;
         // Marca que hay JS (para lo que solo deba verse con JS).
         raiz.className += ' js';
