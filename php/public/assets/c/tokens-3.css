@@ -1,0 +1,54 @@
+/* Rediseño C · tokens · candidato 3: sepia: pardo de tinta antigua sobre neutros cálidos casi blancos (no crema).
+   Generado en F1 (antes de la Puerta 1). Paleta de las líneas maestras §3:
+   cinco neutros con la temperatura del tono, el tono y el color de error,
+   en claro y en oscuro. El oscuro aclara el MISMO tono, no cambia de tono.
+   Contrastes medidos (WCAG 2): texto, secundario, tono y error ≥ 4,5:1 sobre
+   neutro 1 y 2; tono ≥ 3:1 frente al texto, porque el enlace no se subraya.
+   Los nombres de variable son los mismos en tokens-1/2/3 y en tokens.css:
+   base.css no cambia al cambiar de candidato. */
+
+:root {
+    color-scheme: light;
+    --c-pagina: #fdfaf8;      /* neutro 1: fondo, cabecera y pie */
+    --c-hundida: #f3f0ee;     /* neutro 2: cabecera de tabla, cebra, campos */
+    --c-linea: #dad5d1;       /* neutro 3: separadores de 1 px y bordes */
+    --c-secundario: #68625e;  /* neutro 4: metadatos, migas */
+    --c-texto: #1a1511;       /* neutro 5: todo lo demás */
+    --c-tono: #8c5e39;        /* el tono: solo lo que se puede pulsar */
+    --c-error: #bd3833;       /* excepción funcional: errores de formulario */
+
+    /* Tipografía: la serif para nombres (h1, h2, frase de la ficha) y la sans
+       del sistema para todo lo demás. Cuatro tamaños, ni uno más. */
+    --f-serif: "Crimson Pro", "Libertinus Serif", Georgia, "Times New Roman", serif;
+    --f-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --t-1: 0.875rem;  /* segunda línea de las filas en móvil */
+    --t-2: 1rem;      /* texto, tablas, frase de la ficha */
+    --t-3: 1.375rem;  /* h2 */
+    --t-4: 1.75rem;   /* h1: dentro del margen 1,6–1,8 rem de §2.4 */
+}
+
+/* Oscuro por sistema, salvo que el visitante haya elegido claro con el botón. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-tema="claro"]) {
+        color-scheme: dark;
+        --c-pagina: #141211;      /* neutro 1: fondo, cabecera y pie */
+        --c-hundida: #1d1b1a;     /* neutro 2: cabecera de tabla, cebra, campos */
+        --c-linea: #393431;       /* neutro 3: separadores de 1 px y bordes */
+        --c-secundario: #a7a09b;  /* neutro 4: metadatos, migas */
+        --c-texto: #f6efe9;       /* neutro 5: todo lo demás */
+        --c-tono: #a77f61;        /* el tono: solo lo que se puede pulsar */
+        --c-error: #c96c63;       /* excepción funcional: errores de formulario */
+    }
+}
+
+/* Oscuro elegido con el botón, aunque el sistema esté en claro. */
+:root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --c-pagina: #141211;      /* neutro 1: fondo, cabecera y pie */
+    --c-hundida: #1d1b1a;     /* neutro 2: cabecera de tabla, cebra, campos */
+    --c-linea: #393431;       /* neutro 3: separadores de 1 px y bordes */
+    --c-secundario: #a7a09b;  /* neutro 4: metadatos, migas */
+    --c-texto: #f6efe9;       /* neutro 5: todo lo demás */
+    --c-tono: #a77f61;        /* el tono: solo lo que se puede pulsar */
+    --c-error: #c96c63;       /* excepción funcional: errores de formulario */
+}
