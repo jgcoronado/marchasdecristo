@@ -41,6 +41,7 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
   - Generar el listado de marchas real con cada candidato.
   - → **Puerta 1 (tú):** elegir el tono en el artefacto comparador.
   - Después: escribir `c/tokens.css` y alojar las fuentes.
+  - **Cambio de alcance (2026-11-13):** F1 también deja las páginas públicas renderizables con un CSS nuevo mínimo, porque sin eso los candidatos de tono no se pueden juzgar. `layout.php` carga `c/tokens.css` + `c/base.css` en las rutas públicas (`/admin` sigue con `app.css`) y deja de precargar `archivo-var.woff2` y de enlazar `identidad.css` (sin ningún 404). `c/base.css` es mínimo y solo usa tokens: Crimson Pro en h1, h2 y la frase de la ficha; sans del sistema en el resto; cuatro tamaños de letra; enlaces sin subrayado; tabla `.t` con cebra y primera columna enlazada; cabecera y pie planos en el color de la página. Sin componentes ni estilos por página: los componentes siguen siendo de F2. Los candidatos `c/tokens-{1,2,3}.css` son intercambiables con `c/tokens.css` sin tocar `base.css`.
 - [ ] **F2 · Núcleo** (`nucleo-componentes`, luego `revisor-seguridad` sobre su diff)
 - [ ] **F3 · Piloto en claro** (3 × `maquetador` → `verificador` → `revisor-referencias`)
   - Páginas: listado de marchas, ficha de marcha y ficha de banda.
