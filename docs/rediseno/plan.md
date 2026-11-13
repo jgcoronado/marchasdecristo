@@ -35,14 +35,14 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
   - Traer de `rediseno/a-uniforme` solo `php/app/templates/`, `php/app/src/{Html,Repo,Pages,View}.php` y los cambios de `php/tools/ci_smoke.php`.
   - Pasar smoke y `php -l`.
   - Dejar el checkout principal en `pre`.
-- [ ] **F1 · Tono y tipografía** (`disenador-tokens`) — **en Puerta 1**
+- [x] **F1 · Tono y tipografía** (`disenador-tokens`)
   - Comprobar el tema claro y oscuro de Wikipedia y Standard Ebooks, y las licencias de Crimson Pro y Libertinus en sus repositorios.
   - Proponer tres tonos con sus cinco neutros, en claro y oscuro, con contraste AA medido por script.
   - Generar el listado de marchas real con cada candidato.
   - → **Puerta 1 (tú):** elegir el tono en el artefacto comparador.
   - Después: escribir `c/tokens.css` y alojar las fuentes.
   - **Cambio de alcance (2026-11-13):** F1 también deja las páginas públicas renderizables con un CSS nuevo mínimo, porque sin eso los candidatos de tono no se pueden juzgar. `layout.php` carga `c/tokens.css` + `c/base.css` en las rutas públicas (`/admin` sigue con `app.css`) y deja de precargar `archivo-var.woff2` y de enlazar `identidad.css` (sin ningún 404). `c/base.css` es mínimo y solo usa tokens: Crimson Pro en h1, h2 y la frase de la ficha; sans del sistema en el resto; cuatro tamaños de letra; enlaces sin subrayado; tabla `.t` con cebra y primera columna enlazada; cabecera y pie planos en el color de la página. Sin componentes ni estilos por página: los componentes siguen siendo de F2. Los candidatos `c/tokens-{1,2,3}.css` son intercambiables con `c/tokens.css` sin tocar `base.css`.
-  - **Estado (2026-11-13):** candidatos `c/tokens-1.css` (Azul tinta), `tokens-2.css` (Petróleo) y `tokens-3.css` (Sepia); `c/tokens.css` = candidato 1 de forma provisional. Comparador: https://claude.ai/artifact/YPmdXgvtNzVKyWdSLAVcYB. Capturas, `contrastes.json` y `tonos.md` en `.claude/qa/caps/f1-tonos/`. Crimson Pro (latin + latin-ext, OFL) ya alojada en la primera invocación; la segunda solo deja un `tokens.css` y borra los descartados, y decide si se aloja la cursiva. Abierto: dorado `#d4a94a` de los aros del logotipo frente a la regla de un tono; trazo de la M del logotipo pasado a `currentColor` (también en el panel).
+  - **Cerrada (2026-11-13):** tono Petróleo (candidato 2) en `c/tokens.css`; candidatos descartados borrados. Crimson Pro redonda y cursiva (latin + latin-ext, OFL) alojadas en `php/public/assets/fonts/`; la cursiva aún no la descarga ninguna página (llegará con las Notas). Capturas finales en `.claude/qa/caps/f1-final/`.
 - [ ] **F2 · Núcleo** (`nucleo-componentes`, luego `revisor-seguridad` sobre su diff)
 - [ ] **F3 · Piloto en claro** (3 × `maquetador` → `verificador` → `revisor-referencias`)
   - Páginas: listado de marchas, ficha de marcha y ficha de banda.
@@ -60,6 +60,8 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 - Escuchar va después de la información. Los enlaces no se subrayan nunca.
 - Migas sin el año: el año ya está enlazado en la frase de la ficha y mantiene el enlace interno al hub del año.
 - Portada (decidido 2026-11-13): fuera la línea de cifras y el bloque centrado; se mantienen un h1 con el nombre del sitio y el párrafo descriptivo como prosa normal alineada a la izquierda, encima del buscador y de «Últimas incorporaciones». Excepción explícita al principio 10 de las líneas maestras, por SEO.
+- Tono (Puerta 1, 2026-11-13): Petróleo, `#007386` en claro y `#4a91a1` en oscuro, con sus neutros en `c/tokens.css`.
+- Los aros del logotipo se quedan en dorado `#d4a94a`: es logotipo, no tono de interfaz, y no cuenta en el límite de colores.
 
 ## Registro
 
@@ -67,3 +69,4 @@ Cada fase va en una sesión nueva de Claude Code. Antes de empezar: `/clear`, `/
 |---|---|---|---|
 | 2026-11-13 | F0 | php -l 25/25; smoke pro 103/103 ok; smoke local 103/103 ok; sin CSS ni fuentes traídos (páginas sin estilo, esperado) | 8c239a7 |
 | 2026-11-13 | F1 (hasta Puerta 1) | php -l 1/1; smoke pro 103/103 y local 103/103; 0 respuestas ≥400, 0 fallos de carga y 0 errores de consola en /marcha y /marcha/alma-de-dios-193 (claro/oscuro, 1440/390); contrastes AA en los tres candidatos | c07148e |
+| 2026-11-13 | F1 (cierre) | Petróleo; php -l 1/1; smoke pro 103/103 y local 103/103; 0 respuestas ≥400, 0 fallos de carga y 0 errores de consola en /marcha y /marcha/alma-de-dios-193 (claro/oscuro, 1440/390) | a8ba2d6 |
