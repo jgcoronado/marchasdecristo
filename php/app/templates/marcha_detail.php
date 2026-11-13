@@ -7,11 +7,13 @@ use App\C\Migas; use App\C\PieFicha; use App\C\Tabla; use App\C\Texto;
 /** @var list<array<string,mixed>> $relacionadas  Repo::marchasRelacionadas */
 
 /* Ficha de marcha del rediseño C, montada con los componentes de App\C (F2,
-   plantilla de prueba). Orden (líneas maestras §2, principio 6; plan,
-   «Decisiones tomadas»): nombre y frase; ficha técnica al lado; Notas;
-   Escuchar después de la información; Grabaciones; Véase también; y el
-   identificador con el enlace permanente al pie. Sin etiqueta de estilo, sin
-   compartir y sin recuentos en títulos ni enlaces (§5). */
+   plantilla de prueba). Orden de la columna principal (líneas maestras §2,
+   principio 6, requisito fijo del mantenedor; plan, «Decisiones tomadas»):
+   nombre → tabla de datos (los campos y el orden de pre) → Escuchar → Notas
+   → Grabaciones → Véase también; el identificador con el enlace permanente
+   al pie. Sin frase bajo el título. La columna derecha solo lleva las
+   portadas. Sin etiqueta de estilo, sin compartir y sin recuentos en títulos,
+   enlaces ni en la tabla de datos (§5). */
 
 // "truthy" al estilo JS: null, '', 0, 0.0 y false son falsos; '0' (string) es verdadero.
 $t = static fn($v): bool => !($v === null || $v === '' || $v === 0 || $v === 0.0 || $v === false);
@@ -87,37 +89,33 @@ $autorPath = static fn(array $a): string => S::buildDetailPath('autor', $a['ID_A
 $hayDedic = $t($m['DEDICATORIA']) && $m['DEDICATORIA'] !== '0';
 $bandaPath = $t($m['BANDA_ESTRENO']) ? S::buildDetailPath('banda', $m['BANDA_ESTRENO'], (string) $m['BANDA_NOMBRE']) : '';
 
-/* Frase de cabecera: la ficha se presenta en una oración con lo que se sabe
-   («Marcha de agrupación musical de X, 1969. Estrenada por Y. Dedicada a Z.»).
-   Solo datos reales: lo que falta se omite, no se rellena. La duración ya no
-   va aquí: es un dato de la ficha técnica (§5.3 de la clasificación). */
-// «Marcha de agrupación musical», pero «Adaptación … para agrupación musical».
-$tipoFrase = mb_strtolower($tipo, 'UTF-8') === 'marcha procesional' ? 'Marcha' : $tipo;
-$prep = str_starts_with($tipoFrase, 'Marcha') ? ' de ' : ' para ';
-$frase = Texto::de($tipoFrase . ($estilo !== '' ? $prep . mb_strtolower($estilo, 'UTF-8') : ''));
-if ($autores !== []) {
-    $firmas = [];
-    foreach ($autores as $a) $firmas[] = Texto::de()->enlace($autoridad($a), $autorPath($a));
-    $ultima = array_pop($firmas);
-    $frase = $frase->texto(' de ')->mas($firmas === [] ? $ultima : Texto::unir($firmas, ', ')->texto(' y ')->mas($ultima));
-}
-$frase = ($anioOk ? $frase->texto(', ')->enlace((string) $m['FECHA'], $anioPath) : $frase)->texto('.');
-if ($bandaPath !== '') {
-    $frase = $frase->texto(' Estrenada por ')->enlace((string) $m['BANDA_NOMBRE'], $bandaPath)
-        ->texto(($t($m['BANDA_LOC']) ? ' (' . $m['BANDA_LOC'] . ')' : '') . '.');
-}
-if ($hayDedic) {
-    $frase = $frase->texto(' Dedicada a ' . $expandir((string) $m['DEDICATORIA']) . ($localidad !== '' ? ', ' . $localidad : '') . '.');
-}
-
-/* Ficha técnica: lo que se consulta de un vistazo. El estilo es texto
-   enlazado al listado filtrado, nunca una etiqueta (§5 «Etiquetas»). */
+/* Tabla de datos: los campos y el orden de la ficha de pre (Compositor,
+   Estrenada por, Año, Dedicatoria o Localidad, Estilo, Duración, Tipo). Un
+   campo sin dato no se pinta. Los valores van enlazados donde hay destino:
+   compositor, banda de estreno, hub del año y listado filtrado por estilo.
+   Pre añadía «29 marchas compuestas» y «33 marchas estrenadas» junto al
+   nombre: son cifras de inventario (§5 «Recuentos») y no se pintan. Tipo,
+   como en pre, solo cuando no es la «Marcha procesional» de casi todas. */
 $estiloHub = $estilo !== '' ? P::estiloHubPath((string) $m['ESTILO']) : null;
 $datos = [];
+if ($autores !== []) {
+    $compositores = [];
+    foreach ($autores as $a) $compositores[] = Texto::de()->enlace($autoridad($a), $autorPath($a));
+    $datos[] = new Dato(count($autores) > 1 ? 'Compositores' : 'Compositor', Texto::lineas($compositores));
+}
+if ($bandaPath !== '') {
+    $datos[] = new Dato('Estrenada por', Texto::de()->enlace((string) $m['BANDA_NOMBRE'], $bandaPath)
+        ->texto($t($m['BANDA_LOC']) ? ', ' . $m['BANDA_LOC'] : ''));
+}
+if ($t($m['FECHA'])) $datos[] = new Dato('Año', (string) $m['FECHA'], $anioOk ? $anioPath : null);
+if ($hayDedic) {
+    $datos[] = new Dato('Dedicatoria', $expandir((string) $m['DEDICATORIA']) . ($localidad !== '' ? ', ' . $localidad : ''));
+} elseif ($localidad !== '') {
+    $datos[] = new Dato('Localidad', $localidad);
+}
 if ($estilo !== '') $datos[] = new Dato('Estilo', $estilo, $estiloHub);
-if (!$anioOk && $t($m['FECHA'])) $datos[] = new Dato('Año', (string) $m['FECHA']);
-if (!$hayDedic && $localidad !== '') $datos[] = new Dato('Localidad', $localidad);
 if ($duracion !== '') $datos[] = new Dato('Duración', $duracion);
+if ($t($m['TIPO']) && mb_strtolower($tipo, 'UTF-8') !== 'marcha procesional') $datos[] = new Dato('Tipo', $tipo);
 
 $escuchar = Escuchar::marcha($enlaces ?? ['original' => [], 'actual' => []], $m['AUDIO'] ?? null,
     ER::admiteVersiones($anioOk ? (int) $m['FECHA'] : null));
@@ -179,36 +177,23 @@ $mosaico = H::mosaico($portadas, 8);
 ?>
 <?= new Migas([['Inicio', '/'], ['Marchas', '/marcha']]) ?>
 
-<article class="c-ficha">
-    <?= new CabeceraFicha((string) $m['TITULO'], $frase, $nGrab >= 12 ? [['Grabaciones', '#grabaciones']] : []) ?>
-
-<?php /* La columna lateral va antes en el orden del documento: en móvil la
-         ficha técnica sigue a la frase; en escritorio la hoja la pasa a la
-         derecha. */ ?>
-<?php if ($datos !== [] || $mosaico !== ''): ?>
-    <aside class="c-ficha-lateral">
-        <?= new FichaTecnica($datos) ?>
-<?php if ($mosaico !== ''): ?>
-        <section class="c-portadas">
-            <h2>Discos donde está grabada</h2>
-            <?= $mosaico ?>
-        </section>
-<?php endif; ?>
-    </aside>
-<?php endif; ?>
+<article class="c-ficha<?= $mosaico === '' ? ' c-ficha-sin-lateral' : '' ?>">
+    <?= new CabeceraFicha((string) $m['TITULO'], $nGrab >= 12 ? [['Grabaciones', '#grabaciones']] : []) ?>
 
     <div class="c-ficha-principal">
+        <?= new FichaTecnica($datos) ?>
+
+        <section>
+            <h2 id="escuchar">Escuchar</h2>
+            <?= $escuchar ?>
+        </section>
+
 <?php if ($notas !== ''): ?>
         <section>
             <h2>Notas</h2>
             <p class="notas"><?= $notas ?></p>
         </section>
 <?php endif; ?>
-
-        <section>
-            <h2 id="escuchar">Escuchar</h2>
-            <?= $escuchar ?>
-        </section>
 
 <?php /* Sin grabaciones no hay bloque: Escuchar ya dice que falta. */ ?>
 <?php if ($nGrab > 0): ?>
@@ -228,6 +213,18 @@ $mosaico = H::mosaico($portadas, 8);
         </section>
 <?php endif; ?>
     </div>
+
+<?php /* Columna derecha: solo las portadas. En el documento va después de la
+         principal: en móvil, una sola columna con el nombre, la tabla de
+         datos y lo demás; las portadas, al final. */ ?>
+<?php if ($mosaico !== ''): ?>
+    <aside class="c-ficha-lateral">
+        <section class="c-portadas">
+            <h2>Discos donde está grabada</h2>
+            <?= $mosaico ?>
+        </section>
+    </aside>
+<?php endif; ?>
 
     <?= new PieFicha('M', $mid, $url ?? null) ?>
 </article>
